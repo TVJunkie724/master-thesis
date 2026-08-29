@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from itertools import permutations
 from pathlib import Path
 from typing import Any
@@ -71,14 +72,17 @@ def validate(
             raise RuntimeError(f"{scenario_id}: component coverage is incomplete")
         if set(assignments.values()) - PROVIDERS:
             raise RuntimeError(f"{scenario_id}: unsupported provider assignment")
-        if len(
-            {
-                assignments["component.hot-storage"],
-                assignments["component.cool-storage"],
-                assignments["component.archive-storage"],
-                assignments["component.visualization"],
-            }
-        ) != 1:
+        if (
+            len(
+                {
+                    assignments["component.hot-storage"],
+                    assignments["component.cool-storage"],
+                    assignments["component.archive-storage"],
+                    assignments["component.visualization"],
+                }
+            )
+            != 1
+        ):
             raise RuntimeError(
                 f"{scenario_id}: L3 storage and visualization must be co-located"
             )
@@ -113,7 +117,12 @@ def validate(
             raise RuntimeError(f"{scenario_id}: unsupported scenario kind")
 
         budget = scenario.get("budget_cap_usd")
-        if budget is not None and (not isinstance(budget, (int, float)) or budget <= 0):
+        if budget is not None and (
+            isinstance(budget, bool)
+            or not isinstance(budget, (int, float))
+            or not math.isfinite(float(budget))
+            or budget <= 0
+        ):
             raise RuntimeError(f"{scenario_id}: invalid budget cap")
 
     if local_providers != PROVIDERS:

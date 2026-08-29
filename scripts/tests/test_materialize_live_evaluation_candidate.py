@@ -74,3 +74,27 @@ def test_complete_plan_refuses_to_overwrite_prior_evidence(tmp_path) -> None:
 
     with pytest.raises(FileExistsError, match="already exists"):
         materializer.materialize_plan(output_dir)
+
+
+def test_complete_plan_does_not_leave_partial_pack(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    output_dir = tmp_path / "candidate-pack"
+    original = materializer.materialize
+    calls = 0
+
+    def fail_after_first_candidate(scenario_id: str):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("injected materialization failure")
+        return original(scenario_id)
+
+    monkeypatch.setattr(materializer, "materialize", fail_after_first_candidate)
+
+    with pytest.raises(RuntimeError, match="injected materialization failure"):
+        materializer.materialize_plan(output_dir)
+
+    assert not output_dir.exists()
+    assert list(tmp_path.iterdir()) == []

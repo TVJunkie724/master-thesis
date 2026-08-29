@@ -49,7 +49,7 @@ def test_reviewed_budget_caps_enable_only_the_ready_gate(
         validator.validate(required_state="planned")
 
 
-@pytest.mark.parametrize("budget", [None, 0, -1])
+@pytest.mark.parametrize("budget", [None, 0, -1, True, float("inf"), float("nan")])
 def test_ready_gate_rejects_missing_or_invalid_budget(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

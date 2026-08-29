@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/research/live-evaluation-budget-proposal.v1.schema.json",
+  "title": "Twin2MultiCloud offline live-evaluation budget proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "architecture_profile",
+    "currency",
+    "plan_digest",
+    "candidate_pack_manifest_digest",
+    "budget_policy_digest",
+    "execution_enabled",
+    "maximum_runtime_minutes",
+    "external_timer",
+    "scenario_count",
+    "scenarios",
+    "proposal_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "six-layer-live-budget-proposal.v1"
+    },
+    "status": {
+      "const": "offline_complete_pending_operator_approval"
+    },
+    "architecture_profile": {
+      "const": "six-layer-eventing@1"
+    },
+    "currency": {
+      "const": "USD"
+    },
+    "plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "candidate_pack_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "budget_policy_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "maximum_runtime_minutes": {
+      "const": 60
+    },
+    "external_timer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timer_owner",
+        "timer_location",
+        "start_before_terraform_plan",
+        "warning_at_minutes",
+        "destroy_trigger_at_minutes",
+        "cleanup_deadline_at_minutes"
+      ],
+      "properties": {
+        "timer_owner": {
+          "const": "named_supervised_operator"
+        },
+        "timer_location": {
+          "const": "outside_the_deployment"
+        },
+        "start_before_terraform_plan": {
+          "const": true
+        },
+        "warning_at_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "destroy_trigger_at_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cleanup_deadline_at_minutes": {
+          "const": 60
+        }
+      }
+    },
+    "scenario_count": {
+      "const": 9
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenario_id",
+          "candidate_evidence_digest",
+          "estimated_monthly_total_usd",
+          "full_charge_reserve_usd",
+          "variable_monthly_amount_usd",
+          "variable_60_minute_equivalent_usd",
+          "risk_adjusted_variable_amount_usd",
+          "fixed_run_buffer_usd",
+          "proposed_budget_cap_usd",
+          "matrix_budget_cap_usd",
+          "review_status",
+          "full_charge_reserve_components"
+        ],
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^small-(?:local|focus)-[a-z-]+$"
+          },
+          "candidate_evidence_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "estimated_monthly_total_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "full_charge_reserve_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "variable_monthly_amount_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "variable_60_minute_equivalent_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "risk_adjusted_variable_amount_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "fixed_run_buffer_usd": {
+            "$ref": "#/$defs/decimal"
+          },
+          "proposed_budget_cap_usd": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "matrix_budget_cap_usd": {
+            "type": "null"
+          },
+          "review_status": {
+            "const": "pending_operator_approval"
+          },
+          "full_charge_reserve_components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "proposal_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+    }
+  }
+}

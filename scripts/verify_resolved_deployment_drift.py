@@ -243,7 +243,8 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                     "/app/tests/unit/architecture_profiles/"
                     "test_six_layer_optimizer.py "
                     "scripts/tests/"
-                    "test_materialize_live_evaluation_candidate.py"
+                    "test_materialize_live_evaluation_candidate.py "
+                    "scripts/tests/test_review_live_evaluation_budget.py"
                 ),
                 root_mount=True,
                 environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),

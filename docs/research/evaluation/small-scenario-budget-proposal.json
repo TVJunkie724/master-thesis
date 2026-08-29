@@ -1,0 +1,223 @@
+{
+  "architecture_profile": "six-layer-eventing@1",
+  "budget_policy_digest": "sha256:1c521f04aafd3eebcf7b62cfb4a0eda8d27338925452a7db86c406c1dccb1db2",
+  "candidate_pack_manifest_digest": "sha256:d91322b3b1248f2652088028dc304c220622262fc4831336e3ab7e4875b85d9b",
+  "currency": "USD",
+  "execution_enabled": false,
+  "external_timer": {
+    "cleanup_deadline_at_minutes": 60,
+    "destroy_trigger_at_minutes": 50,
+    "start_before_terraform_plan": true,
+    "timer_location": "outside_the_deployment",
+    "timer_owner": "named_supervised_operator",
+    "warning_at_minutes": 45
+  },
+  "maximum_runtime_minutes": 60,
+  "plan_digest": "sha256:5d69a5202298cfd9c1dacc3d7dfafc47393fe43ffbe10e063b1e3bb9c347a0f0",
+  "proposal_digest": "sha256:c1fbfe0f12d799ccb9907491309b85a5004f1d034e141c4e3ce59e25446d9950",
+  "scenario_count": 9,
+  "scenarios": [
+    {
+      "candidate_evidence_digest": "sha256:3f7e853ca06a5117f50803b030f610e86c6cf639fbe62da8960c389a9ef8928d",
+      "estimated_monthly_total_usd": "149.7969850285",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "aws.amazon-managed-grafana-12",
+        "aws.dynamodb-on-demand-hourly-rollup",
+        "aws.dynamodb-on-demand-raw",
+        "aws.ecr-if-container-selected",
+        "aws.ecs-fargate-storage-mover",
+        "aws.iot-core",
+        "aws.iot-twinmaker-standard",
+        "aws.s3-event-failure-store",
+        "aws.s3-glacier-deep-archive",
+        "aws.s3-standard-ia"
+      ],
+      "full_charge_reserve_usd": "39.661786",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 50,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.452610",
+      "scenario_id": "small-local-aws",
+      "variable_60_minute_equivalent_usd": "0.150870",
+      "variable_monthly_amount_usd": "110.135199"
+    },
+    {
+      "candidate_evidence_digest": "sha256:23030276eea3470361505a8c246cc4f8792fb2de92457342a6d63d0bc95ea10a",
+      "estimated_monthly_total_usd": "192.63302408",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "azure.acr-basic-if-container-selected",
+        "azure.blob-archive",
+        "azure.blob-cool",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.managed-grafana-12-standard"
+      ],
+      "full_charge_reserve_usd": "96.891856",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 105,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.393457",
+      "scenario_id": "small-local-azure",
+      "variable_60_minute_equivalent_usd": "0.131152",
+      "variable_monthly_amount_usd": "95.741168"
+    },
+    {
+      "candidate_evidence_digest": "sha256:ce6df09c144b952f20319f145ace9428827ac627fb13450d7df8d007049b6e44",
+      "estimated_monthly_total_usd": "360.8968352835546875",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-storage-archive",
+        "gcp.cloud-storage-nearline",
+        "gcp.firestore-native-standard-bounded-twin",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.persistent-disk-rwo"
+      ],
+      "full_charge_reserve_usd": "24.779623",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 35,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "1.381304",
+      "scenario_id": "small-local-gcp",
+      "variable_60_minute_equivalent_usd": "0.460435",
+      "variable_monthly_amount_usd": "336.117212"
+    },
+    {
+      "candidate_evidence_digest": "sha256:710b09d7db729e1c70c3a9d718d7ba4d02485522f45531f67fa7cf34760309ee",
+      "estimated_monthly_total_usd": "196.071701860",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "aws.iot-core",
+        "azure.acr-basic-if-container-selected",
+        "azure.blob-archive",
+        "azure.blob-cool",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.managed-grafana-12-standard"
+      ],
+      "full_charge_reserve_usd": "99.052006",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 105,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.398711",
+      "scenario_id": "small-focus-aws-to-azure",
+      "variable_60_minute_equivalent_usd": "0.132904",
+      "variable_monthly_amount_usd": "97.019696"
+    },
+    {
+      "candidate_evidence_digest": "sha256:750f332bb0dd2887ddb6844d0321cc6b04ca9b709b0369e26019684c2c26e373",
+      "estimated_monthly_total_usd": "167.5328320795",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "aws.amazon-managed-grafana-12",
+        "aws.dynamodb-on-demand-hourly-rollup",
+        "aws.dynamodb-on-demand-raw",
+        "aws.ecr-if-container-selected",
+        "aws.ecs-fargate-storage-mover",
+        "aws.iot-twinmaker-standard",
+        "aws.s3-glacier-deep-archive",
+        "aws.s3-standard-ia"
+      ],
+      "full_charge_reserve_usd": "37.501312",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 45,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.534376",
+      "scenario_id": "small-focus-azure-to-aws",
+      "variable_60_minute_equivalent_usd": "0.178125",
+      "variable_monthly_amount_usd": "130.031520"
+    },
+    {
+      "candidate_evidence_digest": "sha256:04c1b4a75e93a6cf54ffd45442161ac92d2b7e90256df110b56e04a39e77ae0e",
+      "estimated_monthly_total_usd": "255.5328682285",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "aws.amazon-managed-grafana-12",
+        "aws.dynamodb-on-demand-hourly-rollup",
+        "aws.dynamodb-on-demand-raw",
+        "aws.ecr-if-container-selected",
+        "aws.ecs-fargate-storage-mover",
+        "aws.iot-core",
+        "aws.s3-event-failure-store",
+        "aws.s3-glacier-deep-archive",
+        "aws.s3-standard-ia",
+        "gcp.firestore-native-standard-bounded-twin"
+      ],
+      "full_charge_reserve_usd": "34.589669",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 45,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.907986",
+      "scenario_id": "small-focus-aws-to-gcp",
+      "variable_60_minute_equivalent_usd": "0.302662",
+      "variable_monthly_amount_usd": "220.943199"
+    },
+    {
+      "candidate_evidence_digest": "sha256:52d02139da13780e263b46e5d2e48f4f702f26e74b80a476c68c25f6061971ab",
+      "estimated_monthly_total_usd": "439.7829211625546875",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "aws.s3-event-failure-store",
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-storage-archive",
+        "gcp.cloud-storage-nearline",
+        "gcp.firestore-native-standard-bounded-twin",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.persistent-disk-rwo"
+      ],
+      "full_charge_reserve_usd": "24.779839",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 35,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "1.705492",
+      "scenario_id": "small-focus-gcp-to-aws",
+      "variable_60_minute_equivalent_usd": "0.568497",
+      "variable_monthly_amount_usd": "415.003082"
+    },
+    {
+      "candidate_evidence_digest": "sha256:6a2f6b50f139870b63b372137d50058369c25090cb5d47429ea809ad03b78cd7",
+      "estimated_monthly_total_usd": "322.9450214105078125",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-storage-archive",
+        "gcp.cloud-storage-nearline",
+        "gcp.firestore-native-standard-bounded-twin",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.persistent-disk-rwo"
+      ],
+      "full_charge_reserve_usd": "24.779623",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 35,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "1.225337",
+      "scenario_id": "small-focus-azure-to-gcp",
+      "variable_60_minute_equivalent_usd": "0.408446",
+      "variable_monthly_amount_usd": "298.165398"
+    },
+    {
+      "candidate_evidence_digest": "sha256:de8490609e64dfdff12714f5853820ea2ee7499d5e7c4f466aaaab0ab3019a2e",
+      "estimated_monthly_total_usd": "250.3675280835546875",
+      "fixed_run_buffer_usd": "5.000000",
+      "full_charge_reserve_components": [
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-storage-archive",
+        "gcp.cloud-storage-nearline",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.persistent-disk-rwo"
+      ],
+      "full_charge_reserve_usd": "24.130896",
+      "matrix_budget_cap_usd": null,
+      "proposed_budget_cap_usd": 35,
+      "review_status": "pending_operator_approval",
+      "risk_adjusted_variable_amount_usd": "0.929740",
+      "scenario_id": "small-focus-gcp-to-azure",
+      "variable_60_minute_equivalent_usd": "0.309913",
+      "variable_monthly_amount_usd": "226.236632"
+    }
+  ],
+  "schema_version": "six-layer-live-budget-proposal.v1",
+  "status": "offline_complete_pending_operator_approval"
+}

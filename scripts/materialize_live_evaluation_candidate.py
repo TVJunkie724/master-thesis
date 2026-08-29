@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import sys
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -210,7 +212,25 @@ def materialize_plan(output_dir: Path) -> dict[str, Any]:
         raise FileExistsError(
             f"Evaluation output directory already exists: {output_dir}"
         )
-    output_dir.mkdir(parents=True)
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(
+        tempfile.mkdtemp(
+            prefix=f".{output_dir.name}.staging-",
+            dir=output_dir.parent,
+        )
+    )
+    try:
+        manifest = _materialize_plan_into(staging_dir)
+        staging_dir.replace(output_dir)
+    except Exception:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    return manifest
+
+
+def _materialize_plan_into(output_dir: Path) -> dict[str, Any]:
+    """Write a complete pack into one private staging directory."""
+
     plan = _read(PLAN_PATH)
     candidates: list[dict[str, str]] = []
     for scenario in plan["scenarios"]:

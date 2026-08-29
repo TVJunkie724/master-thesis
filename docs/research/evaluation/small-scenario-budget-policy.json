@@ -1,0 +1,44 @@
+{
+  "schema_version": "six-layer-live-budget-policy.v1",
+  "status": "offline_review_policy",
+  "architecture_profile": "six-layer-eventing@1",
+  "currency": "USD",
+  "monthly_hours": 730,
+  "maximum_runtime_minutes": 60,
+  "variable_cost_headroom_multiplier": 3,
+  "fixed_run_buffer_usd": 5,
+  "cap_rounding_increment_usd": 5,
+  "full_charge_reserve_meter_units": [
+    "GiB-month",
+    "count",
+    "seats/month"
+  ],
+  "external_timer": {
+    "timer_owner": "named_supervised_operator",
+    "timer_location": "outside_the_deployment",
+    "start_before_terraform_plan": true,
+    "warning_at_minutes": 45,
+    "destroy_trigger_at_minutes": 50,
+    "cleanup_deadline_at_minutes": 60
+  },
+  "interpretation": [
+    "The monthly Optimizer total is an RQ3 estimate and is not treated as a one-hour provider bill.",
+    "A component with a billed count, seat-month, or GiB-month meter contributes its full monthly candidate amount to the conservative short-run reserve because the offline evidence does not prove proration or waive minimum-retention exposure.",
+    "All remaining component and route amounts are scaled from 730 monthly hours to the 60-minute run window, multiplied by three, and supplemented by a fixed five-dollar uncertainty buffer.",
+    "The proposed cap is rounded upward to the next five-dollar increment and remains pending human approval until the exact Terraform plan and provider billing semantics are reviewed.",
+    "The timer reserves the final ten minutes for Destroy initiation and residual-inventory reconciliation; reaching the trigger stops functional work even when verification is incomplete."
+  ],
+  "scope": {
+    "research_questions": [
+      "RQ1",
+      "RQ2",
+      "RQ3",
+      "RQ3.1",
+      "RQ3.2"
+    ],
+    "scenario_size": "Small",
+    "scenario_count": 9,
+    "product_capability": false,
+    "cloud_execution_authorized": false
+  }
+}
