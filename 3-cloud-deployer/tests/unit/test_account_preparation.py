@@ -1,10 +1,13 @@
 """Tests for digest-bound bounded account preparation."""
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from src.account_preparation import (
+    _enable_gcp_api,
     build_account_preparation_plan,
     execute_account_preparation,
 )
@@ -111,3 +114,96 @@ def test_execution_rejects_missing_confirmation_and_stale_digest(
             confirmed=True,
             project_storage=storage,
         )
+
+
+def test_gcp_api_preparation_uses_request_objects_and_waits_for_enable(
+    monkeypatch,
+):
+    calls = []
+
+    class Operation:
+        def result(self, *, timeout):
+            calls.append(("wait", timeout))
+
+    class ServiceUsageClient:
+        def __init__(self, *, credentials):
+            calls.append(("client", credentials))
+
+        def get_service(self, *, request):
+            calls.append(("get", request))
+            return SimpleNamespace(state=SimpleNamespace(name="DISABLED"))
+
+        def enable_service(self, *, request):
+            calls.append(("enable", request))
+            return Operation()
+
+    credential = object()
+    monkeypatch.setattr(
+        "google.cloud.service_usage_v1.ServiceUsageClient",
+        ServiceUsageClient,
+    )
+    monkeypatch.setattr(
+        "google.oauth2.service_account.Credentials.from_service_account_info",
+        lambda _info: credential,
+    )
+
+    result = _enable_gcp_api(
+        "cloudresourcemanager.googleapis.com",
+        {
+            "gcp_project_id": "thesis-project",
+            "gcp_credentials_file": json.dumps({"type": "service_account"}),
+        },
+    )
+
+    name = (
+        "projects/thesis-project/services/"
+        "cloudresourcemanager.googleapis.com"
+    )
+    assert calls == [
+        ("client", credential),
+        ("get", {"name": name}),
+        ("enable", {"name": name}),
+        ("wait", 120),
+    ]
+    assert result == {
+        "message": "cloudresourcemanager.googleapis.com is enabled."
+    }
+
+
+def test_gcp_api_preparation_is_idempotent(monkeypatch):
+    calls = []
+
+    class ServiceUsageClient:
+        def __init__(self, *, credentials):
+            calls.append(("client", credentials))
+
+        def get_service(self, *, request):
+            calls.append(("get", request))
+            return SimpleNamespace(state=SimpleNamespace(name="ENABLED"))
+
+        def enable_service(self, *, request):  # pragma: no cover - safety guard
+            raise AssertionError(f"Unexpected enable request: {request}")
+
+    credential = object()
+    monkeypatch.setattr(
+        "google.cloud.service_usage_v1.ServiceUsageClient",
+        ServiceUsageClient,
+    )
+    monkeypatch.setattr(
+        "google.oauth2.service_account.Credentials.from_service_account_info",
+        lambda _info: credential,
+    )
+
+    result = _enable_gcp_api(
+        "cloudresourcemanager.googleapis.com",
+        {
+            "gcp_project_id": "thesis-project",
+            "gcp_credentials_file": json.dumps({"type": "service_account"}),
+        },
+    )
+
+    assert len(calls) == 2
+    assert calls[1][0] == "get"
+    assert result == {
+        "message": "cloudresourcemanager.googleapis.com is already enabled."
+    }

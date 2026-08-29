@@ -237,7 +237,7 @@ def _enable_gcp_api(
     project_id = str(credentials["gcp_project_id"])
     name = f"projects/{project_id}/services/{api}"
     client = service_usage_v1.ServiceUsageClient(credentials=credential)
-    service = client.get_service(name=name)
+    service = client.get_service(request={"name": name})
     state = getattr(service, "state", None)
     state_name = str(getattr(state, "name", state)).upper()
     if state_name.endswith("ENABLED"):
