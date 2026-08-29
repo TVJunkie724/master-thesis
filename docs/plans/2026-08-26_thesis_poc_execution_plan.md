@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account preparation verified live; offline candidate, budget, and static-image checkpoints complete; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; nine candidates and conservative caps are materialized offline but remain unapproved; seven static custom images build locally and public pins resolve; quotas/capacity, L4/L5 readiness, the scenario-bound processor extension, and six federation probes remain open |
+| 8 | Account and read-only provider checks complete; offline candidates, budgets, images, and federation plans complete; mutations pending supervision | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; GCP capacity is sufficient but its L4 IAP path has an explicit organization/OAuth blocker; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and six federation executions remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -396,16 +396,41 @@ No image was pushed and no provider registry was changed. The per-Twin GCP
 processor extension remains intentionally pending until its canonical bound
 user-function artifact is frozen for a reviewed scenario.
 
+The subsequent provider check used only control-plane GET, LIST, and DESCRIBE
+operations. AWS exposes sufficient Small headroom for the checked Grafana,
+TwinMaker, and Kinesis requirements. Azure exposes the required resource types
+in the configured Regions and its Microsoft.Web usage endpoint is readable;
+four other Azure control planes expose relevant quota usage only after a
+resource exists, so those checks remain explicitly partial rather than being
+inferred as passed. GCP exposes the required machine types and sufficient
+Small compute, disk, address, zonal-cluster, Firestore, and Cloud Run quota.
+No provider identifier, resource name, credential path, or credential value is
+part of the tracked result.
+
+AWS L4/L5 and Azure L4/L5 account/Region prerequisites pass. GCP L5 remains an
+Apply-time access check. GCP L4 is blocked before Apply because the configured
+project is not attached to an organization: Google-managed IAP OAuth is then
+not admissible, while the required custom OAuth client is a manual cloud
+configuration decision. The blocker is reported, not repaired automatically.
+
+All six directed identity checks are now individually specified in
+`docs/research/evaluation/directed-federation-probe-plan.json`. The schema- and
+digest-bound plan permits no Terraform Apply, Twin workload, message transfer,
+static secret, or destination data permission. Four local-runner probes have a
+direct technical cost cap of USD 0.00. The two exact Azure managed-identity
+source paths each use at most one no-ingress 1-vCPU/1-GiB container for five
+minutes with a USD 0.01 cap; the aggregate plan cap is USD 0.02. Prices must be
+refreshed before execution. Every probe remains unapproved and disabled.
+
 Continue Phase 8 in this order:
 
-1. materialize the nine candidate records offline and review numerical budget
-   caps plus maximum runtimes without enabling execution;
-2. complete read-only quota, capacity, and L4/L5 account/Region checks;
+1. resolve the GCP L4 IAP/custom-OAuth decision without broadening the PoC;
+2. show the materialized names and refreshed price calculation for exactly one
+   federation probe, obtain explicit mutation approval, execute it, Destroy,
+   and reconcile residual inventory before considering the next direction;
 3. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
-4. execute the six minimal directed federation probes, immediately remove
-   their probe resources, and reconcile residual inventory; and
-5. only after those gates pass, set the matrix to
+4. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time.
 

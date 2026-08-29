@@ -516,7 +516,12 @@ gate triggers immediate Destroy rather than a second partial-deployment mode.
 
 Component metrics remain supporting diagnostic evidence and cannot replace any
 of the nine final records. The complete operational protocol and schemas are
-maintained in `evaluation/live-evaluation-protocol.md`.
+maintained in `evaluation/live-evaluation-protocol.md`. The six directed
+identity prerequisites are frozen separately in
+`evaluation/directed-federation-probe-plan.json`: their setup/exchange/cleanup
+timings support RQ1, their exact directed contract result supports RQ2, and
+their separately capped direct cost supports RQ3 without being counted as
+Event-Layer or final-scenario evidence.
 
 ## Architecture Extensibility Implication
 

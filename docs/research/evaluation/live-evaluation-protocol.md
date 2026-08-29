@@ -1,7 +1,8 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation is verified,
-but no Twin workload deployment is claimed.
+Status: planned and offline-validated; bounded account preparation and
+read-only provider checks are verified, but no federation mutation or Twin
+workload deployment is claimed.
 
 ## Purpose
 
@@ -36,6 +37,29 @@ Because `.evidence/` is intentionally ignored, a different checkout must obtain
 the supervised evidence separately and verify this digest. These results do
 not satisfy the remaining quota/capacity, L4/L5, directed federation, or
 scenario records.
+
+The follow-up provider probe used only GET, LIST, and DESCRIBE control-plane
+operations and emitted no provider scope, resource name, credential path, or
+credential value. AWS has sufficient checked Grafana, TwinMaker, and Kinesis
+headroom. Azure exposes every required resource type in the configured Regions
+and Microsoft.Web usage is readable; the App, Dashboard, DocumentDB, and
+EventHub control planes expose the relevant usage only at resource scope or
+after creation and therefore remain explicitly partial. GCP exposes the
+required machine types and sufficient Small compute, disk, address, zonal GKE,
+Firestore, and Cloud Run quota.
+
+AWS and Azure L4/L5 account/Region prerequisites pass. GCP L5 remains an
+Apply-time access check. GCP L4 is a pre-Apply blocker: the project has no
+organization ancestor, so Google-managed IAP OAuth cannot serve this path and
+a custom OAuth client would require a deliberate manual cloud configuration.
+No such mutation has been made.
+
+The exact six standalone identity checks, resources, time limits, direct cost
+caps, cleanup order, and residual-inventory rules are frozen in
+[`directed-federation-probe-plan.json`](directed-federation-probe-plan.json).
+Its record digest is
+`sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754`.
+It remains non-executable and requires a separate approval for each direction.
 
 ## Execution boundary
 
@@ -494,3 +518,14 @@ performed before the full scenarios and immediately cleaned up. Each probe
 records provider-native success or an explicit blocker plus residual-resource
 evidence. A full Twin deployment must not be used to relabel a missing
 standalone prerequisite probe as successful.
+
+The component plan deliberately grants no destination data-plane permission:
+AWS targets prove the exchange with STS GetCallerIdentity, Azure targets with
+one Reader-scoped ARM GET inside an isolated probe resource group, and GCP
+targets with one service-account impersonation. Only the two Azure-source
+paths need provider-hosted compute to exercise the exact managed-identity
+source; each runner is pinned, has no ingress, is limited to 1 vCPU/1 GiB and
+300 seconds, and has a USD 0.01 technical cap. The other four directions have
+no directly charged probe resource. GCP soft-deletes federation pools,
+providers, and service accounts; their non-usable tombstones are recorded with
+purge times and are the only accepted non-active residual class.

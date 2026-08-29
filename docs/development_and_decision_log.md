@@ -257,6 +257,31 @@ scenario records. GCP's early stage additionally validates the selected Small
 the exact matrix, revision, workload, simulator, protocol, candidate placement,
 cost export, and terminal cleanup evidence remain bound and comparable.
 
+## D-16 — Identity-only directed federation probes
+
+**Decision:** Validate each AWS/Azure/GCP direction once with the smallest
+ephemeral identity-only resource set before any full Twin deployment. Do not
+create brokers, storage, Twin services, visualization services, or test
+messages for these probes. AWS targets terminate at STS GetCallerIdentity,
+Azure targets at one Reader-scoped ARM GET in an isolated probe resource group,
+and GCP targets at one service-account impersonation.
+
+**Rationale:** The six workload-identity contracts are a prerequisite for the
+directed scenarios, but proving them with a full topology would conflate RQ1
+operational setup, RQ2 interoperability, and RQ3 Eventing cost. Four source
+paths can run locally without a directly charged resource. The exact Azure
+managed-identity source semantics require provider-hosted execution, so only
+those two paths receive one pinned, no-ingress, five-minute container runner.
+
+**Consequence:** The schema- and digest-bound
+`docs/research/evaluation/directed-federation-probe-plan.json` remains disabled
+until each direction receives explicit mutation approval. Its aggregate direct
+technical cap is USD 0.02, with immediate dependency-ordered cleanup and
+residual inventory after every probe. GCP soft-delete tombstones are accepted
+only when inactive, non-usable, and recorded with their purge time; any active
+residual blocks the next direction. This is an evaluation harness, not a new
+deployment mode or generic federation product.
+
 ## Current implementation checkpoint
 
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
@@ -295,6 +320,18 @@ path defect. The checked record is
 `sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9`.
 No registry image was published, and the per-Twin GCP processor extension
 remains blocked until the exact canonical user-function artifact is frozen.
-Quota/capacity, L4/L5, and six directed federation probes remain open,
-followed by the nine supervised Small scenarios. None of those live results is
-claimed complete.
+
+The subsequent read-only provider probe completed without a write operation.
+AWS has sufficient checked Grafana, TwinMaker, and Kinesis headroom; Azure
+resource types are regionally available, with four quota surfaces honestly
+deferred until a resource exists; and GCP exposes sufficient Small compute,
+disk, address, GKE, Firestore, and Cloud Run capacity. AWS and Azure L4/L5
+prerequisites pass. GCP L5 remains an Apply-time check, while GCP L4 is blocked
+because the project has no organization ancestor and therefore needs a
+deliberately configured custom IAP OAuth client. No such change was made.
+
+All six federation probes are now planned, schema-checked, digest-bound, and
+disabled. No federation resource has been created. The open work is the GCP L4
+decision, one-by-one approved federation execution and cleanup, the
+scenario-bound GCP processor image, and finally the nine supervised Small
+scenarios. None of those live results is claimed complete.

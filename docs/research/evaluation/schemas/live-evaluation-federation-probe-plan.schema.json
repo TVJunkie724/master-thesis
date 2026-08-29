@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/research/live-evaluation-federation-probe-plan.v1.schema.json",
+  "title": "Twin2MultiCloud directed federation component-probe plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "execution_enabled",
+    "cloud_mutation_performed",
+    "architecture_profile",
+    "candidate_pack_manifest_digest",
+    "planning_basis",
+    "scope",
+    "common_guardrails",
+    "cost_basis",
+    "probes",
+    "summary",
+    "record_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "six-layer-directed-federation-probe-plan.v1"
+    },
+    "status": {
+      "const": "planned_pending_explicit_cloud_mutation_approval"
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "cloud_mutation_performed": {
+      "const": false
+    },
+    "architecture_profile": {
+      "const": "six-layer-eventing@1"
+    },
+    "candidate_pack_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "planning_basis": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standalone_identity_component_probes",
+        "full_twin_workload",
+        "message_transport",
+        "terraform_apply"
+      ],
+      "properties": {
+        "standalone_identity_component_probes": {
+          "const": true
+        },
+        "full_twin_workload": {
+          "const": false
+        },
+        "message_transport": {
+          "const": false
+        },
+        "terraform_apply": {
+          "const": false
+        }
+      }
+    },
+    "common_guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "one_probe_at_a_time",
+        "approval_required_per_probe",
+        "exact_names_materialized_before_approval",
+        "short_lived_credentials_only",
+        "static_secrets_created",
+        "tokens_or_claims_logged",
+        "destination_data_permissions_granted",
+        "successful_exchanges_per_probe",
+        "stop_on_first_failure",
+        "destroy_immediately",
+        "residual_inventory_required",
+        "accepted_residual_class",
+        "aggregate_direct_cost_cap_usd"
+      ],
+      "properties": {
+        "one_probe_at_a_time": {
+          "const": true
+        },
+        "approval_required_per_probe": {
+          "const": true
+        },
+        "exact_names_materialized_before_approval": {
+          "const": true
+        },
+        "short_lived_credentials_only": {
+          "const": true
+        },
+        "static_secrets_created": {
+          "const": false
+        },
+        "tokens_or_claims_logged": {
+          "const": false
+        },
+        "destination_data_permissions_granted": {
+          "const": false
+        },
+        "successful_exchanges_per_probe": {
+          "const": 1
+        },
+        "stop_on_first_failure": {
+          "const": true
+        },
+        "destroy_immediately": {
+          "const": true
+        },
+        "residual_inventory_required": {
+          "const": true
+        },
+        "accepted_residual_class": {
+          "const": "provider_soft_delete_tombstones_only"
+        },
+        "aggregate_direct_cost_cap_usd": {
+          "$ref": "#/$defs/money"
+        }
+      }
+    },
+    "cost_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "observed_at",
+        "source",
+        "azure_container_instance_region",
+        "azure_container_instance_vcpu_hour_usd",
+        "azure_container_instance_gib_hour_usd",
+        "azure_source_runner_shape",
+        "azure_source_runner_cost_for_maximum_runtime_usd",
+        "price_refresh_required_before_execution"
+      ],
+      "properties": {
+        "currency": {
+          "const": "USD"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "source": {
+          "type": "string",
+          "format": "uri"
+        },
+        "azure_container_instance_region": {
+          "const": "westeurope"
+        },
+        "azure_container_instance_vcpu_hour_usd": {
+          "$ref": "#/$defs/money"
+        },
+        "azure_container_instance_gib_hour_usd": {
+          "$ref": "#/$defs/money"
+        },
+        "azure_source_runner_shape": {
+          "const": "linux_amd64_1_vcpu_1_gib"
+        },
+        "azure_source_runner_cost_for_maximum_runtime_usd": {
+          "$ref": "#/$defs/money"
+        },
+        "price_refresh_required_before_execution": {
+          "const": true
+        }
+      }
+    },
+    "probes": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/probe"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directed_routes_planned",
+        "probes_approved",
+        "probes_executed",
+        "billable_source_runners",
+        "expected_active_residual_resources",
+        "aggregate_direct_cost_cap_usd"
+      ],
+      "properties": {
+        "directed_routes_planned": {
+          "const": 6
+        },
+        "probes_approved": {
+          "const": 0
+        },
+        "probes_executed": {
+          "const": 0
+        },
+        "billable_source_runners": {
+          "const": 2
+        },
+        "expected_active_residual_resources": {
+          "const": 0
+        },
+        "aggregate_direct_cost_cap_usd": {
+          "$ref": "#/$defs/money"
+        }
+      }
+    },
+    "record_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "money": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{2,6}$"
+    },
+    "provider": {
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "type", "count", "purpose", "direct_charge"],
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "type": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "count": {
+          "const": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direct_charge": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location",
+        "image_reference",
+        "vcpu",
+        "memory_gib",
+        "maximum_billable_runtime_seconds",
+        "network_ingress_exposed"
+      ],
+      "properties": {
+        "location": {
+          "enum": ["local_supervised_process", "azure_container_instance"]
+        },
+        "image_reference": {
+          "type": ["string", "null"],
+          "pattern": "^[^@]+@sha256:[0-9a-f]{64}$"
+        },
+        "vcpu": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 1
+        },
+        "memory_gib": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 1
+        },
+        "maximum_billable_runtime_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 300
+        },
+        "network_ingress_exposed": {
+          "const": false
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_id",
+        "scenario_id",
+        "source_provider",
+        "destination_provider",
+        "exchange_contract",
+        "mutation_required",
+        "approved",
+        "name_prefix",
+        "runner",
+        "maximum_elapsed_minutes",
+        "resources",
+        "validation_steps",
+        "success_condition",
+        "evidence_fields",
+        "expected_direct_cost_usd",
+        "direct_cost_cap_usd",
+        "cleanup_order",
+        "residual_inventory_checks",
+        "expected_soft_delete_tombstones",
+        "stop_conditions",
+        "research_question_alignment"
+      ],
+      "properties": {
+        "probe_id": {
+          "type": "string",
+          "pattern": "^federation-(aws|azure|gcp)-to-(aws|azure|gcp)$"
+        },
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^small-focus-(aws|azure|gcp)-to-(aws|azure|gcp)$"
+        },
+        "source_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "destination_provider": {
+          "$ref": "#/$defs/provider"
+        },
+        "exchange_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mutation_required": {
+          "const": true
+        },
+        "approved": {
+          "const": false
+        },
+        "name_prefix": {
+          "type": "string",
+          "pattern": "^t2mc-p8-[a-z0-9-]+-$"
+        },
+        "runner": {
+          "$ref": "#/$defs/runner"
+        },
+        "maximum_elapsed_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15
+        },
+        "resources": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/resource"
+          }
+        },
+        "validation_steps": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "success_condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_fields": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          }
+        },
+        "expected_direct_cost_usd": {
+          "$ref": "#/$defs/money"
+        },
+        "direct_cost_cap_usd": {
+          "$ref": "#/$defs/money"
+        },
+        "cleanup_order": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "residual_inventory_checks": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "expected_soft_delete_tombstones": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^gcp\\.[a-z0-9_.-]+$"
+          }
+        },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "research_question_alignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rq1", "rq2", "rq3"],
+          "properties": {
+            "rq1": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rq2": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rq3": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

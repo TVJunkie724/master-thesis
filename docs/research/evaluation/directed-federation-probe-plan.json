@@ -1,0 +1,750 @@
+{
+  "schema_version": "six-layer-directed-federation-probe-plan.v1",
+  "status": "planned_pending_explicit_cloud_mutation_approval",
+  "execution_enabled": false,
+  "cloud_mutation_performed": false,
+  "architecture_profile": "six-layer-eventing@1",
+  "candidate_pack_manifest_digest": "sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346",
+  "planning_basis": [
+    "3-cloud-deployer/src/architecture_profiles/requirements.py",
+    "3-cloud-deployer/src/runtime/six_layer_eventing/destination_identity.py",
+    "docs/research/evaluation/small-scenario-matrix.json"
+  ],
+  "scope": {
+    "standalone_identity_component_probes": true,
+    "full_twin_workload": false,
+    "message_transport": false,
+    "terraform_apply": false
+  },
+  "common_guardrails": {
+    "one_probe_at_a_time": true,
+    "approval_required_per_probe": true,
+    "exact_names_materialized_before_approval": true,
+    "short_lived_credentials_only": true,
+    "static_secrets_created": false,
+    "tokens_or_claims_logged": false,
+    "destination_data_permissions_granted": false,
+    "successful_exchanges_per_probe": 1,
+    "stop_on_first_failure": true,
+    "destroy_immediately": true,
+    "residual_inventory_required": true,
+    "accepted_residual_class": "provider_soft_delete_tombstones_only",
+    "aggregate_direct_cost_cap_usd": "0.020000"
+  },
+  "cost_basis": {
+    "currency": "USD",
+    "observed_at": "2026-08-29",
+    "source": "https://prices.azure.com/api/retail/prices",
+    "azure_container_instance_region": "westeurope",
+    "azure_container_instance_vcpu_hour_usd": "0.046600",
+    "azure_container_instance_gib_hour_usd": "0.005110",
+    "azure_source_runner_shape": "linux_amd64_1_vcpu_1_gib",
+    "azure_source_runner_cost_for_maximum_runtime_usd": "0.004310",
+    "price_refresh_required_before_execution": true
+  },
+  "probes": [
+    {
+      "probe_id": "federation-aws-to-azure",
+      "scenario_id": "small-focus-aws-to-azure",
+      "source_provider": "aws",
+      "destination_provider": "azure",
+      "exchange_contract": "aws_oidc_to_entra_federated_credential",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-aws-azure-",
+      "runner": {
+        "location": "local_supervised_process",
+        "image_reference": null,
+        "vcpu": null,
+        "memory_gib": null,
+        "maximum_billable_runtime_seconds": 0,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 10,
+      "resources": [
+        {
+          "provider": "aws",
+          "type": "aws.iam_role",
+          "count": 1,
+          "purpose": "Ephemeral source role trusted only by the verified deployment principal",
+          "direct_charge": false
+        },
+        {
+          "provider": "aws",
+          "type": "aws.iam_inline_policy",
+          "count": 1,
+          "purpose": "Allow only a 300-second RS256 sts:GetWebIdentityToken assertion for the Entra exchange audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.resource_group",
+          "count": 1,
+          "purpose": "Isolated destination ownership and one-step residual inventory boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.user_assigned_managed_identity",
+          "count": 1,
+          "purpose": "Ephemeral Entra federation target",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.federated_identity_credential",
+          "count": 1,
+          "purpose": "Trust only the AWS outbound issuer, source-role subject, and AzureADTokenExchange audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.role_assignment",
+          "count": 1,
+          "purpose": "Temporary Reader assignment on the probe resource group for one harmless ARM GET",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Assume the ephemeral AWS source role from the verified deployment principal.",
+        "Use the runtime AWS outbound assertion contract to obtain one 300-second RS256 assertion for api://AzureADTokenExchange.",
+        "Exchange the assertion through the managed-identity federated credential for one ARM access token.",
+        "Perform one ARM GET of the destination managed identity and retain only typed status and timestamps."
+      ],
+      "success_condition": "The AWS role subject is accepted by Entra and the federated Azure identity completes exactly one authorized ARM GET.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.000000",
+      "direct_cost_cap_usd": "0.000000",
+      "cleanup_order": [
+        "Remove the Azure Reader role assignment.",
+        "Delete the Azure federated identity credential and managed identity.",
+        "Delete the isolated Azure resource group.",
+        "Delete the AWS inline policy and source role."
+      ],
+      "residual_inventory_checks": [
+        "AWS IAM get/list by exact materialized names returns no probe role or inline policy.",
+        "Azure Resource Graph and Entra identity lookup return no active object with the probe prefix."
+      ],
+      "expected_soft_delete_tombstones": [],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of one exact directed identity prerequisite.",
+        "rq2": "Checks functional interoperability of the implemented AWS-to-Azure workload-identity contract without deploying a Twin.",
+        "rq3": "Separates identity setup and cleanup cost from Event-Layer and full-scenario cost."
+      }
+    },
+    {
+      "probe_id": "federation-aws-to-gcp",
+      "scenario_id": "small-focus-aws-to-gcp",
+      "source_provider": "aws",
+      "destination_provider": "gcp",
+      "exchange_contract": "aws_subject_token_to_gcp_workload_identity_federation",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-aws-gcp-",
+      "runner": {
+        "location": "local_supervised_process",
+        "image_reference": null,
+        "vcpu": null,
+        "memory_gib": null,
+        "maximum_billable_runtime_seconds": 0,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 10,
+      "resources": [
+        {
+          "provider": "aws",
+          "type": "aws.iam_role",
+          "count": 1,
+          "purpose": "Ephemeral AWS source role with no destination-data policy",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account",
+          "count": 1,
+          "purpose": "Ephemeral service-account impersonation target without project data roles",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.workload_identity_pool",
+          "count": 1,
+          "purpose": "Isolated AWS workload-identity federation boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.workload_identity_pool_provider",
+          "count": 1,
+          "purpose": "Trust only assumed-role subjects for the ephemeral AWS source role",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account_iam_binding",
+          "count": 1,
+          "purpose": "Grant workloadIdentityUser only to the mapped ephemeral AWS role",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Assume the ephemeral AWS source role from the verified deployment principal.",
+        "Construct the runtime-compatible signed AWS GetCallerIdentity subject token in memory.",
+        "Exchange the subject token at GCP STS through the exact role-bound provider.",
+        "Impersonate the target service account once and retain only typed status and timestamps."
+      ],
+      "success_condition": "GCP accepts only the ephemeral AWS assumed-role subject and issues exactly one target-service-account access token.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.000000",
+      "direct_cost_cap_usd": "0.000000",
+      "cleanup_order": [
+        "Remove the GCP service-account workloadIdentityUser binding.",
+        "Delete the GCP workload-identity provider and pool.",
+        "Delete the GCP target service account.",
+        "Delete the AWS source role."
+      ],
+      "residual_inventory_checks": [
+        "AWS IAM get/list by exact materialized name returns no active probe role.",
+        "GCP IAM lists no active probe service account, pool, provider, or binding.",
+        "GCP show-deleted inventory contains only the recorded, non-usable soft-delete tombstones and their purge times."
+      ],
+      "expected_soft_delete_tombstones": [
+        "gcp.service_account",
+        "gcp.workload_identity_pool",
+        "gcp.workload_identity_pool_provider"
+      ],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of one exact directed identity prerequisite.",
+        "rq2": "Checks functional interoperability of the implemented AWS-to-GCP workload-identity contract without deploying a Twin.",
+        "rq3": "Separates identity setup and cleanup cost from Event-Layer and full-scenario cost."
+      }
+    },
+    {
+      "probe_id": "federation-azure-to-aws",
+      "scenario_id": "small-focus-azure-to-aws",
+      "source_provider": "azure",
+      "destination_provider": "aws",
+      "exchange_contract": "entra_managed_identity_oidc_to_assume_role_with_web_identity",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-azure-aws-",
+      "runner": {
+        "location": "azure_container_instance",
+        "image_reference": "mcr.microsoft.com/azure-cli@sha256:b23e5168ce9654b1385c565a2c6cf60695f7b0d03056f7a0fafdc7c59a084512",
+        "vcpu": 1,
+        "memory_gib": 1,
+        "maximum_billable_runtime_seconds": 300,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 15,
+      "resources": [
+        {
+          "provider": "azure",
+          "type": "azure.resource_group",
+          "count": 1,
+          "purpose": "Isolated Azure source and runner ownership boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.user_assigned_managed_identity",
+          "count": 1,
+          "purpose": "Exact managed-identity assertion source",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_application",
+          "count": 1,
+          "purpose": "Dedicated secretless source assertion audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_identifier_uri",
+          "count": 1,
+          "purpose": "Bind the deployment-shaped api:// assertion audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_application_role",
+          "count": 1,
+          "purpose": "Expose only the EventBridge.Exchange application role",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_service_principal",
+          "count": 1,
+          "purpose": "Assignment-required audience service principal",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_app_role_assignment",
+          "count": 1,
+          "purpose": "Authorize only the ephemeral source managed identity for the exchange audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.container_instance_group",
+          "count": 1,
+          "purpose": "Five-minute maximum, no-ingress managed-identity assertion runner",
+          "direct_charge": true
+        },
+        {
+          "provider": "aws",
+          "type": "aws.iam_oidc_provider",
+          "count": 1,
+          "purpose": "Trust the configured Entra tenant issuer only for the probe audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "aws",
+          "type": "aws.iam_role",
+          "count": 1,
+          "purpose": "Target role constrained to source managed-identity subject and custom audience, with no data policy",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Wait for the Entra application-role assignment to become readable before creating the billable runner.",
+        "Run the pinned, no-ingress Azure container with the source managed identity for at most 300 seconds.",
+        "Use the runtime managed-identity assertion contract to obtain one custom-audience OIDC assertion in memory.",
+        "Call AWS AssumeRoleWithWebIdentity and then one STS GetCallerIdentity; emit only a typed result code."
+      ],
+      "success_condition": "AWS accepts only the expected Entra tenant, audience, and managed-identity subject and the resulting role session completes one STS identity check.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "runner_started_at",
+        "runner_stopped_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.004310",
+      "direct_cost_cap_usd": "0.010000",
+      "cleanup_order": [
+        "Delete the AWS target role and OIDC provider.",
+        "Stop and delete the Azure container instance group.",
+        "Delete the Entra app-role assignment, service principal, and application.",
+        "Delete the Azure managed identity and isolated resource group."
+      ],
+      "residual_inventory_checks": [
+        "AWS IAM returns no active probe role or OIDC provider.",
+        "Azure Resource Graph returns no active probe resource and no running container group.",
+        "Microsoft Graph returns no active application, service principal, or app-role assignment with the probe prefix."
+      ],
+      "expected_soft_delete_tombstones": [],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "runner_reached_300_seconds",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of the managed-identity source path, including its minimal runner.",
+        "rq2": "Checks functional interoperability of the implemented Azure-to-AWS workload-identity contract without deploying a Twin.",
+        "rq3": "Attributes the bounded source-runner charge separately from Event-Layer and full-scenario cost."
+      }
+    },
+    {
+      "probe_id": "federation-azure-to-gcp",
+      "scenario_id": "small-focus-azure-to-gcp",
+      "source_provider": "azure",
+      "destination_provider": "gcp",
+      "exchange_contract": "entra_managed_identity_oidc_to_gcp_workload_identity_federation",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-azure-gcp-",
+      "runner": {
+        "location": "azure_container_instance",
+        "image_reference": "mcr.microsoft.com/azure-cli@sha256:b23e5168ce9654b1385c565a2c6cf60695f7b0d03056f7a0fafdc7c59a084512",
+        "vcpu": 1,
+        "memory_gib": 1,
+        "maximum_billable_runtime_seconds": 300,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 15,
+      "resources": [
+        {
+          "provider": "azure",
+          "type": "azure.resource_group",
+          "count": 1,
+          "purpose": "Isolated Azure source and runner ownership boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.user_assigned_managed_identity",
+          "count": 1,
+          "purpose": "Exact managed-identity assertion source",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_application",
+          "count": 1,
+          "purpose": "Dedicated secretless source assertion audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_identifier_uri",
+          "count": 1,
+          "purpose": "Bind the deployment-shaped api:// assertion audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_application_role",
+          "count": 1,
+          "purpose": "Expose only the EventBridge.Exchange application role",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_service_principal",
+          "count": 1,
+          "purpose": "Assignment-required audience service principal",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.entra_app_role_assignment",
+          "count": 1,
+          "purpose": "Authorize only the ephemeral source managed identity for the exchange audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.container_instance_group",
+          "count": 1,
+          "purpose": "Five-minute maximum, no-ingress managed-identity assertion runner",
+          "direct_charge": true
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account",
+          "count": 1,
+          "purpose": "Ephemeral service-account impersonation target without project data roles",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.workload_identity_pool",
+          "count": 1,
+          "purpose": "Isolated Entra workload-identity federation boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.workload_identity_pool_provider",
+          "count": 1,
+          "purpose": "Trust only the source tenant, audience, subject, and object claims",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account_iam_binding",
+          "count": 1,
+          "purpose": "Grant workloadIdentityUser only to the mapped source managed identity",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Wait for the Entra application-role assignment to become readable before creating the billable runner.",
+        "Run the pinned, no-ingress Azure container with the source managed identity for at most 300 seconds.",
+        "Use the runtime managed-identity assertion contract to obtain one custom-audience OIDC assertion in memory.",
+        "Exchange at GCP STS and impersonate the target service account once; emit only a typed result code."
+      ],
+      "success_condition": "GCP accepts only the expected Entra tenant, audience, subject, and object claims and issues exactly one target-service-account access token.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "runner_started_at",
+        "runner_stopped_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.004310",
+      "direct_cost_cap_usd": "0.010000",
+      "cleanup_order": [
+        "Remove the GCP service-account workloadIdentityUser binding.",
+        "Delete the GCP workload-identity provider, pool, and target service account.",
+        "Stop and delete the Azure container instance group.",
+        "Delete the Entra app-role assignment, service principal, and application.",
+        "Delete the Azure managed identity and isolated resource group."
+      ],
+      "residual_inventory_checks": [
+        "Azure Resource Graph returns no active probe resource and no running container group.",
+        "Microsoft Graph returns no active application, service principal, or app-role assignment with the probe prefix.",
+        "GCP IAM lists no active probe service account, pool, provider, or binding.",
+        "GCP show-deleted inventory contains only the recorded, non-usable soft-delete tombstones and their purge times."
+      ],
+      "expected_soft_delete_tombstones": [
+        "gcp.service_account",
+        "gcp.workload_identity_pool",
+        "gcp.workload_identity_pool_provider"
+      ],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "runner_reached_300_seconds",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of the managed-identity source path, including its minimal runner.",
+        "rq2": "Checks functional interoperability of the implemented Azure-to-GCP workload-identity contract without deploying a Twin.",
+        "rq3": "Attributes the bounded source-runner charge separately from Event-Layer and full-scenario cost."
+      }
+    },
+    {
+      "probe_id": "federation-gcp-to-aws",
+      "scenario_id": "small-focus-gcp-to-aws",
+      "source_provider": "gcp",
+      "destination_provider": "aws",
+      "exchange_contract": "google_service_account_oidc_to_assume_role_with_web_identity",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-gcp-aws-",
+      "runner": {
+        "location": "local_supervised_process",
+        "image_reference": null,
+        "vcpu": null,
+        "memory_gib": null,
+        "maximum_billable_runtime_seconds": 0,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 10,
+      "resources": [
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account",
+          "count": 1,
+          "purpose": "Ephemeral exact Google OIDC source identity with no project data roles",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account_iam_binding",
+          "count": 1,
+          "purpose": "Allow only the verified deployment principal to generate one short-lived source ID token",
+          "direct_charge": false
+        },
+        {
+          "provider": "aws",
+          "type": "aws.iam_role",
+          "count": 1,
+          "purpose": "Target role constrained to Google service-account aud, oaud, and sub claims, with no data policy",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Generate one Google-signed ID token for the ephemeral source service account and a random probe audience.",
+        "Call AWS AssumeRoleWithWebIdentity against the aud, oaud, and sub constrained target role.",
+        "Call STS GetCallerIdentity once and retain only typed status and timestamps."
+      ],
+      "success_condition": "AWS accepts only the expected Google service-account numeric subject and probe audience and the role session completes one STS identity check.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.000000",
+      "direct_cost_cap_usd": "0.000000",
+      "cleanup_order": [
+        "Delete the AWS target role before the source assertion can be reused.",
+        "Remove the GCP service-account token-creator binding.",
+        "Delete the GCP source service account."
+      ],
+      "residual_inventory_checks": [
+        "AWS IAM get/list by exact materialized name returns no active probe role.",
+        "GCP IAM lists no active probe source service account or token-creator binding.",
+        "GCP show-deleted inventory contains only the recorded source-service-account tombstone and purge time."
+      ],
+      "expected_soft_delete_tombstones": [
+        "gcp.service_account"
+      ],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of one exact directed identity prerequisite.",
+        "rq2": "Checks functional interoperability of the implemented GCP-to-AWS workload-identity contract without deploying a Twin.",
+        "rq3": "Separates identity setup and cleanup cost from Event-Layer and full-scenario cost."
+      }
+    },
+    {
+      "probe_id": "federation-gcp-to-azure",
+      "scenario_id": "small-focus-gcp-to-azure",
+      "source_provider": "gcp",
+      "destination_provider": "azure",
+      "exchange_contract": "google_service_account_oidc_to_entra_federated_credential",
+      "mutation_required": true,
+      "approved": false,
+      "name_prefix": "t2mc-p8-gcp-azure-",
+      "runner": {
+        "location": "local_supervised_process",
+        "image_reference": null,
+        "vcpu": null,
+        "memory_gib": null,
+        "maximum_billable_runtime_seconds": 0,
+        "network_ingress_exposed": false
+      },
+      "maximum_elapsed_minutes": 10,
+      "resources": [
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account",
+          "count": 1,
+          "purpose": "Ephemeral exact Google OIDC source identity with no project data roles",
+          "direct_charge": false
+        },
+        {
+          "provider": "gcp",
+          "type": "gcp.service_account_iam_binding",
+          "count": 1,
+          "purpose": "Allow only the verified deployment principal to generate one short-lived source ID token",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.resource_group",
+          "count": 1,
+          "purpose": "Isolated destination ownership and one-step residual inventory boundary",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.user_assigned_managed_identity",
+          "count": 1,
+          "purpose": "Ephemeral Entra federation target",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.federated_identity_credential",
+          "count": 1,
+          "purpose": "Trust only accounts.google.com, the source service-account numeric subject, and AzureADTokenExchange audience",
+          "direct_charge": false
+        },
+        {
+          "provider": "azure",
+          "type": "azure.role_assignment",
+          "count": 1,
+          "purpose": "Temporary Reader assignment on the probe resource group for one harmless ARM GET",
+          "direct_charge": false
+        }
+      ],
+      "validation_steps": [
+        "Generate one Google-signed ID token for the ephemeral source service account and api://AzureADTokenExchange audience.",
+        "Exchange the assertion through the managed-identity federated credential for one ARM access token.",
+        "Perform one ARM GET of the destination managed identity and retain only typed status and timestamps."
+      ],
+      "success_condition": "Entra accepts only the Google service-account numeric subject and the federated Azure identity completes exactly one authorized ARM GET.",
+      "evidence_fields": [
+        "probe_id",
+        "started_at",
+        "exchange_completed_at",
+        "cleanup_completed_at",
+        "result_code",
+        "cleanup_status",
+        "residual_status",
+        "direct_cost_cap_usd"
+      ],
+      "expected_direct_cost_usd": "0.000000",
+      "direct_cost_cap_usd": "0.000000",
+      "cleanup_order": [
+        "Remove the Azure Reader role assignment and federated identity credential before the source assertion can be reused.",
+        "Delete the Azure managed identity and isolated resource group.",
+        "Remove the GCP service-account token-creator binding.",
+        "Delete the GCP source service account."
+      ],
+      "residual_inventory_checks": [
+        "Azure Resource Graph and Entra identity lookup return no active object with the probe prefix.",
+        "GCP IAM lists no active probe source service account or token-creator binding.",
+        "GCP show-deleted inventory contains only the recorded source-service-account tombstone and purge time."
+      ],
+      "expected_soft_delete_tombstones": [
+        "gcp.service_account"
+      ],
+      "stop_conditions": [
+        "exact_resource_manifest_changed",
+        "price_or_runtime_cap_changed",
+        "unexpected_permission_required",
+        "first_exchange_failed",
+        "cleanup_or_residual_check_failed"
+      ],
+      "research_question_alignment": {
+        "rq1": "Measures the operational effort and elapsed time of one exact directed identity prerequisite.",
+        "rq2": "Checks functional interoperability of the implemented GCP-to-Azure workload-identity contract without deploying a Twin.",
+        "rq3": "Separates identity setup and cleanup cost from Event-Layer and full-scenario cost."
+      }
+    }
+  ],
+  "summary": {
+    "directed_routes_planned": 6,
+    "probes_approved": 0,
+    "probes_executed": 0,
+    "billable_source_runners": 2,
+    "expected_active_residual_resources": 0,
+    "aggregate_direct_cost_cap_usd": "0.020000"
+  },
+  "record_digest": "sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754"
+}
