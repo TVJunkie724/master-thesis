@@ -245,6 +245,43 @@ class TestAzureSPExpiration:
 
     @patch("requests.get")
     @patch("azure.identity.ClientSecretCredential")
+    def test_historical_expired_secret_does_not_invalidate_active_secret(
+        self,
+        mock_credential_type,
+        mock_get,
+    ):
+        from datetime import datetime, timedelta, timezone
+
+        from src.api.azure_credentials_checker import _check_sp_credential_expiration
+
+        now = datetime.now(timezone.utc)
+        mock_credential_type.return_value.get_token.return_value = Mock(token="token")
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "value": [
+                {
+                    "passwordCredentials": [
+                        {"endDateTime": (now - timedelta(days=60)).isoformat()},
+                        {"endDateTime": (now + timedelta(days=365)).isoformat()},
+                    ],
+                    "keyCredentials": [],
+                }
+            ]
+        }
+
+        result = _check_sp_credential_expiration(
+            tenant_id="tenant-123",
+            client_id="client-123",
+            client_secret="secret-123",
+        )
+
+        assert result["status"] == "valid"
+        assert result["graph_authority"]["status"] == "ready"
+        assert result["days_until_expiration"] >= 363
+        assert "secret-123" not in str(result)
+
+    @patch("requests.get")
+    @patch("azure.identity.ClientSecretCredential")
     def test_graph_consent_denial_is_separate_from_credential_expiration(
         self,
         mock_credential_type,

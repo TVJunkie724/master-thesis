@@ -401,57 +401,40 @@ def _check_sp_credential_expiration(
 
             app = applications[0]
             password_creds = app.get("passwordCredentials", [])
-            key_creds = app.get("keyCredentials", [])
 
             now = datetime.now(timezone.utc)
-            nearest_expiration = None
-
-            # Check password credentials (secrets)
+            active_expirations = []
             for cred in password_creds:
                 end_date_str = cred.get("endDateTime")
-                if end_date_str:
-                    end_date = datetime.fromisoformat(
-                        end_date_str.replace("Z", "+00:00")
-                    )
-                    if nearest_expiration is None or end_date < nearest_expiration:
-                        nearest_expiration = end_date
+                if not end_date_str:
+                    continue
+                end_date = datetime.fromisoformat(
+                    end_date_str.replace("Z", "+00:00")
+                )
+                if end_date >= now:
+                    active_expirations.append(end_date)
 
-            # Check key credentials (certificates)
-            for cred in key_creds:
-                end_date_str = cred.get("endDateTime")
-                if end_date_str:
-                    end_date = datetime.fromisoformat(
-                        end_date_str.replace("Z", "+00:00")
-                    )
-                    if nearest_expiration is None or end_date < nearest_expiration:
-                        nearest_expiration = end_date
-
-            if nearest_expiration is None:
+            # A token was successfully issued with the submitted client secret.
+            # Graph returns the whole application's credential inventory without
+            # revealing which password credential matched that secret. Historical
+            # expired entries therefore cannot prove that the submitted secret is
+            # expired and must not fail an otherwise authenticated connection.
+            if not active_expirations:
                 return {
-                    "status": "skipped",
+                    "status": "valid",
                     "graph_authority": {
                         "status": "ready",
                         "message": "Microsoft Graph application-read authority was verified.",
                     },
-                    "reason": "No credential expiration dates found",
-                }
-
-            days_until_expiration = (nearest_expiration - now).days
-
-            if days_until_expiration < 0:
-                return {
-                    "status": "expired",
-                    "graph_authority": {
-                        "status": "ready",
-                        "message": "Microsoft Graph application-read authority was verified.",
-                    },
-                    "expiration_date": nearest_expiration.isoformat(),
-                    "message": (
-                        f"Azure Service Principal credentials expired {abs(days_until_expiration)} days ago.\n"
-                        "Generate new credentials in Azure Portal → App registrations → Certificates & secrets."
+                    "reason": (
+                        "The submitted client secret authenticated successfully; "
+                        "Graph exposed no matching active expiration metadata."
                     ),
                 }
-            elif days_until_expiration <= 30:
+
+            nearest_expiration = min(active_expirations)
+            days_until_expiration = (nearest_expiration - now).days
+            if days_until_expiration <= 30:
                 return {
                     "status": "expiring_soon",
                     "graph_authority": {
