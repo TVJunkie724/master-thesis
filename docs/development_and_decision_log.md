@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-08-28"
-version: "1.4"
+lastUpdated: "2026-08-29"
+version: "1.5"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -259,13 +259,24 @@ cost export, and terminal cleanup evidence remain bound and comparable.
 
 ## Current implementation checkpoint
 
-As of 2026-08-28, the standalone contract, graph boundary, credential services,
+As of 2026-08-29, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
 frozen pricing snapshots, and narrowed Flutter/Management contracts are
 implemented and pass the complete credential-free container gate. The bounded
 Flutter confirmation and repair surface and the provider-native diagnostic
 checkpoint path are implemented and covered by offline tests. GCP Small L1 is
 fixed to a non-HA 1+1 broker/adapter allocation, and all three device simulators
-expose bounded telemetry-send and actual command-receipt checkpoints. Live
-prerequisite probes and the nine supervised Small scenarios remain open and are
-not claimed complete.
+expose bounded telemetry-send and actual command-receipt checkpoints.
+
+The first supervised Phase 8 checkpoint has additionally verified the three
+configured principals and their account scopes, AWS account/Region/STS/IAM
+Identity Center readiness with 108 required permissions, Azure subscription,
+Region, Graph, 16 resource-provider, and eight permission-group checks, and the
+GCP project, billing, Region, 18 API, and 80 project-testable permission checks.
+No Terraform Apply or workload resource was created. The local secret-free
+evidence digest is
+`f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`;
+the ignored evidence file remains a supervised artifact rather than a tracked
+credential or product fixture. Runtime-image, quota/capacity, L4/L5, and six
+directed federation probes remain open, followed by the nine supervised Small
+scenarios. None of those open results is claimed complete.

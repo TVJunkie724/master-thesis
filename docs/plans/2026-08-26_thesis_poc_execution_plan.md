@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-08-28"
-version: "1.3"
+lastUpdated: "2026-08-29"
+version: "1.4"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -32,14 +32,14 @@ and the
 
 ## Current phase status
 
-| Phase | Status on 2026-08-28 | Evidence boundary |
+| Phase | Status on 2026-08-29 | Evidence boundary |
 |---|---|---|
 | 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
 | 3 | Implemented offline | connection selection, graph-bound preflight, confirmed preparation, manual acknowledgement, and retry-safe repair |
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Pending supervision | real principals, provider readiness, identity and image probes |
+| 8 | Account preparation verified live; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; images, quotas/capacity, L4/L5 readiness, and six federation probes remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -345,6 +345,45 @@ These checks are supervised and separately authorized. They are run before a
 full Twin and stop on the first unresolved provider blocker. They do not turn
 post-deployment Small runtime observations into a prerequisite for the first
 deployment; Medium/Large capacity remains fail-closed.
+
+### Supervised checkpoint — 2026-08-29
+
+The account-level part of this phase has been executed without a Terraform
+Apply or workload-resource creation:
+
+- all three configured principals authenticate against their intended account,
+  subscription, or project scope;
+- AWS is active, its selected Region and regional STS endpoint are ready, IAM
+  Identity Center is present in the configured Region, and the credential
+  checker reports 108 of 108 required permissions;
+- Azure is enabled, all configured Regions and Microsoft Graph authority are
+  ready, all 16 required resource providers are registered, and all eight
+  permission groups validate;
+- GCP is active with billing and Region checked, all 18 Six-layer APIs are
+  enabled, and all 80 project-testable permissions validate; and
+- the credential-free Deployer regression gate passes with 2,072 tests and one
+  intentional skip.
+
+The secret-free local record is
+`.evidence/provider-bootstrap-2026-08-29/provider-free-final-readiness.json`
+with SHA-256
+`f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`.
+The `.evidence/` directory is intentionally ignored and is available only in
+the supervised local worktree. This checkpoint proves bounded account
+preparation and read-only readiness; it is not federation, runtime, L4/L5, or
+full-scenario evidence.
+
+Continue Phase 8 in this order:
+
+1. materialize the nine candidate records offline and review numerical budget
+   caps plus maximum runtimes without enabling execution;
+2. build or pull every pinned runtime image and record its immutable digest;
+3. complete read-only quota, capacity, and L4/L5 account/Region checks;
+4. execute the six minimal directed federation probes, immediately remove
+   their probe resources, and reconcile residual inventory; and
+5. only after those gates pass, set the matrix to
+   `approved_for_supervised_execution` and begin one supervised scenario at a
+   time.
 
 ### Checks
 

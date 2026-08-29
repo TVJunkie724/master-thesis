@@ -1,6 +1,7 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; no live execution is claimed.
+Status: planned and offline-validated; bounded account preparation is verified,
+but no Twin workload deployment is claimed.
 
 ## Purpose
 
@@ -18,9 +19,27 @@ transitions and raw-history query remain versioned contracts but are not
 cross-cloud deployment choices. Incidental reverse or additional cross-cloud
 edges remain part of the recorded graph but do not create extra scenarios.
 
+## Current prerequisite checkpoint
+
+On 2026-08-29, the supervised account-level gate completed without Terraform
+Apply or workload-resource creation. AWS identity, Region, regional STS, IAM
+Identity Center, and 108 required permissions are ready. Azure subscription,
+Regions, Microsoft Graph authority, all 16 required resource providers, and all
+eight permission groups are ready. The GCP project, billing check, Region, all
+18 Six-layer APIs, and all 80 project-testable permissions are ready.
+
+The secret-free local summary is
+`.evidence/provider-bootstrap-2026-08-29/provider-free-final-readiness.json`
+with SHA-256
+`f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`.
+Because `.evidence/` is intentionally ignored, a different checkout must obtain
+the supervised evidence separately and verify this digest. These results do
+not satisfy the remaining image, quota/capacity, L4/L5, directed federation,
+or scenario records.
+
 ## Execution boundary
 
-Live execution remains disabled until all of the following are present for one
+Scenario Apply remains disabled until all of the following are present for one
 scenario:
 
 1. an immutable Small workload digest;
