@@ -110,14 +110,18 @@ python scripts/review_live_evaluation_budget.py \
 
 The bounded policy is checked in as
 `small-scenario-budget-policy.json`; the proposal generated for the current
-planned matrix is `small-scenario-budget-proposal.json`. The method reserves
-the full candidate amount of billed `count`, `seats/month`, and `GiB-month`
-meters because the frozen offline model does not prove short-run proration or
-waive minimum-retention exposure. Remaining monthly amounts are scaled from
-730 hours to the 60-minute window, multiplied by three, supplemented by a
-five-dollar run buffer, and rounded upward to five-dollar increments.
+planned matrix is `small-scenario-budget-proposal.json`. The method scales the
+complete monthly candidate estimate from 730 hours to the 60-minute window,
+multiplies that result by three, adds a one-dollar uncertainty buffer, and
+rounds upward to half-dollar increments. The resulting proposals are bounded
+to USD 2–3 per scenario and USD 21 across the nine-scenario portfolio.
 
-These values are conservative operator-review proposals, not expected spend,
+Meters expressed as `count`, `seats/month`, or `GiB-month` remain mandatory
+billing-semantics review items. If the exact Terraform plan or current provider
+terms reveal a non-prorated minimum or retention charge that does not fit the
+proposal, that scenario is blocked; its cap is not raised automatically.
+
+These values are bounded operator-review proposals, not expected spend,
 provider-enforced hard stops, or approved caps. The checked matrix therefore
 retains nine `null` caps, `planned_not_executed`, and
 `execution_enabled: false`. A human must review the exact Terraform plan,

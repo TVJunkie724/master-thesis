@@ -278,10 +278,13 @@ evidence digest is
 `f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`;
 the ignored evidence file remains a supervised artifact rather than a tracked
 credential or product fixture. The nine candidates have since been
-materialized offline and a digest-bound budget proposal records conservative
-USD 35–105 review caps plus an external 45/50/60-minute warning, Destroy, and
-cleanup schedule. Those caps remain unapproved, the matrix retains
-`execution_enabled: false`, and no provider call was made by the budget review.
-Runtime-image, quota/capacity, L4/L5, and six directed federation probes remain
-open, followed by the nine supervised Small scenarios. None of those live
-results is claimed complete.
+materialized offline and a digest-bound budget proposal records bounded USD
+2–3 review caps, USD 21 in total, and an external 45/50/60-minute warning,
+Destroy, and cleanup schedule. The calculation scales the complete monthly
+estimate to one hour with threefold headroom and a fixed one-dollar uncertainty
+buffer; unverified minimum charges block execution rather than raising a cap.
+Those caps remain unapproved, the matrix retains `execution_enabled: false`,
+and no provider call was made by the budget review. Runtime-image,
+quota/capacity, L4/L5, and six directed federation probes remain open, followed
+by the nine supervised Small scenarios. None of those live results is claimed
+complete.

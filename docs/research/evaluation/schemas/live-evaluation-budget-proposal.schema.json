@@ -15,6 +15,9 @@
     "execution_enabled",
     "maximum_runtime_minutes",
     "external_timer",
+    "maximum_individual_scenario_cap_usd",
+    "maximum_scenario_cap_portfolio_usd",
+    "proposed_scenario_cap_total_usd",
     "scenario_count",
     "scenarios",
     "proposal_digest"
@@ -81,6 +84,15 @@
         }
       }
     },
+    "maximum_individual_scenario_cap_usd": {
+      "const": 3
+    },
+    "maximum_scenario_cap_portfolio_usd": {
+      "const": 25
+    },
+    "proposed_scenario_cap_total_usd": {
+      "$ref": "#/$defs/decimal"
+    },
     "scenario_count": {
       "const": 9
     },
@@ -95,15 +107,15 @@
           "scenario_id",
           "candidate_evidence_digest",
           "estimated_monthly_total_usd",
-          "full_charge_reserve_usd",
-          "variable_monthly_amount_usd",
-          "variable_60_minute_equivalent_usd",
-          "risk_adjusted_variable_amount_usd",
+          "estimated_60_minute_equivalent_usd",
+          "risk_adjusted_60_minute_amount_usd",
           "fixed_run_buffer_usd",
           "proposed_budget_cap_usd",
           "matrix_budget_cap_usd",
           "review_status",
-          "full_charge_reserve_components"
+          "billing_semantics_review_required",
+          "billing_semantics_review_components",
+          "unverified_billing_semantics_action"
         ],
         "properties": {
           "scenario_id": {
@@ -116,16 +128,10 @@
           "estimated_monthly_total_usd": {
             "$ref": "#/$defs/decimal"
           },
-          "full_charge_reserve_usd": {
+          "estimated_60_minute_equivalent_usd": {
             "$ref": "#/$defs/decimal"
           },
-          "variable_monthly_amount_usd": {
-            "$ref": "#/$defs/decimal"
-          },
-          "variable_60_minute_equivalent_usd": {
-            "$ref": "#/$defs/decimal"
-          },
-          "risk_adjusted_variable_amount_usd": {
+          "risk_adjusted_60_minute_amount_usd": {
             "$ref": "#/$defs/decimal"
           },
           "fixed_run_buffer_usd": {
@@ -133,7 +139,9 @@
           },
           "proposed_budget_cap_usd": {
             "type": "number",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 3,
+            "multipleOf": 0.5
           },
           "matrix_budget_cap_usd": {
             "type": "null"
@@ -141,13 +149,19 @@
           "review_status": {
             "const": "pending_operator_approval"
           },
-          "full_charge_reserve_components": {
+          "billing_semantics_review_required": {
+            "type": "boolean"
+          },
+          "billing_semantics_review_components": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1
             },
             "uniqueItems": true
+          },
+          "unverified_billing_semantics_action": {
+            "const": "block_scenario_not_raise_cap"
           }
         }
       }

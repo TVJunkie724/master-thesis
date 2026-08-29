@@ -24,6 +24,9 @@ def test_budget_proposal_is_digest_bound_and_keeps_execution_disabled(
     assert proposal["status"] == "offline_complete_pending_operator_approval"
     assert proposal["execution_enabled"] is False
     assert proposal["maximum_runtime_minutes"] == 60
+    assert proposal["maximum_individual_scenario_cap_usd"] == 3
+    assert proposal["maximum_scenario_cap_portfolio_usd"] == 25
+    assert proposal["proposed_scenario_cap_total_usd"] == "21.000000"
     assert proposal["scenario_count"] == 9
     assert proposal["proposal_digest"] == budget._digest(
         {key: value for key, value in proposal.items() if key != "proposal_digest"}
@@ -44,16 +47,36 @@ def test_budget_proposals_are_bounded_to_the_checked_small_matrix(
         item["scenario_id"]: item["proposed_budget_cap_usd"]
         for item in proposal["scenarios"]
     } == {
-        "small-local-aws": 50,
-        "small-local-azure": 105,
-        "small-local-gcp": 35,
-        "small-focus-aws-to-azure": 105,
-        "small-focus-azure-to-aws": 45,
-        "small-focus-aws-to-gcp": 45,
-        "small-focus-gcp-to-aws": 35,
-        "small-focus-azure-to-gcp": 35,
-        "small-focus-gcp-to-azure": 35,
+        "small-local-aws": 2,
+        "small-local-azure": 2,
+        "small-local-gcp": 2.5,
+        "small-focus-aws-to-azure": 2,
+        "small-focus-azure-to-aws": 2,
+        "small-focus-aws-to-gcp": 2.5,
+        "small-focus-gcp-to-aws": 3,
+        "small-focus-azure-to-gcp": 2.5,
+        "small-focus-gcp-to-azure": 2.5,
     }
+    assert all(
+        item["billing_semantics_review_required"] is True
+        and item["billing_semantics_review_components"]
+        and item["unverified_billing_semantics_action"]
+        == "block_scenario_not_raise_cap"
+        for item in proposal["scenarios"]
+    )
+
+
+def test_calculated_cap_cannot_raise_the_poc_scenario_maximum(
+    candidate_pack: Path,
+    tmp_path: Path,
+) -> None:
+    policy = budget._read(budget.POLICY_PATH)
+    policy["maximum_individual_scenario_cap_usd"] = 2
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+
+    with pytest.raises(budget.BudgetReviewError, match="calculated cap exceeds"):
+        budget.build_proposal(candidate_pack, policy_path=policy_path)
 
 
 def test_budget_policy_runtime_must_match_the_matrix(

@@ -6,13 +6,16 @@
   "monthly_hours": 730,
   "maximum_runtime_minutes": 60,
   "variable_cost_headroom_multiplier": 3,
-  "fixed_run_buffer_usd": 5,
-  "cap_rounding_increment_usd": 5,
-  "full_charge_reserve_meter_units": [
+  "fixed_run_buffer_usd": 1,
+  "cap_rounding_increment_usd": 0.5,
+  "maximum_individual_scenario_cap_usd": 3,
+  "maximum_scenario_cap_portfolio_usd": 25,
+  "billing_semantics_review_meter_units": [
     "GiB-month",
     "count",
     "seats/month"
   ],
+  "unverified_billing_semantics_action": "block_scenario_not_raise_cap",
   "external_timer": {
     "timer_owner": "named_supervised_operator",
     "timer_location": "outside_the_deployment",
@@ -23,9 +26,11 @@
   },
   "interpretation": [
     "The monthly Optimizer total is an RQ3 estimate and is not treated as a one-hour provider bill.",
-    "A component with a billed count, seat-month, or GiB-month meter contributes its full monthly candidate amount to the conservative short-run reserve because the offline evidence does not prove proration or waive minimum-retention exposure.",
-    "All remaining component and route amounts are scaled from 730 monthly hours to the 60-minute run window, multiplied by three, and supplemented by a fixed five-dollar uncertainty buffer.",
-    "The proposed cap is rounded upward to the next five-dollar increment and remains pending human approval until the exact Terraform plan and provider billing semantics are reviewed.",
+    "The complete monthly candidate total is scaled from 730 hours to the 60-minute run window, multiplied by three, supplemented by a one-dollar uncertainty buffer, and rounded upward to half-dollar increments.",
+    "No individual scenario proposal may exceed three dollars and the nine-scenario cap portfolio may not exceed twenty-five dollars.",
+    "A billed count, seat-month, or GiB-month meter is a mandatory billing-semantics review item; an unverified non-prorated or minimum charge blocks the scenario instead of increasing its cap.",
+    "Current exchange rates and already committed or delayed provider charges must be reconciled before every mutation.",
+    "The proposed caps remain pending human approval until the exact Terraform plan and provider billing semantics are reviewed.",
     "The timer reserves the final ten minutes for Destroy initiation and residual-inventory reconciliation; reaching the trigger stops functional work even when verification is incomplete."
   ],
   "scope": {

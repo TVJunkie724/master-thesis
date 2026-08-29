@@ -75,6 +75,13 @@ def _positive_integer(value: object, *, label: str) -> int:
     return value
 
 
+def _positive_decimal(value: object, *, label: str) -> Decimal:
+    result = _decimal(value, label=label)
+    if result <= 0:
+        raise BudgetReviewError(f"{label} must be positive")
+    return result
+
+
 def _decimal_text(value: Decimal) -> str:
     rounded = value.quantize(Decimal("0.000001"))
     return format(rounded, "f")
@@ -109,19 +116,31 @@ def _validate_policy(policy: dict[str, Any], plan: dict[str, Any]) -> None:
         policy.get("variable_cost_headroom_multiplier"),
         label="variable_cost_headroom_multiplier",
     )
-    _positive_integer(policy.get("fixed_run_buffer_usd"), label="fixed_run_buffer_usd")
-    _positive_integer(
+    _positive_decimal(policy.get("fixed_run_buffer_usd"), label="fixed_run_buffer_usd")
+    _positive_decimal(
         policy.get("cap_rounding_increment_usd"),
         label="cap_rounding_increment_usd",
     )
-    reserve_units = policy.get("full_charge_reserve_meter_units")
+    _positive_decimal(
+        policy.get("maximum_individual_scenario_cap_usd"),
+        label="maximum_individual_scenario_cap_usd",
+    )
+    _positive_decimal(
+        policy.get("maximum_scenario_cap_portfolio_usd"),
+        label="maximum_scenario_cap_portfolio_usd",
+    )
+    review_units = policy.get("billing_semantics_review_meter_units")
     if (
-        not isinstance(reserve_units, list)
-        or not reserve_units
-        or any(not isinstance(item, str) or not item for item in reserve_units)
-        or len(set(reserve_units)) != len(reserve_units)
+        not isinstance(review_units, list)
+        or not review_units
+        or any(not isinstance(item, str) or not item for item in review_units)
+        or len(set(review_units)) != len(review_units)
     ):
-        raise BudgetReviewError("Budget policy reserve meter units are invalid")
+        raise BudgetReviewError("Budget policy billing-review meter units are invalid")
+    if policy.get("unverified_billing_semantics_action") != (
+        "block_scenario_not_raise_cap"
+    ):
+        raise BudgetReviewError("Unverified billing semantics must block the scenario")
 
     timer = policy.get("external_timer")
     if not isinstance(timer, dict):
@@ -259,9 +278,8 @@ def _scenario_budget(
     if not isinstance(component_costs, list) or not isinstance(route_costs, list):
         raise BudgetReviewError(f"{scenario_id}: cost ledger is incomplete")
 
-    reserve_units = set(policy["full_charge_reserve_meter_units"])
-    reserve_amount = Decimal(0)
-    reserve_components: list[str] = []
+    review_units = set(policy["billing_semantics_review_meter_units"])
+    review_components: list[str] = []
     component_total = Decimal(0)
     for cost in component_costs:
         if not isinstance(cost, dict):
@@ -284,10 +302,8 @@ def _scenario_budget(
             label=f"{scenario_id}:{component_id}:monthly_amount",
         )
         component_total += amount
-        if _meter_units(rate, component_id=component_id) & reserve_units:
-            reserve_amount += amount
-            if amount > 0:
-                reserve_components.append(component_id)
+        if amount > 0 and _meter_units(rate, component_id=component_id) & review_units:
+            review_components.append(component_id)
 
     route_total = Decimal(0)
     for cost in route_costs:
@@ -304,36 +320,50 @@ def _scenario_budget(
     )
     if component_total + route_total != monthly_total:
         raise BudgetReviewError(f"{scenario_id}: cost ledger total drifted")
-    if reserve_amount > monthly_total:
-        raise BudgetReviewError(f"{scenario_id}: reserve exceeds monthly total")
-
-    variable_monthly = monthly_total - reserve_amount
     runtime_minutes = Decimal(policy["maximum_runtime_minutes"])
     monthly_minutes = Decimal(policy["monthly_hours"]) * Decimal(60)
-    variable_equivalent = variable_monthly * runtime_minutes / monthly_minutes
-    risk_adjusted = variable_equivalent * Decimal(
+    run_equivalent = monthly_total * runtime_minutes / monthly_minutes
+    risk_adjusted = run_equivalent * Decimal(
         policy["variable_cost_headroom_multiplier"]
     )
-    fixed_buffer = Decimal(policy["fixed_run_buffer_usd"])
-    increment = Decimal(policy["cap_rounding_increment_usd"])
-    unrounded_cap = reserve_amount + risk_adjusted + fixed_buffer
+    fixed_buffer = _decimal(
+        policy["fixed_run_buffer_usd"], label="fixed_run_buffer_usd"
+    )
+    increment = _decimal(
+        policy["cap_rounding_increment_usd"],
+        label="cap_rounding_increment_usd",
+    )
+    unrounded_cap = risk_adjusted + fixed_buffer
     proposed_cap = (unrounded_cap / increment).to_integral_value(
         rounding=ROUND_CEILING
     ) * increment
+    maximum_cap = _decimal(
+        policy["maximum_individual_scenario_cap_usd"],
+        label="maximum_individual_scenario_cap_usd",
+    )
+    if proposed_cap > maximum_cap:
+        raise BudgetReviewError(
+            f"{scenario_id}: calculated cap exceeds the PoC scenario maximum"
+        )
+    proposed_number: int | float = (
+        int(proposed_cap)
+        if proposed_cap == proposed_cap.to_integral_value()
+        else float(proposed_cap)
+    )
 
     return {
         "scenario_id": scenario_id,
         "candidate_evidence_digest": candidate["evidence_digest"],
         "estimated_monthly_total_usd": str(monthly_total),
-        "full_charge_reserve_usd": _decimal_text(reserve_amount),
-        "variable_monthly_amount_usd": _decimal_text(variable_monthly),
-        "variable_60_minute_equivalent_usd": _decimal_text(variable_equivalent),
-        "risk_adjusted_variable_amount_usd": _decimal_text(risk_adjusted),
+        "estimated_60_minute_equivalent_usd": _decimal_text(run_equivalent),
+        "risk_adjusted_60_minute_amount_usd": _decimal_text(risk_adjusted),
         "fixed_run_buffer_usd": _decimal_text(fixed_buffer),
-        "proposed_budget_cap_usd": int(proposed_cap),
+        "proposed_budget_cap_usd": proposed_number,
         "matrix_budget_cap_usd": plan_scenario.get("budget_cap_usd"),
         "review_status": "pending_operator_approval",
-        "full_charge_reserve_components": sorted(reserve_components),
+        "billing_semantics_review_required": bool(review_components),
+        "billing_semantics_review_components": sorted(review_components),
+        "unverified_billing_semantics_action": "block_scenario_not_raise_cap",
     }
 
 
@@ -375,6 +405,26 @@ def build_proposal(
     _validate_policy(policy, plan)
     rate_cards = _load_rate_cards(candidates)
     scenarios_by_id = {item["scenario_id"]: item for item in plan["scenarios"]}
+    scenario_proposals = [
+        _scenario_budget(
+            scenario_id=scenario_id,
+            candidate=candidates[scenario_id],
+            plan_scenario=scenarios_by_id[scenario_id],
+            rate_cards=rate_cards,
+            policy=policy,
+        )
+        for scenario_id in scenarios_by_id
+    ]
+    scenario_cap_total = sum(
+        (Decimal(str(item["proposed_budget_cap_usd"])) for item in scenario_proposals),
+        start=Decimal(0),
+    )
+    portfolio_maximum = _decimal(
+        policy["maximum_scenario_cap_portfolio_usd"],
+        label="maximum_scenario_cap_portfolio_usd",
+    )
+    if scenario_cap_total > portfolio_maximum:
+        raise BudgetReviewError("Scenario cap portfolio exceeds the PoC maximum")
     proposal = {
         "schema_version": "six-layer-live-budget-proposal.v1",
         "status": "offline_complete_pending_operator_approval",
@@ -386,17 +436,15 @@ def build_proposal(
         "execution_enabled": False,
         "maximum_runtime_minutes": policy["maximum_runtime_minutes"],
         "external_timer": dict(policy["external_timer"]),
-        "scenario_count": len(candidates),
-        "scenarios": [
-            _scenario_budget(
-                scenario_id=scenario_id,
-                candidate=candidates[scenario_id],
-                plan_scenario=scenarios_by_id[scenario_id],
-                rate_cards=rate_cards,
-                policy=policy,
-            )
-            for scenario_id in scenarios_by_id
+        "maximum_individual_scenario_cap_usd": policy[
+            "maximum_individual_scenario_cap_usd"
         ],
+        "maximum_scenario_cap_portfolio_usd": policy[
+            "maximum_scenario_cap_portfolio_usd"
+        ],
+        "proposed_scenario_cap_total_usd": _decimal_text(scenario_cap_total),
+        "scenario_count": len(candidates),
+        "scenarios": scenario_proposals,
     }
     proposal["proposal_digest"] = _digest(proposal)
     _validate_schema(proposal)

@@ -376,13 +376,15 @@ full-scenario evidence.
 The subsequent credential-free checkpoint materialized all nine exact Small
 candidates and produced the schema- and digest-bound
 `docs/research/evaluation/small-scenario-budget-proposal.json`. Its numerical
-proposals range from USD 35 to USD 105 and include conservative full-charge
-reserves, threefold headroom for the 60-minute variable-cost equivalent, and a
-fixed uncertainty buffer. They remain pending operator approval: the tracked
-matrix still has nine `null` caps and execution remains disabled. The paired
-external timer warns at minute 45, triggers Destroy at minute 50, and keeps the
-60-minute cleanup deadline. No provider or Deployer call was made for this
-checkpoint.
+proposals range from USD 2 to USD 3 and total USD 21 across all nine scenarios.
+They scale the complete monthly candidate estimate to the 60-minute window,
+apply threefold headroom, add a one-dollar uncertainty buffer, and round upward
+to half-dollar increments. Unverified non-prorated or minimum charges block the
+affected scenario instead of increasing its cap. The proposals remain pending
+operator approval: the tracked matrix still has nine `null` caps and execution
+remains disabled. The paired external timer warns at minute 45, triggers
+Destroy at minute 50, and keeps the 60-minute cleanup deadline. No provider or
+Deployer call was made for this checkpoint.
 
 Continue Phase 8 in this order:
 
