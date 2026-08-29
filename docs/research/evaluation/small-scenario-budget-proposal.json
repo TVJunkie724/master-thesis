@@ -1,7 +1,7 @@
 {
   "architecture_profile": "six-layer-eventing@1",
   "budget_policy_digest": "sha256:4b9e15145cadc0e17fb07577a124051aecc09b6079393e5752c9e4012d0ae0ae",
-  "candidate_pack_manifest_digest": "sha256:d91322b3b1248f2652088028dc304c220622262fc4831336e3ab7e4875b85d9b",
+  "candidate_pack_manifest_digest": "sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346",
   "currency": "USD",
   "execution_enabled": false,
   "external_timer": {
@@ -16,7 +16,7 @@
   "maximum_runtime_minutes": 60,
   "maximum_scenario_cap_portfolio_usd": 25,
   "plan_digest": "sha256:5d69a5202298cfd9c1dacc3d7dfafc47393fe43ffbe10e063b1e3bb9c347a0f0",
-  "proposal_digest": "sha256:3d2f85d0266ca5341493449a0bdcbaf71855d88221b6f9a883ba375f0feffa18",
+  "proposal_digest": "sha256:ccca57b86106918b12ff293db5878dd8264b19cb88ec1a622e23976ba3328471",
   "proposed_scenario_cap_total_usd": "21.000000",
   "scenario_count": 9,
   "scenarios": [
@@ -34,7 +34,7 @@
         "aws.s3-standard-ia"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:3f7e853ca06a5117f50803b030f610e86c6cf639fbe62da8960c389a9ef8928d",
+      "candidate_evidence_digest": "sha256:793c4960d836caf33506f80d6472be163c03eeb972b4ab5e419db75d82e1e705",
       "estimated_60_minute_equivalent_usd": "0.205201",
       "estimated_monthly_total_usd": "149.7969850285",
       "fixed_run_buffer_usd": "1.000000",
@@ -55,7 +55,7 @@
         "azure.managed-grafana-12-standard"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:23030276eea3470361505a8c246cc4f8792fb2de92457342a6d63d0bc95ea10a",
+      "candidate_evidence_digest": "sha256:40e1e6f9b057972f4b74b26e1727c602a822ae48b1feb5de53cac6cee04f7415",
       "estimated_60_minute_equivalent_usd": "0.263881",
       "estimated_monthly_total_usd": "192.63302408",
       "fixed_run_buffer_usd": "1.000000",
@@ -76,7 +76,7 @@
         "gcp.persistent-disk-rwo"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:ce6df09c144b952f20319f145ace9428827ac627fb13450d7df8d007049b6e44",
+      "candidate_evidence_digest": "sha256:e17bc89abf21dca9a190eb4fb82ebe1837feb50bedcd10b501df1613622eda93",
       "estimated_60_minute_equivalent_usd": "0.494379",
       "estimated_monthly_total_usd": "360.8968352835546875",
       "fixed_run_buffer_usd": "1.000000",
@@ -98,7 +98,7 @@
         "azure.managed-grafana-12-standard"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:710b09d7db729e1c70c3a9d718d7ba4d02485522f45531f67fa7cf34760309ee",
+      "candidate_evidence_digest": "sha256:f5579b6730daa1aa0b421169ff928cae15a72def89101e6a07b5847aae5e02c2",
       "estimated_60_minute_equivalent_usd": "0.268591",
       "estimated_monthly_total_usd": "196.071701860",
       "fixed_run_buffer_usd": "1.000000",
@@ -121,7 +121,7 @@
         "aws.s3-standard-ia"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:750f332bb0dd2887ddb6844d0321cc6b04ca9b709b0369e26019684c2c26e373",
+      "candidate_evidence_digest": "sha256:515416c3d2712728860efd2c54b2d4e5aadda0886cf8f4babb94548ab212152b",
       "estimated_60_minute_equivalent_usd": "0.229497",
       "estimated_monthly_total_usd": "167.5328320795",
       "fixed_run_buffer_usd": "1.000000",
@@ -146,7 +146,7 @@
         "gcp.firestore-native-standard-bounded-twin"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:04c1b4a75e93a6cf54ffd45442161ac92d2b7e90256df110b56e04a39e77ae0e",
+      "candidate_evidence_digest": "sha256:4aebc7ea7399a2f77c51e3c58efb3a28c28e580c48cd8d8eea4f8889f4cabc65",
       "estimated_60_minute_equivalent_usd": "0.350045",
       "estimated_monthly_total_usd": "255.5328682285",
       "fixed_run_buffer_usd": "1.000000",
@@ -168,7 +168,7 @@
         "gcp.persistent-disk-rwo"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:52d02139da13780e263b46e5d2e48f4f702f26e74b80a476c68c25f6061971ab",
+      "candidate_evidence_digest": "sha256:1d58a6ff4ab2f7acc820dcf6371f31a8cb5b2def5e18a1d643f401e6bf36ef6b",
       "estimated_60_minute_equivalent_usd": "0.602442",
       "estimated_monthly_total_usd": "439.7829211625546875",
       "fixed_run_buffer_usd": "1.000000",
@@ -189,7 +189,7 @@
         "gcp.persistent-disk-rwo"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:6a2f6b50f139870b63b372137d50058369c25090cb5d47429ea809ad03b78cd7",
+      "candidate_evidence_digest": "sha256:b33f3df2522e24fc8cca551938ed4ef3ca125924ad18187124d50f359c82488c",
       "estimated_60_minute_equivalent_usd": "0.442390",
       "estimated_monthly_total_usd": "322.9450214105078125",
       "fixed_run_buffer_usd": "1.000000",
@@ -209,7 +209,7 @@
         "gcp.persistent-disk-rwo"
       ],
       "billing_semantics_review_required": true,
-      "candidate_evidence_digest": "sha256:de8490609e64dfdff12714f5853820ea2ee7499d5e7c4f466aaaab0ab3019a2e",
+      "candidate_evidence_digest": "sha256:d7b8ea46b66b21e0522bcfa2d6bde18ac01bd222d9c604a22208b9d642bd887f",
       "estimated_60_minute_equivalent_usd": "0.342969",
       "estimated_monthly_total_usd": "250.3675280835546875",
       "fixed_run_buffer_usd": "1.000000",

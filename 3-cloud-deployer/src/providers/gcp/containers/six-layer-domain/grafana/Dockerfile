@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
 FROM docker.io/grafana/grafana:12.4.2@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505
 
@@ -17,9 +17,9 @@ RUN test "${TARGETARCH}" = "amd64" \
  && chmod -R g=u /var/lib/grafana/plugins/yesoreyeram-infinity-datasource \
  && rm /tmp/infinity.zip
 
-COPY --chown=472:0 provisioning /etc/grafana/provisioning
-COPY --chown=472:0 dashboard.json.template /opt/twin2multicloud/dashboard.json.template
-COPY --chown=472:0 --chmod=0555 entrypoint.sh /usr/local/bin/twin2multicloud-grafana
+COPY --chown=472:0 grafana/provisioning /etc/grafana/provisioning
+COPY --chown=472:0 grafana/dashboard.json.template /opt/twin2multicloud/dashboard.json.template
+COPY --chown=472:0 --chmod=0555 grafana/entrypoint.sh /usr/local/bin/twin2multicloud-grafana
 
 RUN mkdir -p /etc/grafana/provisioning/dashboards/content \
  && chown -R 472:0 /etc/grafana/provisioning /opt/twin2multicloud \
@@ -27,4 +27,3 @@ RUN mkdir -p /etc/grafana/provisioning/dashboards/content \
 
 USER 472
 ENTRYPOINT ["/usr/local/bin/twin2multicloud-grafana"]
-

@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin2multicloud.local/research/live-evaluation-image-readiness.v1.schema.json",
+  "title": "Twin2MultiCloud offline runtime-image readiness record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "architecture_profile",
+    "candidate_pack_manifest_digest",
+    "target_platform",
+    "verification_mode",
+    "cloud_mutation_performed",
+    "execution_enabled",
+    "public_runtime_images",
+    "pinned_build_inputs",
+    "custom_runtime_images",
+    "dynamic_runtime_images",
+    "summary",
+    "record_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "six-layer-live-image-readiness.v1"
+    },
+    "status": {
+      "const": "static_images_local_build_complete_registry_publication_pending"
+    },
+    "architecture_profile": {
+      "const": "six-layer-eventing@1"
+    },
+    "candidate_pack_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "target_platform": {
+      "const": "linux/amd64"
+    },
+    "verification_mode": {
+      "const": "offline_build_and_public_registry_read_only"
+    },
+    "cloud_mutation_performed": {
+      "const": false
+    },
+    "execution_enabled": {
+      "const": false
+    },
+    "public_runtime_images": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/publicImage"
+      }
+    },
+    "pinned_build_inputs": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "$ref": "#/$defs/publicImage"
+      }
+    },
+    "custom_runtime_images": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "image_id",
+          "provider",
+          "source",
+          "build_context_digest",
+          "local_image_id",
+          "platform",
+          "registry_digest",
+          "status"
+        ],
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "provider": {
+            "enum": ["aws", "azure", "gcp"]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "build_context_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "local_image_id": {
+            "$ref": "#/$defs/digest"
+          },
+          "platform": {
+            "const": "linux/amd64"
+          },
+          "registry_digest": {
+            "type": "null"
+          },
+          "status": {
+            "const": "local_build_complete_registry_publication_pending"
+          }
+        }
+      }
+    },
+    "dynamic_runtime_images": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "image_id",
+          "provider",
+          "source",
+          "registry_digest",
+          "status",
+          "blocking_condition"
+        ],
+        "properties": {
+          "image_id": {
+            "const": "gcp-processor-extension"
+          },
+          "provider": {
+            "const": "gcp"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "registry_digest": {
+            "type": "null"
+          },
+          "status": {
+            "const": "pending_scenario_bound_source_freeze"
+          },
+          "blocking_condition": {
+            "const": "canonical_bound_user_function_artifact_required"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "public_runtime_images_resolved",
+        "pinned_build_inputs_resolved",
+        "static_custom_images_built",
+        "static_custom_images_expected",
+        "dynamic_images_deferred",
+        "registry_publications_performed"
+      ],
+      "properties": {
+        "public_runtime_images_resolved": {
+          "const": 2
+        },
+        "pinned_build_inputs_resolved": {
+          "const": 4
+        },
+        "static_custom_images_built": {
+          "const": 7
+        },
+        "static_custom_images_expected": {
+          "const": 7
+        },
+        "dynamic_images_deferred": {
+          "const": 1
+        },
+        "registry_publications_performed": {
+          "const": 0
+        }
+      }
+    },
+    "record_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "publicImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "reference", "resolved_digest", "status"],
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference": {
+          "type": "string",
+          "pattern": "^[^@]+@sha256:[0-9a-f]{64}$"
+        },
+        "resolved_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "status": {
+          "const": "remote_manifest_resolved"
+        }
+      }
+    }
+  }
+}

@@ -284,7 +284,17 @@ Destroy, and cleanup schedule. The calculation scales the complete monthly
 estimate to one hour with threefold headroom and a fixed one-dollar uncertainty
 buffer; unverified minimum charges block execution rather than raising a cap.
 Those caps remain unapproved, the matrix retains `execution_enabled: false`,
-and no provider call was made by the budget review. Runtime-image,
-quota/capacity, L4/L5, and six directed federation probes remain open, followed
-by the nine supervised Small scenarios. None of those live results is claimed
-complete.
+and no provider call was made by the budget review.
+
+The static runtime-image checkpoint is also complete without cloud mutation.
+Both public runtime images and four pinned build inputs resolve at their
+declared immutable digests; seven custom images build locally for
+`linux/amd64`. The build exposed and regression-covered a GCP Grafana context
+path defect. The checked record is
+`docs/research/evaluation/small-runtime-image-readiness.json` with digest
+`sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9`.
+No registry image was published, and the per-Twin GCP processor extension
+remains blocked until the exact canonical user-function artifact is frozen.
+Quota/capacity, L4/L5, and six directed federation probes remain open,
+followed by the nine supervised Small scenarios. None of those live results is
+claimed complete.

@@ -22,6 +22,11 @@ def test_image_uses_only_the_frozen_signed_artifacts():
     dockerfile = (ROOT / "Dockerfile").read_text("utf-8")
 
     assert (
+        dockerfile.splitlines()[0]
+        == "# syntax=docker/dockerfile:1.7@sha256:"
+        "a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e"
+    )
+    assert (
         "grafana/grafana:12.4.2@sha256:"
         "83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505"
     ) in dockerfile
@@ -34,6 +39,9 @@ def test_image_uses_only_the_frozen_signed_artifacts():
     assert "MANIFEST.txt" in dockerfile
     assert "GF_INSTALL_PLUGINS" not in dockerfile
     assert "allow_loading_unsigned_plugins" not in dockerfile
+    assert "COPY --chown=472:0 grafana/provisioning " in dockerfile
+    assert "COPY --chown=472:0 grafana/dashboard.json.template " in dockerfile
+    assert "COPY --chown=472:0 --chmod=0555 grafana/entrypoint.sh " in dockerfile
 
 
 def test_datasource_is_read_only_bounded_and_secret_backed():

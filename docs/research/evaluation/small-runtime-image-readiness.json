@@ -1,0 +1,141 @@
+{
+  "architecture_profile": "six-layer-eventing@1",
+  "candidate_pack_manifest_digest": "sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346",
+  "cloud_mutation_performed": false,
+  "custom_runtime_images": [
+    {
+      "build_context_digest": "sha256:2011e04d294a7f7357f4f710c89c98b2eacac5bd7f08688654900a3273bfaf38",
+      "image_id": "aws-platform-bridge",
+      "local_image_id": "sha256:982c956527f3a8e4db370570c3f123ecd4f33e81b2c2aed990f7e6924b43f12f",
+      "platform": "linux/amd64",
+      "provider": "aws",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:74cfc136b1fa07276c7223feed6fcdf468d58fcbecba591f2a5fdd0997526d3e",
+      "image_id": "aws-storage-mover",
+      "local_image_id": "sha256:bad9dc061648d686037e02ce991ecf31757e8102dd173bdf62e436d4141ffde2",
+      "platform": "linux/amd64",
+      "provider": "aws",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/storage-mover",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:885c684e62910645ec52285550f1286ec52f62d103d1a191693fb8c3594c404d",
+      "image_id": "azure-storage-mover",
+      "local_image_id": "sha256:ccc26ad3125adf3395d2db59e5869a72076b030b10fd96bef31833d4b3e7ab49",
+      "platform": "linux/amd64",
+      "provider": "azure",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain/storage-mover",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
+      "image_id": "gcp-platform-bridge",
+      "local_image_id": "sha256:c9e3628351da7e3497796a878b7d2f12cf3e731ff572736c5baf20f4e51ac60c",
+      "platform": "linux/amd64",
+      "provider": "gcp",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
+      "image_id": "gcp-grafana",
+      "local_image_id": "sha256:5df2aafa172dfc612b7bf176169e1fc6f1a7a6ab8a8678717ee65d04e301ac45",
+      "platform": "linux/amd64",
+      "provider": "gcp",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain/grafana",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
+      "image_id": "gcp-storage-mover",
+      "local_image_id": "sha256:5f5824c906105d0dbd60fe206edc7b8694bae1ad59c04cb24d43ad2ff6282e6c",
+      "platform": "linux/amd64",
+      "provider": "gcp",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain/storage-mover",
+      "status": "local_build_complete_registry_publication_pending"
+    },
+    {
+      "build_context_digest": "sha256:2588c64ee9b807c2cd17331f83026f3d8b8ae65b29eb9924af0ef3c4b6d744e2",
+      "image_id": "gcp-event-runtime",
+      "local_image_id": "sha256:4daaae8260bec83e0350f5a1a35bc942bb540740e14247ab943e30e551427471",
+      "platform": "linux/amd64",
+      "provider": "gcp",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
+      "status": "local_build_complete_registry_publication_pending"
+    }
+  ],
+  "dynamic_runtime_images": [
+    {
+      "blocking_condition": "canonical_bound_user_function_artifact_required",
+      "image_id": "gcp-processor-extension",
+      "provider": "gcp",
+      "registry_digest": null,
+      "source": "3-cloud-deployer/src/providers/terraform/package_builders/gcp_six_layer.py",
+      "status": "pending_scenario_bound_source_freeze"
+    }
+  ],
+  "execution_enabled": false,
+  "pinned_build_inputs": [
+    {
+      "purpose": "python-runtime-base",
+      "reference": "docker.io/library/python:3.11-slim@sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6",
+      "resolved_digest": "sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6",
+      "status": "remote_manifest_resolved"
+    },
+    {
+      "purpose": "aws-lambda-python-runtime-base",
+      "reference": "public.ecr.aws/lambda/python:3.11@sha256:224c112c0a36afa89f44e575d4f7bbd263cf312055672a46461271dee3c822e1",
+      "resolved_digest": "sha256:224c112c0a36afa89f44e575d4f7bbd263cf312055672a46461271dee3c822e1",
+      "status": "remote_manifest_resolved"
+    },
+    {
+      "purpose": "dockerfile-syntax-frontend",
+      "reference": "docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e",
+      "resolved_digest": "sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e",
+      "status": "remote_manifest_resolved"
+    },
+    {
+      "purpose": "gcp-cloud-build-docker-builder",
+      "reference": "gcr.io/cloud-builders/docker@sha256:f8b08c609fdc392ee6827ff3e1725e4980f7d96bde9f76f4695086405c96c147",
+      "resolved_digest": "sha256:f8b08c609fdc392ee6827ff3e1725e4980f7d96bde9f76f4695086405c96c147",
+      "status": "remote_manifest_resolved"
+    }
+  ],
+  "public_runtime_images": [
+    {
+      "purpose": "l1-broker",
+      "reference": "docker.io/apache/bifromq@sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
+      "resolved_digest": "sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
+      "status": "remote_manifest_resolved"
+    },
+    {
+      "purpose": "gcp-l4-grafana-base",
+      "reference": "docker.io/grafana/grafana:12.4.2@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
+      "resolved_digest": "sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
+      "status": "remote_manifest_resolved"
+    }
+  ],
+  "record_digest": "sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9",
+  "schema_version": "six-layer-live-image-readiness.v1",
+  "status": "static_images_local_build_complete_registry_publication_pending",
+  "summary": {
+    "dynamic_images_deferred": 1,
+    "pinned_build_inputs_resolved": 4,
+    "public_runtime_images_resolved": 2,
+    "registry_publications_performed": 0,
+    "static_custom_images_built": 7,
+    "static_custom_images_expected": 7
+  },
+  "target_platform": "linux/amd64",
+  "verification_mode": "offline_build_and_public_registry_read_only"
+}

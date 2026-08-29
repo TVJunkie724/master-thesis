@@ -10871,7 +10871,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:5284d3993f84846a8fca7152e23021d39877b25546e8570155e16b7cc19c9795",
+      "source_digest": "sha256:78ef219eec5c6276d444566716cd65f20c19732275fc76daa39eee5fdd26ea0a",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -10929,7 +10929,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:1714d20c2600153e011d65406e06e827de449b71c98d89f34154893bee8d2a8e",
+      "source_digest": "sha256:8864731b36bfd5cd63ddc0a25aff704e413cf30c8ccd5804e1ca6fc3c2f087c7",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10993,7 +10993,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:4bb010fb7d32a3fcec9c96c66843e8296c49b0688f908a467efae80cd1129200",
+      "source_digest": "sha256:a2a5fb3433fb535cd1476730253a23b7df9494dc602e836b4281371849ae2469",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
@@ -11166,7 +11166,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-eventing",
       "platform_handler": "app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:d6d0de19af13466f94b22ad3b8afb6bb88f9a4d3135dd0515dee33409e0f29b2",
+      "source_digest": "sha256:67dc3d61f3261296f2515860e7a9eeb24bc1a0bfe19e4bce95eef582122e0a82",
       "included_paths": [
         "Dockerfile",
         "app.py",
@@ -11212,5 +11212,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:0cb4ce88ffedf6148d5272c0c025ace57ad86a9f712275b3e2013411c3106e19"
+  "content_digest": "sha256:93ebae354a46d7d0600fff93add13b52651272d8b4d23ff98fe6b94995134e1e"
 }

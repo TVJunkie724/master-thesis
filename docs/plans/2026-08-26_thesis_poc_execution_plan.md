@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account preparation verified live; offline candidate and budget proposal complete; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; nine candidates and conservative caps are materialized offline but remain unapproved; images, quotas/capacity, L4/L5 readiness, and six federation probes remain open |
+| 8 | Account preparation verified live; offline candidate, budget, and static-image checkpoints complete; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; nine candidates and conservative caps are materialized offline but remain unapproved; seven static custom images build locally and public pins resolve; quotas/capacity, L4/L5 readiness, the scenario-bound processor extension, and six federation probes remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -386,12 +386,23 @@ remains disabled. The paired external timer warns at minute 45, triggers
 Destroy at minute 50, and keeps the 60-minute cleanup deadline. No provider or
 Deployer call was made for this checkpoint.
 
+The next credential-free checkpoint resolves the two public runtime images and
+four build inputs at their immutable registry digests and builds all seven
+static custom runtime images locally for `linux/amd64`. Its schema- and
+digest-bound record is
+`docs/research/evaluation/small-runtime-image-readiness.json`. A GCP Grafana
+context-path defect found by the build is corrected and regression-covered.
+No image was pushed and no provider registry was changed. The per-Twin GCP
+processor extension remains intentionally pending until its canonical bound
+user-function artifact is frozen for a reviewed scenario.
+
 Continue Phase 8 in this order:
 
 1. materialize the nine candidate records offline and review numerical budget
    caps plus maximum runtimes without enabling execution;
-2. build or pull every pinned runtime image and record its immutable digest;
-3. complete read-only quota, capacity, and L4/L5 account/Region checks;
+2. complete read-only quota, capacity, and L4/L5 account/Region checks;
+3. freeze and locally build the scenario-bound processor extension during the
+   reviewed preparation of the first affected GCP candidate;
 4. execute the six minimal directed federation probes, immediately remove
    their probe resources, and reconcile residual inventory; and
 5. only after those gates pass, set the matrix to

@@ -1790,7 +1790,7 @@
     }
   ],
   "currency": "USD",
-  "digest": "sha256:8d85b139def86f99127eef16ac5cff0320975b0e9dee7f85be0bf8fe0b2a2457",
+  "digest": "sha256:5dba5d0a6ae67f39f7049d8d464e89eec71f869224bee689b9ca385ca4f5fe37",
   "fixed_dimensions": {
     "azure_mover_max_device_partitions_per_task": 1000,
     "gcp_grafana_persistent_disk_gib": 10,
@@ -1808,7 +1808,7 @@
   },
   "optimization_context": {
     "component_catalog_ref": {
-      "digest": "sha256:0cb4ce88ffedf6148d5272c0c025ace57ad86a9f712275b3e2013411c3106e19",
+      "digest": "sha256:93ebae354a46d7d0600fff93add13b52651272d8b4d23ff98fe6b94995134e1e",
       "id": "six-layer-eventing-component-catalog",
       "version": "1"
     },

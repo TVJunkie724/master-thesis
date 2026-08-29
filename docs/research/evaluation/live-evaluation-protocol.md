@@ -34,8 +34,8 @@ with SHA-256
 `f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`.
 Because `.evidence/` is intentionally ignored, a different checkout must obtain
 the supervised evidence separately and verify this digest. These results do
-not satisfy the remaining image, quota/capacity, L4/L5, directed federation,
-or scenario records.
+not satisfy the remaining quota/capacity, L4/L5, directed federation, or
+scenario records.
 
 ## Execution boundary
 
@@ -188,6 +188,31 @@ completed scenario has exactly one artifact of every required kind. Its cleanup
 artifact must be a clean `cleanup-evidence.v1` record covering the exact
 candidate providers, and its observed-cost value must name the one indexed
 provider-cost export.
+
+### Runtime-image readiness
+
+The credential-free image checkpoint is recorded in
+`small-runtime-image-readiness.json` and verified with:
+
+```bash
+python scripts/verify_live_evaluation_image_readiness.py
+```
+
+The record is bound to candidate-pack manifest
+`sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346`
+and has record digest
+`sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9`.
+Both public runtime images and all four pinned build inputs resolve at their
+declared registry digests. All seven static custom runtime images build locally
+for `linux/amd64`. No image was pushed and no provider registry was mutated, so
+local image IDs are deliberately not represented as deployable registry
+digests.
+
+The GCP processor extension is not a static profile image. Its context is
+content-bound to the canonical user-function artifact selected for one Twin.
+It remains fail-closed until that exact artifact is frozen; its local build and
+registry publication then belong to the reviewed scenario preparation. This
+deferment does not broaden the PoC into a generic image publication system.
 
 ## Cost-efficient order
 

@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 
 FROM python:3.11-slim@sha256:baf89808ec37adeaab83cec287adb4a2afa4a11c1d51e961c7ec737877e61af6
 
@@ -16,4 +16,3 @@ COPY --chown=runtime:runtime storage-mover/storage_mover.py /app/storage_mover.p
 
 USER runtime
 CMD ["python", "/app/storage_mover.py"]
-
