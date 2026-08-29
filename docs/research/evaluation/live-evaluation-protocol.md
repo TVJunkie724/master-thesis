@@ -99,6 +99,37 @@ and `candidate-pack-manifest.json`, including the calculated monthly totals
 used for the separate budget review. The totals are estimates, not approved
 Apply caps, and materialization still performs no provider or Deployer call.
 
+Build the schema- and digest-bound offline budget proposal from that exact
+candidate pack with:
+
+```bash
+python scripts/review_live_evaluation_budget.py \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --output /tmp/six-layer-live-budget-proposal.json
+```
+
+The bounded policy is checked in as
+`small-scenario-budget-policy.json`; the proposal generated for the current
+planned matrix is `small-scenario-budget-proposal.json`. The method reserves
+the full candidate amount of billed `count`, `seats/month`, and `GiB-month`
+meters because the frozen offline model does not prove short-run proration or
+waive minimum-retention exposure. Remaining monthly amounts are scaled from
+730 hours to the 60-minute window, multiplied by three, supplemented by a
+five-dollar run buffer, and rounded upward to five-dollar increments.
+
+These values are conservative operator-review proposals, not expected spend,
+provider-enforced hard stops, or approved caps. The checked matrix therefore
+retains nine `null` caps, `planned_not_executed`, and
+`execution_enabled: false`. A human must review the exact Terraform plan,
+provider proration/minimum-charge semantics, named operator, and cleanup
+responsibility before copying any cap into the matrix.
+
+The same policy fixes one external timer that starts before Terraform Plan,
+warns at 45 minutes, triggers Destroy at 50 minutes, and reserves the remaining
+ten minutes for Destroy progress and residual-inventory reconciliation. The
+60-minute metrics gate remains the terminal after-the-fact validation; it does
+not replace that external timer.
+
 After the tracked matrix is approved, all nine budget caps are set, and the
 candidate pack has been regenerated against that exact plan digest, build one
 non-overwriting Management request offline:

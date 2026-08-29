@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account preparation verified live; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; images, quotas/capacity, L4/L5 readiness, and six federation probes remain open |
+| 8 | Account preparation verified live; offline candidate and budget proposal complete; remaining probes pending supervision | real principals, account scopes, permissions, regions, Azure providers, GCP APIs, and the AWS managed-access prerequisite are ready; nine candidates and conservative caps are materialized offline but remain unapproved; images, quotas/capacity, L4/L5 readiness, and six federation probes remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -372,6 +372,17 @@ The `.evidence/` directory is intentionally ignored and is available only in
 the supervised local worktree. This checkpoint proves bounded account
 preparation and read-only readiness; it is not federation, runtime, L4/L5, or
 full-scenario evidence.
+
+The subsequent credential-free checkpoint materialized all nine exact Small
+candidates and produced the schema- and digest-bound
+`docs/research/evaluation/small-scenario-budget-proposal.json`. Its numerical
+proposals range from USD 35 to USD 105 and include conservative full-charge
+reserves, threefold headroom for the 60-minute variable-cost equivalent, and a
+fixed uncertainty buffer. They remain pending operator approval: the tracked
+matrix still has nine `null` caps and execution remains disabled. The paired
+external timer warns at minute 45, triggers Destroy at minute 50, and keeps the
+60-minute cleanup deadline. No provider or Deployer call was made for this
+checkpoint.
 
 Continue Phase 8 in this order:
 
