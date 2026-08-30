@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-08-27"
-version: "2.1"
+lastUpdated: "2026-08-30"
+version: "2.2"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -256,8 +256,12 @@ The remaining boundary is deliberately visible:
 
 - AWS outbound-identity account enablement remains `manual_action`; the PoC has
   no reviewed automatic executor for it;
-- external billing, quota, organization-policy, tenant-consent, Marketplace,
-  and IAP OAuth steps remain manual or unsupported;
+- external billing, quota, organization-policy, tenant-consent, and Marketplace
+  steps remain manual or unsupported;
+- GCP L4 uses the approved supervised console bootstrap in
+  `docs/research/evaluation/gcp-l4-iap-bootstrap-runbook.md`; it is deliberately
+  not an automatic credential executor and no OAuth client credential enters
+  the repository or application;
 - a manual acknowledgement records the supervised operator decision but is not
   substituted for a provider probe where a non-mutating probe exists;
 - provider-console links are not yet a structured cross-provider contract; and

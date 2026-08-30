@@ -49,10 +49,15 @@ required machine types and sufficient Small compute, disk, address, zonal GKE,
 Firestore, and Cloud Run quota.
 
 AWS and Azure L4/L5 account/Region prerequisites pass. GCP L5 remains an
-Apply-time access check. GCP L4 is a pre-Apply blocker: the project has no
-organization ancestor, so Google-managed IAP OAuth cannot serve this path and
-a custom OAuth client would require a deliberate manual cloud configuration.
-No such mutation has been made.
+Apply-time access check. The GCP project has no organization ancestor, so the
+approved L4 PoC path uses one supervised console-generated custom OAuth
+configuration for direct Cloud Run IAP. It is performed only after the first
+approved GCP scenario has passed L1--L3 and Event Layer verification and before
+its L4 check. The exact time, cost, evidence, abort, and rollback boundaries are
+frozen in
+[`gcp-l4-iap-bootstrap-runbook.md`](gcp-l4-iap-bootstrap-runbook.md). This
+decision does not claim that the prerequisite has passed; no such mutation has
+been made.
 
 The exact six standalone identity checks, resources, time limits, direct cost
 caps, cleanup order, and residual-inventory rules are frozen in
@@ -281,6 +286,12 @@ it does not create the infrastructure twice. The supervised order is:
 6. only then run the complete simulator protocol and record the final dataset;
 7. Destroy, reconcile inventory, and proceed to the next provider-local or
    directed scenario only when cleanup is clean.
+
+For the first approved GCP scenario only, the separately approved manual step
+in
+[`gcp-l4-iap-bootstrap-runbook.md`](gcp-l4-iap-bootstrap-runbook.md) is inserted
+between steps 4 and 5. It configures IAP on the already-created Twin Explorer;
+it is not another deployment or a reusable product workflow.
 
 This ordering cannot avoid creating L4/L5 during the atomic Apply, but it
 minimizes their billable lifetime when a cheaper upstream gate fails and avoids

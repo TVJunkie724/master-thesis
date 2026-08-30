@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-08-29"
-version: "1.5"
+lastUpdated: "2026-08-30"
+version: "1.6"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -282,6 +282,35 @@ only when inactive, non-usable, and recorded with their purge time; any active
 residual blocks the next direction. This is an evaluation harness, not a new
 deployment mode or generic federation product.
 
+## D-17 — Console-assisted GCP L4 IAP bootstrap
+
+**Decision:** Protect the existing GCP Cloud Run Twin Explorer with its direct
+IAP integration and perform one supervised, console-generated custom OAuth
+bootstrap for the evaluation project, which has no organization ancestor. Run
+the bootstrap only in the first explicitly approved GCP scenario, after
+L1--L3/Event Layer verification and before L4 verification. Do not implement
+OAuth in the application, create a load balancer or placeholder service, or
+automate credential creation.
+
+**Rationale:** Google-managed IAP OAuth is not available for this
+no-organization project, while the console can create the minimal project-level
+client and redirect configuration for direct Cloud Run IAP. Reusing the
+already-modeled read-only service and Terraform-managed IAM bindings is the
+smallest path that preserves authenticated L4 evidence. A separate five-minute
+manual-step measurement makes the operational difference visible to RQ1;
+bounded authenticated reads support RQ2; and a USD 0.00 direct incremental cap
+keeps the setup cost distinct for RQ3.
+
+**Consequence:**
+`docs/research/evaluation/gcp-l4-iap-bootstrap-runbook.md` is the authoritative
+procedure. It forbids exposing or persisting client values, adding roles or
+resources, and continuing if the console surfaces a paid feature. The
+project-level OAuth configuration may persist only across the required GCP L4
+runs as an inventoried evaluation prerequisite and is removed after the final
+one. Normal Terraform Destroy and residual inventory still run after every
+scenario. The decision is approved; execution remains a separately approved
+cloud mutation and no live success is claimed.
+
 ## Current implementation checkpoint
 
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
@@ -326,12 +355,14 @@ AWS has sufficient checked Grafana, TwinMaker, and Kinesis headroom; Azure
 resource types are regionally available, with four quota surfaces honestly
 deferred until a resource exists; and GCP exposes sufficient Small compute,
 disk, address, GKE, Firestore, and Cloud Run capacity. AWS and Azure L4/L5
-prerequisites pass. GCP L5 remains an Apply-time check, while GCP L4 is blocked
-because the project has no organization ancestor and therefore needs a
-deliberately configured custom IAP OAuth client. No such change was made.
+prerequisites pass. GCP L5 remains an Apply-time check. The no-organization GCP
+L4 path now has an approved console-assisted custom OAuth bootstrap with a
+five-minute limit and USD 0.00 direct incremental cap, but it remains
+unexecuted and therefore is not live readiness evidence.
 
 All six federation probes are now planned, schema-checked, digest-bound, and
-disabled. No federation resource has been created. The open work is the GCP L4
-decision, one-by-one approved federation execution and cleanup, the
-scenario-bound GCP processor image, and finally the nine supervised Small
-scenarios. None of those live results is claimed complete.
+disabled. No federation resource has been created. The open work is one-by-one
+approved federation execution and cleanup, the scenario-bound GCP processor
+image, the approved-but-unexecuted GCP L4 bootstrap during the first applicable
+run, and finally the nine supervised Small scenarios. None of those live
+results is claimed complete.
