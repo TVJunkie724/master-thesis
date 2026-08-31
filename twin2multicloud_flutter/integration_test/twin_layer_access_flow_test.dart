@@ -138,19 +138,29 @@ void main() {
     }
   });
 
-  testWidgets('historical v1 is unsupported and fabricates zero links', (
+  testWidgets('removed profile returns 409 and fabricates zero links', (
     tester,
   ) async {
-    final snapshot = await _api.getDeploymentAccess(
-      _fixtures['historical_twin_id'] as String,
+    final response = await _captureResponse(
+      () => _raw.get(
+        '/twins/${_fixtures['unsupported_twin_id']}/deployment-access',
+      ),
     );
 
-    await _pumpOverview(tester, snapshot: snapshot);
-
-    expect(snapshot.availability, DeploymentAccessAvailability.unsupported);
-    expect(snapshot.surfaces, isEmpty);
-    expect(find.textContaining('historical six-layer profile'), findsOneWidget);
+    expect(response.statusCode, 409);
+    expect(
+      _map(response.data, 'unsupported profile error')['detail'],
+      'DEPLOYMENT_ACCESS_PROFILE_NOT_SUPPORTED',
+    );
+    await _pumpOverview(
+      tester,
+      layerAccess: const LayerAccessViewState(
+        phase: LayerAccessViewPhase.failed,
+        errorMessage: 'Layer access unavailable for this profile.',
+      ),
+    );
     expect(find.byKey(const Key('open-layer-l4')), findsNothing);
+    expect(find.byKey(const Key('open-layer-l5')), findsNothing);
   });
 
   testWidgets('destroyed fixture returns 409 and clears the visible cards', (

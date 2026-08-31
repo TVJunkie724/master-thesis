@@ -115,6 +115,8 @@ void main() {
         targetScopeId: 'subscription-1',
         regionIotHub: 'westeurope',
         regionDigitalTwin: 'westeurope',
+        preparationClientId: 'preparation-client',
+        preparationClientSecret: 'preparation-secret',
         filename: 'service-principal.json',
         bytes: Uint8List.fromList(utf8.encode('{"clientSecret":"hidden"}')),
       );
@@ -126,6 +128,8 @@ void main() {
         'target_scope_id': 'subscription-1',
         'region_iothub': 'westeurope',
         'region_digital_twin': 'westeurope',
+        'preparation_client_id': 'preparation-client',
+        'preparation_client_secret': 'preparation-secret',
       });
       expect(request.toString(), isNot(contains('clientSecret')));
     });

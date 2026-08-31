@@ -9,6 +9,9 @@ const _forbiddenPayloadKeys = {
   'access_key_id',
   'secret_access_key',
   'client_secret',
+  'client_id',
+  'preparation_client_id',
+  'preparation_client_secret',
   'private_key',
   'service_account_json',
   'access_token',
@@ -30,7 +33,7 @@ void main() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMessageHandler('flutter/rawKeyboard', (_) async => null);
 
-  group('Management API read-only readiness', () {
+  group('Management API credential-free contract', () {
     testWidgets('runtime config supplies an HTTP Management API origin', (
       tester,
     ) async {
@@ -123,6 +126,70 @@ void main() {
       }
     });
 
+    testWidgets('creates, lists, and deletes one redacted Azure bundle', (
+      tester,
+    ) async {
+      const deploymentClientId = 'synthetic-deployment-principal';
+      const deploymentSecret = 'synthetic-deployment-secret';
+      const preparationClientId = 'synthetic-preparation-principal';
+      const preparationSecret = 'synthetic-preparation-secret';
+      String? connectionId;
+      try {
+        final createdRaw = await _authenticatedJsonPost('/cloud-connections/', {
+          'provider': 'azure',
+          'display_name': 'Azure integration bundle',
+          'cloud_scope': <String, Object?>{},
+          'azure': {
+            'subscription_id': 'synthetic-subscription',
+            'tenant_id': 'synthetic-tenant',
+            'client_id': deploymentClientId,
+            'client_secret': deploymentSecret,
+            'preparation_client_id': preparationClientId,
+            'preparation_client_secret': preparationSecret,
+            'region': 'westeurope',
+          },
+        });
+        expect(_containsForbiddenKey(createdRaw), isFalse);
+        expect(
+          _containsAnyValue(createdRaw, const {
+            deploymentClientId,
+            deploymentSecret,
+            preparationClientId,
+            preparationSecret,
+          }),
+          isFalse,
+        );
+        final created = CloudConnection.fromJson(
+          Map<String, dynamic>.from(createdRaw! as Map),
+        );
+        connectionId = created.id;
+        expect(created.payloadSummary['preparation_client_configured'], isTrue);
+
+        final listedRaw = await _authenticatedJsonRequest(
+          '/cloud-connections/',
+        );
+        expect(_containsForbiddenKey(listedRaw), isFalse);
+        expect(
+          _containsAnyValue(listedRaw, const {
+            deploymentClientId,
+            deploymentSecret,
+            preparationClientId,
+            preparationSecret,
+          }),
+          isFalse,
+        );
+        final listed = await _api.listCloudConnections();
+        expect(listed.map((item) => item.id), contains(connectionId));
+      } finally {
+        if (connectionId != null) {
+          await _api.deleteCloudConnection(connectionId);
+        }
+      }
+
+      final remaining = await _api.listCloudConnections();
+      expect(remaining.map((item) => item.id), isNot(contains(connectionId)));
+    });
+
     testWidgets('keeps readiness payloads free of credential keys', (
       tester,
     ) async {
@@ -164,15 +231,24 @@ void main() {
         );
       }
 
-      for (final field in [
-        'averageDigitalTwinQueryUnitsPerQuery',
-        'averageDigitalTwinQueryResponseSizeInKb',
-      ]) {
-        final contract = managementProperties[field] as Map?;
-        expect(contract, isNotNull, reason: 'Missing $field');
-        expect(contract!['exclusiveMinimum'], 0);
-        expect(contract['default'], 1.0);
-      }
+      expect(
+        managementContract['required'],
+        containsAll(const {
+          'schemaVersion',
+          'numberOfDevices',
+          'twinEntityCount',
+          'eventingScenarioId',
+        }),
+      );
+      expect(
+        (managementProperties['schemaVersion'] as Map)['const'],
+        'six-layer-workload.v1',
+      );
+      expect(
+        (managementProperties['numberOfDevices'] as Map)['exclusiveMinimum'],
+        0,
+      );
+      expect((managementProperties['currency'] as Map)['default'], 'USD');
 
       final paths = (managementOpenApi as Map)['paths'] as Map;
       for (final removedPath in const {
@@ -259,6 +335,27 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
+Future<Object?> _authenticatedJsonPost(
+  String endpoint,
+  Map<String, Object?> data,
+) async {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: _apiUri.toString(),
+      validateStatus: (status) => status != null && status < 400,
+      headers: {'Authorization': 'Bearer $_authToken'},
+    ),
+  );
+  try {
+    final response = await dio.post<Object?>(endpoint, data: data);
+    return response.data;
+  } on DioException catch (error) {
+    fail(_safeDioFailure(endpoint, error));
+  } finally {
+    dio.close(force: true);
+  }
+}
+
 Map _openApiSchema(Object? openApi, String schemaName) {
   expect(openApi, isA<Map>());
   final components =
@@ -290,4 +387,14 @@ bool _containsForbiddenKey(Object? value) {
     }
   }
   return false;
+}
+
+bool _containsAnyValue(Object? value, Set<String> forbiddenValues) {
+  if (value is Map) {
+    return value.values.any((item) => _containsAnyValue(item, forbiddenValues));
+  }
+  if (value is Iterable) {
+    return value.any((item) => _containsAnyValue(item, forbiddenValues));
+  }
+  return value is String && forbiddenValues.contains(value);
 }

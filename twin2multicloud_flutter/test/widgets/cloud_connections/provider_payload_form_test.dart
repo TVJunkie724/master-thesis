@@ -85,4 +85,63 @@ void main() {
 
     expect(key.currentState!.validate(), isFalse);
   });
+
+  testWidgets(
+    'Azure captures separate required principals and clears secrets',
+    (tester) async {
+      final key = GlobalKey<ProviderPayloadFormState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Form(
+                child: ProviderPayloadForm(
+                  key: key,
+                  provider: CloudProvider.azure,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Target scope'), findsOneWidget);
+      expect(find.text('Deployment principal'), findsOneWidget);
+      expect(find.text('Preparation principal'), findsOneWidget);
+      expect(key.currentState!.validate(), isFalse);
+
+      final values = {
+        'Subscription ID': 'subscription',
+        'Tenant ID': 'tenant',
+        'Client ID': 'deployment-client',
+        'Client Secret': 'deployment-secret',
+        'Preparation client ID': 'preparation-client',
+        'Preparation client secret': 'preparation-secret',
+      };
+      for (final entry in values.entries) {
+        await tester.enterText(
+          find.widgetWithText(TextFormField, entry.key),
+          entry.value,
+        );
+      }
+
+      expect(key.currentState!.validate(), isTrue);
+      final credentials = key.currentState!.takeCredentials();
+      await tester.pump();
+      expect(credentials['client_id'], 'deployment-client');
+      expect(credentials['preparation_client_id'], 'preparation-client');
+      expect(credentials['preparation_client_secret'], 'preparation-secret');
+      expect(find.text('deployment-secret'), findsNothing);
+      expect(find.text('preparation-secret'), findsNothing);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Preparation client secret'),
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+    },
+  );
 }

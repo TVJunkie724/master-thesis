@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +38,16 @@ void main() {
           'scope-1',
         );
       }
+      if (provider == CloudProvider.azure) {
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Preparation client ID'),
+          'preparation-client',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Preparation client secret'),
+          'preparation-secret',
+        );
+      }
       final selectFile = find.byKey(const Key('select-cloud-credential-file'));
       await tester.ensureVisible(selectFile);
       await tester.pumpAndSettle();
@@ -57,6 +69,14 @@ void main() {
         captured?.targetScopeId,
         provider == CloudProvider.aws ? null : 'scope-1',
       );
+      if (provider == CloudProvider.azure) {
+        expect(captured?.preparationClientId, 'preparation-client');
+        expect(
+          jsonDecode(captured!.metadataJson)['preparation_client_secret'],
+          'preparation-secret',
+        );
+        expect(captured.toString(), isNot(contains('preparation-secret')));
+      }
     });
   }
 
@@ -83,6 +103,42 @@ void main() {
 
     expect(find.text('AWS requires a .csv file.'), findsOneWidget);
     expect(find.textContaining('9, 8, 7'), findsNothing);
+    expect(captured, isNull);
+  });
+
+  testWidgets('Azure requires both transient preparation fields', (
+    tester,
+  ) async {
+    CloudConnectionImportRequest? captured;
+    await _pumpLauncher(
+      tester,
+      provider: CloudProvider.azure,
+      pickFile: (_) async => PlatformFile(
+        name: 'credentials.json',
+        size: 3,
+        bytes: Uint8List.fromList([1, 2, 3]),
+      ),
+      onResult: (request) => captured = request,
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Display name'),
+      'Azure bundle',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Subscription ID'),
+      'subscription',
+    );
+    final selectFile = find.byKey(const Key('select-cloud-credential-file'));
+    await tester.ensureVisible(selectFile);
+    await tester.tap(selectFile);
+    await tester.pumpAndSettle();
+    final submit = find.byKey(const Key('import-cloud-credential'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pump();
+
+    expect(find.text('Preparation client ID is required.'), findsOneWidget);
+    expect(find.text('Preparation client secret is required.'), findsOneWidget);
     expect(captured, isNull);
   });
 

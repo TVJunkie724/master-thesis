@@ -25,6 +25,21 @@ abstract final class DocsConfig {
 
   static String get cloudSetupUrl => '$baseUrl/cloud-setup/';
 
+  static String getCloudSetupGuideUrl(String provider, {String? baseUrl}) {
+    final path = switch (provider.trim().toLowerCase()) {
+      'aws' => 'aws',
+      'azure' => 'azure',
+      'gcp' || 'google' => 'gcp',
+      _ => throw ArgumentError.value(
+        provider,
+        'provider',
+        'Unsupported provider',
+      ),
+    };
+    final normalizedBase = normalizeBaseUrl(baseUrl ?? DocsConfig.baseUrl);
+    return '$normalizedBase/cloud-setup/$path/';
+  }
+
   static String getProviderLinksUrl(String provider, {String? baseUrl}) {
     final fragment = switch (provider.trim().toLowerCase()) {
       'aws' => 'aws',

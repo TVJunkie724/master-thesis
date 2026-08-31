@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../models/cloud_connection.dart';
 import '../../theme/spacing.dart';
 import '../../utils/api_error_handler.dart';
+import 'cloud_connection_strings.dart';
 
 typedef CloudCredentialFilePicker =
     Future<PlatformFile?> Function(CloudProvider provider);
@@ -36,6 +37,8 @@ class _CloudConnectionImportDialogState
   final _ssoRegion = TextEditingController();
   final _regionIotHub = TextEditingController();
   final _regionDigitalTwin = TextEditingController();
+  final _preparationClientId = TextEditingController();
+  final _preparationClientSecret = TextEditingController();
   String? _filename;
   Uint8List? _bytes;
   String? _fileError;
@@ -56,6 +59,10 @@ class _CloudConnectionImportDialogState
     _ssoRegion.dispose();
     _regionIotHub.dispose();
     _regionDigitalTwin.dispose();
+    _preparationClientId.clear();
+    _preparationClientId.dispose();
+    _preparationClientSecret.clear();
+    _preparationClientSecret.dispose();
     super.dispose();
   }
 
@@ -104,6 +111,27 @@ class _CloudConnectionImportDialogState
                     _regionDigitalTwin,
                     'Digital Twins region (optional)',
                   ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    CloudConnectionStrings.preparationPrincipal,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    CloudConnectionStrings.preparationPrincipalHelp,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _requiredField(
+                    _preparationClientId,
+                    CloudConnectionStrings.preparationClientId,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _requiredField(
+                    _preparationClientSecret,
+                    CloudConnectionStrings.preparationClientSecret,
+                    obscureText: true,
+                  ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
                 OutlinedButton.icon(
@@ -151,9 +179,13 @@ class _CloudConnectionImportDialogState
 
   TextFormField _requiredField(
     TextEditingController controller,
-    String label,
-  ) => TextFormField(
+    String label, {
+    bool obscureText = false,
+  }) => TextFormField(
     controller: controller,
+    obscureText: obscureText,
+    autocorrect: false,
+    enableSuggestions: false,
     decoration: InputDecoration(
       labelText: label,
       border: const OutlineInputBorder(),
@@ -225,10 +257,13 @@ class _CloudConnectionImportDialogState
         ssoRegion: _optional(_ssoRegion.text),
         regionIotHub: _optional(_regionIotHub.text),
         regionDigitalTwin: _optional(_regionDigitalTwin.text),
+        preparationClientId: _optional(_preparationClientId.text),
+        preparationClientSecret: _optional(_preparationClientSecret.text),
         filename: _filename!,
         bytes: _bytes!,
       );
       _bytes = null;
+      _preparationClientSecret.clear();
       Navigator.of(context).pop(request);
     } catch (error) {
       setState(() => _fileError = ApiErrorHandler.extractMessage(error));

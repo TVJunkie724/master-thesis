@@ -6,6 +6,7 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import 'cloud_connection_create_dialog.dart';
 import 'cloud_connection_import_dialog.dart';
+import 'cloud_connection_strings.dart';
 
 class CloudAccountsPanel extends StatelessWidget {
   final List<CloudConnection> connections;
@@ -19,6 +20,7 @@ class CloudAccountsPanel extends StatelessWidget {
   final ValueChanged<CloudConnectionImportRequest> onImport;
   final ValueChanged<CloudConnection> onValidate;
   final ValueChanged<CloudConnection> onDelete;
+  final Future<void> Function(CloudProvider) onOpenSetupGuide;
 
   const CloudAccountsPanel({
     super.key,
@@ -33,6 +35,7 @@ class CloudAccountsPanel extends StatelessWidget {
     required this.onImport,
     required this.onValidate,
     required this.onDelete,
+    required this.onOpenSetupGuide,
   });
 
   @override
@@ -90,12 +93,13 @@ class CloudAccountsPanel extends StatelessWidget {
         else
           LayoutBuilder(
             builder: (context, constraints) {
-              final stack =
-                  constraints.maxWidth <
-                  AppSpacing.configurationWorkloadCompactBreakpoint;
-              final width = stack
-                  ? constraints.maxWidth
-                  : (constraints.maxWidth - (AppSpacing.md * 2)) / 3;
+              final width =
+                  constraints.maxWidth >=
+                      AppSpacing.configurationWorkloadCompactBreakpoint
+                  ? (constraints.maxWidth - (AppSpacing.md * 2)) / 3
+                  : constraints.maxWidth >= AppSpacing.maxContentWidthMedium
+                  ? (constraints.maxWidth - AppSpacing.md) / 2
+                  : constraints.maxWidth;
               return Wrap(
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
@@ -115,6 +119,7 @@ class CloudAccountsPanel extends StatelessWidget {
                           isImporting: isImporting,
                           onCreate: () => _openCreateDialog(context, provider),
                           onImport: () => _openImportDialog(context, provider),
+                          onOpenSetupGuide: () => onOpenSetupGuide(provider),
                           onValidate: onValidate,
                           onDelete: (connection) =>
                               _confirmDelete(context, connection),
@@ -190,6 +195,7 @@ class _ProviderDeploymentCard extends StatelessWidget {
   final bool isImporting;
   final VoidCallback onCreate;
   final VoidCallback onImport;
+  final VoidCallback onOpenSetupGuide;
   final ValueChanged<CloudConnection> onValidate;
   final ValueChanged<CloudConnection> onDelete;
 
@@ -201,6 +207,7 @@ class _ProviderDeploymentCard extends StatelessWidget {
     required this.isImporting,
     required this.onCreate,
     required this.onImport,
+    required this.onOpenSetupGuide,
     required this.onValidate,
     required this.onDelete,
   });
@@ -232,10 +239,22 @@ class _ProviderDeploymentCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
+            Text(
+              _providerResponsibility(provider),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
+                TextButton.icon(
+                  onPressed: onOpenSetupGuide,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text(CloudConnectionStrings.setupGuide),
+                ),
                 OutlinedButton.icon(
                   onPressed: isCreating ? null : onCreate,
                   icon: const Icon(Icons.key_outlined),
@@ -386,13 +405,17 @@ class _LoadError extends StatelessWidget {
 }
 
 String _connectionSummary(CloudConnection connection) {
-  final scope =
-      connection.cloudScope['account_id'] ??
-      connection.cloudScope['subscription_id'] ??
-      connection.cloudScope['project_id'];
   return [
     connection.validationStatus.replaceAll('_', ' '),
-    if (scope != null) scope.toString(),
     connection.authType,
+    if (connection.provider == CloudProvider.azure &&
+        connection.payloadSummary['preparation_client_configured'] == true)
+      CloudConnectionStrings.azureBundleSummary,
   ].where((value) => value.isNotEmpty).join(' · ');
 }
+
+String _providerResponsibility(CloudProvider provider) => switch (provider) {
+  CloudProvider.aws => 'One identity for PoC deployment and cleanup.',
+  CloudProvider.azure => CloudConnectionStrings.azureBundleSummary,
+  CloudProvider.gcp => 'One service account for PoC deployment and cleanup.',
+};

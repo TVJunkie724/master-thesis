@@ -16,6 +16,7 @@ void main() {
     ValueChanged<CloudConnection>? onValidate,
     ValueChanged<CloudConnection>? onDelete,
     VoidCallback? onRetry,
+    Future<void> Function(CloudProvider)? onOpenSetupGuide,
     double textScale = 1,
   }) {
     return MaterialApp(
@@ -35,6 +36,7 @@ void main() {
               onValidate: onValidate ?? (_) {},
               onDelete: onDelete ?? (_) {},
               onRetry: onRetry ?? () {},
+              onOpenSetupGuide: onOpenSetupGuide ?? (_) async {},
             ),
           ),
         ),
@@ -128,6 +130,47 @@ void main() {
     expect(find.textContaining('contents are never previewed'), findsOneWidget);
   });
 
+  testWidgets('opens each provider setup guide through its typed callback', (
+    tester,
+  ) async {
+    final opened = <CloudProvider>[];
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      buildWidget(onOpenSetupGuide: (provider) async => opened.add(provider)),
+    );
+
+    for (final button
+        in find.widgetWithText(TextButton, 'Setup guide').evaluate()) {
+      await tester.tap(find.byWidget(button.widget));
+      await tester.pump();
+    }
+
+    expect(opened, CloudProvider.values);
+  });
+
+  testWidgets('describes Azure split authority without rendering scope IDs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildWidget(
+        connections: [
+          _connection(
+            'Azure bundle',
+            provider: CloudProvider.azure,
+            preparationConfigured: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(
+      find.textContaining('Separate deployment and preparation principals'),
+      findsWidgets,
+    );
+    expect(find.textContaining('123456789012'), findsNothing);
+  });
+
   for (final textScale in [1.5, 2.0]) {
     testWidgets(
       'keeps controls reachable at 640 px and ${(textScale * 100).toInt()} percent text',
@@ -152,6 +195,7 @@ void main() {
 CloudConnection _connection(
   String name, {
   CloudProvider provider = CloudProvider.aws,
+  bool preparationConfigured = false,
 }) => CloudConnection(
   id: name.toLowerCase().replaceAll(' ', '-'),
   provider: provider,
@@ -159,7 +203,9 @@ CloudConnection _connection(
   authType: 'administrator',
   cloudScope: const {'account_id': '123456789012'},
   payloadFingerprint: 'opaque',
-  payloadSummary: const {},
+  payloadSummary: {
+    if (preparationConfigured) 'preparation_client_configured': true,
+  },
   validationStatus: 'valid',
   lastValidatedAt: DateTime.utc(2026, 8, 27),
   createdAt: DateTime.utc(2026, 8, 27),

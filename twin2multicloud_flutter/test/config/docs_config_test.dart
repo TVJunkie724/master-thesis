@@ -33,6 +33,23 @@ void main() {
     );
   });
 
+  test('builds canonical provider setup guides', () {
+    const baseUrl = 'https://docs.example.test';
+
+    expect(
+      DocsConfig.getCloudSetupGuideUrl('AWS', baseUrl: baseUrl),
+      '$baseUrl/cloud-setup/aws/',
+    );
+    expect(
+      DocsConfig.getCloudSetupGuideUrl('azure', baseUrl: baseUrl),
+      '$baseUrl/cloud-setup/azure/',
+    );
+    expect(
+      DocsConfig.getCloudSetupGuideUrl('Google', baseUrl: baseUrl),
+      '$baseUrl/cloud-setup/gcp/',
+    );
+  });
+
   test('rejects unsafe or ambiguous documentation configuration', () {
     expect(() => DocsConfig.normalizeBaseUrl(''), throwsStateError);
     expect(
@@ -41,6 +58,13 @@ void main() {
     );
     expect(
       () => DocsConfig.getProviderLinksUrl(
+        'unknown',
+        baseUrl: 'https://docs.example.test',
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => DocsConfig.getCloudSetupGuideUrl(
         'unknown',
         baseUrl: 'https://docs.example.test',
       ),

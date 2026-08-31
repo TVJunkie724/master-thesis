@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../models/cloud_connection.dart';
 import '../../theme/spacing.dart';
 import '../../utils/file_reader.dart';
+import 'cloud_connection_strings.dart';
 
 class ProviderPayloadForm extends StatefulWidget {
   final CloudProvider provider;
@@ -101,6 +102,19 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final field in _fields) ...[
+          if (_sectionFor(field.name) case final section?) ...[
+            Text(section.title, style: theme.textTheme.titleSmall),
+            if (section.help case final help?) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                help,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.sm),
+          ],
           TextFormField(
             controller: _controllers[field.name],
             obscureText: field.secret,
@@ -227,8 +241,6 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
       ],
       CloudProvider.azure => const [
         ProviderPayloadField('subscription_id', 'Subscription ID'),
-        ProviderPayloadField('client_id', 'Client ID'),
-        ProviderPayloadField('client_secret', 'Client Secret', secret: true),
         ProviderPayloadField('tenant_id', 'Tenant ID'),
         ProviderPayloadField('region', 'Region', initial: 'westeurope'),
         ProviderPayloadField(
@@ -241,6 +253,17 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
           'Digital Twin Region',
           required: false,
         ),
+        ProviderPayloadField('client_id', 'Client ID'),
+        ProviderPayloadField('client_secret', 'Client Secret', secret: true),
+        ProviderPayloadField(
+          'preparation_client_id',
+          CloudConnectionStrings.preparationClientId,
+        ),
+        ProviderPayloadField(
+          'preparation_client_secret',
+          CloudConnectionStrings.preparationClientSecret,
+          secret: true,
+        ),
       ],
       CloudProvider.gcp => const [
         ProviderPayloadField('project_id', 'Existing project ID'),
@@ -248,6 +271,33 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
       ],
     };
   }
+
+  _PayloadSection? _sectionFor(String fieldName) {
+    if (widget.provider != CloudProvider.azure || widget.fields != null) {
+      return null;
+    }
+    return switch (fieldName) {
+      'subscription_id' => const _PayloadSection(
+        CloudConnectionStrings.targetScope,
+      ),
+      'client_id' => const _PayloadSection(
+        CloudConnectionStrings.deploymentPrincipal,
+        CloudConnectionStrings.deploymentPrincipalHelp,
+      ),
+      'preparation_client_id' => const _PayloadSection(
+        CloudConnectionStrings.preparationPrincipal,
+        CloudConnectionStrings.preparationPrincipalHelp,
+      ),
+      _ => null,
+    };
+  }
+}
+
+class _PayloadSection {
+  final String title;
+  final String? help;
+
+  const _PayloadSection(this.title, [this.help]);
 }
 
 class ProviderPayloadField {

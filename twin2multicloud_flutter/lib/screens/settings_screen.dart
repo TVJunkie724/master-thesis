@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../config/docs_config.dart';
+import '../models/cloud_connection.dart';
 import '../models/user.dart';
 import '../bloc/cloud_access/cloud_access.dart';
 import '../providers/profile_provider.dart';
@@ -13,8 +16,15 @@ import '../widgets/branded_app_bar.dart';
 import '../widgets/cloud_connections/cloud_accounts_panel.dart';
 import '../widgets/selectable_scaffold.dart';
 
+typedef SetupGuideLauncher = Future<bool> Function(Uri uri);
+
 class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+  final SetupGuideLauncher setupGuideLauncher;
+
+  const SettingsScreen({
+    super.key,
+    this.setupGuideLauncher = _launchSetupGuideExternally,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,15 +64,22 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: user == null
           ? const Center(child: Text('Profile unavailable'))
-          : _SettingsCloudAccessScope(user: user),
+          : _SettingsCloudAccessScope(
+              user: user,
+              setupGuideLauncher: setupGuideLauncher,
+            ),
     );
   }
 }
 
 class _SettingsCloudAccessScope extends ConsumerStatefulWidget {
   final User user;
+  final SetupGuideLauncher setupGuideLauncher;
 
-  const _SettingsCloudAccessScope({required this.user});
+  const _SettingsCloudAccessScope({
+    required this.user,
+    required this.setupGuideLauncher,
+  });
 
   @override
   ConsumerState<_SettingsCloudAccessScope> createState() =>
@@ -90,15 +107,22 @@ class _SettingsCloudAccessScopeState
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cloudAccessBloc,
-      child: _SettingsContent(user: widget.user),
+      child: _SettingsContent(
+        user: widget.user,
+        setupGuideLauncher: widget.setupGuideLauncher,
+      ),
     );
   }
 }
 
 class _SettingsContent extends StatelessWidget {
   final User user;
+  final SetupGuideLauncher setupGuideLauncher;
 
-  const _SettingsContent({required this.user});
+  const _SettingsContent({
+    required this.user,
+    required this.setupGuideLauncher,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -154,6 +178,8 @@ class _SettingsContent extends StatelessWidget {
                   onDelete: (connection) => context.read<CloudAccessBloc>().add(
                     CloudAccessDeleteRequested(connection.id),
                   ),
+                  onOpenSetupGuide: (provider) =>
+                      _openSetupGuide(context, provider),
                 ),
               ),
             ],
@@ -162,7 +188,28 @@ class _SettingsContent extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openSetupGuide(
+    BuildContext context,
+    CloudProvider provider,
+  ) async {
+    try {
+      final opened = await setupGuideLauncher(
+        Uri.parse(DocsConfig.getCloudSetupGuideUrl(provider.apiValue)),
+      );
+      if (opened) return;
+    } catch (_) {
+      // The user receives one provider-neutral, non-sensitive failure message.
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open the setup guide.')),
+    );
+  }
 }
+
+Future<bool> _launchSetupGuideExternally(Uri uri) =>
+    launchUrl(uri, mode: LaunchMode.externalApplication);
 
 class _ProfileSection extends StatelessWidget {
   final User user;

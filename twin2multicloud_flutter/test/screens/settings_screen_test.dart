@@ -91,7 +91,77 @@ void main() {
     expect(find.textContaining('UIBK Account'), findsNothing);
     expect(find.textContaining('Google Account'), findsNothing);
   });
+
+  testWidgets('opens the canonical guide without changing cloud state', (
+    tester,
+  ) async {
+    final api = MockApiService();
+    when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
+    Uri? opened;
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: SettingsScreen(
+            setupGuideLauncher: (uri) async {
+              opened = uri;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Setup guide').first);
+    await tester.pump();
+
+    expect(opened, Uri.parse('http://localhost:5010/cloud-setup/aws/'));
+    verify(() => api.listCloudConnections()).called(1);
+    verifyNoMoreInteractions(api);
+  });
+
+  testWidgets('shows one sanitized message when a guide cannot open', (
+    tester,
+  ) async {
+    final api = MockApiService();
+    when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: SettingsScreen(setupGuideLauncher: (_) async => false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Setup guide').first);
+    await tester.pump();
+
+    expect(find.text('Could not open the setup guide.'), findsOneWidget);
+    expect(find.textContaining('http://'), findsNothing);
+  });
 }
+
+ProviderContainer _container(ApiService api) => ProviderContainer(
+  overrides: [
+    appRuntimeProvider.overrideWithValue(
+      AppRuntimeConfig.production(
+        managementApiBaseUri: Uri.parse('https://management.test'),
+        pocAuthToken: 'local-token',
+      ),
+    ),
+    apiServiceProvider.overrideWithValue(api),
+    initialUserProvider.overrideWithValue(
+      User(id: 'user-1', email: 'developer@example.com', name: 'Developer'),
+    ),
+  ],
+);
 
 CloudConnection _connection(String id) => CloudConnection(
   id: id,

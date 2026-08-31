@@ -155,6 +155,8 @@ class CloudConnectionImportRequest extends Equatable {
   final String? ssoRegion;
   final String? regionIotHub;
   final String? regionDigitalTwin;
+  final String? preparationClientId;
+  final String? preparationClientSecret;
   final String filename;
   final Uint8List _bytes;
 
@@ -167,6 +169,8 @@ class CloudConnectionImportRequest extends Equatable {
     String? ssoRegion,
     String? regionIotHub,
     String? regionDigitalTwin,
+    String? preparationClientId,
+    String? preparationClientSecret,
     required String filename,
     required Uint8List bytes,
   }) : displayName = _requiredBounded(displayName, 'displayName', 120),
@@ -179,6 +183,16 @@ class CloudConnectionImportRequest extends Equatable {
          regionDigitalTwin,
          'regionDigitalTwin',
          80,
+       ),
+       preparationClientId = _optionalBounded(
+         preparationClientId,
+         'preparationClientId',
+         256,
+       ),
+       preparationClientSecret = _optionalBounded(
+         preparationClientSecret,
+         'preparationClientSecret',
+         4096,
        ),
        filename = _importFilename(provider, filename),
        _bytes = _importBytes(bytes) {
@@ -196,6 +210,10 @@ class CloudConnectionImportRequest extends Equatable {
     if (ssoRegion != null) 'sso_region': ssoRegion,
     if (regionIotHub != null) 'region_iothub': regionIotHub,
     if (regionDigitalTwin != null) 'region_digital_twin': regionDigitalTwin,
+    if (preparationClientId != null)
+      'preparation_client_id': preparationClientId,
+    if (preparationClientSecret != null)
+      'preparation_client_secret': preparationClientSecret,
   });
 
   void _validateProviderMetadata() {
@@ -205,13 +223,21 @@ class CloudConnectionImportRequest extends Equatable {
         'targetScopeId is required for Azure and GCP imports.',
       );
     }
+    if (provider == CloudProvider.azure &&
+        (preparationClientId == null || preparationClientSecret == null)) {
+      throw ArgumentError(
+        'Preparation principal credentials are required for Azure imports.',
+      );
+    }
     if (provider == CloudProvider.aws) {
       if (accountId != null && !RegExp(r'^\d{12}$').hasMatch(accountId!)) {
         throw ArgumentError('accountId must be a twelve-digit AWS account ID.');
       }
       if (targetScopeId != null ||
           regionIotHub != null ||
-          regionDigitalTwin != null) {
+          regionDigitalTwin != null ||
+          preparationClientId != null ||
+          preparationClientSecret != null) {
         throw ArgumentError('AWS import metadata contains foreign fields.');
       }
       return;
@@ -220,7 +246,10 @@ class CloudConnectionImportRequest extends Equatable {
       throw ArgumentError('AWS metadata is valid only for AWS imports.');
     }
     if (provider != CloudProvider.azure &&
-        (regionIotHub != null || regionDigitalTwin != null)) {
+        (regionIotHub != null ||
+            regionDigitalTwin != null ||
+            preparationClientId != null ||
+            preparationClientSecret != null)) {
       throw ArgumentError('Azure region overrides require Azure.');
     }
   }
@@ -235,6 +264,7 @@ class CloudConnectionImportRequest extends Equatable {
     ssoRegion,
     regionIotHub,
     regionDigitalTwin,
+    preparationClientId,
     filename,
   ];
 }

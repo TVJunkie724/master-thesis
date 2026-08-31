@@ -24,7 +24,7 @@ final _api = ApiService(baseUri: _apiUri, initialAuthToken: _authToken);
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('evaluates active Six-layer and keeps live deployment blocked', (
+  testWidgets('publishes and selects active Six-layer without deploying', (
     tester,
   ) async {
     final sixLayerProfile = await _api.getCanonicalArchitectureContract();
@@ -66,21 +66,8 @@ void main() {
           run.deploymentRun.specification! as ResolvedDeploymentSpecificationV2;
       expect(specification.architectureProfileRef.id, 'six-layer-eventing');
       expect(specification.architectureProfileRef.version, '1');
-      expect(specification.readiness.evaluationOnly, isTrue);
-      expect(specification.readiness.blockingGateIds, isNotEmpty);
-      expect(
-        specification.readiness.blockingGateIds,
-        everyElement(
-          anyOf(
-            startsWith('gate.live-capacity.'),
-            startsWith('gate.live-pricing.'),
-          ),
-        ),
-      );
-      expect(
-        specification.readiness.blockingGateIds,
-        contains(startsWith('gate.live-capacity.')),
-      );
+      expect(specification.readiness.deploymentReady, isTrue);
+      expect(specification.readiness.blockingGateIds, isEmpty);
 
       final resolved = await _api.getRunResolvedArchitecture(run.id);
       expect(resolved.twinId, twin.id);
@@ -89,10 +76,7 @@ void main() {
         resolved.architecture.schemaVersion,
         ResolvedTwinArchitecture.v2SchemaVersion,
       );
-      expect(
-        resolved.architecture.resolutionStatus,
-        'offline_contract_fixture',
-      );
+      expect(resolved.architecture.resolutionStatus, 'publishable');
       expect(resolved.architecture.profileRef.id, 'six-layer-eventing');
       expect(resolved.architecture.profileRef.version, '1');
 
@@ -100,10 +84,16 @@ void main() {
       expect(latest?.id, run.id);
       expect(latest?.selectedForDeploymentAt, isNull);
 
-      await _expectArchitectureError(
-        'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
+      final deploymentSelection = await _requestOrFail(
+        'Six-layer deployment selection',
         () => _api.selectOptimizerRunForDeployment(twin.id, run.id),
       );
+      expect(deploymentSelection.run.id, run.id);
+      expect(deploymentSelection.run.selectedForDeploymentAt, isNotNull);
+
+      final selected = await _api.getLatestOptimizerRun(twin.id);
+      expect(selected?.id, run.id);
+      expect(selected?.selectedForDeploymentAt, isNotNull);
     } finally {
       await _api.deleteTwin(twin.id);
     }
@@ -150,24 +140,5 @@ Future<T> _requestOrFail<T>(String label, Future<T> Function() request) async {
       '$label failed with HTTP ${error.response?.statusCode}: '
       '${error.response?.data}',
     );
-  }
-}
-
-Future<void> _expectArchitectureError(
-  String expectedCode,
-  Future<void> Function() request,
-) async {
-  try {
-    await request();
-    fail('Expected $expectedCode');
-  } on DioException catch (error) {
-    final payload = error.response?.data;
-    expect(payload, isA<Map>());
-    final errorPayload = payload as Map;
-    final detail = errorPayload['detail'];
-    final actualCode =
-        errorPayload['error_code'] ??
-        (detail is Map ? detail['error_code'] : null);
-    expect(actualCode, expectedCode);
   }
 }
