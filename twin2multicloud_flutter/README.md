@@ -31,6 +31,11 @@ Neither path contacts a cloud provider by default.
 8. Open provider-owned L4/L5 access links.
 9. Confirm Destroy and inspect cleanup evidence.
 
+The **Twin experiments** inventory is intentionally a start-or-resume surface:
+`New Twin` is the only primary action, every row has one state-specific
+continuation, and Duplicate/Export/Delete remain in a secondary overflow.
+There are no filters, analytics, provider columns or bulk operations.
+
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place
 infrastructure update.

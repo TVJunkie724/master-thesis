@@ -1,17 +1,23 @@
-# Dashboard and Twins
+# Twin experiments
 
-The dashboard lists the user's active Twins and their lifecycle state. It is
-not a pricing or provider-administration dashboard.
+The **Twin experiments** screen starts or resumes one thesis scenario. It lists
+the Twin name, lifecycle state and latest update. It is not a pricing,
+analytics or provider-administration dashboard.
 
 ## Twin actions
 
-- create a new draft with a unique name;
-- import a typed secret-free Twin archive under a new name;
-- open an existing Twin;
-- duplicate a Twin into an independent draft;
-- edit a draft configuration;
+- use **New Twin** to create a draft with a unique name;
+- use **Import Twin** to import a typed secret-free archive under a new name;
+- use **Continue configuration** for a draft;
+- use **Open lifecycle** for every non-draft state;
+- use the row menu to Duplicate a Twin into an independent draft or to Export
+  its portable archive;
 - explicitly Deploy or Destroy when the relevant gates permit it;
-- remove an inactive local record after confirmation.
+- use the row menu to remove a non-deployed local record after confirmation.
+
+Delete is blocked while a Twin is deployed. Open its lifecycle, run Destroy
+and verify cleanup first. The list has no filters or user-defined sorting; the
+latest updated experiment appears first.
 
 All Twins use the same canonical Six-layer contract. There is no architecture
 profile or optimization-objective selector.

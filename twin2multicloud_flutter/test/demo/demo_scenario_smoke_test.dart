@@ -18,7 +18,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final expectations = {
-      DemoScenario.empty: 'No digital twins yet',
+      DemoScenario.empty: 'No Twin experiments yet',
       DemoScenario.degraded: 'Warehouse Twin',
     };
 

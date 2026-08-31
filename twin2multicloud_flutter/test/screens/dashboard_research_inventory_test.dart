@@ -18,33 +18,46 @@ void main() {
 
   setUp(() => api = _MockManagementApi());
 
-  testWidgets('empty inventory exposes exactly the two portable Twin actions', (
+  testWidgets('empty inventory exposes one primary experiment action', (
     tester,
   ) async {
     await _pumpDashboard(tester, api: api, twins: const []);
 
-    expect(find.text('Digital Twin research inventory'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Import Twin'), findsOneWidget);
+    expect(find.text('Twin experiments'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Import Twin'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'New Twin'), findsOneWidget);
+    expect(find.text('No Twin experiments yet'), findsOneWidget);
     expect(find.text('Pricing readiness'), findsNothing);
     expect(find.text('Est. Cost'), findsNothing);
     expect(find.text('Total Twins'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('destroyed Twin retains exact named row actions', (tester) async {
-    await _pumpDashboard(
-      tester,
-      api: api,
-      twins: [_twin(name: 'Destroyed Twin', state: 'destroyed')],
-    );
+  testWidgets(
+    'destroyed Twin exposes continuation and compact management menu',
+    (tester) async {
+      await _pumpDashboard(
+        tester,
+        api: api,
+        twins: [_twin(name: 'Destroyed Twin', state: 'destroyed')],
+      );
 
-    expect(find.byTooltip('Open Destroyed Twin'), findsOneWidget);
-    expect(find.byTooltip('Duplicate Destroyed Twin'), findsOneWidget);
-    expect(find.byTooltip('Export Destroyed Twin'), findsOneWidget);
-    expect(find.byTooltip('Delete Destroyed Twin'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        find.widgetWithText(OutlinedButton, 'Open lifecycle'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('More actions for Destroyed Twin'), findsOneWidget);
+      expect(find.byIcon(Icons.copy_outlined), findsNothing);
+
+      await tester.tap(find.byTooltip('More actions for Destroyed Twin'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Duplicate'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('duplicate name submits on Enter and opens the new draft', (
     tester,
@@ -59,7 +72,9 @@ void main() {
       twins: [_twin(id: 'source', name: 'Source Twin', state: 'draft')],
     );
 
-    await tester.tap(find.byTooltip('Duplicate Source Twin'));
+    await tester.tap(find.byTooltip('More actions for Source Twin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Twin name'),
@@ -70,6 +85,80 @@ void main() {
 
     verify(() => api.duplicateTwin('source', request)).called(1);
     expect(find.text('Wizard destination copy-id'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('draft and non-draft continuations preserve their routes', (
+    tester,
+  ) async {
+    await _pumpDashboard(
+      tester,
+      api: api,
+      twins: [
+        _twin(id: 'draft-id', name: 'Draft Twin', state: 'draft'),
+        _twin(id: 'configured-id', name: 'Ready Twin', state: 'configured'),
+      ],
+    );
+
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Continue configuration'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Wizard destination draft-id'), findsOneWidget);
+
+    final router = GoRouter.of(
+      tester.element(find.text('Wizard destination draft-id')),
+    );
+    router.go('/dashboard');
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Open lifecycle'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lifecycle destination configured-id'), findsOneWidget);
+  });
+
+  testWidgets('deployed Twin deletion is blocked with lifecycle guidance', (
+    tester,
+  ) async {
+    await _pumpDashboard(
+      tester,
+      api: api,
+      twins: [_twin(id: 'live', name: 'Live Twin', state: 'deployed')],
+    );
+
+    await tester.tap(find.byTooltip('More actions for Live Twin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cannot delete'), findsOneWidget);
+    expect(
+      find.textContaining('Open lifecycle and run Destroy first'),
+      findsOneWidget,
+    );
+    verifyNever(() => api.deleteTwin(any()));
+  });
+
+  testWidgets('cloud access utility opens settings without a profile claim', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester, api: api, twins: const []);
+
+    expect(find.byTooltip('Open cloud access'), findsOneWidget);
+    expect(find.byTooltip('Open profile and CloudConnections'), findsNothing);
+    await tester.tap(find.byTooltip('Open cloud access'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cloud access destination'), findsOneWidget);
+  });
+
+  testWidgets('load failure is safe and retryable', (tester) async {
+    when(() => api.getTwins()).thenThrow(Exception('Management unavailable'));
+    await _pumpDashboard(tester, api: api, twins: null);
+
+    expect(find.text('Failed to load Twin experiments'), findsOneWidget);
+    expect(find.text('An unexpected error occurred'), findsOneWidget);
+    expect(find.textContaining('Management unavailable'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Retry'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -86,8 +175,8 @@ void main() {
         );
 
         expect(find.text('Import Twin'), findsOneWidget);
-        expect(find.byTooltip('Edit Compact Twin'), findsOneWidget);
-        expect(find.byTooltip('Duplicate Compact Twin'), findsOneWidget);
+        expect(find.text('Continue configuration'), findsOneWidget);
+        expect(find.byTooltip('More actions for Compact Twin'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -97,14 +186,16 @@ void main() {
 Future<void> _pumpDashboard(
   WidgetTester tester, {
   required _MockManagementApi api,
-  required List<Twin> twins,
+  required List<Twin>? twins,
   Size size = const Size(1200, 900),
   double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  when(() => api.getTwins()).thenAnswer((_) async => twins);
+  if (twins != null) {
+    when(() => api.getTwins()).thenAnswer((_) async => twins);
+  }
   final router = GoRouter(
     initialLocation: '/dashboard',
     routes: [
@@ -113,9 +204,25 @@ Future<void> _pumpDashboard(
         builder: (context, state) => const DashboardScreen(),
       ),
       GoRoute(
+        path: '/settings',
+        builder: (context, state) =>
+            const Scaffold(body: Text('Cloud access destination')),
+      ),
+      GoRoute(
+        path: '/wizard',
+        builder: (context, state) =>
+            const Scaffold(body: Text('New wizard destination')),
+      ),
+      GoRoute(
         path: '/wizard/:twinId',
         builder: (context, state) => Scaffold(
           body: Text('Wizard destination ${state.pathParameters['twinId']}'),
+        ),
+      ),
+      GoRoute(
+        path: '/twins/:twinId/overview',
+        builder: (context, state) => Scaffold(
+          body: Text('Lifecycle destination ${state.pathParameters['twinId']}'),
         ),
       ),
     ],

@@ -459,6 +459,15 @@ rebuilt deployment-principal document. The Management contract, provider
 validation boundary and cloud state are unchanged; no provider call or
 Terraform action is part of this checkpoint.
 
+The second screen checkpoint is also implemented offline. **Twin experiments**
+is now a bounded start-or-resume inventory: `New Twin` is the sole primary
+action, each Twin has one state-specific continuation, and portable
+Duplicate/Export plus safe Delete remain in a secondary overflow. The former
+filter strip, sortable five-column table, provider-irrelevant deployment column
+and duplicate icon cluster are removed. Existing Management endpoints, routes
+and mutation semantics are unchanged; this checkpoint performs no provider
+operation.
+
 Continue Phase 8 in this order:
 
 1. perform the read-only Azure identity/scope and split-authority validation

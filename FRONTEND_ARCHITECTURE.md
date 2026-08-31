@@ -59,6 +59,20 @@ than a product dashboard hierarchy:
 These responsibilities may use several routes and task panels. Route count is
 not itself the scope metric.
 
+## Twin experiment inventory
+
+The `/dashboard` route is a start-or-resume surface, not a product dashboard.
+It sorts a defensive copy of the returned Twins by latest update, shows only
+the name, lifecycle state and update date, and exposes exactly one visible
+continuation per Twin. Drafts continue in Configuration Workspace; every other
+state opens the lifecycle overview.
+
+Portable import is secondary to `New Twin`. Duplicate, Export and safe Delete
+remain in a row overflow menu because they support reproducibility or lifecycle
+hygiene without competing with the next research task. Filtering, analytics,
+provider columns, last-deployment columns and bulk operations are outside the
+PoC inventory.
+
 ## Canonical architecture UI
 
 The client loads `GET /architecture-contract` and the current Twin's immutable

@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-01"
-version: "1.7"
+version: "1.8"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -331,6 +331,25 @@ runs as an inventoried evaluation prerequisite and is removed after the final
 one. Normal Terraform Destroy and residual inventory still run after every
 scenario. The decision is approved; execution remains a separately approved
 cloud mutation and no live success is claimed.
+
+## D-18 — Start-or-resume Twin inventory
+
+**Decision:** The Flutter `/dashboard` route is a **Twin experiments**
+start-or-resume surface. `New Twin` is the only primary action. Each existing
+Twin exposes one state-specific continuation; Duplicate, typed Export and safe
+Delete remain in a secondary overflow.
+
+**Rationale:** The thesis user needs to begin or continue a reproducible
+experiment, not administer a product portfolio. Filters, sortable operational
+columns and parallel row icons repeated presentation choices without adding
+RQ1 operational evidence, RQ2 comparability or RQ3 cost evidence.
+
+**Consequence:** The inventory keeps the existing Management-only routes and
+mutation contracts while removing filter state, the five-column table,
+last-deploy presentation and the duplicate action cluster. Latest-update
+ordering is deterministic, draft continuation opens Configuration Workspace,
+and all other lifecycle states open the overview. Cloud access remains a
+separate app-bar utility.
 
 ## Current implementation checkpoint
 
