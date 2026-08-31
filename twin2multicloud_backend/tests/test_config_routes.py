@@ -23,11 +23,11 @@ class TestConfigRoutes:
     def test_get_config_creates_default(self, authenticated_client):
         """GET config auto-creates default config if missing."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
-        
+
         response = client.get(f"/twins/{twin_id}/config/", headers=headers)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["aws_configured"] is False
@@ -42,48 +42,54 @@ class TestConfigRoutes:
             "gcp": None,
         }
 
-    def test_update_config_rejects_direct_aws_credentials(self, authenticated_client, sample_aws_credentials):
+    def test_update_config_rejects_direct_aws_credentials(
+        self, authenticated_client, sample_aws_credentials
+    ):
         """PUT config rejects per-twin AWS credential storage."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
-        
+
         response = client.put(
             f"/twins/{twin_id}/config/",
             json={"aws": sample_aws_credentials},
-            headers=headers
+            headers=headers,
         )
-        
+
         assert response.status_code == 400
         assert "Cloud Connection" in response.json()["detail"]
 
-    def test_update_config_rejects_direct_azure_credentials(self, authenticated_client, sample_azure_credentials):
+    def test_update_config_rejects_direct_azure_credentials(
+        self, authenticated_client, sample_azure_credentials
+    ):
         """PUT config rejects per-twin Azure credential storage."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
-        
+
         response = client.put(
             f"/twins/{twin_id}/config/",
             json={"azure": sample_azure_credentials},
-            headers=headers
+            headers=headers,
         )
-        
+
         assert response.status_code == 400
         assert "Cloud Connection" in response.json()["detail"]
 
-    def test_update_config_rejects_direct_gcp_credentials(self, authenticated_client, sample_gcp_credentials):
+    def test_update_config_rejects_direct_gcp_credentials(
+        self, authenticated_client, sample_gcp_credentials
+    ):
         """PUT config rejects per-twin GCP credential storage."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
-        
+
         response = client.put(
             f"/twins/{twin_id}/config/",
             json={"gcp": sample_gcp_credentials},
-            headers=headers
+            headers=headers,
         )
-        
+
         assert response.status_code == 400
         assert "Cloud Connection" in response.json()["detail"]
 
@@ -116,6 +122,8 @@ class TestConfigRoutes:
                     "subscription_id": "subscription-id",
                     "client_id": "client-id",
                     "client_secret": "client-secret",
+                    "preparation_client_id": "preparation-client-id",
+                    "preparation_client_secret": "preparation-client-secret",
                     "tenant_id": "tenant-id",
                     "region": "westeurope",
                 },
@@ -181,17 +189,15 @@ class TestConfigRoutes:
     def test_update_debug_mode(self, authenticated_client):
         """PUT config updates debug_mode flag."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
-        
+
         response = client.put(
-            f"/twins/{twin_id}/config/",
-            json={"debug_mode": True},
-            headers=headers
+            f"/twins/{twin_id}/config/", json={"debug_mode": True}, headers=headers
         )
-        
+
         assert response.status_code == 200
-        
+
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         assert get_response.json()["debug_mode"] is True
 
@@ -199,10 +205,12 @@ class TestConfigRoutes:
     # Security Tests
     # ============================================================
 
-    def test_credentials_never_exposed(self, authenticated_client, sample_aws_credentials):
+    def test_credentials_never_exposed(
+        self, authenticated_client, sample_aws_credentials
+    ):
         """API responses should never contain actual credentials."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
         connection = client.post(
             "/cloud-connections/",
@@ -216,23 +224,25 @@ class TestConfigRoutes:
         client.put(
             f"/twins/{twin_id}/config/",
             json={"cloud_connections": {"aws": connection["id"]}},
-            headers=headers
+            headers=headers,
         )
-        
+
         # Get config
         response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         response_str = str(response.json())
-        
+
         # Ensure secrets not in response
         assert sample_aws_credentials["access_key_id"] not in response_str
         assert sample_aws_credentials["secret_access_key"] not in response_str
 
-    def test_credentials_stored_encrypted(self, authenticated_client, sample_aws_credentials, db_session):
+    def test_credentials_stored_encrypted(
+        self, authenticated_client, sample_aws_credentials, db_session
+    ):
         """CloudConnection credentials should be encrypted in database."""
         from src.models.cloud_connection import CloudConnection
-        
+
         client, headers = authenticated_client
-        
+
         response = client.post(
             "/cloud-connections/",
             json={
@@ -240,38 +250,52 @@ class TestConfigRoutes:
                 "display_name": "AWS Encrypted",
                 "aws": sample_aws_credentials,
             },
-            headers=headers
+            headers=headers,
         )
         assert response.status_code == 200
-        
-        stored = db_session.query(CloudConnection).filter_by(id=response.json()["id"]).one()
-        
+
+        stored = (
+            db_session.query(CloudConnection).filter_by(id=response.json()["id"]).one()
+        )
+
         # Should be encrypted (starts with gAAAAA for Fernet)
         assert stored.encrypted_payload is not None
         assert stored.encrypted_payload.startswith("gAAAAA")
         assert sample_aws_credentials["access_key_id"] not in stored.encrypted_payload
-        assert sample_aws_credentials["secret_access_key"] not in stored.encrypted_payload
+        assert (
+            sample_aws_credentials["secret_access_key"] not in stored.encrypted_payload
+        )
 
     # ============================================================
     # Edge Case Tests
     # ============================================================
 
-    def test_update_multiple_provider_connections(self, authenticated_client, sample_aws_credentials, sample_azure_credentials):
+    def test_update_multiple_provider_connections(
+        self, authenticated_client, sample_aws_credentials, sample_azure_credentials
+    ):
         """Update multiple CloudConnection bindings in single request."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
         aws_connection = client.post(
             "/cloud-connections/",
-            json={"provider": "aws", "display_name": "AWS", "aws": sample_aws_credentials},
+            json={
+                "provider": "aws",
+                "display_name": "AWS",
+                "aws": sample_aws_credentials,
+            },
             headers=headers,
         ).json()
         azure_connection = client.post(
             "/cloud-connections/",
-            json={"provider": "azure", "display_name": "Azure", "azure": sample_azure_credentials},
+            json={
+                "provider": "azure",
+                "display_name": "Azure",
+                "azure": sample_azure_credentials,
+            },
             headers=headers,
         ).json()
-        
+
         response = client.put(
             f"/twins/{twin_id}/config/",
             json={
@@ -280,11 +304,11 @@ class TestConfigRoutes:
                     "azure": azure_connection["id"],
                 }
             },
-            headers=headers
+            headers=headers,
         )
-        
+
         assert response.status_code == 200
-        
+
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         data = get_response.json()
         assert data["aws_configured"] is True
@@ -293,28 +317,30 @@ class TestConfigRoutes:
     def test_partial_config_update(self, authenticated_client, sample_aws_credentials):
         """Update only AWS, other configs should remain unchanged."""
         client, headers = authenticated_client
-        
+
         twin_id = create_test_twin(client, headers)
         connection = client.post(
             "/cloud-connections/",
-            json={"provider": "aws", "display_name": "AWS", "aws": sample_aws_credentials},
+            json={
+                "provider": "aws",
+                "display_name": "AWS",
+                "aws": sample_aws_credentials,
+            },
             headers=headers,
         ).json()
-        
+
         # Set debug_mode first
         client.put(
-            f"/twins/{twin_id}/config/",
-            json={"debug_mode": True},
-            headers=headers
+            f"/twins/{twin_id}/config/", json={"debug_mode": True}, headers=headers
         )
-        
+
         # Now update AWS only
         client.put(
             f"/twins/{twin_id}/config/",
             json={"cloud_connections": {"aws": connection["id"]}},
-            headers=headers
+            headers=headers,
         )
-        
+
         # Debug mode should still be true
         get_response = client.get(f"/twins/{twin_id}/config/", headers=headers)
         assert get_response.json()["debug_mode"] is True
@@ -333,8 +359,12 @@ class TestConfigRoutes:
         twin_id = create_test_twin(client, headers)
         client.get(f"/twins/{twin_id}/config/", headers=headers)
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
-        config.aws_access_key_id = encrypt(sample_aws_credentials["access_key_id"], "dev-user-id", twin_id)
-        config.aws_secret_access_key = encrypt(sample_aws_credentials["secret_access_key"], "dev-user-id", twin_id)
+        config.aws_access_key_id = encrypt(
+            sample_aws_credentials["access_key_id"], "dev-user-id", twin_id
+        )
+        config.aws_secret_access_key = encrypt(
+            sample_aws_credentials["secret_access_key"], "dev-user-id", twin_id
+        )
         db_session.commit()
 
         response = client.put(
@@ -367,8 +397,12 @@ class TestConfigRoutes:
         twin_id = create_test_twin(client, headers)
         client.get(f"/twins/{twin_id}/config/", headers=headers)
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
-        config.aws_access_key_id = encrypt(sample_aws_credentials["access_key_id"], "dev-user-id", twin_id)
-        config.aws_secret_access_key = encrypt(sample_aws_credentials["secret_access_key"], "dev-user-id", twin_id)
+        config.aws_access_key_id = encrypt(
+            sample_aws_credentials["access_key_id"], "dev-user-id", twin_id
+        )
+        config.aws_secret_access_key = encrypt(
+            sample_aws_credentials["secret_access_key"], "dev-user-id", twin_id
+        )
         config.aws_session_token = encrypt("session-token", "dev-user-id", twin_id)
         db_session.commit()
 
@@ -405,10 +439,18 @@ class TestConfigRoutes:
         twin_id = create_test_twin(client, headers)
         client.get(f"/twins/{twin_id}/config/", headers=headers)
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
-        config.azure_subscription_id = encrypt(sample_azure_credentials["subscription_id"], "dev-user-id", twin_id)
-        config.azure_client_id = encrypt(sample_azure_credentials["client_id"], "dev-user-id", twin_id)
-        config.azure_client_secret = encrypt(sample_azure_credentials["client_secret"], "dev-user-id", twin_id)
-        config.azure_tenant_id = encrypt(sample_azure_credentials["tenant_id"], "dev-user-id", twin_id)
+        config.azure_subscription_id = encrypt(
+            sample_azure_credentials["subscription_id"], "dev-user-id", twin_id
+        )
+        config.azure_client_id = encrypt(
+            sample_azure_credentials["client_id"], "dev-user-id", twin_id
+        )
+        config.azure_client_secret = encrypt(
+            sample_azure_credentials["client_secret"], "dev-user-id", twin_id
+        )
+        config.azure_tenant_id = encrypt(
+            sample_azure_credentials["tenant_id"], "dev-user-id", twin_id
+        )
         config.azure_region = sample_azure_credentials["region"]
         config.azure_region_iothub = "northeurope"
         config.azure_region_digital_twin = "switzerlandnorth"
@@ -454,7 +496,9 @@ class TestConfigRoutes:
         client.get(f"/twins/{twin_id}/config/", headers=headers)
         config = db_session.query(TwinConfiguration).filter_by(twin_id=twin_id).one()
         config.gcp_project_id = sample_gcp_credentials["project_id"]
-        config.gcp_service_account_json = encrypt(sample_gcp_credentials["service_account_json"], "dev-user-id", twin_id)
+        config.gcp_service_account_json = encrypt(
+            sample_gcp_credentials["service_account_json"], "dev-user-id", twin_id
+        )
         config.gcp_region = sample_gcp_credentials["region"]
         db_session.commit()
 
@@ -505,24 +549,28 @@ class TestConfigRoutes:
     def test_config_not_found(self, authenticated_client):
         """GET config for non-existent twin returns 404."""
         client, headers = authenticated_client
-        
+
         response = client.get("/twins/non-existent-id/config/", headers=headers)
-        
+
         assert response.status_code == 404
 
-    def test_update_config_twin_not_found(self, authenticated_client, sample_aws_credentials):
+    def test_update_config_twin_not_found(
+        self, authenticated_client, sample_aws_credentials
+    ):
         """PUT config for non-existent twin returns 404."""
         client, headers = authenticated_client
-        
+
         response = client.put(
             "/twins/non-existent-id/config/",
             json={"aws": sample_aws_credentials},
-            headers=headers
+            headers=headers,
         )
-        
+
         assert response.status_code == 404
 
-    def test_update_config_binds_cloud_connection(self, authenticated_client, db_session):
+    def test_update_config_binds_cloud_connection(
+        self, authenticated_client, db_session
+    ):
         """PUT config can bind a twin to a user-owned CloudConnection."""
         from src.models.twin_config import TwinConfiguration
 
@@ -559,7 +607,9 @@ class TestConfigRoutes:
         assert config.aws_access_key_id is None
         assert config.aws_secret_access_key is None
 
-    def test_update_config_rejects_wrong_provider_cloud_connection(self, authenticated_client):
+    def test_update_config_rejects_wrong_provider_cloud_connection(
+        self, authenticated_client
+    ):
         """Provider binding must match the selected CloudConnection provider."""
         client, headers = authenticated_client
         connection = client.post(
@@ -585,7 +635,9 @@ class TestConfigRoutes:
 
         assert response.status_code == 400
 
-    def test_cloud_connection_contract_rejects_pricing_purpose(self, authenticated_client):
+    def test_cloud_connection_contract_rejects_pricing_purpose(
+        self, authenticated_client
+    ):
         client, headers = authenticated_client
         response = client.post(
             "/cloud-connections/",
@@ -604,7 +656,9 @@ class TestConfigRoutes:
 
         assert response.status_code == 422
 
-    def test_update_config_rejects_unowned_cloud_connection(self, authenticated_client, db_session):
+    def test_update_config_rejects_unowned_cloud_connection(
+        self, authenticated_client, db_session
+    ):
         """A twin cannot bind to another user's CloudConnection."""
         from src.models.cloud_connection import CloudConnection
         from src.models.user import User
@@ -623,7 +677,9 @@ class TestConfigRoutes:
             },
             headers=headers,
         ).json()
-        other_user = User(email="other-config-owner@example.test", name="Other Config Owner")
+        other_user = User(
+            email="other-config-owner@example.test", name="Other Config Owner"
+        )
         db_session.add(other_user)
         db_session.commit()
         stored = db_session.query(CloudConnection).filter_by(id=connection["id"]).one()
@@ -680,9 +736,7 @@ class TestConfigRoutes:
             fake_validate,
         )
 
-        response = client.post(
-            f"/twins/{twin_id}/config/validate/aws", headers=headers
-        )
+        response = client.post(f"/twins/{twin_id}/config/validate/aws", headers=headers)
 
         assert response.status_code == 200
         assert response.json()["valid"] is True
@@ -738,9 +792,7 @@ class TestConfigRoutes:
             fake_validate,
         )
 
-        response = client.post(
-            f"/twins/{twin_id}/config/validate/gcp", headers=headers
-        )
+        response = client.post(f"/twins/{twin_id}/config/validate/gcp", headers=headers)
 
         assert response.status_code == 200
         assert response.json()["valid"] is True

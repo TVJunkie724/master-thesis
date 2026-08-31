@@ -3,6 +3,7 @@ Comprehensive tests for the Credentials/Permissions API endpoints.
 
 Tests for /permissions endpoints covering AWS, Azure, and GCP credential validation.
 """
+
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -23,58 +24,64 @@ class TestAWSPermissionsFromBody:
         mock_check.return_value = {
             "status": "valid",
             "by_service": {},
-            "summary": {"total_required": 10, "valid": 10, "missing": 0}
+            "summary": {"total_required": 10, "valid": 10, "missing": 0},
         }
-        
-        response = client.post("/permissions/verify/aws", json={
-            "aws_access_key_id": "AKIATESTTEST",
-            "aws_secret_access_key": "secretkey123",
-            "aws_region": "us-east-1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/aws",
+            json={
+                "aws_access_key_id": "AKIATESTTEST",
+                "aws_secret_access_key": "secretkey123",
+                "aws_region": "us-east-1",
+            },
+        )
+
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
 
     def test_aws_check_missing_access_key(self):
         """Invalid: Missing aws_access_key_id returns 422."""
-        response = client.post("/permissions/verify/aws", json={
-            "aws_secret_access_key": "secret",
-            "aws_region": "us-east-1"
-        })
-        
+        response = client.post(
+            "/permissions/verify/aws",
+            json={"aws_secret_access_key": "secret", "aws_region": "us-east-1"},
+        )
+
         assert response.status_code == 422
 
     def test_aws_check_missing_secret_key(self):
         """Invalid: Missing aws_secret_access_key returns 422."""
-        response = client.post("/permissions/verify/aws", json={
-            "aws_access_key_id": "AKIATEST",
-            "aws_region": "us-east-1"
-        })
-        
+        response = client.post(
+            "/permissions/verify/aws",
+            json={"aws_access_key_id": "AKIATEST", "aws_region": "us-east-1"},
+        )
+
         assert response.status_code == 422
 
     def test_aws_check_missing_region(self):
         """Invalid: Missing aws_region returns 422."""
-        response = client.post("/permissions/verify/aws", json={
-            "aws_access_key_id": "AKIATEST",
-            "aws_secret_access_key": "secret"
-        })
-        
+        response = client.post(
+            "/permissions/verify/aws",
+            json={"aws_access_key_id": "AKIATEST", "aws_secret_access_key": "secret"},
+        )
+
         assert response.status_code == 422
 
     @patch("src.api.credentials_checker.check_aws_credentials")
     def test_aws_check_with_session_token(self, mock_check):
         """Edge: Request with session token is accepted."""
         mock_check.return_value = {"status": "valid", "by_service": {}, "summary": {}}
-        
-        response = client.post("/permissions/verify/aws", json={
-            "aws_access_key_id": "AKIATEST",
-            "aws_secret_access_key": "secret",
-            "aws_region": "us-east-1",
-            "aws_session_token": "sessiontoken123"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/aws",
+            json={
+                "aws_access_key_id": "AKIATEST",
+                "aws_secret_access_key": "secret",
+                "aws_region": "us-east-1",
+                "aws_session_token": "sessiontoken123",
+            },
+        )
+
         assert response.status_code == 200
 
 
@@ -89,9 +96,14 @@ class TestAWSPermissionsFromConfig:
         response = client.get("/permissions/verify/aws?project=nonexistent_12345")
 
         assert response.status_code == 403
-        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        assert (
+            response.json()["detail"]["error_code"]
+            == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        )
 
-    def test_aws_check_nonexistent_project_when_local_file_checks_enabled(self, monkeypatch):
+    def test_aws_check_nonexistent_project_when_local_file_checks_enabled(
+        self, monkeypatch
+    ):
         """Invalid: Non-existent project returns error status when local file checks are explicitly enabled."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
 
@@ -107,19 +119,19 @@ class TestAWSPermissionsFromConfig:
         mock_check.return_value = {
             "status": "valid",
             "by_service": {},
-            "summary": {"total_required": 10, "valid": 10, "missing": 0}
+            "summary": {"total_required": 10, "valid": 10, "missing": 0},
         }
-        
+
         response = client.get("/permissions/verify/aws?project=template")
-        
+
         assert response.status_code in [200, 404, 500]
 
     def test_aws_check_no_project_is_request_scoped(self, monkeypatch):
         """Edge: No project specified no longer falls back to global active state."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
-        
+
         response = client.get("/permissions/verify/aws")
-        
+
         assert response.status_code == 200
         assert response.json()["status"] == "error"
         assert "Project name is required" in response.json()["message"]
@@ -134,61 +146,77 @@ class TestAzurePermissionsFromBody:
     @patch("src.api.azure_credentials_checker.check_azure_credentials")
     def test_azure_check_valid_credentials(self, mock_check):
         """Happy: Valid credentials returns permissions report."""
-        mock_check.return_value = {
-            "status": "valid",
-            "layers": {},
-            "summary": {}
-        }
-        
-        response = client.post("/permissions/verify/azure", json={
-            "azure_subscription_id": "sub-123-456",
-            "azure_tenant_id": "tenant-123",
-            "azure_client_id": "client-123",
-            "azure_client_secret": "secret",
-            "azure_region": "westeurope",
-            "azure_region_iothub": "westeurope",
-            "azure_region_digital_twin": "westeurope"
-        })
-        
+        mock_check.return_value = {"status": "valid", "layers": {}, "summary": {}}
+
+        response = client.post(
+            "/permissions/verify/azure",
+            json={
+                "azure_subscription_id": "sub-123-456",
+                "azure_tenant_id": "tenant-123",
+                "azure_client_id": "client-123",
+                "azure_client_secret": "secret",
+                "azure_preparation_client_id": "preparation-client-123",
+                "azure_preparation_client_secret": "preparation-secret",
+                "azure_region": "westeurope",
+                "azure_region_iothub": "westeurope",
+                "azure_region_digital_twin": "westeurope",
+            },
+        )
+
         assert response.status_code == 200
 
     def test_azure_check_missing_subscription_id(self):
         """Invalid: Missing azure_subscription_id returns 422."""
-        response = client.post("/permissions/verify/azure", json={
-            "azure_tenant_id": "tenant-123",
-            "azure_client_id": "client-123",
-            "azure_client_secret": "secret",
-            "azure_region": "westeurope",
-            "azure_region_iothub": "westeurope",
-            "azure_region_digital_twin": "westeurope"
-        })
-        
+        response = client.post(
+            "/permissions/verify/azure",
+            json={
+                "azure_tenant_id": "tenant-123",
+                "azure_client_id": "client-123",
+                "azure_client_secret": "secret",
+                "azure_preparation_client_id": "preparation-client-123",
+                "azure_preparation_client_secret": "preparation-secret",
+                "azure_region": "westeurope",
+                "azure_region_iothub": "westeurope",
+                "azure_region_digital_twin": "westeurope",
+            },
+        )
+
         assert response.status_code == 422
 
     def test_azure_check_missing_tenant_id(self):
         """Invalid: Missing azure_tenant_id returns 422."""
-        response = client.post("/permissions/verify/azure", json={
-            "azure_subscription_id": "sub-123",
-            "azure_client_id": "client-123",
-            "azure_client_secret": "secret",
-            "azure_region": "westeurope",
-            "azure_region_iothub": "westeurope",
-            "azure_region_digital_twin": "westeurope"
-        })
-        
+        response = client.post(
+            "/permissions/verify/azure",
+            json={
+                "azure_subscription_id": "sub-123",
+                "azure_client_id": "client-123",
+                "azure_client_secret": "secret",
+                "azure_preparation_client_id": "preparation-client-123",
+                "azure_preparation_client_secret": "preparation-secret",
+                "azure_region": "westeurope",
+                "azure_region_iothub": "westeurope",
+                "azure_region_digital_twin": "westeurope",
+            },
+        )
+
         assert response.status_code == 422
 
     def test_azure_check_missing_client_secret(self):
         """Invalid: Missing azure_client_secret returns 422."""
-        response = client.post("/permissions/verify/azure", json={
-            "azure_subscription_id": "sub-123",
-            "azure_tenant_id": "tenant-123",
-            "azure_client_id": "client-123",
-            "azure_region": "westeurope",
-            "azure_region_iothub": "westeurope",
-            "azure_region_digital_twin": "westeurope"
-        })
-        
+        response = client.post(
+            "/permissions/verify/azure",
+            json={
+                "azure_subscription_id": "sub-123",
+                "azure_tenant_id": "tenant-123",
+                "azure_client_id": "client-123",
+                "azure_preparation_client_id": "preparation-client-123",
+                "azure_preparation_client_secret": "preparation-secret",
+                "azure_region": "westeurope",
+                "azure_region_iothub": "westeurope",
+                "azure_region_digital_twin": "westeurope",
+            },
+        )
+
         assert response.status_code == 422
 
 
@@ -203,20 +231,19 @@ class TestAzurePermissionsFromConfig:
         response = client.get("/permissions/verify/azure?project=nonexistent_12345")
 
         assert response.status_code == 403
-        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        assert (
+            response.json()["detail"]["error_code"]
+            == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        )
 
     @patch("src.api.azure_credentials_checker.check_azure_credentials_from_config")
     def test_azure_check_from_config_success(self, mock_check, monkeypatch):
         """Happy: Check from project config works."""
         monkeypatch.setenv("ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS", "true")
-        mock_check.return_value = {
-            "status": "valid",
-            "layers": {},
-            "summary": {}
-        }
-        
+        mock_check.return_value = {"status": "valid", "layers": {}, "summary": {}}
+
         response = client.get("/permissions/verify/azure?project=template")
-        
+
         assert response.status_code in [200, 404, 500]
 
 
@@ -233,15 +260,18 @@ class TestGCPPermissionsFromBody:
             "status": "valid",
             "project_access": {},
             "api_status": {},
-            "required_roles": []
+            "required_roles": [],
         }
-        
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "deployment-target",
-            "gcp_credentials_file": "/path/to/creds.json",
-            "gcp_region": "europe-west1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_project_id": "deployment-target",
+                "gcp_credentials_file": "/path/to/creds.json",
+                "gcp_region": "europe-west1",
+            },
+        )
+
         assert response.status_code == 200
 
     @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
@@ -251,42 +281,51 @@ class TestGCPPermissionsFromBody:
             "status": "valid",
             "project_access": {},
             "api_status": {},
-            "required_roles": []
+            "required_roles": [],
         }
-        
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_credentials_file": "/path/to/creds.json",
-            "gcp_region": "europe-west1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_credentials_file": "/path/to/creds.json",
+                "gcp_region": "europe-west1",
+            },
+        )
+
         assert response.status_code == 422
         mock_check.assert_not_called()
 
     def test_gcp_check_missing_credentials_file(self):
         """Invalid: Missing gcp_credentials_file returns 422."""
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "deployment-target",
-            "gcp_region": "europe-west1"
-        })
-        
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={"gcp_project_id": "deployment-target", "gcp_region": "europe-west1"},
+        )
+
         assert response.status_code == 422
 
     def test_gcp_check_missing_region(self):
         """Invalid: Missing gcp_region returns 422."""
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "deployment-target",
-            "gcp_credentials_file": "/path/to/creds.json"
-        })
-        
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_project_id": "deployment-target",
+                "gcp_credentials_file": "/path/to/creds.json",
+            },
+        )
+
         assert response.status_code == 422
 
     def test_gcp_check_rejects_removed_billing_account_input(self):
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "deployment-target",
-            "gcp_billing_account": "removed-input",
-            "gcp_credentials_file": "/path/to/creds.json",
-            "gcp_region": "europe-west1",
-        })
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_project_id": "deployment-target",
+                "gcp_billing_account": "removed-input",
+                "gcp_credentials_file": "/path/to/creds.json",
+                "gcp_region": "europe-west1",
+            },
+        )
 
         assert response.status_code == 422
 
@@ -297,15 +336,18 @@ class TestGCPPermissionsFromBody:
             "status": "valid",
             "project_access": {},
             "api_status": {},
-            "required_roles": []
+            "required_roles": [],
         }
-        
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "my-existing-project",
-            "gcp_credentials_file": "/path/to/creds.json",
-            "gcp_region": "europe-west1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_project_id": "my-existing-project",
+                "gcp_credentials_file": "/path/to/creds.json",
+                "gcp_region": "europe-west1",
+            },
+        )
+
         assert response.status_code == 200
 
 
@@ -320,7 +362,10 @@ class TestGCPPermissionsFromConfig:
         response = client.get("/permissions/verify/gcp?project=nonexistent_12345")
 
         assert response.status_code == 403
-        assert response.json()["detail"]["error_code"] == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        assert (
+            response.json()["detail"]["error_code"]
+            == "LOCAL_CREDENTIAL_FILE_CHECKS_DISABLED"
+        )
 
     @patch("src.api.gcp_credentials_checker.check_gcp_credentials_from_config")
     def test_gcp_check_from_config_success(self, mock_check, monkeypatch):
@@ -330,11 +375,11 @@ class TestGCPPermissionsFromConfig:
             "status": "valid",
             "project_access": {},
             "api_status": {},
-            "required_roles": []
+            "required_roles": [],
         }
-        
+
         response = client.get("/permissions/verify/gcp?project=template")
-        
+
         assert response.status_code in [200, 404, 500]
 
 
@@ -350,20 +395,21 @@ class TestCredentialResponseFormats:
         mock_check.return_value = {
             "status": "valid",
             "by_service": {"iot": {"valid": True}},
-            "summary": {"total_required": 10, "valid": 10, "missing": 0}
+            "summary": {"total_required": 10, "valid": 10, "missing": 0},
         }
-        
-        response = client.post("/permissions/verify/aws", json={
-            "aws_access_key_id": "AKIATEST",
-            "aws_secret_access_key": "secret",
-            "aws_region": "us-east-1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/aws",
+            json={
+                "aws_access_key_id": "AKIATEST",
+                "aws_secret_access_key": "secret",
+                "aws_region": "us-east-1",
+            },
+        )
+
         assert response.status_code == 200
         data = response.json()
         assert "summary" in data
-
-
 
     @patch("src.api.gcp_credentials_checker.check_gcp_credentials")
     def test_gcp_response_has_api_status(self, mock_check):
@@ -372,16 +418,39 @@ class TestCredentialResponseFormats:
             "status": "valid",
             "project_access": {"accessible": True},
             "api_status": {"pubsub": True, "cloudfunctions": True},
-            "required_roles": ["roles/pubsub.admin"]
+            "required_roles": ["roles/pubsub.admin"],
         }
-        
-        response = client.post("/permissions/verify/gcp", json={
-            "gcp_project_id": "deployment-target",
-            "gcp_credentials_file": "/path/to/creds.json",
-            "gcp_region": "europe-west1"
-        })
-        
+
+        response = client.post(
+            "/permissions/verify/gcp",
+            json={
+                "gcp_project_id": "deployment-target",
+                "gcp_credentials_file": "/path/to/creds.json",
+                "gcp_region": "europe-west1",
+            },
+        )
+
         assert response.status_code == 200
         data = response.json()
         assert "api_status" in data
         assert "required_roles" in data
+
+
+def test_azure_split_principal_secrets_are_request_only_in_openapi():
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    request = schemas["AzureCredentialsRequest"]
+    properties = request["properties"]
+
+    assert {
+        "azure_client_id",
+        "azure_client_secret",
+        "azure_preparation_client_id",
+        "azure_preparation_client_secret",
+    }.issubset(request["required"])
+    assert properties["azure_client_secret"]["writeOnly"] is True
+    assert properties["azure_preparation_client_secret"]["writeOnly"] is True
+    response_properties = schemas["AzureCredentialsCheckResponse"]["properties"]
+    assert "azure_client_id" not in response_properties
+    assert "azure_client_secret" not in response_properties
+    assert "azure_preparation_client_id" not in response_properties
+    assert "azure_preparation_client_secret" not in response_properties

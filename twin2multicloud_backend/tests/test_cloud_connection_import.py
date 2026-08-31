@@ -24,6 +24,8 @@ def _metadata(provider: str, **updates) -> CloudConnectionImportMetadata:
     }
     if provider == "azure":
         value["target_scope_id"] = "subscription-1"
+        value["preparation_client_id"] = "preparation-client-1"
+        value["preparation_client_secret"] = "preparation-secret-1"
     elif provider == "gcp":
         value["target_scope_id"] = "deployment-project"
     value.update(updates)
@@ -63,6 +65,20 @@ def test_azure_cli_json_uses_explicit_subscription_scope():
     assert request.azure.subscription_id == "subscription-1"
     assert request.azure.client_id == "client-1"
     assert request.azure.tenant_id == "tenant-1"
+    assert request.azure.preparation_client_id == "preparation-client-1"
+    assert request.azure.preparation_client_secret == "preparation-secret-1"
+
+
+def test_azure_import_rejects_missing_preparation_principal():
+    with pytest.raises(ValueError, match="preparation principal"):
+        CloudConnectionImportMetadata.model_validate(
+            {
+                "provider": "azure",
+                "display_name": "Azure imported",
+                "region": "westeurope",
+                "target_scope_id": "subscription-1",
+            }
+        )
 
 
 def test_gcp_import_keeps_existing_target_project_separate_from_key_project():
@@ -140,9 +156,9 @@ def test_import_route_encrypts_parsed_secret_and_returns_only_summary(
     assert response.status_code == 200
     assert secret not in response.text
     assert "researcher" not in response.text
-    connection = db_session.query(CloudConnection).filter_by(
-        id=response.json()["id"]
-    ).one()
+    connection = (
+        db_session.query(CloudConnection).filter_by(id=response.json()["id"]).one()
+    )
     payload = CloudConnectionService(db_session).decrypt_payload(
         connection,
         connection.user_id,

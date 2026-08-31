@@ -116,6 +116,8 @@ def sample_azure_credentials():
         "subscription_id": "sub-12345678-1234-1234-1234-123456789abc",
         "client_id": "client-12345678-1234-1234-1234-123456789abc",
         "client_secret": "secret-value-12345",
+        "preparation_client_id": "preparation-12345678-1234-1234-1234-123456789abc",
+        "preparation_client_secret": "preparation-secret-value-12345",
         "tenant_id": "tenant-12345678-1234-1234-1234-123456789abc",
         "region": "westeurope",
     }

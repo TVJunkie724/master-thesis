@@ -73,7 +73,8 @@ locals {
 
 # Assign Grafana Admin role (with deterministic UUID for idempotency)
 resource "azurerm_role_assignment" "grafana_admin" {
-  count = local.azure_grafana_enabled ? 1 : 0
+  provider = azurerm.preparation
+  count    = local.azure_grafana_enabled ? 1 : 0
 
   # Deterministic UUID includes deployment_suffix for per-scenario uniqueness
   # Azure role assignment UUIDs must be globally unique across the tenant
@@ -99,6 +100,7 @@ data "azurerm_client_config" "current" {
 }
 
 resource "azurerm_role_assignment" "grafana_deployer" {
+  provider                         = azurerm.preparation
   count                            = local.azure_v1_enabled && var.layer_5_provider == "azure" ? 1 : 0
   scope                            = azurerm_dashboard_grafana.main[0].id
   role_definition_name             = "Grafana Admin"

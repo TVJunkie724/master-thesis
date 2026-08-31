@@ -864,6 +864,8 @@ def _load_credentials(project_dir: Path) -> dict:
             "azure_subscription_id",
             "azure_client_id",
             "azure_client_secret",
+            "azure_preparation_client_id",
+            "azure_preparation_client_secret",
             "azure_tenant_id",
             "azure_region",
         ]
@@ -874,6 +876,10 @@ def _load_credentials(project_dir: Path) -> dict:
         tfvars["azure_subscription_id"] = azure["azure_subscription_id"]
         tfvars["azure_client_id"] = azure["azure_client_id"]
         tfvars["azure_client_secret"] = azure["azure_client_secret"]
+        tfvars["azure_preparation_client_id"] = azure["azure_preparation_client_id"]
+        tfvars["azure_preparation_client_secret"] = azure[
+            "azure_preparation_client_secret"
+        ]
         tfvars["azure_tenant_id"] = azure["azure_tenant_id"]
         tfvars["azure_region"] = azure["azure_region"]
         # IoT Hub region - falls back to main region if not specified

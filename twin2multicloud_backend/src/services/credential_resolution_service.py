@@ -182,6 +182,10 @@ class CredentialResolutionService:
                 "azure_subscription_id": credentials.subscription_id,
                 "azure_client_id": credentials.client_id,
                 "azure_client_secret": credentials.client_secret,
+                "azure_preparation_client_id": credentials.preparation_client_id,
+                "azure_preparation_client_secret": (
+                    credentials.preparation_client_secret
+                ),
                 "azure_tenant_id": credentials.tenant_id,
                 "azure_region": azure_region,
                 "azure_region_iothub": credentials.region_iothub or azure_region,
@@ -338,6 +342,22 @@ class CredentialResolutionService:
     def _validate_payload(
         cls, provider: str, payload: dict[str, Any]
     ) -> list[dict[str, Any]]:
+        if provider == "azure" and not (
+            payload.get("azure_preparation_client_id")
+            and payload.get("azure_preparation_client_secret")
+        ):
+            return [
+                cls._error(
+                    provider,
+                    "AZURE_PREPARATION_PRINCIPAL_REQUIRED",
+                    (
+                        "This legacy Azure Cloud Connection cannot run readiness or "
+                        "deployment. Create a complete Azure access bundle, bind the "
+                        "draft Twin to it, then delete the unbound legacy connection."
+                    ),
+                    field="azure",
+                )
+            ]
         required = {
             "aws": ("aws_access_key_id", "aws_secret_access_key", "aws_region"),
             "azure": (
@@ -345,6 +365,8 @@ class CredentialResolutionService:
                 "azure_tenant_id",
                 "azure_client_id",
                 "azure_client_secret",
+                "azure_preparation_client_id",
+                "azure_preparation_client_secret",
                 "azure_region",
                 "azure_region_iothub",
                 "azure_region_digital_twin",

@@ -44,6 +44,7 @@ resource "azurerm_digital_twins_instance" "main" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "identity_adt_owner" {
+  provider             = azurerm.preparation
   count                = local.azure_v1_enabled && var.layer_4_provider == "azure" ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
@@ -114,6 +115,7 @@ resource "azurerm_storage_blob" "scene_config" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "adt_storage_reader" {
+  provider             = azurerm.preparation
   count                = local.l4_azure_scene_enabled ? 1 : 0
   scope                = azurerm_storage_account.main[0].id
   role_definition_name = "Storage Blob Data Reader"
@@ -133,6 +135,7 @@ locals {
 }
 
 resource "azurerm_role_assignment" "adt_user_owner" {
+  provider             = azurerm.preparation
   count                = local.l4_azure_user_enabled ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
@@ -151,6 +154,7 @@ resource "azurerm_role_assignment" "adt_user_owner" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "scenes_user_contributor" {
+  provider             = azurerm.preparation
   count                = local.l4_azure_user_enabled && local.l4_azure_scene_enabled ? 1 : 0
   scope                = azurerm_storage_account.main[0].id
   role_definition_name = "Storage Blob Data Contributor"

@@ -1050,6 +1050,20 @@ variable "azure_client_secret" {
   sensitive   = true
 }
 
+variable "azure_preparation_client_id" {
+  description = "Azure preparation Service Principal Client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "azure_preparation_client_secret" {
+  description = "Azure preparation Service Principal Client Secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "azure_tenant_id" {
   description = "Azure Tenant ID"
   type        = string

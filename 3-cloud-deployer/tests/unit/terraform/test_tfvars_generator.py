@@ -109,6 +109,8 @@ class TestLoadCredentials:
                 "azure_subscription_id": "sub123",
                 "azure_client_id": "client123",
                 "azure_client_secret": "secret123",
+                "azure_preparation_client_id": "preparation-client123",
+                "azure_preparation_client_secret": "preparation-secret123",
                 "azure_tenant_id": "tenant123",
                 "azure_region": "westeurope",
             }
@@ -120,6 +122,7 @@ class TestLoadCredentials:
 
         assert result["azure_subscription_id"] == "sub123"
         assert result["azure_client_id"] == "client123"
+        assert result["azure_preparation_client_id"] == "preparation-client123"
         assert result["azure_region"] == "westeurope"
         # IoT Hub region should fall back to main region
         assert result["azure_region_iothub"] == "westeurope"
@@ -298,6 +301,8 @@ class TestGenerateTfvars:
                         "azure_subscription_id": "sub",
                         "azure_client_id": "client",
                         "azure_client_secret": "secret",
+                        "azure_preparation_client_id": "preparation-client",
+                        "azure_preparation_client_secret": "preparation-secret",
                         "azure_tenant_id": "tenant",
                         "azure_region": "westeurope",
                     },

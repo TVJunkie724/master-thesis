@@ -45,7 +45,12 @@ SENSITIVE_KEY_PARTS = (
     "gcp_credentials_file",
     "aws_access_key_id",
     "aws_secret_access_key",
+    "azure_client_id",
     "azure_client_secret",
+    "azure_preparation_client_id",
+    "azure_preparation_client_secret",
+    "azure_subscription_id",
+    "azure_tenant_id",
 )
 REDACTION = "[REDACTED]"
 
@@ -223,17 +228,35 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
             )
         )
     elif graph_status == "consent_required":
+        missing_graph_permissions = [
+            f"Microsoft Graph: {permission}"
+            for permission in graph_authority.get("missing_permissions", [])
+        ]
         checks.append(
             _failed(
                 "microsoft_graph_authority",
                 "MICROSOFT_GRAPH_CONSENT_REQUIRED",
                 graph_authority.get("message")
                 or "Microsoft Graph tenant admin consent is missing.",
-                "Grant tenant admin consent for Application.Read.All, then rerun preflight.",
-                permissions=["Microsoft Graph: Application.Read.All"],
+                "Grant tenant admin consent for the exact listed application permissions, then rerun preflight.",
+                permissions=missing_graph_permissions,
             )
         )
-    elif graph_status in {"transient", "check_failed"}:
+    elif graph_status == "overprivileged":
+        checks.append(
+            _failed(
+                "microsoft_graph_authority",
+                "MICROSOFT_GRAPH_AUTHORITY_OVERPRIVILEGED",
+                graph_authority.get("message")
+                or "Microsoft Graph authority exceeds the bounded PoC contract.",
+                "Remove unlisted Microsoft Graph application permissions and rerun preflight.",
+                permissions=[
+                    f"Microsoft Graph: {permission}"
+                    for permission in graph_authority.get("unexpected_permissions", [])
+                ],
+            )
+        )
+    elif graph_status in {"transient", "check_failed", "authentication_failed"}:
         checks.append(
             _failed(
                 "microsoft_graph_authority",
@@ -251,6 +274,73 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
                 graph_authority.get("message")
                 or "Microsoft Graph authority inspection is unavailable.",
                 "Install the supported Deployer dependencies and rerun preflight.",
+            )
+        )
+
+    deployment_authority = _safe_dict(result.get("deployment_authority"))
+    if deployment_authority.get("status") == "ready":
+        checks.append(
+            _passed(
+                "deployment_authority",
+                "AZURE_DEPLOYMENT_AUTHORITY_READY",
+                deployment_authority.get("message")
+                or "Azure deployment resource authority is ready.",
+            )
+        )
+    elif deployment_authority:
+        forbidden = deployment_authority.get("forbidden_actions") or []
+        missing = _azure_missing_actions(result)
+        checks.append(
+            _failed(
+                "deployment_authority",
+                (
+                    "AZURE_DEPLOYMENT_RBAC_AUTHORITY_FORBIDDEN"
+                    if forbidden
+                    else "AZURE_DEPLOYMENT_PERMISSIONS_MISSING"
+                ),
+                deployment_authority.get("message")
+                or "Azure deployment resource authority is not ready.",
+                (
+                    "Remove role-assignment mutation authority from the deployment principal."
+                    if forbidden
+                    else "Grant the listed resource actions to the deployment principal."
+                ),
+                permissions=sorted({str(item) for item in [*forbidden, *missing]}),
+            )
+        )
+
+    preparation_authority = _safe_dict(result.get("preparation_authority"))
+    if preparation_authority.get("status") == "ready":
+        checks.append(
+            _passed(
+                "preparation_authority",
+                "AZURE_PREPARATION_RBAC_READY",
+                preparation_authority.get("message")
+                or "Azure preparation RBAC authority is ready.",
+            )
+        )
+    elif preparation_authority:
+        preparation_permissions = sorted(
+            {
+                str(item)
+                for key in (
+                    "missing_actions",
+                    "forbidden_actions",
+                    "forbidden_roles",
+                    "missing_role_ids",
+                    "unexpected_role_ids",
+                )
+                for item in preparation_authority.get(key, []) or []
+            }
+        )
+        checks.append(
+            _failed(
+                "preparation_authority",
+                "AZURE_PREPARATION_RBAC_CONDITION_INVALID",
+                preparation_authority.get("message")
+                or "Azure preparation RBAC authority is not ready.",
+                "Replace the preparation assignment with the documented condition-constrained role.",
+                permissions=preparation_permissions,
             )
         )
 
@@ -318,7 +408,7 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
         )
 
     missing_actions = _azure_missing_actions(result)
-    if missing_actions:
+    if missing_actions and not deployment_authority:
         checks.append(
             _failed(
                 "deployment_permissions",

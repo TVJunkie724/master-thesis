@@ -1,21 +1,20 @@
 """
 Azure Credentials Permission Checker
 
-Validates if provided Azure Service Principal credentials have the required
-RBAC (Role-Based Access Control) permissions for the deployer by listing
-role assignments and comparing against required roles.
+Validates the two Azure Service Principals used by the thesis PoC. The
+deployment principal owns ordinary resource CRUD. The preparation principal
+owns only condition-constrained RBAC assignments and the Microsoft Graph
+application permissions required by directed federation.
 
 This module is shared by both:
 - REST API endpoints (api/credentials.py)
 - CLI commands (src/main.py)
 
 Authentication Flow:
-    1. Use ClientSecretCredential with tenant_id, client_id, client_secret
-    2. Verify credentials by listing subscriptions
-    3. List role assignments at subscription scope
-    4. Compare against required roles:
-       - Custom: "Digital Twin Deployer" (recommended, least-privilege)
-       - Built-in: "Contributor" + "User Access Administrator" (development)
+    1. Authenticate both principals independently.
+    2. Verify the shared subscription and deployment resource authority.
+    3. Verify the preparation principal's exact conditional RBAC assignment.
+    4. Verify the preparation principal's exact Microsoft Graph app roles.
 """
 
 import base64
@@ -23,6 +22,7 @@ import binascii
 import json
 import os
 import logging
+import re
 
 from logger import logger
 from src.core.observability import redact_sensitive
@@ -37,14 +37,58 @@ AZURE_BUILTIN_ROLES = {
     "Contributor": "b24988ac-6180-42a0-ab88-20f7382dd24c",
     "Reader": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
     "User Access Administrator": "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
+    "Role Based Access Control Administrator": "f58310d9-a9f6-439a-9e8d-f62e7b41a168",
     "Managed Identity Contributor": "e40ec5ca-96e0-45a2-b4ff-59039f2c2b59",
     "Website Contributor": "de139f84-1756-47ae-9be6-808fbbe84772",
     "IoT Hub Data Contributor": "4fc6c259-987e-4a07-842e-c321cc9d413f",
     "Cosmos DB Operator": "230815da-be43-4aae-9cb4-875f7bd000aa",
     "Storage Account Contributor": "17d1049b-9a84-46fb-8f53-869881c3d3ab",
-    "Azure Digital Twins Data Owner": "bcd981a7-7f74-457b-83e1-cceb9e632gy0",
+    "Azure Digital Twins Data Owner": "bcd981a7-7f74-457b-83e1-cceb9e632ffe",
+    "Azure Digital Twins Data Reader": "d57506d4-4c8d-48b1-8587-93c323f6a5a3",
+    "AcrPull": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
+    "Azure Event Hubs Data Receiver": "a638d3c7-ab3a-418d-83e6-5f17a39d4fde",
+    "Azure Event Hubs Data Sender": "2b629674-e913-4c01-ae53-ef4638d8f975",
+    "Azure Service Bus Data Receiver": "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0",
+    "Azure Service Bus Data Sender": "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39",
     "Grafana Admin": "22926164-76b3-42b3-bc55-97df8dab3e41",
+    "Grafana Viewer": "60921a7e-fef1-4a43-9b16-a26c52ad4769",
+    "IoT Hub Data Reader": "b447c946-2db7-41ec-983d-d8bf3b1c77e3",
+    "Storage Blob Data Contributor": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
 }
+
+AZURE_PREPARATION_ROLE_NAMES = (
+    "AcrPull",
+    "Azure Digital Twins Data Owner",
+    "Azure Digital Twins Data Reader",
+    "Azure Event Hubs Data Receiver",
+    "Azure Event Hubs Data Sender",
+    "Azure Service Bus Data Receiver",
+    "Azure Service Bus Data Sender",
+    "Grafana Admin",
+    "Grafana Viewer",
+    "IoT Hub Data Contributor",
+    "IoT Hub Data Reader",
+    "Storage Blob Data Contributor",
+    "Reader",
+)
+AZURE_PREPARATION_ROLE_IDS = frozenset(
+    AZURE_BUILTIN_ROLES[name].lower() for name in AZURE_PREPARATION_ROLE_NAMES
+)
+AZURE_PREPARATION_ASSIGNMENT_ROLE = "Role Based Access Control Administrator"
+AZURE_FORBIDDEN_PREPARATION_ROLES = frozenset(
+    {"Owner", "Contributor", "User Access Administrator"}
+)
+AZURE_ROLE_ASSIGNMENT_ACTIONS = (
+    "Microsoft.Authorization/roleAssignments/write",
+    "Microsoft.Authorization/roleAssignments/delete",
+)
+AZURE_GRAPH_APPLICATION_PERMISSIONS = frozenset(
+    {
+        "Application.ReadWrite.OwnedBy",
+        "Application.Read.All",
+        "AppRoleAssignment.ReadWrite.All",
+    }
+)
 
 # Specific RBAC actions required per layer (from azure_custom_role.json)
 # These are validated against the user's role assignments
@@ -105,11 +149,10 @@ REQUIRED_AZURE_PERMISSIONS = {
         ],
     },
     "layer_1": {
-        "description": "IoT Hub, Event Grid, Role Assignments, L1 Function Deployment",
+        "description": "IoT Hub, Event Grid, and L1 Function Deployment",
         "resource_providers": [
             "Microsoft.Devices",
             "Microsoft.EventGrid",
-            "Microsoft.Authorization",
             "Microsoft.Web",
         ],
         "required_actions": [
@@ -135,8 +178,6 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.EventGrid/systemTopics/eventSubscriptions/delete",
             "Microsoft.EventGrid/topics/write",
             "Microsoft.EventGrid/topics/delete",
-            "Microsoft.Authorization/roleAssignments/write",
-            "Microsoft.Authorization/roleAssignments/delete",
             "Microsoft.Web/sites/config/list/action",  # Get publish credentials for L1 functions
             "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
         ],
@@ -213,18 +254,18 @@ REQUIRED_AZURE_PERMISSIONS = {
 }
 
 
-def _create_credential(credentials: dict):
-    """Create Azure credential from credentials dict."""
+def _create_credential(credentials: dict, *, preparation: bool = False):
+    """Create one Azure credential without permitting ambient auth fallback."""
     from azure.identity import ClientSecretCredential
 
     tenant_id = credentials.get("azure_tenant_id")
-    client_id = credentials.get("azure_client_id")
-    client_secret = credentials.get("azure_client_secret")
+    prefix = "azure_preparation" if preparation else "azure"
+    client_id = credentials.get(f"{prefix}_client_id")
+    client_secret = credentials.get(f"{prefix}_client_secret")
 
     if not all([tenant_id, client_id, client_secret]):
-        raise ValueError(
-            "Missing required Azure credentials: azure_tenant_id, azure_client_id, azure_client_secret"
-        )
+        principal = "preparation" if preparation else "deployment"
+        raise ValueError(f"Missing required Azure {principal} principal credentials")
 
     return ClientSecretCredential(
         tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
@@ -254,6 +295,51 @@ def _get_current_principal_claims(credential) -> dict:
     return {
         "principal_id": claims.get("oid") or claims.get("objectid"),
         "application_id": claims.get("appid") or claims.get("azp"),
+    }
+
+
+def _check_microsoft_graph_authority(credential) -> dict:
+    """Validate the exact Graph application roles carried by the app token."""
+
+    try:
+        token = credential.get_token("https://graph.microsoft.com/.default").token
+    except Exception as exc:
+        return {
+            "status": "authentication_failed",
+            "message": "Microsoft Graph authentication failed for the preparation principal.",
+            "reason": redact_sensitive(exc),
+            "missing_permissions": sorted(AZURE_GRAPH_APPLICATION_PERMISSIONS),
+            "unexpected_permissions": [],
+        }
+
+    claims = _decode_jwt_claims(token)
+    raw_roles = claims.get("roles")
+    granted = (
+        {str(role) for role in raw_roles if isinstance(role, str) and role.strip()}
+        if isinstance(raw_roles, list)
+        else set()
+    )
+    missing = sorted(AZURE_GRAPH_APPLICATION_PERMISSIONS - granted)
+    unexpected = sorted(granted - AZURE_GRAPH_APPLICATION_PERMISSIONS)
+    if missing:
+        return {
+            "status": "consent_required",
+            "message": "Microsoft Graph application permissions are incomplete.",
+            "missing_permissions": missing,
+            "unexpected_permissions": unexpected,
+        }
+    if unexpected:
+        return {
+            "status": "overprivileged",
+            "message": "Microsoft Graph grants exceed the bounded PoC permission set.",
+            "missing_permissions": [],
+            "unexpected_permissions": unexpected,
+        }
+    return {
+        "status": "ready",
+        "message": "The exact Microsoft Graph application permissions are consented.",
+        "missing_permissions": [],
+        "unexpected_permissions": [],
     }
 
 
@@ -368,7 +454,7 @@ def _check_sp_credential_expiration(
                         "status": "consent_required",
                         "message": (
                             "Microsoft Graph denied application inspection; tenant admin consent "
-                            "for Application.Read.All is required."
+                            "for the documented preparation permissions is required."
                         ),
                     },
                     "reason": "Microsoft Graph application authority is not granted.",
@@ -408,9 +494,7 @@ def _check_sp_credential_expiration(
                 end_date_str = cred.get("endDateTime")
                 if not end_date_str:
                     continue
-                end_date = datetime.fromisoformat(
-                    end_date_str.replace("Z", "+00:00")
-                )
+                end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
                 if end_date >= now:
                     active_expirations.append(end_date)
 
@@ -608,6 +692,7 @@ def _get_role_assignments_with_permissions(
                         permission_blocks.append(
                             {
                                 "role_name": role_name,
+                                "role_definition_id": role_def_guid,
                                 "actions": actions,
                                 "not_actions": not_actions,
                                 "data_actions": data_actions,
@@ -624,6 +709,8 @@ def _get_role_assignments_with_permissions(
                     "role_name": role_name,
                     "role_definition_id": role_def_guid,
                     "scope": assignment.scope,
+                    "condition": getattr(assignment, "condition", None),
+                    "condition_version": getattr(assignment, "condition_version", None),
                 }
             )
 
@@ -723,6 +810,153 @@ def _action_allowed(
     return _action_matches(action_set, required_action)
 
 
+def _validate_deployment_authority(role_info: dict) -> dict:
+    """Validate resource CRUD while rejecting role-assignment authority."""
+
+    comparison = _compare_permissions(role_info)
+    forbidden_actions = [
+        action
+        for action in AZURE_ROLE_ASSIGNMENT_ACTIONS
+        if _action_allowed(role_info, action) != "none"
+    ]
+    complete = (
+        comparison["summary"]["valid_layers"] == comparison["summary"]["total_layers"]
+    )
+    ready = complete and not forbidden_actions
+    return {
+        "status": "ready" if ready else "invalid",
+        "message": (
+            "Deployment resource authority is ready and excludes RBAC mutation."
+            if ready
+            else "Deployment principal authority does not match the bounded resource contract."
+        ),
+        "forbidden_actions": forbidden_actions,
+        "comparison": comparison,
+    }
+
+
+def _validate_preparation_authority(role_info: dict) -> dict:
+    """Validate the one exact condition-constrained RBAC administrator role."""
+
+    assignments = list(role_info.get("assignments") or [])
+    role_names = {str(item.get("role_name") or "") for item in assignments}
+    forbidden_roles = sorted(role_names & AZURE_FORBIDDEN_PREPARATION_ROLES)
+    expected_assignments = [
+        item
+        for item in assignments
+        if item.get("role_name") == AZURE_PREPARATION_ASSIGNMENT_ROLE
+        and str(item.get("role_definition_id") or "").lower()
+        == AZURE_BUILTIN_ROLES[AZURE_PREPARATION_ASSIGNMENT_ROLE]
+    ]
+    if forbidden_roles:
+        return _preparation_failure(
+            "Preparation principal has forbidden Azure roles.",
+            forbidden_roles=forbidden_roles,
+        )
+    if len(assignments) != 1 or len(expected_assignments) != 1:
+        return _preparation_failure(
+            "Preparation principal must have exactly one bounded RBAC Administrator assignment."
+        )
+
+    assignment = expected_assignments[0]
+    condition = str(assignment.get("condition") or "")
+    condition_version = str(assignment.get("condition_version") or "")
+    condition_role_ids = {
+        value.lower()
+        for value in re.findall(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+            condition,
+        )
+    }
+    principal_types = {
+        value.casefold()
+        for value in re.findall(
+            r"(?i)(?<![A-Za-z])(User|ServicePrincipal|Group)(?![A-Za-z])",
+            condition,
+        )
+    }
+    missing_roles = sorted(AZURE_PREPARATION_ROLE_IDS - condition_role_ids)
+    unexpected_roles = sorted(condition_role_ids - AZURE_PREPARATION_ROLE_IDS)
+    if condition_version != "2.0" or not condition:
+        return _preparation_failure(
+            "Preparation RBAC condition is missing or unsupported."
+        )
+    normalized_condition = condition.casefold()
+    required_condition_fragments = (
+        "roledefinitionid",
+        "principaltype",
+        "roleassignments/write",
+        "roleassignments/delete",
+    )
+    if any(
+        fragment not in normalized_condition
+        for fragment in required_condition_fragments
+    ):
+        return _preparation_failure(
+            "Preparation RBAC condition does not constrain both assignment operations, roles, and principal types."
+        )
+    if missing_roles or unexpected_roles:
+        return _preparation_failure(
+            "Preparation RBAC role allowlist does not match the PoC contract.",
+            missing_role_ids=missing_roles,
+            unexpected_role_ids=unexpected_roles,
+        )
+    if principal_types != {"user", "serviceprincipal"}:
+        return _preparation_failure(
+            "Preparation RBAC principal-type allowlist must contain only User and ServicePrincipal.",
+            principal_types=sorted(principal_types),
+        )
+
+    missing_assignment_actions = [
+        action
+        for action in AZURE_ROLE_ASSIGNMENT_ACTIONS
+        if _action_allowed(role_info, action) == "none"
+    ]
+    ordinary_write_probes = (
+        "Microsoft.Resources/subscriptions/resourceGroups/write",
+        "Microsoft.Resources/subscriptions/resourceGroups/delete",
+        "Microsoft.Storage/storageAccounts/write",
+        "Microsoft.Storage/storageAccounts/delete",
+        "Microsoft.Web/sites/write",
+        "Microsoft.Web/sites/delete",
+    )
+    forbidden_actions = [
+        action
+        for action in ordinary_write_probes
+        if _action_allowed(role_info, action) != "none"
+    ]
+    if missing_assignment_actions or forbidden_actions:
+        return _preparation_failure(
+            "Preparation role actions do not match the bounded RBAC contract.",
+            missing_actions=missing_assignment_actions,
+            forbidden_actions=forbidden_actions,
+        )
+
+    return {
+        "status": "ready",
+        "message": "Preparation RBAC authority is condition-constrained to the PoC allowlist.",
+        "missing_role_ids": [],
+        "unexpected_role_ids": [],
+        "principal_types": ["ServicePrincipal", "User"],
+        "missing_actions": [],
+        "forbidden_actions": [],
+        "forbidden_roles": [],
+    }
+
+
+def _preparation_failure(message: str, **details) -> dict:
+    return {
+        "status": "invalid",
+        "message": message,
+        "missing_role_ids": details.get("missing_role_ids", []),
+        "unexpected_role_ids": details.get("unexpected_role_ids", []),
+        "principal_types": details.get("principal_types", []),
+        "missing_actions": details.get("missing_actions", []),
+        "forbidden_actions": details.get("forbidden_actions", []),
+        "forbidden_roles": details.get("forbidden_roles", []),
+    }
+
+
 def _compare_permissions(
     role_info: dict,
     required_permissions: dict | None = None,
@@ -818,22 +1052,16 @@ def _compare_permissions(
 
 
 def check_azure_credentials(credentials: dict) -> dict:
-    """
-    Main entry point. Validates Azure credentials against ALL required permissions.
+    """Validate the split Azure deployment/preparation authority contract."""
 
-    Args:
-        credentials: Dict with azure_subscription_id, azure_tenant_id,
-                     azure_client_id, azure_client_secret, azure_region
-
-    Returns:
-        Dict with status, caller_identity, and permission results by layer
-    """
     result = {
         "status": "invalid",
         "message": "",
         "caller_identity": None,
         "region_validation": None,
         "microsoft_graph_authority": None,
+        "deployment_authority": None,
+        "preparation_authority": None,
         "can_list_roles": False,
         "by_layer": {},
         "summary": {
@@ -843,92 +1071,108 @@ def check_azure_credentials(credentials: dict) -> dict:
             "invalid_layers": 0,
         },
         "recommended_roles": {
-            "custom": "Digital Twin Deployer",
-            "builtin": ["Contributor", "User Access Administrator"],
+            "deployment": "Digital Twin Deployer",
+            "preparation": AZURE_PREPARATION_ASSIGNMENT_ROLE,
         },
     }
 
-    # Validate required fields
     required_fields = [
         "azure_subscription_id",
         "azure_tenant_id",
         "azure_client_id",
         "azure_client_secret",
+        "azure_preparation_client_id",
+        "azure_preparation_client_secret",
     ]
     missing = [f for f in required_fields if not credentials.get(f)]
-
     if missing:
         result["message"] = f"Missing required credentials: {', '.join(missing)}"
+        return result
+    if (
+        str(credentials["azure_client_id"]).strip().casefold()
+        == str(credentials["azure_preparation_client_id"]).strip().casefold()
+    ):
+        result["message"] = (
+            "Azure deployment and preparation principals must be different."
+        )
         return result
 
     subscription_id = credentials["azure_subscription_id"]
 
     try:
-        # Step 1: Create credential
         try:
-            credential = _create_credential(credentials)
+            deployment_credential = _create_credential(credentials)
+            preparation_credential = _create_credential(
+                credentials,
+                preparation=True,
+            )
         except ValueError as exc:
             result["message"] = redact_sensitive(exc)
             return result
 
-        # Step 2: Validate credentials with subscription access
         try:
-            caller_identity = _get_caller_identity(credential, subscription_id)
-            result["caller_identity"] = caller_identity
+            deployment_identity = _get_caller_identity(
+                deployment_credential,
+                subscription_id,
+            )
+            preparation_identity = _get_caller_identity(
+                preparation_credential,
+                subscription_id,
+            )
         except ValueError as exc:
             result["message"] = redact_sensitive(exc)
             return result
 
-        principal_id = caller_identity.get("principal_id")
-        if not principal_id:
+        deployment_principal_id = deployment_identity.get("principal_id")
+        preparation_principal_id = preparation_identity.get("principal_id")
+        if not deployment_principal_id or not preparation_principal_id:
             result["status"] = "check_failed"
             result["message"] = (
-                "Cannot determine the Azure Service Principal object ID from the ARM token. "
-                "Permission validation would be unsafe because subscription role assignments "
-                "could not be filtered to the authenticated principal."
+                "Cannot determine both Azure principal object IDs from ARM tokens; "
+                "permission validation cannot safely filter role assignments."
             )
-            result["can_list_roles"] = False
             return result
 
-        # Step 2.5: FAIL-FAST - Check subscription state (catches disabled/deleted subscriptions)
-        subscription_state = caller_identity.get("state")
-        if subscription_state and subscription_state != "Enabled":
-            result["status"] = "invalid"
+        subscription_states = {
+            str(deployment_identity.get("state") or ""),
+            str(preparation_identity.get("state") or ""),
+        }
+        disabled_states = sorted(
+            state for state in subscription_states if state and state != "Enabled"
+        )
+        if disabled_states:
             result["message"] = (
-                f"Azure subscription is '{subscription_state}'. "
-                f"Subscription must be 'Enabled' for deployment. "
-                f"Check Azure billing status or contact your administrator to reactivate the subscription."
+                "Azure subscription is not enabled for both PoC principals."
             )
+            result["subscription_state"] = disabled_states[0]
             return result
 
-        # Step 2.6: Check SP credential expiration (if Graph API accessible)
+        result["caller_identity"] = {
+            "subscription_state": deployment_identity.get("state"),
+            "principal_type": "service_principal",
+            "deployment_authenticated": True,
+            "preparation_authenticated": True,
+        }
+
+        graph_authority = _check_microsoft_graph_authority(preparation_credential)
+        result["microsoft_graph_authority"] = graph_authority
+
         sp_expiration = _check_sp_credential_expiration(
             tenant_id=credentials["azure_tenant_id"],
-            client_id=credentials["azure_client_id"],
-            client_secret=credentials["azure_client_secret"],
-        )
-        result["microsoft_graph_authority"] = sp_expiration.get(
-            "graph_authority",
-            {
-                "status": "not_checked",
-                "message": "Microsoft Graph authority was not inspected.",
-            },
+            client_id=credentials["azure_preparation_client_id"],
+            client_secret=credentials["azure_preparation_client_secret"],
         )
         result["sp_credential_expiration"] = {
             key: value
             for key, value in sp_expiration.items()
             if key != "graph_authority"
         }
-
         if sp_expiration.get("status") == "expired":
-            result["status"] = "invalid"
             result["message"] = sp_expiration.get(
-                "message", "Service Principal credentials have expired"
+                "message", "Preparation principal credentials have expired"
             )
             return result
-        # Note: "expiring_soon" is a warning, not a failure - will be shown but deployment proceeds
 
-        # Step 3: Validate regions
         regions_to_validate = {
             "azure_region": credentials.get("azure_region", ""),
             "azure_region_iothub": credentials.get("azure_region_iothub", ""),
@@ -936,80 +1180,65 @@ def check_azure_credentials(credentials: dict) -> dict:
                 "azure_region_digital_twin", ""
             ),
         }
-        # Filter out empty regions
         regions_to_validate = {
             k: v for k, v in regions_to_validate.items() if v and v.strip()
         }
-
         if regions_to_validate:
             region_results = _validate_azure_regions(
-                credential, subscription_id, regions_to_validate
+                deployment_credential,
+                subscription_id,
+                regions_to_validate,
             )
             result["region_validation"] = region_results
-
-            # Check if any region is invalid
             invalid_regions = [
                 k for k, v in region_results.items() if not v.get("valid")
             ]
             if invalid_regions:
-                errors = [
-                    region_results[k].get("error", "Invalid region")
-                    for k in invalid_regions
-                ]
-                result["status"] = "invalid"
-                result["message"] = f"Invalid region(s): {'; '.join(errors)}"
+                result["message"] = "One or more Azure regions are unavailable."
                 return result
 
-        # Step 4: Get role assignments with permissions
-        role_info = _get_role_assignments_with_permissions(
-            credential, subscription_id, principal_id
+        deployment_roles = _get_role_assignments_with_permissions(
+            deployment_credential,
+            subscription_id,
+            deployment_principal_id,
         )
-
-        if role_info is None:
+        preparation_roles = _get_role_assignments_with_permissions(
+            preparation_credential,
+            subscription_id,
+            preparation_principal_id,
+        )
+        if deployment_roles is None or preparation_roles is None:
             result["status"] = "check_failed"
             result["message"] = (
-                "Cannot determine permissions - Service Principal lacks permission to list role assignments. "
-                "This typically means the principal doesn't have Reader or higher access at subscription scope. "
-                "Grant 'Reader' role at subscription level to enable permission checking."
+                "Azure role assignments cannot be inspected for both PoC principals."
             )
-            result["can_list_roles"] = False
             return result
 
         result["can_list_roles"] = True
-        result["role_assignments_count"] = len(role_info.get("assignments", []))
-        result["total_actions_count"] = len(role_info.get("all_actions", set()))
-
-        # List assigned role names for reference
-        result["assigned_roles"] = [
-            a["role_name"] for a in role_info.get("assignments", [])
-        ]
-
-        # Step 4: Compare against required permissions
-        permission_contract = REQUIRED_AZURE_PERMISSIONS
-        comparison = _compare_permissions(role_info, permission_contract)
+        deployment_authority = _validate_deployment_authority(deployment_roles)
+        preparation_authority = _validate_preparation_authority(preparation_roles)
+        result["deployment_authority"] = deployment_authority
+        result["preparation_authority"] = preparation_authority
+        comparison = deployment_authority["comparison"]
         result["by_layer"] = comparison["by_layer"]
         result["summary"] = comparison["summary"]
 
-        # Determine overall status
-        summary = comparison["summary"]
-
-        if summary["valid_layers"] == summary["total_layers"]:
+        if (
+            deployment_authority["status"] == "ready"
+            and preparation_authority["status"] == "ready"
+            and graph_authority["status"] == "ready"
+        ):
             result["status"] = "valid"
             result["message"] = (
-                "All required permissions are present. Ready for deployment."
+                "Azure deployment, preparation RBAC, and Microsoft Graph authority are ready."
             )
-        elif summary["valid_layers"] > 0:
+        elif comparison["summary"]["valid_layers"] > 0:
             result["status"] = "partial"
-            missing_count = summary["partial_layers"] + summary["invalid_layers"]
             result["message"] = (
-                f"Some layers have missing permissions: {missing_count} of {summary['total_layers']} layers incomplete."
+                "Azure split authority requires repair before deployment."
             )
         else:
-            result["status"] = "invalid"
-            result["message"] = (
-                "Required permissions are missing. For the PoC, use the "
-                "configured administrator credential and rerun validation."
-            )
+            result["message"] = "Azure split authority is not ready for deployment."
 
         return result
 

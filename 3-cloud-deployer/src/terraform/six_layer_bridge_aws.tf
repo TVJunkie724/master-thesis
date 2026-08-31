@@ -487,6 +487,7 @@ resource "azurerm_federated_identity_credential" "azure_six_layer_bridge_from_aw
 }
 
 resource "azurerm_role_assignment" "azure_six_layer_bridge_from_aws_telemetry" {
+  provider             = azurerm.preparation
   for_each             = local.aws_six_layer_bridge_azure_telemetry_scopes
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Sender"
@@ -495,6 +496,7 @@ resource "azurerm_role_assignment" "azure_six_layer_bridge_from_aws_telemetry" {
 }
 
 resource "azurerm_role_assignment" "azure_six_layer_bridge_from_aws_control" {
+  provider             = azurerm.preparation
   for_each             = local.aws_six_layer_bridge_azure_control_scopes
   scope                = each.value
   role_definition_name = "Azure Service Bus Data Sender"

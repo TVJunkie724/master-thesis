@@ -47,6 +47,7 @@ FORBIDDEN_MANIFEST_CREDENTIAL_KEYS = {
     "aws_secret_access_key",
     "aws_session_token",
     "azure_client_secret",
+    "azure_preparation_client_secret",
     "client_secret",
     "gcp_credentials_file",
     "private_key",

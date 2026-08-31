@@ -20,6 +20,8 @@ AZURE_PAYLOAD = {
     "azure_tenant_id": "tenant-123",
     "azure_client_id": "client-123",
     "azure_client_secret": "secret-value-123456",
+    "azure_preparation_client_id": "preparation-client-123",
+    "azure_preparation_client_secret": "preparation-secret-value-123456",
     "azure_region": "westeurope",
     "azure_region_iothub": "westeurope",
     "azure_region_digital_twin": "westeurope",
@@ -161,6 +163,7 @@ def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
             "microsoft_graph_authority": {
                 "status": "consent_required",
                 "message": "Tenant admin consent is missing.",
+                "missing_permissions": ["Application.ReadWrite.OwnedBy"],
             },
         },
     )
@@ -169,6 +172,40 @@ def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
     assert [check.code for check in data.checks] == [
         "AZURE_READY",
         "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+    ]
+    assert data.checks[1].permissions == [
+        "Microsoft Graph: Application.ReadWrite.OwnedBy"
+    ]
+
+
+def test_azure_preflight_keeps_split_authority_failures_separate():
+    data = build_provider_preflight(
+        "azure",
+        {
+            "status": "partial",
+            "message": "repair required",
+            "deployment_authority": {
+                "status": "invalid",
+                "message": "deployment authority is overprivileged",
+                "forbidden_actions": ["Microsoft.Authorization/roleAssignments/write"],
+            },
+            "preparation_authority": {
+                "status": "invalid",
+                "message": "condition mismatch",
+                "missing_role_ids": ["missing-role-id"],
+            },
+            "microsoft_graph_authority": {
+                "status": "ready",
+                "message": "ready",
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert [check.code for check in data.checks] == [
+        "MICROSOFT_GRAPH_AUTHORITY_READY",
+        "AZURE_DEPLOYMENT_RBAC_AUTHORITY_FORBIDDEN",
+        "AZURE_PREPARATION_RBAC_CONDITION_INVALID",
     ]
 
 

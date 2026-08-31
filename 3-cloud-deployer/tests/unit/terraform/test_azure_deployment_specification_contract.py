@@ -1,9 +1,14 @@
 """Source-level drift gates for Azure deployment specification bindings."""
 
 from pathlib import Path
+import json
+import re
+
+from src.api.azure_credentials_checker import AZURE_PREPARATION_ROLE_IDS
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+REFERENCE_ROOT = Path(__file__).resolve().parents[3] / "docs" / "references"
 
 
 def _source(filename: str) -> str:
@@ -72,7 +77,7 @@ def test_azure_l0_is_derived_from_registered_receiver_topology():
     ):
         assert condition in setup
     assert (
-        'azure_l0_enabled = local.azure_v1_enabled && ( '
+        "azure_l0_enabled = local.azure_v1_enabled && ( "
         'local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure" )'
     ) in setup
 
@@ -89,17 +94,16 @@ def test_azure_storage_distinguishes_costed_blob_from_function_host_support():
         '|| var.layer_3_archive_provider == "azure" )'
     ) in setup
     assert (
-        'local.azure_blob_storage_enabled ? '
+        "local.azure_blob_storage_enabled ? "
         'coalesce(var.azure_storage_account_tier, "Standard") : "Standard"'
     ) in setup
     assert (
-        'local.azure_blob_storage_enabled ? '
+        "local.azure_blob_storage_enabled ? "
         'coalesce(var.azure_storage_replication_type, "LRS") : "LRS"'
     ) in setup
     assert "account_tier = local.azure_effective_storage_account_tier" in setup
     assert (
-        "account_replication_type = "
-        "local.azure_effective_storage_replication_type"
+        "account_replication_type = local.azure_effective_storage_replication_type"
     ) in setup
 
 
@@ -124,8 +128,8 @@ def test_azure_variables_fail_closed_to_contract_values():
     }
     for variable, validation_fragment in expected.items():
         marker = f'variable "{variable}" {{'
-        block = source[source.index(marker):]
-        block = block[:block.index("} }") + 3]
+        block = source[source.index(marker) :]
+        block = block[: block.index("} }") + 3]
         assert "default = null" in block
         assert f"var.{variable} == null" in block
         assert validation_fragment in block
@@ -136,3 +140,80 @@ def test_azure_usage_meters_remain_non_deployable_evidence():
     assert "azure_event_grid" not in variables
     assert "azure_logic_apps" not in variables
     assert "azure_digital_twins" not in variables
+
+
+def test_azure_rbac_and_entra_use_only_the_preparation_principal():
+    main = _normalized_source("main.tf")
+    assert 'provider "azurerm" { alias = "preparation"' in main
+    assert 'client_id = var.azure_preparation_client_id != ""' in main
+    assert 'client_secret = var.azure_preparation_client_secret != ""' in main
+
+    role_files = (
+        "azure_eventing.tf",
+        "azure_grafana.tf",
+        "azure_iot.tf",
+        "azure_six_layer.tf",
+        "azure_twins.tf",
+        "six_layer_bridge_aws.tf",
+        "six_layer_bridge_gcp.tf",
+    )
+    for filename in role_files:
+        source = _source(filename)
+        blocks = re.findall(
+            r'^resource "azurerm_role_assignment" "[^"]+" \{(.*?)(?=\n\})',
+            source,
+            flags=re.DOTALL | re.MULTILINE,
+        )
+        assert blocks, filename
+        assert all(
+            "provider" in block and "azurerm.preparation" in block for block in blocks
+        )
+
+
+def test_azure_iot_data_role_name_is_valid():
+    source = _source("azure_six_layer.tf")
+    assert "IoT Hub Data Receiver" not in source
+    assert 'role  = "IoT Hub Data Reader"' in source
+
+
+def test_azure_access_references_match_the_split_authority_contract():
+    custom_role = json.loads(
+        (REFERENCE_ROOT / "azure_custom_role.json").read_text(encoding="utf-8")
+    )
+    permission = custom_role["properties"]["permissions"][0]
+    effective_actions = {action.casefold() for action in permission["actions"]} - {
+        action.casefold() for action in permission["notActions"]
+    }
+    assert "microsoft.authorization/roleassignments/write" not in effective_actions
+    assert "microsoft.authorization/roleassignments/delete" not in effective_actions
+
+    policy = json.loads(
+        (REFERENCE_ROOT / "azure_deployer_policy.json").read_text(encoding="utf-8")
+    )
+    preparation = policy["preparation_principal"]
+    assert {
+        role["role_id"] for role in preparation["allowed_role_definitions"]
+    } == AZURE_PREPARATION_ROLE_IDS
+    assert preparation["allowed_principal_types"] == ["User", "ServicePrincipal"]
+    assert preparation["microsoft_graph_application_permissions"] == [
+        "Application.ReadWrite.OwnedBy",
+        "Application.Read.All",
+        "AppRoleAssignment.ReadWrite.All",
+    ]
+
+    assignment = json.loads(
+        (REFERENCE_ROOT / "azure_role_assignment.json").read_text(encoding="utf-8")
+    )
+    condition = assignment["variables"]["condition"]
+    condition_role_ids = {
+        value.casefold()
+        for value in re.findall(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+            condition,
+        )
+    }
+    assert condition_role_ids == AZURE_PREPARATION_ROLE_IDS
+    assert "roleAssignments/write" in condition
+    assert "roleAssignments/delete" in condition
+    assert "'User', 'ServicePrincipal'" in condition
+    assert "Group" not in condition

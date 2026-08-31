@@ -14,6 +14,7 @@ from uuid import uuid4
 SECRET_KEY_PATTERN = re.compile(
     r"(?i)"
     r"(\b(?:aws_access_key_id|aws_secret_access_key|azure_client_secret|"
+    r"azure_preparation_client_secret|"
     r"client_secret|private_key|private_key_id|token|access_token|refresh_token|"
     r"password|secret|api_key|access_key|sharedaccesskey)\b)"
     r"([\"']?\s*[:=]\s*[\"']?)"
@@ -27,7 +28,9 @@ AUTH_HEADER_PATTERN = re.compile(r"(?i)\b(authorization\s*[:=]\s*bearer\s+)([^\s
 CONNECTION_STRING_SECRET_PATTERN = re.compile(r"(?i)\b(SharedAccessKey=)([^;,\s]+)")
 UPLOAD_PATH_PATTERN = re.compile(r"(/[^\s:]+/upload/[^\s:]+)")
 APP_UPLOAD_PATH_PATTERN = re.compile(r"(/app/upload/[^\s:]+)")
-WORKSPACE_PATH_PATTERN = re.compile(r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)")
+WORKSPACE_PATH_PATTERN = re.compile(
+    r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
+)
 SENSITIVE_FIELD_PATTERN = re.compile(
     r"(?i)(?:^|_)(?:secret|password|private_key|api_key|access_key|"
     r"access_token|refresh_token|session_token|authorization|credentials?)(?:$|_)"

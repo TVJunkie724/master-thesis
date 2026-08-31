@@ -103,6 +103,8 @@ def _connection_request(
             "subscription_id": "subscription-readiness",
             "client_id": "client-readiness",
             "client_secret": _AZURE_SECRET,
+            "preparation_client_id": "preparation-client-readiness",
+            "preparation_client_secret": "preparation-secret-for-redaction",
             "tenant_id": "tenant-readiness",
             "region": "westeurope",
         }
@@ -641,6 +643,53 @@ def test_optional_authority_checks_are_filtered_by_resolved_graph():
     )
 
     assert [check.code for check in filtered] == ["AZURE_READY"]
+
+
+def test_split_azure_authority_failures_remain_independent():
+    checks = [
+        DeploymentReadinessCheck(
+            component="deployer.credentials",
+            status="failed",
+            code="AZURE_DEPLOYMENT_RBAC_AUTHORITY_FORBIDDEN",
+            message="Deployment authority is too broad.",
+            action="Replace the deployment principal role.",
+        ),
+        DeploymentReadinessCheck(
+            component="deployer.credentials",
+            status="failed",
+            code="AZURE_PREPARATION_RBAC_CONDITION_INVALID",
+            message="Preparation condition is invalid.",
+            action="Repair the bounded condition.",
+        ),
+        DeploymentReadinessCheck(
+            component="deployer.microsoft_graph_authority",
+            status="failed",
+            code="MICROSOFT_GRAPH_AUTHORITY_OVERPRIVILEGED",
+            message="Graph authority is too broad.",
+            action="Replace the Graph permission set.",
+        ),
+    ]
+
+    with_graph = DeploymentReadinessService._checks_for_graph(
+        checks,
+        [
+            {
+                "capability_id": "azure.microsoft-graph.authority",
+                "provider": "azure",
+            }
+        ],
+    )
+    without_graph = DeploymentReadinessService._checks_for_graph(checks, [])
+
+    assert [check.code for check in with_graph] == [
+        "AZURE_DEPLOYMENT_RBAC_AUTHORITY_FORBIDDEN",
+        "AZURE_PREPARATION_RBAC_CONDITION_INVALID",
+        "MICROSOFT_GRAPH_AUTHORITY_OVERPRIVILEGED",
+    ]
+    assert [check.code for check in without_graph] == [
+        "AZURE_DEPLOYMENT_RBAC_AUTHORITY_FORBIDDEN",
+        "AZURE_PREPARATION_RBAC_CONDITION_INVALID",
+    ]
 
 
 @pytest.mark.asyncio

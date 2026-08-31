@@ -1272,7 +1272,7 @@ locals {
     local.azure_six_layer_l1_enabled ? {
       iot_hub_receiver = {
         scope = azurerm_iothub.azure_azure_iot_hub[0].id
-        role  = "IoT Hub Data Receiver"
+        role  = "IoT Hub Data Reader"
       }
       iot_hub_contributor = {
         scope = azurerm_iothub.azure_azure_iot_hub[0].id
@@ -1331,6 +1331,7 @@ locals {
 }
 
 resource "azurerm_role_assignment" "azure_azure_entra_layer_access_bindings" {
+  provider             = azurerm.preparation
   for_each             = local.azure_six_layer_event_role_bindings
   scope                = each.value.scope
   role_definition_name = each.value.role

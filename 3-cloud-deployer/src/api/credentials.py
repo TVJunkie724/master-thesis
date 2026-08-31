@@ -12,7 +12,7 @@ Categories:
 import os
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Optional
 
 from src.api.credentials_checker import (
@@ -70,12 +70,27 @@ class AWSCredentialsRequest(BaseModel):
 class AzureCredentialsRequest(BaseModel):
     """Request body for Azure credential validation."""
 
+    model_config = ConfigDict(extra="forbid")
+
     azure_subscription_id: str = Field(..., description="Azure Subscription ID")
     azure_tenant_id: str = Field(..., description="Azure AD Tenant ID")
     azure_client_id: str = Field(
         ..., description="Service Principal Client/Application ID"
     )
-    azure_client_secret: str = Field(..., description="Service Principal Client Secret")
+    azure_client_secret: str = Field(
+        ...,
+        description="Service Principal Client Secret",
+        json_schema_extra={"writeOnly": True},
+    )
+    azure_preparation_client_id: str = Field(
+        ...,
+        description="Preparation Service Principal Client/Application ID",
+    )
+    azure_preparation_client_secret: str = Field(
+        ...,
+        description="Preparation Service Principal Client Secret",
+        json_schema_extra={"writeOnly": True},
+    )
     azure_region: str = Field(
         ..., description="Azure Region for general resources (e.g., 'italynorth')"
     )
@@ -87,6 +102,17 @@ class AzureCredentialsRequest(BaseModel):
         ...,
         description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list",
     )
+
+    @model_validator(mode="after")
+    def validate_split_authority(self):
+        if (
+            self.azure_client_id.strip().casefold()
+            == self.azure_preparation_client_id.strip().casefold()
+        ):
+            raise ValueError(
+                "Azure deployment and preparation principals must be different"
+            )
+        return self
 
 
 class GCPCredentialsRequest(BaseModel):
@@ -160,6 +186,18 @@ class AzureCredentialsCheckResponse(BaseModel):
     recommended_roles: Optional[dict] = Field(
         None,
         description="Recommended roles: custom (preferred) and builtin alternatives",
+    )
+    deployment_authority: Optional[dict] = Field(
+        None,
+        description="Secret-safe deployment-principal authority result",
+    )
+    preparation_authority: Optional[dict] = Field(
+        None,
+        description="Secret-safe condition-constrained RBAC authority result",
+    )
+    microsoft_graph_authority: Optional[dict] = Field(
+        None,
+        description="Secret-safe Microsoft Graph application-permission result",
     )
 
 
@@ -288,9 +326,9 @@ async def check_aws_from_config(
     tags=["Permissions - Upload"],
     summary="Verify Azure permissions from request body",
     description=(
-        "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n"
+        "**Purpose:** Verifies the split Azure deployment and preparation principals.\n\n"
         "**When to call:** During wizard to validate user-provided Azure credentials.\n\n"
-        "**Checks:** Contributor and User Access Administrator role assignments."
+        "**Checks:** Deployment resource actions, condition-constrained RBAC delegation, and exact Microsoft Graph application permissions."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -302,16 +340,17 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     """
     Validate Azure Service Principal credentials from request body.
 
-    Checks RBAC role assignments for all deployment layers:
+    Checks resource permissions for all deployment layers and independently
+    validates the bounded preparation authority used for RBAC and Entra work:
     - **Setup**: Resource Groups, Managed Identity, Storage
     - **Layer 0**: App Service Plan, Function Apps
-    - **Layer 1**: IoT Hub, Event Grid, Role Assignments
+    - **Layer 1**: IoT Hub and Event Grid resources
     - **Layer 2**: Function Apps (Compute)
     - **Layer 3**: Cosmos DB, Blob Storage
     - **Layer 4**: Azure Digital Twins
     - **Layer 5**: Azure Managed Grafana
 
-    Returns status and missing roles by layer.
+    Returns separate deployment, preparation-RBAC, and Graph results.
     """
     return check_azure_credentials(request.model_dump())
 

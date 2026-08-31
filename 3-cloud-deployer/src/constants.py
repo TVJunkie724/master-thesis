@@ -70,6 +70,8 @@ REQUIRED_CREDENTIALS_FIELDS = {
         "azure_tenant_id",
         "azure_client_id",
         "azure_client_secret",
+        "azure_preparation_client_id",
+        "azure_preparation_client_secret",
         "azure_region",
         "azure_region_iothub",
         "azure_region_digital_twin",

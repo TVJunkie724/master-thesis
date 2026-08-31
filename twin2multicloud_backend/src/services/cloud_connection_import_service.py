@@ -77,7 +77,9 @@ def _parse_aws(
     unknown = sorted(set(normalized_headers) - set(_AWS_FIELDS))
     if unknown:
         raise ValueError("AWS credential CSV contains unsupported columns")
-    rows = [row for row in reader if any(str(value or "").strip() for value in row.values())]
+    rows = [
+        row for row in reader if any(str(value or "").strip() for value in row.values())
+    ]
     if len(rows) != 1:
         raise ValueError("AWS credential CSV must contain exactly one credential row")
     values: dict[str, str] = {}
@@ -125,6 +127,8 @@ def _parse_azure(
                 "subscription_id": metadata.target_scope_id,
                 "client_id": _first(value, "clientId", "appId"),
                 "client_secret": _first(value, "clientSecret", "password"),
+                "preparation_client_id": metadata.preparation_client_id,
+                "preparation_client_secret": metadata.preparation_client_secret,
                 "tenant_id": _first(value, "tenantId", "tenant"),
                 "region": metadata.region,
                 "region_iothub": metadata.region_iothub,

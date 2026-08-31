@@ -486,6 +486,7 @@ locals {
 }
 
 resource "azurerm_role_assignment" "azure_event_runtime" {
+  provider             = azurerm.preparation
   for_each             = local.azure_event_runtime_role_bindings
   scope                = each.value.scope
   role_definition_name = each.value.role
@@ -496,6 +497,7 @@ resource "azurerm_role_assignment" "azure_event_runtime" {
 }
 
 resource "azurerm_role_assignment" "azure_event_publishers" {
+  provider             = azurerm.preparation
   for_each             = local.azure_event_publisher_role_bindings
   scope                = each.value.scope
   role_definition_name = each.value.role
@@ -506,6 +508,7 @@ resource "azurerm_role_assignment" "azure_event_publishers" {
 }
 
 resource "azurerm_role_assignment" "azure_event_bridge" {
+  provider             = azurerm.preparation
   for_each             = local.azure_event_enabled ? local.azure_event_bridge_role_bindings : {}
   scope                = each.value.scope
   role_definition_name = each.value.role

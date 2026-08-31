@@ -1,7 +1,7 @@
 import json
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datetime import datetime
 
 from src.schemas.optimizer_calculation import OptimizerCalculationParams
@@ -29,13 +29,29 @@ class AzureCredentials(BaseModel):
 
     subscription_id: str
     client_id: str
-    client_secret: str
+    client_secret: str = Field(..., json_schema_extra={"writeOnly": True})
+    preparation_client_id: str
+    preparation_client_secret: str = Field(
+        ...,
+        json_schema_extra={"writeOnly": True},
+    )
     tenant_id: str
     region: str = Field(default="westeurope")
     # IoT Hub and Digital Twins are only available in a subset of Azure
     # regions. These optional overrides fall back to `region` when omitted.
     region_iothub: Optional[str] = None
     region_digital_twin: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_split_authority(self):
+        if (
+            self.client_id.strip().casefold()
+            == self.preparation_client_id.strip().casefold()
+        ):
+            raise ValueError(
+                "Azure deployment and preparation principals must be different"
+            )
+        return self
 
 
 class GCPCredentials(BaseModel):

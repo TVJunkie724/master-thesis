@@ -101,6 +101,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "035_twin_user_functions",
         "migrations.add_twin_user_functions",
     ),
+    Migration(
+        "036_drop_removed_auth_columns",
+        "migrations.drop_removed_auth_columns",
+    ),
 )
 
 

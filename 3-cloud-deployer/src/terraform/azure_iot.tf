@@ -47,6 +47,7 @@ data "azurerm_iothub_shared_access_policy" "iothubowner" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "identity_iothub_contributor" {
+  provider             = azurerm.preparation
   count                = local.azure_v1_enabled && var.layer_1_provider == "azure" ? 1 : 0
   scope                = azurerm_iothub.main[0].id
   role_definition_name = "IoT Hub Data Contributor"

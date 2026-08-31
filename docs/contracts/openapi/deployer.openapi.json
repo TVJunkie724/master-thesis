@@ -79,10 +79,49 @@
             "title": "Can List Roles",
             "type": "boolean"
           },
+          "deployment_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe deployment-principal authority result",
+            "title": "Deployment Authority"
+          },
           "message": {
             "description": "Human-readable result message",
             "title": "Message",
             "type": "string"
+          },
+          "microsoft_graph_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe Microsoft Graph application-permission result",
+            "title": "Microsoft Graph Authority"
+          },
+          "preparation_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe condition-constrained RBAC authority result",
+            "title": "Preparation Authority"
           },
           "recommended_roles": {
             "anyOf": [
@@ -120,6 +159,7 @@
         "type": "object"
       },
       "AzureCredentialsRequest": {
+        "additionalProperties": false,
         "description": "Request body for Azure credential validation.",
         "properties": {
           "azure_client_id": {
@@ -130,7 +170,19 @@
           "azure_client_secret": {
             "description": "Service Principal Client Secret",
             "title": "Azure Client Secret",
+            "type": "string",
+            "writeOnly": true
+          },
+          "azure_preparation_client_id": {
+            "description": "Preparation Service Principal Client/Application ID",
+            "title": "Azure Preparation Client Id",
             "type": "string"
+          },
+          "azure_preparation_client_secret": {
+            "description": "Preparation Service Principal Client Secret",
+            "title": "Azure Preparation Client Secret",
+            "type": "string",
+            "writeOnly": true
           },
           "azure_region": {
             "description": "Azure Region for general resources (e.g., 'italynorth')",
@@ -163,6 +215,8 @@
           "azure_tenant_id",
           "azure_client_id",
           "azure_client_secret",
+          "azure_preparation_client_id",
+          "azure_preparation_client_secret",
           "azure_region",
           "azure_region_iothub",
           "azure_region_digital_twin"
@@ -2826,7 +2880,7 @@
         ]
       },
       "post": {
-        "description": "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Contributor and User Access Administrator role assignments.",
+        "description": "**Purpose:** Verifies the split Azure deployment and preparation principals.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Deployment resource actions, condition-constrained RBAC delegation, and exact Microsoft Graph application permissions.",
         "operationId": "verifyAzureCredentialsFromBody",
         "requestBody": {
           "content": {

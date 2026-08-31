@@ -114,6 +114,34 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
     assert "private_key" not in str(resolved.config_credentials)
 
 
+def test_legacy_azure_connection_requires_replacement_bundle():
+    payload = {
+        "azure_subscription_id": "subscription-1",
+        "azure_tenant_id": "tenant-1",
+        "azure_client_id": "deployment-client-1",
+        "azure_client_secret": "deployment-secret-1",
+        "azure_region": "westeurope",
+        "azure_region_iothub": "westeurope",
+        "azure_region_digital_twin": "westeurope",
+    }
+    twin = _twin(
+        configuration=_configuration(
+            azure_cloud_connection_id="connection-azure",
+            azure_cloud_connection=_cloud_connection(
+                "connection-azure", "azure", payload
+            ),
+        )
+    )
+
+    with pytest.raises(CredentialResolutionFailed) as exc_info:
+        CredentialResolutionService().resolve_deployment_credentials(twin, USER_ID)
+
+    assert exc_info.value.errors[0]["code"] == "AZURE_PREPARATION_PRINCIPAL_REQUIRED"
+    assert (
+        "Create a complete Azure access bundle" in exc_info.value.errors[0]["message"]
+    )
+
+
 def test_legacy_credential_columns_cannot_activate_stored_twin_credentials():
     twin = _twin(
         configuration=_configuration(
@@ -197,6 +225,8 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
         subscription_id="sub-1",
         client_id="client-1",
         client_secret="secret-1",
+        preparation_client_id="preparation-client-1",
+        preparation_client_secret="preparation-secret-1",
         tenant_id="tenant-1",
         region="westeurope",
         region_iothub=None,
@@ -213,6 +243,10 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
     assert (
         resolved.deployer_validation_payload["azure_region_digital_twin"]
         == "northeurope"
+    )
+    assert (
+        resolved.deployer_validation_payload["azure_preparation_client_id"]
+        == "preparation-client-1"
     )
 
 

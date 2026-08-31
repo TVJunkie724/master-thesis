@@ -1,104 +1,89 @@
 {
-    "description": "Required Azure RBAC roles for the Digital Twin Deployer",
-    "version": "1.0",
-    "required_roles": [
-        {
-            "role_name": "Contributor",
-            "role_id": "b24988ac-6180-42a0-ab88-20f7382dd24c",
-            "scope": "subscription",
-            "description": "Creates and manages all Azure resources"
-        },
-        {
-            "role_name": "User Access Administrator",
-            "role_id": "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
-            "scope": "subscription",
-            "description": "Assigns roles to Managed Identity for IoT Hub access"
-        }
-    ],
-    "layer_specific_roles": [
-        {
-            "layer": "L4",
-            "role_name": "Azure Digital Twins Data Owner",
-            "role_id": "bcd981a7-7f74-457b-83e1-cceb9e632gy0",
-            "scope": "resource (ADT instance)",
-            "description": "Required for data plane operations (twins, models, relationships)"
-        }
-    ],
-    "alternative_roles": [
-        {
-            "role_name": "Owner",
-            "role_id": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
-            "scope": "subscription",
-            "description": "Combines Contributor + User Access Administrator. Use for development only."
-        }
-    ],
-    "services_by_layer": {
-        "setup": {
-            "services": [
-                "Resource Groups",
-                "Managed Identity",
-                "Storage Account"
-            ],
-            "resource_providers": [
-                "Microsoft.Resources",
-                "Microsoft.ManagedIdentity",
-                "Microsoft.Storage"
-            ]
-        },
-        "layer_0": {
-            "services": [
-                "App Service Plan",
-                "Function Apps"
-            ],
-            "resource_providers": [
-                "Microsoft.Web"
-            ]
-        },
-        "layer_1": {
-            "services": [
-                "IoT Hub",
-                "Event Grid",
-                "Role Assignments"
-            ],
-            "resource_providers": [
-                "Microsoft.Devices",
-                "Microsoft.EventGrid",
-                "Microsoft.Authorization"
-            ]
-        },
-        "layer_2": {
-            "services": [
-                "Function Apps"
-            ],
-            "resource_providers": [
-                "Microsoft.Web"
-            ]
-        },
-        "layer_3": {
-            "services": [
-                "Cosmos DB",
-                "Blob Storage"
-            ],
-            "resource_providers": [
-                "Microsoft.DocumentDB",
-                "Microsoft.Storage"
-            ]
-        },
-        "layer_4": {
-            "services": [
-                "Azure Digital Twins"
-            ],
-            "resource_providers": [
-                "Microsoft.DigitalTwins"
-            ]
-        },
-        "layer_5": {
-            "services": [
-                "Azure Managed Grafana"
-            ],
-            "resource_providers": [
-                "Microsoft.Dashboard"
-            ]
-        }
+    "description": "Split Azure authority contract for the supervised Six-layer thesis PoC",
+    "version": "2.0",
+    "deployment_principal": {
+        "role": "Digital Twin Deployer",
+        "scope": "isolated subscription",
+        "role_definition": "azure_custom_role.json",
+        "forbidden_effective_actions": [
+            "Microsoft.Authorization/roleAssignments/write",
+            "Microsoft.Authorization/roleAssignments/delete"
+        ],
+        "microsoft_graph_permissions": []
+    },
+    "preparation_principal": {
+        "role_name": "Role Based Access Control Administrator",
+        "role_id": "f58310d9-a9f6-439a-9e8d-f62e7b41a168",
+        "scope": "isolated subscription",
+        "condition_version": "2.0",
+        "allowed_principal_types": [
+            "User",
+            "ServicePrincipal"
+        ],
+        "allowed_role_definitions": [
+            {
+                "role_name": "AcrPull",
+                "role_id": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+            },
+            {
+                "role_name": "Azure Digital Twins Data Owner",
+                "role_id": "bcd981a7-7f74-457b-83e1-cceb9e632ffe"
+            },
+            {
+                "role_name": "Azure Digital Twins Data Reader",
+                "role_id": "d57506d4-4c8d-48b1-8587-93c323f6a5a3"
+            },
+            {
+                "role_name": "Azure Event Hubs Data Receiver",
+                "role_id": "a638d3c7-ab3a-418d-83e6-5f17a39d4fde"
+            },
+            {
+                "role_name": "Azure Event Hubs Data Sender",
+                "role_id": "2b629674-e913-4c01-ae53-ef4638d8f975"
+            },
+            {
+                "role_name": "Azure Service Bus Data Receiver",
+                "role_id": "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0"
+            },
+            {
+                "role_name": "Azure Service Bus Data Sender",
+                "role_id": "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39"
+            },
+            {
+                "role_name": "Grafana Admin",
+                "role_id": "22926164-76b3-42b3-bc55-97df8dab3e41"
+            },
+            {
+                "role_name": "Grafana Viewer",
+                "role_id": "60921a7e-fef1-4a43-9b16-a26c52ad4769"
+            },
+            {
+                "role_name": "IoT Hub Data Contributor",
+                "role_id": "4fc6c259-987e-4a07-842e-c321cc9d413f"
+            },
+            {
+                "role_name": "IoT Hub Data Reader",
+                "role_id": "b447c946-2db7-41ec-983d-d8bf3b1c77e3"
+            },
+            {
+                "role_name": "Storage Blob Data Contributor",
+                "role_id": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+            },
+            {
+                "role_name": "Reader",
+                "role_id": "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+            }
+        ],
+        "microsoft_graph_application_permissions": [
+            "Application.ReadWrite.OwnedBy",
+            "Application.Read.All",
+            "AppRoleAssignment.ReadWrite.All"
+        ],
+        "forbidden_roles": [
+            "Owner",
+            "Contributor",
+            "User Access Administrator"
+        ],
+        "ordinary_resource_write_delete": false
     }
 }

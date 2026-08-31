@@ -76,6 +76,23 @@ def _gcp_request():
     }
 
 
+def _azure_request():
+    return {
+        "provider": "azure",
+        "display_name": "Azure PoC",
+        "cloud_scope": {"subscription_id": "subscription-1"},
+        "azure": {
+            "subscription_id": "subscription-1",
+            "tenant_id": "tenant-1",
+            "client_id": "deployment-client-1",
+            "client_secret": "deployment-secret-1",
+            "preparation_client_id": "preparation-client-1",
+            "preparation_client_secret": "preparation-secret-1",
+            "region": "westeurope",
+        },
+    }
+
+
 def test_create_cloud_connection_masks_secret_response(
     authenticated_client, db_session
 ):
@@ -110,6 +127,65 @@ def test_create_cloud_connection_masks_secret_response(
     assert stored.encrypted_payload.startswith("gAAAAA")
     assert payload["aws"]["access_key_id"] not in stored.encrypted_payload
     assert payload["aws"]["secret_access_key"] not in stored.encrypted_payload
+
+
+def test_create_azure_bundle_encrypts_both_principals_and_redacts_response(
+    authenticated_client, db_session
+):
+    client, headers = authenticated_client
+    payload = _azure_request()
+
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["payload_summary"]["client_configured"] is True
+    assert data["payload_summary"]["preparation_client_configured"] is True
+    for field in (
+        "deployment-client-1",
+        "deployment-secret-1",
+        "preparation-client-1",
+        "preparation-secret-1",
+        "tenant-1",
+    ):
+        assert field not in response.text
+
+    stored = db_session.query(CloudConnection).filter_by(id=data["id"]).one()
+    decrypted = CloudConnectionService(db_session).decrypt_payload(
+        stored, stored.user_id
+    )
+    assert decrypted["azure_preparation_client_id"] == "preparation-client-1"
+    assert decrypted["azure_preparation_client_secret"] == "preparation-secret-1"
+
+
+def test_azure_bundle_requires_distinct_principals(authenticated_client):
+    client, headers = authenticated_client
+    payload = _azure_request()
+    payload["azure"]["preparation_client_id"] = payload["azure"]["client_id"]
+
+    response = client.post("/cloud-connections/", json=payload, headers=headers)
+
+    assert response.status_code == 422
+
+
+def test_azure_fingerprint_changes_when_preparation_secret_rotates(db_session):
+    service = CloudConnectionService(db_session)
+    original = _azure_request()
+    rotated = _azure_request()
+    rotated["azure"]["preparation_client_secret"] = "rotated-preparation-secret"
+
+    from src.schemas.cloud_connection import CloudConnectionCreate
+
+    original_payload = service._normalize_payload(
+        CloudConnectionCreate.model_validate(original)
+    )
+    rotated_payload = service._normalize_payload(
+        CloudConnectionCreate.model_validate(rotated)
+    )
+
+    assert service.fingerprint_payload(
+        "azure", original_payload
+    ) != service.fingerprint_payload("azure", rotated_payload)
 
 
 def test_list_and_filter_cloud_connections(authenticated_client):
@@ -604,8 +680,7 @@ def test_preflight_cloud_connection_redacts_secret_echo(
             "deployer": {
                 "valid": False,
                 "message": (
-                    f"bad key {deployer_creds['aws_access_key_id']} "
-                    f"and secret {secret}"
+                    f"bad key {deployer_creds['aws_access_key_id']} and secret {secret}"
                 ),
             },
         }

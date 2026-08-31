@@ -1,24 +1,24 @@
 {
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
+    "contentVersion": "2.0.0.0",
     "parameters": {
-        "principalId": {
+        "preparationPrincipalObjectId": {
             "type": "string",
             "metadata": {
-                "description": "The Object ID of the Service Principal to assign the role to"
+                "description": "Object ID of the separate preparation service principal"
             }
         },
         "roleAssignmentGuid": {
             "type": "string",
             "defaultValue": "[newGuid()]",
             "metadata": {
-                "description": "A unique GUID for the role assignment"
+                "description": "Unique GUID for the conditional role assignment"
             }
         }
     },
     "variables": {
-        "digitalTwinDeployerRoleName": "Digital Twin Deployer",
-        "adtDataOwnerRoleId": "bcd981a7-7f74-457b-83e1-cceb9e632gy0"
+        "rbacAdministratorRoleId": "f58310d9-a9f6-439a-9e8d-f62e7b41a168",
+        "condition": "(((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR ((@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, bcd981a7-7f74-457b-83e1-cceb9e632ffe, d57506d4-4c8d-48b1-8587-93c323f6a5a3, a638d3c7-ab3a-418d-83e6-5f17a39d4fde, 2b629674-e913-4c01-ae53-ef4638d8f975, 4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0, 69a216fc-b8fb-44d8-bc22-1f3c2cd27a39, 22926164-76b3-42b3-bc55-97df8dab3e41, 60921a7e-fef1-4a43-9b16-a26c52ad4769, 4fc6c259-987e-4a07-842e-c321cc9d413f, b447c946-2db7-41ec-983d-d8bf3b1c77e3, ba92f5b4-2d11-453d-a403-e96b0029c9fe, acdd72a7-3385-48ef-bd42-f606fba81ae7}) AND (@Request[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'User', 'ServicePrincipal'}))) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR ((@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d, bcd981a7-7f74-457b-83e1-cceb9e632ffe, d57506d4-4c8d-48b1-8587-93c323f6a5a3, a638d3c7-ab3a-418d-83e6-5f17a39d4fde, 2b629674-e913-4c01-ae53-ef4638d8f975, 4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0, 69a216fc-b8fb-44d8-bc22-1f3c2cd27a39, 22926164-76b3-42b3-bc55-97df8dab3e41, 60921a7e-fef1-4a43-9b16-a26c52ad4769, 4fc6c259-987e-4a07-842e-c321cc9d413f, b447c946-2db7-41ec-983d-d8bf3b1c77e3, ba92f5b4-2d11-453d-a403-e96b0029c9fe, acdd72a7-3385-48ef-bd42-f606fba81ae7}) AND (@Resource[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'User', 'ServicePrincipal'}))))"
     },
     "resources": [
         {
@@ -26,12 +26,12 @@
             "apiVersion": "2022-04-01",
             "name": "[parameters('roleAssignmentGuid')]",
             "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('digitalTwinDeployerRoleName'))]",
-                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('rbacAdministratorRoleId'))]",
+                "principalId": "[parameters('preparationPrincipalObjectId')]",
                 "principalType": "ServicePrincipal",
-                "condition": "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {bcd981a7-7f74-457b-83e1-cceb9e632gy0}))",
+                "condition": "[variables('condition')]",
                 "conditionVersion": "2.0",
-                "description": "Digital Twin Deployer role with condition limiting role assignments to Azure Digital Twins Data Owner only"
+                "description": "Twin2MultiCloud PoC preparation authority constrained to exact roles and principal types"
             }
         }
     ],

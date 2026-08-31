@@ -1,7 +1,7 @@
 {
     "properties": {
         "roleName": "Digital Twin Deployer",
-        "description": "Custom role for deploying Digital Twin infrastructure. Contains only the minimum required permissions for the Multi-Cloud Digital Twin Deployer.",
+        "description": "Resource-only custom role for the supervised Six-layer thesis PoC. Role-assignment and Microsoft Graph administration are intentionally excluded.",
         "assignableScopes": [
             "/subscriptions/REPLACE_WITH_YOUR_SUBSCRIPTION_ID"
         ],
@@ -68,8 +68,6 @@
                     "Microsoft.EventGrid/systemTopics/eventSubscriptions/delete",
                     "Microsoft.EventGrid/topics/write",
                     "Microsoft.EventGrid/topics/delete",
-                    "Microsoft.Authorization/roleAssignments/write",
-                    "Microsoft.Authorization/roleAssignments/delete",
                     "Microsoft.DocumentDB/databaseAccounts/write",
                     "Microsoft.DocumentDB/databaseAccounts/delete",
                     "Microsoft.DocumentDB/databaseAccounts/read",
@@ -91,7 +89,10 @@
                     "Microsoft.Dashboard/grafana/write",
                     "Microsoft.Dashboard/grafana/delete"
                 ],
-                "notActions": [],
+                "notActions": [
+                    "Microsoft.Authorization/roleAssignments/write",
+                    "Microsoft.Authorization/roleAssignments/delete"
+                ],
                 "dataActions": [
                     "Microsoft.DigitalTwins/digitaltwins/read",
                     "Microsoft.DigitalTwins/digitaltwins/write",

@@ -113,9 +113,7 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
-            graph_digest=self._aggregate_evidence_digest(
-                providers, "graph_digest"
-            ),
+            graph_digest=self._aggregate_evidence_digest(providers, "graph_digest"),
             requirements_digest=self._aggregate_evidence_digest(
                 providers, "requirements_digest"
             ),
@@ -267,10 +265,14 @@ class DeploymentReadinessService:
                 user_id,
                 candidate.provider,
             )
-            if failure is not None or not self._candidate_is_current(
-                candidate,
-                current_connection,
-            ) or not self._architecture_is_current(current_twin, graph_evidence):
+            if (
+                failure is not None
+                or not self._candidate_is_current(
+                    candidate,
+                    current_connection,
+                )
+                or not self._architecture_is_current(current_twin, graph_evidence)
+            ):
                 refreshed[candidate.provider] = self._provider_failure(
                     candidate.provider,
                     code="CONNECTION_CHANGED_DURING_PREFLIGHT",
@@ -377,9 +379,7 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
-            graph_digest=self._aggregate_evidence_digest(
-                providers, "graph_digest"
-            ),
+            graph_digest=self._aggregate_evidence_digest(providers, "graph_digest"),
             requirements_digest=self._aggregate_evidence_digest(
                 providers, "requirements_digest"
             ),
@@ -411,9 +411,7 @@ class DeploymentReadinessService:
                 "The reviewed account preparation plan is stale.",
                 detail={"code": "PREPARATION_PLAN_STALE"},
             )
-        allowed_manual = {
-            item.requirement_id for item in plan.manual_requirements
-        }
+        allowed_manual = {item.requirement_id for item in plan.manual_requirements}
         requested_manual = set(request.manual_requirement_ids)
         if not requested_manual.issubset(allowed_manual):
             raise ValidationError(
@@ -685,7 +683,9 @@ class DeploymentReadinessService:
             ):
                 raise ValueError(f"Invalid graph evidence field: {field}")
         if evidence.get("required_providers") != list(required):
-            raise ValueError("Resolved graph provider set differs from the architecture")
+            raise ValueError(
+                "Resolved graph provider set differs from the architecture"
+            )
         if not requirements or any(
             not isinstance(item, dict)
             or item.get("provider") not in required
@@ -863,6 +863,7 @@ class DeploymentReadinessService:
             "IDENTITY_CENTER_CHECK_FAILED": "aws.iam-identity-center.primary-region",
             "MICROSOFT_GRAPH_AUTHORITY_READY": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CONSENT_REQUIRED": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_AUTHORITY_OVERPRIVILEGED": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CHECK_FAILED": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CHECK_UNSUPPORTED": "azure.microsoft-graph.authority",
         }
@@ -911,12 +912,17 @@ class DeploymentReadinessService:
             status = self._failure_requirement_status(relevant)
             message = relevant.message
             action = relevant.action
-        elif preparation_mode == "manual_external" and self._manual_requirement_verified(
-            capability,
-            checks,
+        elif (
+            preparation_mode == "manual_external"
+            and self._manual_requirement_verified(
+                capability,
+                checks,
+            )
         ):
             status = "ready"
-            message = "The provider authority check passed for this external prerequisite."
+            message = (
+                "The provider authority check passed for this external prerequisite."
+            )
             action = "No action required."
         elif preparation_mode == "manual_external":
             status = "manual_action"
@@ -925,9 +931,7 @@ class DeploymentReadinessService:
         elif capability == "aws.outbound-identity-federation":
             status = "manual_action"
             message = "AWS outbound identity federation needs an account-level review."
-            action = (
-                "Review the account identity settings and confirm completion before retrying."
-            )
+            action = "Review the account identity settings and confirm completion before retrying."
         elif preparation_mode == "confirmed_account" and requirement_type in {
             "api",
             "resource_provider",
@@ -969,8 +973,12 @@ class DeploymentReadinessService:
             preparation_mode=preparation_mode,
             mandatory=bool(requirement.get("mandatory", True)),
             status=status,
-            message=self._safe_text(message, fallback="Requirement needs review.", max_length=2_000),
-            action=self._safe_text(action, fallback="Review and retry.", max_length=2_000),
+            message=self._safe_text(
+                message, fallback="Requirement needs review.", max_length=2_000
+            ),
+            action=self._safe_text(
+                action, fallback="Review and retry.", max_length=2_000
+            ),
             source_node_ids=self._safe_requirement_sources(
                 requirement.get("source_node_ids")
             ),
@@ -1035,11 +1043,15 @@ class DeploymentReadinessService:
                 "SUBSCRIPTION_NOT_ENABLED",
             }:
                 return failure
-            if capability == "aws.iam-identity-center.primary-region" and failure.code in {
-                "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
-                "IDENTITY_CENTER_INSPECTION_DENIED",
-                "IDENTITY_CENTER_CHECK_FAILED",
-            }:
+            if (
+                capability == "aws.iam-identity-center.primary-region"
+                and failure.code
+                in {
+                    "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+                    "IDENTITY_CENTER_INSPECTION_DENIED",
+                    "IDENTITY_CENTER_CHECK_FAILED",
+                }
+            ):
                 return failure
             if capability == "azure.microsoft-graph.authority" and failure.code in {
                 "MICROSOFT_GRAPH_CONSENT_REQUIRED",
@@ -1217,14 +1229,11 @@ class DeploymentReadinessService:
             {action.action_id for action in plan.actions}
             if field == "completed_preparation_actions_json"
             else {
-                requirement.requirement_id
-                for requirement in plan.manual_requirements
+                requirement.requirement_id for requirement in plan.manual_requirements
             }
         )
         return {
-            value
-            for value in values
-            if isinstance(value, str) and value in allowed
+            value for value in values if isinstance(value, str) and value in allowed
         }
 
     def _cached_preparation_plan(
@@ -1279,8 +1288,7 @@ class DeploymentReadinessService:
             ):
                 return None
             return [
-                DeploymentRequirementReadiness.model_validate(value)
-                for value in values
+                DeploymentRequirementReadiness.model_validate(value) for value in values
             ]
         except (TypeError, ValueError, json.JSONDecodeError):
             return None

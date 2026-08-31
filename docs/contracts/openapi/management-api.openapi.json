@@ -482,7 +482,17 @@
           },
           "client_secret": {
             "title": "Client Secret",
+            "type": "string",
+            "writeOnly": true
+          },
+          "preparation_client_id": {
+            "title": "Preparation Client Id",
             "type": "string"
+          },
+          "preparation_client_secret": {
+            "title": "Preparation Client Secret",
+            "type": "string",
+            "writeOnly": true
           },
           "region": {
             "default": "westeurope",
@@ -524,6 +534,8 @@
           "subscription_id",
           "client_id",
           "client_secret",
+          "preparation_client_id",
+          "preparation_client_secret",
           "tenant_id"
         ],
         "title": "AzureCredentials",

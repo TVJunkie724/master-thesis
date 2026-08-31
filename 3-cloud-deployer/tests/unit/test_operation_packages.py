@@ -143,6 +143,8 @@ def _six_layer_archive() -> bytes:
                         "azure_subscription_id": "subscription",
                         "azure_client_id": "client",
                         "azure_client_secret": "operation-secret",
+                        "azure_preparation_client_id": "preparation-client",
+                        "azure_preparation_client_secret": "preparation-secret",
                         "azure_tenant_id": "tenant",
                         "azure_region": "westeurope",
                         "azure_region_iothub": "westeurope",

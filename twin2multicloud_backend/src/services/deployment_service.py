@@ -82,6 +82,7 @@ REQUIRED_DEPLOYER_CONFIG_FILES = [
 SECRET_FRAGMENT_PATTERN = re.compile(
     r"(?i)"
     r"(\b(?:aws_access_key_id|aws_secret_access_key|azure_client_secret|"
+    r"azure_preparation_client_secret|"
     r"client_secret|private_key|private_key_id|token|access_token|refresh_token|"
     r"password|secret|api_key|access_key)\b)"
     r"([\"']?\s*[:=]\s*[\"']?)"
