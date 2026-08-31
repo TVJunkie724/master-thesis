@@ -439,6 +439,9 @@ separate preparation principal for exact conditional RBAC and the three
 graph-required application permissions. All active Azure role assignments use
 the preparation Terraform provider alias; the nonexistent `IoT Hub Data
 Receiver` reference was corrected to the public `IoT Hub Data Reader` role.
+The read-only readiness runner and all directed-federation harness slices use
+the same deployment-versus-preparation boundary and reject legacy one-principal
+compatibility files.
 The complete credential-free Deployer suite passes with 2,082 tests and one
 intentional skip. The same offline gate covers an idempotent SQLite migration
 that removes the three obsolete production-auth user columns while preserving

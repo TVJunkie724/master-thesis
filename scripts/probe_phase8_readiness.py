@@ -86,6 +86,8 @@ SENSITIVE_CREDENTIAL_KEYS = {
     "azure_tenant_id",
     "azure_client_id",
     "azure_client_secret",
+    "azure_preparation_client_id",
+    "azure_preparation_client_secret",
     "gcp_project_id",
     "gcp_credentials_file",
 }

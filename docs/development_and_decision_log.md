@@ -341,7 +341,10 @@ The 2026-08-31 offline provider-access correction implements the Azure
 exception from D-05 across Management, Deployer, Terraform, Flutter, and the
 setup guides. Every active Azure role assignment is now authenticated through
 the separate preparation provider; ordinary resources remain on the deployment
-provider. The same review found that `IoT Hub Data Receiver` is not a public
+provider. The Phase 8 readiness and directed-federation harnesses enforce the
+same split for compatibility-file runs: Azure Resource Manager calls use the
+deployment principal, while Graph and role-assignment calls use the preparation
+principal. The same review found that `IoT Hub Data Receiver` is not a public
 Azure built-in role. The active Six-layer contract and Terraform were corrected
 to `IoT Hub Data Reader`, whose immutable public role definition is covered by
 the preparation allowlist. The split authority, exact three-permission Graph

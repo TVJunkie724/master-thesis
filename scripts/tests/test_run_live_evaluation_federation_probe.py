@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import inspect
 import json
 
 import pytest
@@ -120,6 +121,10 @@ def test_result_redaction_rejects_credential_escape() -> None:
         {"aws_access_key_id": "example-access-key"},
         {"gcp_project_id": "example-project"},
         {"private_key": "example-private-key"},
+        {
+            "azure_preparation_client_id": "example-preparation-client",
+            "azure_preparation_client_secret": "example-preparation-secret",
+        },
     )
     runner._assert_no_sensitive_values(
         {"result_code": "PROBE_PASSED"}, credentials
@@ -128,6 +133,107 @@ def test_result_redaction_rejects_credential_escape() -> None:
         runner._assert_no_sensitive_values(
             {"unsafe": "example-private-key"}, credentials
         )
+    with pytest.raises(ValueError, match="sensitive field escaped"):
+        runner._assert_no_sensitive_values(
+            {"unsafe": "example-preparation-secret"}, credentials
+        )
+
+
+def test_load_credentials_requires_split_azure_authority(tmp_path) -> None:
+    config = tmp_path / "config.json"
+    key = tmp_path / "gcp.json"
+    config.write_text(
+        json.dumps(
+            {
+                "aws": {
+                    "aws_access_key_id": "x",
+                    "aws_secret_access_key": "y",
+                    "aws_region": "eu-central-1",
+                },
+                "gcp": {
+                    "gcp_project_id": "project",
+                    "gcp_region": "europe-west1",
+                },
+                "azure": {
+                    "azure_subscription_id": "subscription",
+                    "azure_tenant_id": "tenant",
+                    "azure_client_id": "deployment-client",
+                    "azure_client_secret": "deployment-secret",
+                    "azure_region": "westeurope",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    key.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "project",
+                "private_key": "placeholder",
+                "client_email": "service-account@example.invalid",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(runner.ProbeBlocked, match="CREDENTIAL_SCHEMA_INVALID"):
+        runner._load_credentials(config, key)
+
+
+def test_azure_credential_factory_selects_distinct_principals(monkeypatch) -> None:
+    created: list[dict[str, str]] = []
+
+    class FakeCredential:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+
+    monkeypatch.setattr(runner, "ClientSecretCredential", FakeCredential)
+    values = {
+        "azure_tenant_id": "tenant",
+        "azure_client_id": "deployment-client",
+        "azure_client_secret": "deployment-secret",
+        "azure_preparation_client_id": "preparation-client",
+        "azure_preparation_client_secret": "preparation-secret",
+    }
+
+    runner._azure_credentials(values)
+    runner._azure_credentials(values, preparation=True)
+
+    assert created == [
+        {
+            "tenant_id": "tenant",
+            "client_id": "deployment-client",
+            "client_secret": "deployment-secret",
+        },
+        {
+            "tenant_id": "tenant",
+            "client_id": "preparation-client",
+            "client_secret": "preparation-secret",
+        },
+    ]
+
+
+def test_azure_probe_slices_route_privileged_calls_to_preparation_principal() -> None:
+    for function in (
+        runner._run_gcp_to_azure,
+        runner._run_aws_to_azure,
+        runner._run_azure_to_aws,
+        runner._run_azure_to_gcp,
+    ):
+        source = inspect.getsource(function)
+        assert "azure_preparation_credential" in source
+
+    for function in (runner._run_gcp_to_azure, runner._run_aws_to_azure):
+        source = inspect.getsource(function)
+        assert (
+            "AuthorizationManagementClient(\n"
+            "        azure_preparation_credential," in source
+        )
+
+    for function in (runner._run_azure_to_aws, runner._run_azure_to_gcp):
+        source = inspect.getsource(function)
+        assert "_graph_request(\n            azure_preparation_credential," in source
 
 
 def test_load_credentials_requires_service_account_schema(tmp_path) -> None:
