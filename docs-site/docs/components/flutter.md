@@ -31,7 +31,14 @@ mutable concern has one state owner.
 
 CloudConnection entry/import is write-only. Flutter retains only the returned
 label, provider, scope, auth kind, and validation/readiness state. Users may
-select among multiple named deployment connections. The current overview can
+select among multiple named deployment connections. The focused **Cloud
+access** route makes provider-file import primary and keeps typed entry as a
+fallback. Its bounded Azure parser accepts the standard service-principal
+shape and the allowlisted compatibility shape, prefills known values locally
+and uploads only a rebuilt deployment-principal document. It does not validate
+identity or contact Azure; those remain Management/Deployer operations.
+
+The current overview can
 run and display provider preflight checks, show the digest-bound preparation
 plan, confirm its listed non-destructive account actions, acknowledge completed
 external steps individually, and render the retry-safe preparation result.

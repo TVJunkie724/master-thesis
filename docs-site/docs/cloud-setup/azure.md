@@ -69,13 +69,49 @@ directed federation probes.
 
 ## 4. Enter or import the Azure bundle
 
-In **Settings → Deployment administrators → Azure**:
+In **Settings → Cloud access → Azure**:
 
 - **Enter manually:** subscription ID, tenant ID, Regions, deployment client ID
   and secret, then preparation client ID and secret.
 - **Import JSON:** select one standard deployment-principal JSON and enter the
-  preparation client ID and secret in the transient typed fields. There is no
-  two-file credential archive.
+  preparation client ID and secret in the transient typed fields; or select one
+  complete Twin2MultiCloud compatibility JSON. There is no two-file credential
+  archive.
+
+The inline **Accepted Azure JSON formats** help shows both accepted shapes with
+placeholders. A standard file has this form:
+
+```json
+{
+  "appId": "<deployment-client-id>",
+  "password": "<deployment-client-secret>",
+  "tenant": "<tenant-id>",
+  "subscriptionId": "<subscription-id>"
+}
+```
+
+The complete compatibility form may be the direct Azure object or an `azure`
+member in the tracked root object:
+
+```json
+{
+  "azure": {
+    "azure_subscription_id": "<subscription-id>",
+    "azure_tenant_id": "<tenant-id>",
+    "azure_client_id": "<deployment-client-id>",
+    "azure_client_secret": "<deployment-client-secret>",
+    "azure_preparation_client_id": "<preparation-client-id>",
+    "azure_preparation_client_secret": "<preparation-client-secret>",
+    "azure_region": "westeurope"
+  }
+}
+```
+
+Known optional IoT Hub and Digital Twins Region fields are also accepted. The
+client parses the selected file locally, prefills the form, ignores known AWS
+and GCP root members and sends only normalized Azure deployment-principal JSON
+to Management. Secret values are obscured and never previewed. Replacing the
+file clears the previous transient values before the replacement is parsed.
 
 The server validates the target scope and identities. Responses show only safe
 status metadata; neither client ID nor either secret is returned.

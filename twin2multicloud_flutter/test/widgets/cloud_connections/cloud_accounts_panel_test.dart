@@ -59,7 +59,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Deployment administrators'), findsOneWidget);
+    expect(find.text('Provider connections'), findsOneWidget);
     expect(find.text('AWS'), findsOneWidget);
     expect(find.text('Azure'), findsOneWidget);
     expect(find.text('GCP'), findsOneWidget);
@@ -117,6 +117,9 @@ void main() {
   ) async {
     await tester.pumpWidget(buildWidget());
 
+    expect(find.widgetWithText(FilledButton, 'Import CSV'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Import JSON'), findsNWidgets(2));
+
     await tester.tap(find.text('Enter manually').first);
     await tester.pumpAndSettle();
     expect(find.text('New AWS administrator access'), findsOneWidget);
@@ -169,6 +172,70 @@ void main() {
       findsWidgets,
     );
     expect(find.textContaining('123456789012'), findsNothing);
+  });
+
+  testWidgets('protects a busy connection row', (tester) async {
+    final connection = _connection('AWS Administrator');
+    await tester.pumpWidget(
+      buildWidget(
+        connections: [connection],
+        busyConnectionIds: {connection.id},
+      ),
+    );
+
+    expect(find.text('AWS Administrator'), findsOneWidget);
+    expect(find.byTooltip('Actions for AWS Administrator'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('keeps existing rows visible during refresh', (tester) async {
+    await tester.pumpWidget(
+      buildWidget(
+        connections: [_connection('AWS Administrator')],
+        isLoading: true,
+      ),
+    );
+
+    expect(find.text('AWS Administrator'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is IconButton &&
+                  widget.tooltip == 'Refresh provider connections',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('uses the planned three, two, and one column card layout', (
+    tester,
+  ) async {
+    for (final expectation in const [
+      (width: 1200.0, sameRowCount: 3),
+      (width: 900.0, sameRowCount: 2),
+      (width: 640.0, sameRowCount: 1),
+    ]) {
+      await tester.binding.setSurfaceSize(Size(expectation.width, 1400));
+      await tester.pumpWidget(buildWidget());
+      await tester.pump();
+
+      final providerCards = find.byType(Card);
+      final topPositions = List.generate(
+        3,
+        (index) => tester.getTopLeft(providerCards.at(index)).dy,
+      );
+      expect(
+        topPositions.where((top) => top == topPositions.first).length,
+        expectation.sameRowCount,
+      );
+      expect(tester.takeException(), isNull);
+    }
+    addTearDown(() => tester.binding.setSurfaceSize(null));
   });
 
   for (final textScale in [1.5, 2.0]) {

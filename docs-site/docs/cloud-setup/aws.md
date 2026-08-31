@@ -16,7 +16,7 @@ securely and revoke it after the evaluation.
 
 ## Enter or import
 
-In **Settings → Deployment administrators → AWS** choose one path:
+In **Settings → Cloud access → AWS** choose one path:
 
 - **Enter manually:** access key ID, secret access key, primary Region, optional
   IAM Identity Center Region, and an optional session token.

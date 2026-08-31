@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../models/cloud_connection.dart';
 import '../../theme/spacing.dart';
 import '../../utils/api_error_handler.dart';
+import '../../utils/azure_credential_file_parser.dart';
 import 'cloud_connection_strings.dart';
 
 typedef CloudCredentialFilePicker =
@@ -42,6 +43,7 @@ class _CloudConnectionImportDialogState
   String? _filename;
   Uint8List? _bytes;
   String? _fileError;
+  String? _fileStatus;
 
   @override
   void initState() {
@@ -82,6 +84,45 @@ class _CloudConnectionImportDialogState
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                OutlinedButton.icon(
+                  key: const Key('select-cloud-credential-file'),
+                  onPressed: _selectFile,
+                  icon: const Icon(Icons.upload_file_outlined),
+                  label: Text(
+                    _filename == null
+                        ? 'Select $expected credential file'
+                        : _filename!,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  widget.provider == CloudProvider.azure
+                      ? CloudConnectionStrings.azureCredentialFileHelp
+                      : 'The file is sent directly for server-side allowlist and credential validation. Its contents are never previewed.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (widget.provider == CloudProvider.azure)
+                  const _AzureFormatHelp(),
+                if (_fileStatus != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _fileStatus!,
+                    key: const Key('cloud-credential-file-status'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+                if (_fileError != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _fileError!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.lg),
                 _requiredField(_displayName, 'Display name'),
                 const SizedBox(height: AppSpacing.md),
                 _requiredField(_region, 'Primary region'),
@@ -131,31 +172,7 @@ class _CloudConnectionImportDialogState
                     _preparationClientSecret,
                     CloudConnectionStrings.preparationClientSecret,
                     obscureText: true,
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-                OutlinedButton.icon(
-                  key: const Key('select-cloud-credential-file'),
-                  onPressed: _selectFile,
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: Text(
-                    _filename == null
-                        ? 'Select $expected credential file'
-                        : _filename!,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'The file is sent directly for server-side allowlist and credential validation. Its contents are never previewed.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (_fileError != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    _fileError!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    onFieldSubmitted: (_) => _submit(),
                   ),
                 ],
               ],
@@ -181,6 +198,7 @@ class _CloudConnectionImportDialogState
     TextEditingController controller,
     String label, {
     bool obscureText = false,
+    ValueChanged<String>? onFieldSubmitted,
   }) => TextFormField(
     controller: controller,
     obscureText: obscureText,
@@ -190,6 +208,7 @@ class _CloudConnectionImportDialogState
       labelText: label,
       border: const OutlineInputBorder(),
     ),
+    onFieldSubmitted: onFieldSubmitted,
     validator: (value) =>
         value == null || value.trim().isEmpty ? '$label is required.' : null,
   );
@@ -212,31 +231,97 @@ class _CloudConnectionImportDialogState
           : await widget.pickFile!(widget.provider);
       if (file == null || !mounted) return;
       if (file.bytes == null) {
-        setState(() => _fileError = 'The selected file could not be read.');
+        setState(() {
+          _clearFileSelection();
+          if (widget.provider == CloudProvider.azure) {
+            _resetAzurePrefill();
+          }
+          _fileError = 'The selected file could not be read.';
+        });
         return;
       }
       final extension = widget.provider == CloudProvider.aws ? '.csv' : '.json';
       if (!file.name.toLowerCase().endsWith(extension)) {
         setState(() {
-          _filename = null;
-          _bytes = null;
+          _clearFileSelection();
+          if (widget.provider == CloudProvider.azure) {
+            _resetAzurePrefill();
+          }
           _fileError = '${widget.provider.label} requires a $extension file.';
         });
+        return;
+      }
+
+      if (widget.provider == CloudProvider.azure) {
+        _selectAzureFile(file);
         return;
       }
       setState(() {
         _filename = file.name;
         _bytes = Uint8List.fromList(file.bytes!);
         _fileError = null;
+        _fileStatus = null;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _filename = null;
-        _bytes = null;
+        _clearFileSelection();
+        if (widget.provider == CloudProvider.azure) {
+          _resetAzurePrefill();
+        }
         _fileError = ApiErrorHandler.extractMessage(error);
       });
     }
+  }
+
+  void _selectAzureFile(PlatformFile file) {
+    _resetAzurePrefill();
+    try {
+      final selection = parseAzureCredentialFileSelection(
+        Uint8List.fromList(file.bytes!),
+      );
+      _displayName.text =
+          selection.displayName ??
+          CloudConnectionStrings.azureDefaultDisplayName;
+      _region.text = selection.region ?? _defaultRegion(CloudProvider.azure);
+      _targetScopeId.text = selection.subscriptionId ?? '';
+      _regionIotHub.text = selection.regionIotHub ?? '';
+      _regionDigitalTwin.text = selection.regionDigitalTwin ?? '';
+      _preparationClientId.text = selection.preparationClientId ?? '';
+      _preparationClientSecret.text = selection.preparationClientSecret ?? '';
+      setState(() {
+        _filename = file.name;
+        _bytes = selection.normalizedUploadBytes;
+        _fileStatus = switch (selection.kind) {
+          AzureCredentialFileKind.servicePrincipal =>
+            CloudConnectionStrings.azureServicePrincipalDetected,
+          AzureCredentialFileKind.compatibilityBundle =>
+            CloudConnectionStrings.azureBundleDetected,
+        };
+        _fileError = null;
+      });
+    } on FormatException catch (error) {
+      setState(() {
+        _clearFileSelection();
+        _fileError = _azureFormatErrorMessage(error);
+      });
+    }
+  }
+
+  void _clearFileSelection() {
+    _filename = null;
+    _bytes = null;
+    _fileStatus = null;
+  }
+
+  void _resetAzurePrefill() {
+    _displayName.clear();
+    _region.text = _defaultRegion(CloudProvider.azure);
+    _targetScopeId.clear();
+    _regionIotHub.clear();
+    _regionDigitalTwin.clear();
+    _preparationClientId.clear();
+    _preparationClientSecret.clear();
   }
 
   void _submit() {
@@ -270,6 +355,91 @@ class _CloudConnectionImportDialogState
     }
   }
 }
+
+class _AzureFormatHelp extends StatelessWidget {
+  const _AzureFormatHelp();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return ExpansionTile(
+      key: const Key('azure-format-help'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      title: const Text(CloudConnectionStrings.azureFormatHelpTitle),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CloudConnectionStrings.azureFormatHelpIntro,
+            style: textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CloudConnectionStrings.azureStandardFormatTitle,
+            style: textTheme.titleSmall,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: SelectableText(
+            CloudConnectionStrings.azureStandardJsonExample,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CloudConnectionStrings.azureStandardFormatHelp,
+            style: textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CloudConnectionStrings.azureBundleFormatTitle,
+            style: textTheme.titleSmall,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: SelectableText(CloudConnectionStrings.azureBundleJsonExample),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            CloudConnectionStrings.azureBundleFormatHelp,
+            style: textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _azureFormatErrorMessage(FormatException error) =>
+    switch (error.message) {
+      AzureCredentialFileErrorCode.invalidSize =>
+        CloudConnectionStrings.azureInvalidFileSize,
+      AzureCredentialFileErrorCode.invalidEncoding =>
+        CloudConnectionStrings.azureInvalidEncoding,
+      AzureCredentialFileErrorCode.invalidJson =>
+        CloudConnectionStrings.azureInvalidJson,
+      AzureCredentialFileErrorCode.missingDeploymentFields =>
+        CloudConnectionStrings.azureMissingDeploymentFields,
+      AzureCredentialFileErrorCode.incompleteBundle =>
+        CloudConnectionStrings.azureIncompleteBundle,
+      AzureCredentialFileErrorCode.sharedPrincipal =>
+        CloudConnectionStrings.azureSharedPrincipal,
+      _ => CloudConnectionStrings.azureUnsupportedShape,
+    };
 
 Future<PlatformFile?> _pickProviderFile(CloudProvider provider) async {
   final extension = provider == CloudProvider.aws ? 'csv' : 'json';

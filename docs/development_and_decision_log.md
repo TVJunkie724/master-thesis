@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-08-30"
-version: "1.6"
+lastUpdated: "2026-09-01"
+version: "1.7"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -113,6 +113,12 @@ allowlist and `User`/`ServicePrincipal` targets, plus exactly
 `Application.ReadWrite.OwnedBy`, `Application.Read.All`, and
 `AppRoleAssignment.ReadWrite.All` with manual tenant admin consent. This does
 not generalize CloudConnection purposes or add an IAM administration product.
+The Flutter Cloud-access surface is import-first but retains typed fallback.
+Its Azure compatibility parser is deliberately local and closed-schema: it
+extracts the two-principal Azure member, discards other-provider members and
+uploads only normalized deployment-principal JSON through the unchanged
+Management endpoint. This removes avoidable manual re-entry without adding a
+generic credential mapper or changing the two-principal security boundary.
 
 ## D-06 — Immutable deployed Twins and bounded interchange
 

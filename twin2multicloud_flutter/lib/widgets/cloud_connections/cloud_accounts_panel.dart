@@ -50,12 +50,12 @@ class CloudAccountsPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Deployment administrators',
+                    CloudConnectionStrings.providerConnectionsTitle,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Reusable administrator credentials for PoC preflight, preparation, deployment, and cleanup.',
+                    CloudConnectionStrings.providerConnectionsHelp,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -74,7 +74,7 @@ class CloudAccountsPanel extends StatelessWidget {
             IconButton(
               onPressed: isLoading ? null : onRetry,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh deployment administrators',
+              tooltip: CloudConnectionStrings.refreshProviders,
             ),
           ],
         ),
@@ -250,24 +250,24 @@ class _ProviderDeploymentCard extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                TextButton.icon(
-                  onPressed: onOpenSetupGuide,
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text(CloudConnectionStrings.setupGuide),
-                ),
-                OutlinedButton.icon(
-                  onPressed: isCreating ? null : onCreate,
-                  icon: const Icon(Icons.key_outlined),
-                  label: const Text('Enter manually'),
-                ),
-                OutlinedButton.icon(
+                FilledButton.icon(
                   onPressed: isImporting ? null : onImport,
                   icon: const Icon(Icons.upload_file_outlined),
                   label: Text(
                     provider == CloudProvider.aws
-                        ? 'Import CSV'
-                        : 'Import JSON',
+                        ? CloudConnectionStrings.importCsv
+                        : CloudConnectionStrings.importJson,
                   ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: isCreating ? null : onCreate,
+                  icon: const Icon(Icons.key_outlined),
+                  label: const Text(CloudConnectionStrings.enterManually),
+                ),
+                TextButton.icon(
+                  onPressed: onOpenSetupGuide,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text(CloudConnectionStrings.setupGuide),
                 ),
               ],
             ),

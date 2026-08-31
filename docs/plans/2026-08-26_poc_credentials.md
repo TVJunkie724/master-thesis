@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-08-31"
-version: "2.3"
+lastUpdated: "2026-09-01"
+version: "2.4"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -76,23 +76,30 @@ credential files. Import is a convenience parser, not a general file upload.
 | Provider | Accepted PoC input | Required target metadata |
 |---|---|---|
 | AWS | access-key CSV or equivalent typed fields; optional session token for a supervised temporary session | account identity discovered by STS, intended regions |
-| Azure | service-principal JSON or equivalent typed fields | tenant ID, subscription ID, client ID |
+| Azure | deployment service-principal JSON, complete allowlisted compatibility bundle, or equivalent typed fields | tenant ID, subscription ID, two distinct client IDs |
 | GCP | service-account JSON or equivalent typed fields | existing billing-enabled project ID |
 
-The exact schemas are versioned and allowlisted. Unknown keys, multiple
-credentials in one file, executable content, provider CLI profiles with
-implicit local dependencies, and arbitrary ZIP layouts are rejected. The
-original file is not retained after validated field extraction.
+The exact schemas are versioned and allowlisted. Unknown keys, executable
+content, provider CLI profiles with implicit local dependencies, and arbitrary
+ZIP layouts are rejected. The original file is not retained after validated
+field extraction. The Azure compatibility form is the only bounded
+multi-principal exception: Flutter extracts its Azure member locally, ignores
+known AWS/GCP members and rebuilds a deployment-only JSON before calling the
+existing one-provider Management import endpoint.
 
 Immediately after entry or import, a non-mutating identity probe verifies the
 principal and target scope. It does not yet claim deployment readiness.
 
 For Azure, typed entry requires both client IDs and secrets. Import accepts one
 standard JSON document for the deployment principal plus typed preparation
-client ID and secret fields; it does not retain or invent a two-file archive.
-Both principals must resolve to the same tenant and subscription and their
-client IDs must differ. Legacy single-principal Azure records remain listable
-and deletable but must be replaced before readiness or deployment.
+client ID and secret fields, or one complete allowlisted compatibility object
+containing the Azure subscription, tenant, Regions and both principal pairs.
+The compatibility object may be the direct Azure object or the tracked root
+object with only `aws`, `azure` and `gcp` members. It is a convenience input,
+not a retained credential archive. Both principals must resolve to the same
+tenant and subscription and their client IDs must differ. Legacy
+single-principal Azure records remain listable and deletable but must be
+replaced before readiness or deployment.
 
 ## 5. Graph-derived readiness
 

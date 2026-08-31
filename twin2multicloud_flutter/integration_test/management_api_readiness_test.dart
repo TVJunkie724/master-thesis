@@ -1,9 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/utils/azure_credential_file_parser.dart';
 
 const _forbiddenPayloadKeys = {
   'access_key_id',
@@ -16,6 +20,8 @@ const _forbiddenPayloadKeys = {
   'service_account_json',
   'access_token',
   'refresh_token',
+  'appid',
+  'password',
 };
 final _runtime = AppRuntimeConfig.fromEnvironment();
 final _apiUri =
@@ -126,7 +132,7 @@ void main() {
       }
     });
 
-    testWidgets('creates, lists, and deletes one redacted Azure bundle', (
+    testWidgets('imports, lists, and deletes one redacted Azure bundle', (
       tester,
     ) async {
       const deploymentClientId = 'synthetic-deployment-principal';
@@ -135,20 +141,34 @@ void main() {
       const preparationSecret = 'synthetic-preparation-secret';
       String? connectionId;
       try {
-        final createdRaw = await _authenticatedJsonPost('/cloud-connections/', {
-          'provider': 'azure',
-          'display_name': 'Azure integration bundle',
-          'cloud_scope': <String, Object?>{},
-          'azure': {
-            'subscription_id': 'synthetic-subscription',
-            'tenant_id': 'synthetic-tenant',
-            'client_id': deploymentClientId,
-            'client_secret': deploymentSecret,
-            'preparation_client_id': preparationClientId,
-            'preparation_client_secret': preparationSecret,
-            'region': 'westeurope',
-          },
-        });
+        final selection = parseAzureCredentialFileSelection(
+          Uint8List.fromList(
+            utf8.encode(
+              jsonEncode({
+                'azure': {
+                  'azure_subscription_id': 'synthetic-subscription',
+                  'azure_tenant_id': 'synthetic-tenant',
+                  'azure_client_id': deploymentClientId,
+                  'azure_client_secret': deploymentSecret,
+                  'azure_preparation_client_id': preparationClientId,
+                  'azure_preparation_client_secret': preparationSecret,
+                  'azure_region': 'westeurope',
+                },
+              }),
+            ),
+          ),
+        );
+        final request = CloudConnectionImportRequest(
+          provider: CloudProvider.azure,
+          displayName: 'Azure integration bundle',
+          region: selection.region!,
+          targetScopeId: selection.subscriptionId,
+          preparationClientId: selection.preparationClientId,
+          preparationClientSecret: selection.preparationClientSecret,
+          filename: 'synthetic-azure.json',
+          bytes: selection.normalizedUploadBytes,
+        );
+        final createdRaw = await _authenticatedImportPost(request);
         expect(_containsForbiddenKey(createdRaw), isFalse);
         expect(
           _containsAnyValue(createdRaw, const {
@@ -335,9 +355,8 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
-Future<Object?> _authenticatedJsonPost(
-  String endpoint,
-  Map<String, Object?> data,
+Future<Object?> _authenticatedImportPost(
+  CloudConnectionImportRequest request,
 ) async {
   final dio = Dio(
     BaseOptions(
@@ -347,10 +366,19 @@ Future<Object?> _authenticatedJsonPost(
     ),
   );
   try {
-    final response = await dio.post<Object?>(endpoint, data: data);
+    final response = await dio.post<Object?>(
+      '/cloud-connections/import',
+      data: FormData.fromMap({
+        'metadata': request.metadataJson,
+        'file': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
+    );
     return response.data;
   } on DioException catch (error) {
-    fail(_safeDioFailure(endpoint, error));
+    fail(_safeDioFailure('/cloud-connections/import', error));
   } finally {
     dio.close(force: true);
   }

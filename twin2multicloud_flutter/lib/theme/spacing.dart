@@ -86,9 +86,6 @@ abstract class AppSpacing {
   /// Compact global marker height for the isolated offline demo runtime
   static const double demoBannerMinHeight = 36;
 
-  /// Profile avatar radius for account identity cards
-  static const double profileAvatarRadius = 40;
-
   /// Deployment verification payload editor max lines
   static const int payloadEditorMaxLines = 6;
 

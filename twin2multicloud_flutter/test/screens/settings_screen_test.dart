@@ -1,17 +1,25 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:twin2multicloud_flutter/bloc/cloud_access/cloud_access.dart';
+import 'package:twin2multicloud_flutter/core/result.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
-import 'package:twin2multicloud_flutter/models/user.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
+import 'package:twin2multicloud_flutter/providers/theme_provider.dart';
 import 'package:twin2multicloud_flutter/screens/settings_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/widgets/cloud_connections/cloud_accounts_panel.dart';
 
 class MockApiService extends Mock implements ApiService {}
 
 void main() {
+  setUpAll(() => registerFallbackValue(_importRequest()));
+
   testWidgets('loads deployment administrators through the Management API', (
     tester,
   ) async {
@@ -28,9 +36,6 @@ void main() {
           ),
         ),
         apiServiceProvider.overrideWithValue(api),
-        initialUserProvider.overrideWithValue(
-          User(id: 'user-1', email: 'developer@example.com', name: 'Developer'),
-        ),
       ],
     );
     addTearDown(container.dispose);
@@ -43,7 +48,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Deployment administrators'), findsOneWidget);
+    expect(find.text('Cloud access'), findsOneWidget);
+    expect(find.text('Provider connections'), findsOneWidget);
     expect(find.text('AWS'), findsOneWidget);
     expect(find.text('Azure'), findsOneWidget);
     expect(find.text('GCP'), findsOneWidget);
@@ -54,7 +60,7 @@ void main() {
     verify(() => api.listCloudConnections()).called(1);
   });
 
-  testWidgets('shows the profile without identity-provider claims', (
+  testWidgets('omits non-actionable profile and identity-provider claims', (
     tester,
   ) async {
     final api = MockApiService();
@@ -68,13 +74,6 @@ void main() {
           ),
         ),
         apiServiceProvider.overrideWithValue(api),
-        initialUserProvider.overrideWithValue(
-          User(
-            id: 'demo-user',
-            email: 'demo@example.test',
-            name: 'Demo Operator',
-          ),
-        ),
       ],
     );
     addTearDown(container.dispose);
@@ -87,9 +86,63 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Demo Operator'), findsOneWidget);
+    expect(find.text('Provider connections'), findsOneWidget);
+    expect(find.byType(CircleAvatar), findsNothing);
+    expect(find.textContaining('Demo Operator'), findsNothing);
+    expect(find.textContaining('@example'), findsNothing);
     expect(find.textContaining('UIBK Account'), findsNothing);
     expect(find.textContaining('Google Account'), findsNothing);
+  });
+
+  testWidgets('shows an initial Management load error with Retry', (
+    tester,
+  ) async {
+    final api = MockApiService();
+    when(
+      () => api.listCloudConnections(),
+    ).thenThrow(const AppException('Management unavailable.'));
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Management unavailable.'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Retry'), findsOneWidget);
+  });
+
+  testWidgets('shows one safe snackbar when an import command fails', (
+    tester,
+  ) async {
+    final api = MockApiService();
+    when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
+    when(
+      () => api.importCloudConnection(any()),
+    ).thenThrow(const AppException('Synthetic import rejected.'));
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final panelContext = tester.element(find.byType(CloudAccountsPanel));
+
+    BlocProvider.of<CloudAccessBloc>(
+      panelContext,
+    ).add(CloudAccessImportRequested(_importRequest()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Synthetic import rejected.'), findsOneWidget);
+    verify(() => api.importCloudConnection(any())).called(1);
   });
 
   testWidgets('opens the canonical guide without changing cloud state', (
@@ -146,6 +199,33 @@ void main() {
     expect(find.text('Could not open the setup guide.'), findsOneWidget);
     expect(find.textContaining('http://'), findsNothing);
   });
+
+  testWidgets('keeps Cloud access visible after theme toggle', (tester) async {
+    final api = MockApiService();
+    when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final initialTheme = container.read(themeProvider);
+    await tester.tap(find.byTooltip('Toggle theme'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(themeProvider), isNot(initialTheme));
+    expect(find.text('Cloud access'), findsOneWidget);
+    expect(find.text('Provider connections'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Toggle theme'));
+    await tester.pumpAndSettle();
+    expect(container.read(themeProvider), initialTheme);
+    expect(find.text('Cloud access'), findsOneWidget);
+  });
 }
 
 ProviderContainer _container(ApiService api) => ProviderContainer(
@@ -157,10 +237,15 @@ ProviderContainer _container(ApiService api) => ProviderContainer(
       ),
     ),
     apiServiceProvider.overrideWithValue(api),
-    initialUserProvider.overrideWithValue(
-      User(id: 'user-1', email: 'developer@example.com', name: 'Developer'),
-    ),
   ],
+);
+
+CloudConnectionImportRequest _importRequest() => CloudConnectionImportRequest(
+  provider: CloudProvider.aws,
+  displayName: 'Synthetic AWS import',
+  region: 'eu-central-1',
+  filename: 'credentials.csv',
+  bytes: Uint8List.fromList([1, 2, 3]),
 );
 
 CloudConnection _connection(String id) => CloudConnection(

@@ -44,6 +44,10 @@ and one-time secret consumption. Each mutable concern has one owner.
 CloudConnection entry/import is write-only. Flutter stores only returned
 non-secret metadata. A service-local one-time Viewer value may enter transient
 state and is discarded after use; provider administrator secrets never do.
+The **Cloud access** screen is import-first and keeps manual entry as a fallback.
+Azure file selection accepts a standard deployment service-principal JSON or
+the complete allowlisted Azure compatibility bundle, prefills known fields
+locally and uploads only normalized deployment-principal fields.
 
 ## Runtime configuration
 

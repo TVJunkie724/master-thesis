@@ -6,14 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/docs_config.dart';
 import '../models/cloud_connection.dart';
-import '../models/user.dart';
 import '../bloc/cloud_access/cloud_access.dart';
-import '../providers/profile_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/twins_provider.dart';
 import '../theme/spacing.dart';
 import '../widgets/branded_app_bar.dart';
 import '../widgets/cloud_connections/cloud_accounts_panel.dart';
+import '../widgets/cloud_connections/cloud_connection_strings.dart';
 import '../widgets/selectable_scaffold.dart';
 
 typedef SetupGuideLauncher = Future<bool> Function(Uri uri);
@@ -28,8 +27,6 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileState = ref.watch(profileProvider);
-    final user = profileState.user;
     final backButton = IconButton(
       icon: const Icon(Icons.arrow_back),
       tooltip: 'Back',
@@ -44,7 +41,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return SelectableScaffold(
       appBar: BrandedAppBar(
-        title: 'Settings',
+        title: CloudConnectionStrings.cloudAccessTitle,
         showLogo: false,
         leading: backButton,
         actions: [
@@ -58,28 +55,17 @@ class SettingsScreen extends ConsumerWidget {
             tooltip: 'Toggle theme',
           ),
           const SizedBox(width: AppSpacing.sm),
-          const CircleAvatar(child: Icon(Icons.person)),
-          const SizedBox(width: AppSpacing.sm),
         ],
       ),
-      body: user == null
-          ? const Center(child: Text('Profile unavailable'))
-          : _SettingsCloudAccessScope(
-              user: user,
-              setupGuideLauncher: setupGuideLauncher,
-            ),
+      body: _SettingsCloudAccessScope(setupGuideLauncher: setupGuideLauncher),
     );
   }
 }
 
 class _SettingsCloudAccessScope extends ConsumerStatefulWidget {
-  final User user;
   final SetupGuideLauncher setupGuideLauncher;
 
-  const _SettingsCloudAccessScope({
-    required this.user,
-    required this.setupGuideLauncher,
-  });
+  const _SettingsCloudAccessScope({required this.setupGuideLauncher});
 
   @override
   ConsumerState<_SettingsCloudAccessScope> createState() =>
@@ -107,22 +93,15 @@ class _SettingsCloudAccessScopeState
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _cloudAccessBloc,
-      child: _SettingsContent(
-        user: widget.user,
-        setupGuideLauncher: widget.setupGuideLauncher,
-      ),
+      child: _SettingsContent(setupGuideLauncher: widget.setupGuideLauncher),
     );
   }
 }
 
 class _SettingsContent extends StatelessWidget {
-  final User user;
   final SetupGuideLauncher setupGuideLauncher;
 
-  const _SettingsContent({
-    required this.user,
-    required this.setupGuideLauncher,
-  });
+  const _SettingsContent({required this.setupGuideLauncher});
 
   @override
   Widget build(BuildContext context) {
@@ -136,8 +115,6 @@ class _SettingsContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ProfileSection(user: user),
-              const SizedBox(height: AppSpacing.xl),
               BlocConsumer<CloudAccessBloc, CloudAccessState>(
                 listenWhen: (previous, current) =>
                     previous.feedback != current.feedback &&
@@ -210,57 +187,3 @@ class _SettingsContent extends StatelessWidget {
 
 Future<bool> _launchSetupGuideExternally(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
-
-class _ProfileSection extends StatelessWidget {
-  final User user;
-
-  const _ProfileSection({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: AppSpacing.profileAvatarRadius,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Text(
-                _initialFor(user),
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.name ?? 'Unknown User',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    user.email,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _initialFor(User user) {
-    final name = user.name?.trim();
-    if (name != null && name.isNotEmpty) return name[0].toUpperCase();
-    return user.email.isNotEmpty ? user.email[0].toUpperCase() : '?';
-  }
-}

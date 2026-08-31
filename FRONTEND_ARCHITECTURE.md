@@ -75,6 +75,16 @@ Users may create/import several named deployment connections per provider and
 bind the required ones to a Twin. Submitted secret values never enter BLoC
 state, Equatable props, diagnostics, archives, or logs.
 
+The `/settings` route is the focused **Cloud access** surface. Provider file
+import is the primary action; typed entry remains a fallback. For Azure, the
+client accepts either a standard deployment service-principal JSON or the
+allowlisted Azure part of the repository compatibility bundle. It extracts
+known metadata locally, keeps preparation fields transient and sends only a
+rebuilt deployment-principal JSON to the existing Management import endpoint.
+Other-provider members and presentation metadata are never uploaded. The
+fixed local runtime profile remains a bootstrap boundary and is not rendered
+as an account-management card.
+
 Identity validation, graph readiness and provider preparation are distinct UI
 states. Persistent provider changes have a separate review/confirmation.
 Failures show one of:

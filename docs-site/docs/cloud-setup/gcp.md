@@ -15,7 +15,7 @@ OAuth/IAP consent configuration, and key lifecycle remain external operations.
 
 ## Enter or import
 
-In **Settings → Deployment administrators → GCP** choose one path:
+In **Settings → Cloud access → GCP** choose one path:
 
 - **Enter manually:** project ID, Region, and the service-account JSON through
   the write-only file control.

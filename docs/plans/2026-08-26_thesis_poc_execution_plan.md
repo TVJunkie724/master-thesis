@@ -449,6 +449,16 @@ active user data. Provider setup guides and the Settings links now cover AWS,
 Azure, and GCP. This is implementation evidence only: the two-principal Azure
 bundle has not yet been revalidated live and no cloud mutation was performed.
 
+The first screen-by-screen Flutter simplification checkpoint is implemented
+offline. **Settings → Cloud access** now removes the non-actionable local
+profile card, makes provider-file import primary and keeps manual entry and the
+provider guides as fallbacks. Azure accepts a standard service-principal JSON
+or the complete allowlisted compatibility shape, explains both with
+placeholder-only examples, prefills known values locally and uploads only a
+rebuilt deployment-principal document. The Management contract, provider
+validation boundary and cloud state are unchanged; no provider call or
+Terraform action is part of this checkpoint.
+
 Continue Phase 8 in this order:
 
 1. perform the read-only Azure identity/scope and split-authority validation
