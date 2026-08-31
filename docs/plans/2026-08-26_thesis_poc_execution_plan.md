@@ -32,14 +32,14 @@ and the
 
 ## Current phase status
 
-| Phase | Status on 2026-08-30 | Evidence boundary |
+| Phase | Status on 2026-08-31 | Evidence boundary |
 |---|---|---|
 | 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
 | 3 | Implemented offline | connection selection, graph-bound preflight, confirmed preparation, manual acknowledgement, and retry-safe repair |
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks complete; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; mutations pending supervision | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and six federation executions remain open |
+| 8 | Account and read-only provider checks complete; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -424,12 +424,14 @@ static secret, or destination data permission. Four local-runner probes have a
 direct technical cost cap of USD 0.00. The two exact Azure managed-identity
 source paths each use at most one no-ingress 1-vCPU/1-GiB container for five
 minutes with a USD 0.01 cap; the aggregate plan cap is USD 0.02. Prices must be
-refreshed before execution. Every probe remains unapproved and disabled.
+refreshed before execution. The exact plan received supervised approval for
+run `26083001`. The four USD 0.00 local-runner probes passed with clean active
+residual inventory; only the two bounded Azure-source probes remain.
 
 Continue Phase 8 in this order:
 
-1. show the materialized names and refreshed price calculation for exactly one
-   federation probe, obtain explicit mutation approval, execute it, Destroy,
+1. execute each remaining approved Azure-source federation probe separately,
+   enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
    and reconcile residual inventory before considering the next direction;
 2. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;

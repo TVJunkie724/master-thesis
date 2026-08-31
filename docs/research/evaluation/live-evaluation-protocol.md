@@ -1,8 +1,8 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation and
-read-only provider checks are verified, but no federation mutation or Twin
-workload deployment is claimed.
+Status: planned and offline-validated; bounded account preparation, read-only
+provider checks, and four local directed federation probes are verified, but
+no Twin workload deployment is claimed.
 
 ## Purpose
 
@@ -64,7 +64,11 @@ caps, cleanup order, and residual-inventory rules are frozen in
 [`directed-federation-probe-plan.json`](directed-federation-probe-plan.json).
 Its record digest is
 `sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754`.
-It remains non-executable and requires a separate approval for each direction.
+The exact plan received supervised approval for run `26083001`. GCP-to-AWS,
+GCP-to-Azure, AWS-to-Azure, and AWS-to-GCP passed with immediate cleanup and
+clean active residual inventory. The two Azure-source directions remain
+pending and retain their separate pinned-image, runtime, cost, and cleanup
+bounds.
 
 ## Execution boundary
 

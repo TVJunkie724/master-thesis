@@ -366,20 +366,25 @@ outbound identity federation is enabled as a zero-direct-charge evaluation
 prerequisite and remains inventoried until the final AWS-to-Azure Twin
 scenario, after which it must be disabled explicitly.
 
-The first directed probe, GCP-to-AWS, passed one Google OIDC to AWS STS
-exchange and one `GetCallerIdentity` check after the harness accounted for IAM
-propagation. Its AWS resources were removed immediately; only inactive GCP
-service-account soft-delete tombstones remain. The next probe, GCP-to-Azure,
-proved that the Resource Group, managed identity, and federated credential can
-be created and removed, but stopped before token exchange because the
-deployment principal has Subscription `Contributor` without permission to
-create the required temporary Reader role assignment. Cleanup and active
-residual inventory passed, no directly charged resource was used, and the next
-direction remains blocked by the plan's stop-on-first-failure rule. RQ1 records
-the additional RBAC prerequisite, RQ2 does not yet claim GCP-to-Azure
-interoperability, and RQ3 attributes zero direct charge to both attempts.
+The four local-runner directed probes are complete. GCP-to-AWS passed one
+Google OIDC to AWS STS exchange and `GetCallerIdentity`; GCP-to-Azure passed
+the Entra exchange and one Reader-scoped ARM GET after adding a
+condition-constrained Azure RBAC assignment for the deployment principal.
+AWS-to-Azure passed the account-enabled regional STS assertion, Entra
+exchange, and one Reader-scoped ARM GET. AWS-to-GCP passed the exact
+role-bound Workload Identity Federation exchange and issued one ephemeral
+target-service-account access token. Each direction removed its ephemeral
+resources immediately, active residual inventory is clean, and only the
+planned non-usable GCP soft-delete tombstones remain. The Azure deployment
+assignment cannot delegate Owner, User Access Administrator, or Role Based
+Access Control Administrator and remains inventoried only until the final
+Azure evaluation cleanup.
 
-The remaining open work is the minimal Azure RBAC prerequisite, continuation
-of the one-by-one federation probes, the scenario-bound GCP processor image,
-the approved-but-unexecuted GCP L4 bootstrap during the first applicable run,
-and finally the nine supervised Small scenarios.
+RQ1 records Azure role-assignment permission and provider IAM propagation as
+real operational prerequisites. RQ2 now has successful standalone identity
+interoperability evidence for all four local directions without a Twin
+deployment. RQ3 attributes USD 0.00 direct charge to these identity-only
+checks. The remaining open work is the two bounded Azure-source federation
+probes, the scenario-bound GCP processor image, the approved-but-unexecuted GCP
+L4 bootstrap during the first applicable run, and finally the nine supervised
+Small scenarios.
