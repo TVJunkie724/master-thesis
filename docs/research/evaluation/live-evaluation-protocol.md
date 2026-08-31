@@ -68,7 +68,9 @@ The exact plan received supervised approval for run `26083001`. GCP-to-AWS,
 GCP-to-Azure, AWS-to-Azure, and AWS-to-GCP passed with immediate cleanup and
 clean active residual inventory. The two Azure-source directions remain
 pending and retain their separate pinned-image, runtime, cost, and cleanup
-bounds.
+bounds. A first Azure-to-AWS attempt stopped before ACI creation on the missing
+Microsoft Graph application-management prerequisite; cleanup and active
+residual checks passed with no direct charge. Azure-to-GCP was not started.
 
 ## Execution boundary
 

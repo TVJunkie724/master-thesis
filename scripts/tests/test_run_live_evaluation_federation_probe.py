@@ -50,6 +50,8 @@ def test_only_implemented_approved_slices_are_enabled() -> None:
         "federation-gcp-to-azure",
         "federation-aws-to-azure",
         "federation-aws-to-gcp",
+        "federation-azure-to-aws",
+        "federation-azure-to-gcp",
     }
     assert runner.APPROVED_RUN_ID == "26083001"
     assert runner.APPROVED_PLAN_DIGEST.startswith("sha256:")
@@ -80,12 +82,30 @@ def test_materialized_names_remain_provider_safe_and_exact() -> None:
         "gcp_workload_identity_pool": "t2mc-p8-aws-gcp-26083001",
         "gcp_workload_identity_provider": "t2mc-p8-aws-gcp-26083001",
     }
+    assert runner.AZURE_TO_AWS_NAMES == {
+        "azure_resource_group": "t2mc-p8-azure-aws-26083001-rg",
+        "azure_managed_identity": "t2mc-p8-azure-aws-26083001-mi",
+        "azure_application": "t2mc-p8-azure-aws-26083001-app",
+        "azure_container_group": "t2mc-p8-azure-aws-26083001-aci",
+        "azure_container": "federation-probe",
+        "aws_role": "t2mc-p8-azure-aws-26083001-role",
+    }
+    assert runner.AZURE_TO_GCP_NAMES == {
+        "azure_resource_group": "t2mc-p8-azure-gcp-26083001-rg",
+        "azure_managed_identity": "t2mc-p8-azure-gcp-26083001-mi",
+        "azure_application": "t2mc-p8-azure-gcp-26083001-app",
+        "azure_container_group": "t2mc-p8-azure-gcp-26083001-aci",
+        "azure_container": "federation-probe",
+        "gcp_service_account": "t2mc-p8-azure-gcp-26083001-sa",
+        "gcp_workload_identity_pool": "t2mc-p8-azure-gcp-26083001",
+        "gcp_workload_identity_provider": "t2mc-p8-azure-gcp-26083001",
+    }
 
 
 def test_unimplemented_probe_fails_before_credentials_are_loaded(tmp_path) -> None:
     with pytest.raises(runner.ProbeBlocked, match="PROBE_NOT_IMPLEMENTED"):
         runner.execute(
-            "federation-azure-to-aws",
+            "federation-aws-to-aws",
             tmp_path / "missing.json",
             tmp_path / "missing-gcp.json",
         )
@@ -168,6 +188,94 @@ def test_aws_to_gcp_rejects_region_outside_approved_scope() -> None:
             {},
             {},
         )
+
+
+def test_azure_to_aws_rejects_region_outside_approved_scope() -> None:
+    with pytest.raises(
+        runner.ProbeBlocked, match="AWS_REGION_OUTSIDE_APPROVED_SCOPE"
+    ):
+        runner._run_azure_to_aws(
+            {"aws_region": "us-east-1"},
+            {},
+        )
+
+
+def test_azure_source_container_is_pinned_bounded_and_has_no_ingress() -> None:
+    body = runner._azure_container_group_body(
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/example",
+        {"B": "2", "A": "1"},
+        "print('PROBE_PASSED')",
+    )
+    assert body["identity"]["type"] == "UserAssigned"
+    properties = body["properties"]
+    assert properties["osType"] == "Linux"
+    assert properties["restartPolicy"] == "Never"
+    assert "ipAddress" not in properties
+    container = properties["containers"][0]
+    assert container["properties"]["image"] == runner.AZURE_SOURCE_RUNNER_IMAGE
+    assert "@sha256:" in container["properties"]["image"]
+    assert container["properties"]["resources"] == {
+        "requests": {"cpu": 1, "memoryInGB": 1}
+    }
+    assert container["properties"]["environmentVariables"] == [
+        {"name": "A", "value": "1"},
+        {"name": "B", "value": "2"},
+    ]
+    assert runner.AZURE_SOURCE_RUNNER_MAXIMUM_SECONDS == 300
+    assert runner.AZURE_SOURCE_DIRECT_COST_CAP_USD == "0.010000"
+
+
+def test_azure_to_aws_runner_is_valid_and_emits_only_typed_result() -> None:
+    script = runner._azure_to_aws_runner_script()
+    compile(script, "<azure-to-aws-runner>", "exec")
+    assert "print('PROBE_PASSED')" in script
+    assert "print('PROBE_BLOCKED')" in script
+    assert "traceback" not in script.lower()
+
+
+def test_azure_to_gcp_provider_and_binding_are_exact_identity_bound() -> None:
+    tenant_id = "11111111-1111-4111-8111-111111111111"
+    application_id = "22222222-2222-4222-8222-222222222222"
+    principal_id = "33333333-3333-4333-8333-333333333333"
+    audience = f"api://{application_id}"
+    body = runner._azure_to_gcp_provider_body(
+        tenant_id,
+        audience,
+        principal_id,
+    )
+    assert body["oidc"] == {
+        "issuerUri": f"https://sts.windows.net/{tenant_id}/",
+        "allowedAudiences": [audience],
+    }
+    assert body["attributeMapping"] == {
+        "google.subject": "assertion.sub",
+        "attribute.azure_oid": "assertion.oid",
+    }
+    condition = body["attributeCondition"]
+    assert tenant_id in condition
+    assert audience in condition
+    assert condition.count(principal_id) == 2
+    assert "'EventBridge.Exchange' in assertion.roles" in condition
+
+    pool_id = runner.AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
+    assert runner._azure_to_gcp_principal(
+        "123456789012",
+        pool_id,
+        principal_id,
+    ) == (
+        "principal://iam.googleapis.com/projects/123456789012/"
+        f"locations/global/workloadIdentityPools/{pool_id}/"
+        f"subject/{principal_id}"
+    )
+
+
+def test_azure_to_gcp_runner_is_valid_and_emits_only_typed_result() -> None:
+    script = runner._azure_to_gcp_runner_script()
+    compile(script, "<azure-to-gcp-runner>", "exec")
+    assert "print('PROBE_PASSED')" in script
+    assert "print('PROBE_BLOCKED')" in script
+    assert "traceback" not in script.lower()
 
 
 def test_aws_to_gcp_provider_and_binding_are_exact_role_bound() -> None:

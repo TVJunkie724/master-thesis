@@ -388,3 +388,16 @@ checks. The remaining open work is the two bounded Azure-source federation
 probes, the scenario-bound GCP processor image, the approved-but-unexecuted GCP
 L4 bootstrap during the first applicable run, and finally the nine supervised
 Small scenarios.
+
+Both Azure-source runners are now implemented offline against the frozen
+pinned image, no-ingress shape, 300-second runtime limit, and USD 0.01
+per-direction technical cap. A first Azure-to-AWS attempt stopped before the
+container group was created because the deployment application cannot create
+the required ephemeral Entra application through Microsoft Graph. Its Azure
+resources were removed immediately, active residual inventory is clean, and
+the attempt incurred USD 0.00 direct charge. Subscription RBAC does not grant
+this tenant-directory operation. RQ1 therefore records temporary, explicitly
+consented Microsoft Graph application permissions as the remaining Azure
+source prerequisite; RQ2 still claims four, not six, successful directed
+identity paths. Azure-to-GCP remains unexecuted until the same prerequisite is
+resolved.

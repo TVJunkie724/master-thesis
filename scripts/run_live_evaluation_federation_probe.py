@@ -50,6 +50,8 @@ ENABLED_PROBES = frozenset(
         "federation-gcp-to-azure",
         "federation-aws-to-azure",
         "federation-aws-to-gcp",
+        "federation-azure-to-aws",
+        "federation-azure-to-gcp",
     }
 )
 GCP_TO_AWS_NAMES = {
@@ -75,11 +77,37 @@ AWS_TO_GCP_NAMES = {
     "gcp_workload_identity_pool": "t2mc-p8-aws-gcp-26083001",
     "gcp_workload_identity_provider": "t2mc-p8-aws-gcp-26083001",
 }
+AZURE_TO_AWS_NAMES = {
+    "azure_resource_group": "t2mc-p8-azure-aws-26083001-rg",
+    "azure_managed_identity": "t2mc-p8-azure-aws-26083001-mi",
+    "azure_application": "t2mc-p8-azure-aws-26083001-app",
+    "azure_container_group": "t2mc-p8-azure-aws-26083001-aci",
+    "azure_container": "federation-probe",
+    "aws_role": "t2mc-p8-azure-aws-26083001-role",
+}
+AZURE_TO_GCP_NAMES = {
+    "azure_resource_group": "t2mc-p8-azure-gcp-26083001-rg",
+    "azure_managed_identity": "t2mc-p8-azure-gcp-26083001-mi",
+    "azure_application": "t2mc-p8-azure-gcp-26083001-app",
+    "azure_container_group": "t2mc-p8-azure-gcp-26083001-aci",
+    "azure_container": "federation-probe",
+    "gcp_service_account": "t2mc-p8-azure-gcp-26083001-sa",
+    "gcp_workload_identity_pool": "t2mc-p8-azure-gcp-26083001",
+    "gcp_workload_identity_provider": "t2mc-p8-azure-gcp-26083001",
+}
 AWS_REGION = "eu-central-1"
 AZURE_REGION = "westeurope"
 AZURE_FEDERATION_AUDIENCE = "api://AzureADTokenExchange"
 AZURE_READER_ROLE_DEFINITION_ID = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+AZURE_CONTAINER_API_VERSION = "2023-05-01"
+AZURE_SOURCE_RUNNER_IMAGE = (
+    "mcr.microsoft.com/azure-cli@"
+    "sha256:b23e5168ce9654b1385c565a2c6cf60695f7b0d03056f7a0fafdc7c59a084512"
+)
+AZURE_SOURCE_RUNNER_MAXIMUM_SECONDS = 300
+AZURE_SOURCE_DIRECT_COST_CAP_USD = "0.010000"
 MAXIMUM_ELAPSED_SECONDS = 10 * 60
+AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS = 15 * 60
 AWS_PROPAGATION_ATTEMPTS = 8
 AWS_PROPAGATION_DELAY_SECONDS = 5
 GCP_PERMISSION_PROPAGATION_ATTEMPTS = 30
@@ -190,8 +218,11 @@ def _safe_error_code(exc: Exception) -> str:
     return normalized[:80] or "PROVIDER_ERROR"
 
 
-def _assert_deadline(started_monotonic: float) -> None:
-    if time.monotonic() - started_monotonic > MAXIMUM_ELAPSED_SECONDS:
+def _assert_deadline(
+    started_monotonic: float,
+    maximum_seconds: int = MAXIMUM_ELAPSED_SECONDS,
+) -> None:
+    if time.monotonic() - started_monotonic > maximum_seconds:
         raise ProbeBlocked("PROBE_DEADLINE_EXCEEDED")
 
 
@@ -314,6 +345,71 @@ def _aws_to_gcp_principal_set(
     )
 
 
+def _azure_to_gcp_provider_body(
+    tenant_id: str,
+    audience: str,
+    principal_id: str,
+) -> dict[str, Any]:
+    for value, code in (
+        (tenant_id, "AZURE_TENANT_ID_INVALID"),
+        (principal_id, "AZURE_MANAGED_IDENTITY_PRINCIPAL_ID_INVALID"),
+    ):
+        try:
+            uuid.UUID(value)
+        except ValueError as exc:
+            raise ProbeBlocked(code) from exc
+    if not audience.startswith("api://"):
+        raise ProbeBlocked("AZURE_AUDIENCE_INVALID")
+    try:
+        uuid.UUID(audience.removeprefix("api://"))
+    except ValueError as exc:
+        raise ProbeBlocked("AZURE_AUDIENCE_INVALID") from exc
+    issuer = f"https://sts.windows.net/{tenant_id}/"
+    condition = (
+        f"assertion.tid == '{tenant_id}' && "
+        f"assertion.aud == '{audience}' && "
+        f"assertion.sub == '{principal_id}' && "
+        f"assertion.oid == '{principal_id}' && "
+        "'EventBridge.Exchange' in assertion.roles"
+    )
+    return {
+        "displayName": "Twin2MultiCloud Azure to GCP",
+        "description": "Ephemeral identity-only thesis evaluation probe",
+        "disabled": False,
+        "attributeMapping": {
+            "google.subject": "assertion.sub",
+            "attribute.azure_oid": "assertion.oid",
+        },
+        "attributeCondition": condition,
+        "oidc": {
+            "issuerUri": issuer,
+            "allowedAudiences": [audience],
+        },
+    }
+
+
+def _azure_to_gcp_principal(
+    project_number: str,
+    pool_id: str,
+    principal_id: str,
+) -> str:
+    if not re.fullmatch(r"\d+", project_number):
+        raise ProbeBlocked("GCP_PROJECT_NUMBER_INVALID")
+    if pool_id != AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]:
+        raise ProbeBlocked("GCP_WORKLOAD_IDENTITY_POOL_NAME_INVALID")
+    try:
+        uuid.UUID(principal_id)
+    except ValueError as exc:
+        raise ProbeBlocked(
+            "AZURE_MANAGED_IDENTITY_PRINCIPAL_ID_INVALID"
+        ) from exc
+    return (
+        "principal://iam.googleapis.com/"
+        f"projects/{project_number}/locations/global/"
+        f"workloadIdentityPools/{pool_id}/subject/{principal_id}"
+    )
+
+
 def _jwt_claims(token: str) -> dict[str, Any]:
     parts = token.split(".")
     if len(parts) != 3:
@@ -356,6 +452,26 @@ def _expect_aws_role_absent(iam: Any, role_name: str) -> None:
             return
         raise
     raise ProbeBlocked("PREEXISTING_RESOURCE")
+
+
+def _expect_aws_oidc_provider_absent(iam: Any, provider_arn: str) -> None:
+    try:
+        iam.get_open_id_connect_provider(OpenIDConnectProviderArn=provider_arn)
+    except ClientError as exc:
+        if str(exc.response.get("Error", {}).get("Code")) == "NoSuchEntity":
+            return
+        raise
+    raise ProbeBlocked("PREEXISTING_RESOURCE")
+
+
+def _delete_aws_oidc_provider(iam: Any, provider_arn: str) -> None:
+    try:
+        iam.delete_open_id_connect_provider(
+            OpenIDConnectProviderArn=provider_arn
+        )
+    except ClientError as exc:
+        if str(exc.response.get("Error", {}).get("Code")) != "NoSuchEntity":
+            raise
 
 
 def _expect_gcp_service_account_absent(
@@ -648,6 +764,205 @@ def _expect_azure_service_principal_absent(
     raise ProbeBlocked(f"AZURE_GRAPH_INVENTORY_HTTP_{response.status_code}")
 
 
+def _graph_request(
+    credential: ClientSecretCredential,
+    method: str,
+    path: str,
+    *,
+    expected_statuses: tuple[int, ...],
+    body: dict[str, Any] | None = None,
+    params: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    token = credential.get_token("https://graph.microsoft.com/.default").token
+    response = requests.request(
+        method,
+        f"https://graph.microsoft.com{path}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        json=body,
+        params=params,
+        timeout=30,
+    )
+    if response.status_code not in expected_statuses:
+        raise ProbeBlocked(f"AZURE_GRAPH_HTTP_{response.status_code}")
+    if not response.content:
+        return {}
+    value = response.json()
+    return value if isinstance(value, dict) else {}
+
+
+def _expect_graph_display_name_absent(
+    credential: ClientSecretCredential,
+    collection: str,
+    display_name: str,
+) -> None:
+    escaped = display_name.replace("'", "''")
+    result = _graph_request(
+        credential,
+        "GET",
+        f"/v1.0/{collection}",
+        expected_statuses=(200,),
+        params={
+            "$filter": f"displayName eq '{escaped}'",
+            "$select": "id",
+            "$top": "2",
+        },
+    )
+    if result.get("value"):
+        raise ProbeBlocked("PREEXISTING_RESOURCE")
+
+
+def _wait_for_graph_app_role_assignment(
+    credential: ClientSecretCredential,
+    principal_id: str,
+    assignment_id: str,
+    started_monotonic: float,
+) -> None:
+    for attempt in range(30):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        result = _graph_request(
+            credential,
+            "GET",
+            f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
+            expected_statuses=(200,),
+            params={"$select": "id"},
+        )
+        if any(item.get("id") == assignment_id for item in result.get("value", [])):
+            return
+        if attempt + 1 < 30:
+            time.sleep(2)
+    raise ProbeBlocked("AZURE_APP_ROLE_ASSIGNMENT_NOT_READABLE")
+
+
+def _delete_graph_object(
+    credential: ClientSecretCredential,
+    path: str,
+) -> None:
+    _graph_request(
+        credential,
+        "DELETE",
+        path,
+        expected_statuses=(204, 404),
+    )
+
+
+def _azure_arm_request(
+    credential: ClientSecretCredential,
+    method: str,
+    resource_path: str,
+    *,
+    expected_statuses: tuple[int, ...],
+    body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    token = credential.get_token("https://management.azure.com/.default").token
+    response = requests.request(
+        method,
+        f"https://management.azure.com{resource_path}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        params={"api-version": AZURE_CONTAINER_API_VERSION},
+        json=body,
+        timeout=30,
+    )
+    if response.status_code not in expected_statuses:
+        raise ProbeBlocked(f"AZURE_ARM_HTTP_{response.status_code}")
+    if not response.content:
+        return {}
+    value = response.json()
+    return value if isinstance(value, dict) else {}
+
+
+def _azure_container_group_body(
+    identity_resource_id: str,
+    environment: dict[str, str],
+    script: str,
+) -> dict[str, Any]:
+    return {
+        "location": AZURE_REGION,
+        "identity": {
+            "type": "UserAssigned",
+            "userAssignedIdentities": {identity_resource_id: {}},
+        },
+        "tags": {
+            "Twin2MultiCloudPhase": "8",
+            "Twin2MultiCloudRun": APPROVED_RUN_ID,
+        },
+        "properties": {
+            "containers": [
+                {
+                    "name": "federation-probe",
+                    "properties": {
+                        "image": AZURE_SOURCE_RUNNER_IMAGE,
+                        "command": ["python3", "-c", script],
+                        "environmentVariables": [
+                            {"name": key, "value": value}
+                            for key, value in sorted(environment.items())
+                        ],
+                        "resources": {
+                            "requests": {"cpu": 1, "memoryInGB": 1}
+                        },
+                    },
+                }
+            ],
+            "osType": "Linux",
+            "restartPolicy": "Never",
+        },
+    }
+
+
+def _wait_for_azure_container(
+    credential: ClientSecretCredential,
+    container_group_path: str,
+    started_monotonic: float,
+) -> tuple[dict[str, Any], float]:
+    runner_started = time.monotonic()
+    while True:
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        elapsed = time.monotonic() - runner_started
+        if elapsed >= AZURE_SOURCE_RUNNER_MAXIMUM_SECONDS:
+            raise ProbeBlocked("AZURE_RUNNER_REACHED_300_SECONDS")
+        group = _azure_arm_request(
+            credential,
+            "GET",
+            container_group_path,
+            expected_statuses=(200,),
+        )
+        containers = (group.get("properties") or {}).get("containers") or []
+        if containers:
+            state = (
+                ((containers[0].get("properties") or {}).get("instanceView") or {})
+                .get("currentState", {})
+                .get("state")
+            )
+            if state == "Terminated":
+                return group, elapsed
+        time.sleep(5)
+
+
+def _azure_container_logs(
+    credential: ClientSecretCredential,
+    container_group_path: str,
+    container_name: str,
+) -> str:
+    result = _azure_arm_request(
+        credential,
+        "GET",
+        f"{container_group_path}/containers/{container_name}/logs",
+        expected_statuses=(200,),
+    )
+    return str(result.get("content") or "").strip()
+
+
 def _assert_no_sensitive_values(
     record: dict[str, Any],
     credentials: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
@@ -658,6 +973,198 @@ def _assert_no_sensitive_values(
             if key in SENSITIVE_CREDENTIAL_KEYS and isinstance(value, str):
                 if len(value) >= 4 and value in serialized:
                     raise ValueError(f"sensitive field escaped redaction: {key}")
+
+
+def _azure_to_aws_runner_script() -> str:
+    return r'''import datetime
+import hashlib
+import hmac
+import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+
+def request(url, data=None, headers=None):
+    req = urllib.request.Request(url, data=data, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=20) as response:
+        return response.read()
+
+def xml_value(root, name):
+    for item in root.iter():
+        if item.tag.endswith('}' + name):
+            return item.text
+    return None
+
+try:
+    query = urllib.parse.urlencode({
+        'api-version': '2018-02-01',
+        'resource': os.environ['AZURE_AUDIENCE'],
+        'client_id': os.environ['AZURE_CLIENT_ID'],
+    })
+    token = None
+    for attempt in range(24):
+        try:
+            payload = request(
+                'http://169.254.169.254/metadata/identity/oauth2/token?' + query,
+                headers={'Metadata': 'true'},
+            )
+            candidate = json.loads(payload.decode('utf-8')).get('access_token')
+            if isinstance(candidate, str):
+                token = candidate
+                break
+        except Exception:
+            if attempt + 1 < 24:
+                time.sleep(5)
+    if token is None:
+        raise RuntimeError('managed identity token unavailable')
+
+    region = os.environ['AWS_REGION']
+    host = 'sts.' + region + '.amazonaws.com'
+    endpoint = 'https://' + host + '/'
+    assume_body = urllib.parse.urlencode({
+        'Action': 'AssumeRoleWithWebIdentity',
+        'Version': '2011-06-15',
+        'RoleArn': os.environ['AWS_ROLE_ARN'],
+        'RoleSessionName': 't2mc-p8-azure-aws',
+        'WebIdentityToken': token,
+        'DurationSeconds': '900',
+    }).encode('utf-8')
+    root = ET.fromstring(request(
+        endpoint,
+        data=assume_body,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ))
+    access_key = xml_value(root, 'AccessKeyId')
+    secret_key = xml_value(root, 'SecretAccessKey')
+    session_token = xml_value(root, 'SessionToken')
+    if not access_key or not secret_key or not session_token:
+        raise RuntimeError('AWS session unavailable')
+
+    body = b'Action=GetCallerIdentity&Version=2011-06-15'
+    moment = datetime.datetime.now(datetime.timezone.utc)
+    amz_date = moment.strftime('%Y%m%dT%H%M%SZ')
+    date_stamp = moment.strftime('%Y%m%d')
+    content_type = 'application/x-www-form-urlencoded; charset=utf-8'
+    canonical_headers = (
+        'content-type:' + content_type + '\n'
+        + 'host:' + host + '\n'
+        + 'x-amz-date:' + amz_date + '\n'
+        + 'x-amz-security-token:' + session_token + '\n'
+    )
+    signed_headers = 'content-type;host;x-amz-date;x-amz-security-token'
+    canonical_request = (
+        'POST\n/\n\n' + canonical_headers + '\n' + signed_headers + '\n'
+        + hashlib.sha256(body).hexdigest()
+    )
+    scope = date_stamp + '/' + region + '/sts/aws4_request'
+    string_to_sign = (
+        'AWS4-HMAC-SHA256\n' + amz_date + '\n' + scope + '\n'
+        + hashlib.sha256(canonical_request.encode('utf-8')).hexdigest()
+    )
+    def sign(key, value):
+        return hmac.new(key, value.encode('utf-8'), hashlib.sha256).digest()
+    key = sign(('AWS4' + secret_key).encode('utf-8'), date_stamp)
+    key = sign(key, region)
+    key = sign(key, 'sts')
+    key = sign(key, 'aws4_request')
+    signature = hmac.new(
+        key,
+        string_to_sign.encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
+    authorization = (
+        'AWS4-HMAC-SHA256 Credential=' + access_key + '/' + scope
+        + ', SignedHeaders=' + signed_headers + ', Signature=' + signature
+    )
+    request(endpoint, data=body, headers={
+        'Authorization': authorization,
+        'Content-Type': content_type,
+        'Host': host,
+        'X-Amz-Date': amz_date,
+        'X-Amz-Security-Token': session_token,
+    })
+    print('PROBE_PASSED')
+except Exception:
+    print('PROBE_BLOCKED')
+    sys.exit(1)
+'''
+
+
+def _azure_to_gcp_runner_script() -> str:
+    return r'''import json
+import os
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+def request(url, data=None, headers=None):
+    req = urllib.request.Request(url, data=data, headers=headers or {})
+    with urllib.request.urlopen(req, timeout=20) as response:
+        return response.read()
+
+try:
+    query = urllib.parse.urlencode({
+        'api-version': '2018-02-01',
+        'resource': os.environ['AZURE_AUDIENCE'],
+        'client_id': os.environ['AZURE_CLIENT_ID'],
+    })
+    token = None
+    for attempt in range(24):
+        try:
+            payload = request(
+                'http://169.254.169.254/metadata/identity/oauth2/token?' + query,
+                headers={'Metadata': 'true'},
+            )
+            candidate = json.loads(payload.decode('utf-8')).get('access_token')
+            if isinstance(candidate, str):
+                token = candidate
+                break
+        except Exception:
+            if attempt + 1 < 24:
+                time.sleep(5)
+    if token is None:
+        raise RuntimeError('managed identity token unavailable')
+
+    exchange = json.dumps({
+        'audience': os.environ['GCP_AUDIENCE'],
+        'grantType': 'urn:ietf:params:oauth:grant-type:token-exchange',
+        'requestedTokenType': 'urn:ietf:params:oauth:token-type:access_token',
+        'scope': 'https://www.googleapis.com/auth/cloud-platform',
+        'subjectTokenType': 'urn:ietf:params:oauth:token-type:jwt',
+        'subjectToken': token,
+    }).encode('utf-8')
+    exchanged = json.loads(request(
+        'https://sts.googleapis.com/v1/token',
+        data=exchange,
+        headers={'Content-Type': 'application/json'},
+    ).decode('utf-8'))
+    federated_token = exchanged.get('access_token')
+    if not isinstance(federated_token, str):
+        raise RuntimeError('GCP federation token unavailable')
+
+    impersonation = json.dumps({
+        'scope': ['https://www.googleapis.com/auth/cloud-platform'],
+        'lifetime': '300s',
+    }).encode('utf-8')
+    result = json.loads(request(
+        os.environ['GCP_IMPERSONATION_URL'],
+        data=impersonation,
+        headers={
+            'Authorization': 'Bearer ' + federated_token,
+            'Content-Type': 'application/json',
+        },
+    ).decode('utf-8'))
+    if not isinstance(result.get('accessToken'), str):
+        raise RuntimeError('GCP service account token unavailable')
+    print('PROBE_PASSED')
+except Exception:
+    print('PROBE_BLOCKED')
+    sys.exit(1)
+'''
 
 
 def _run_gcp_to_aws(
@@ -1895,6 +2402,949 @@ def _run_aws_to_gcp(
     return record
 
 
+def _run_azure_to_aws(
+    aws: dict[str, Any],
+    azure: dict[str, Any],
+    *,
+    now: Callable[[], str] = _utc_now,
+) -> dict[str, Any]:
+    if aws["aws_region"] != AWS_REGION:
+        raise ProbeBlocked("AWS_REGION_OUTSIDE_APPROVED_SCOPE")
+
+    started_monotonic = time.monotonic()
+    started_at = now()
+    probe = "federation-azure-to-aws"
+    resource_group_name = AZURE_TO_AWS_NAMES["azure_resource_group"]
+    identity_name = AZURE_TO_AWS_NAMES["azure_managed_identity"]
+    application_name = AZURE_TO_AWS_NAMES["azure_application"]
+    container_group_name = AZURE_TO_AWS_NAMES["azure_container_group"]
+    container_name = AZURE_TO_AWS_NAMES["azure_container"]
+    role_name = AZURE_TO_AWS_NAMES["aws_role"]
+    subscription_id = azure["azure_subscription_id"]
+    tenant_id = azure["azure_tenant_id"]
+    try:
+        uuid.UUID(tenant_id)
+    except ValueError as exc:
+        raise ProbeBlocked("AZURE_TENANT_ID_INVALID") from exc
+
+    azure_credential = _azure_credentials(azure)
+    resource_client = ResourceManagementClient(azure_credential, subscription_id)
+    identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
+    aws_session = _aws_session(aws)
+    iam_aws = aws_session.client("iam")
+    sts_aws = _aws_regional_sts(aws_session, aws["aws_region"])
+    caller = sts_aws.get_caller_identity()
+    aws_account_id = str(caller.get("Account") or "")
+    if not re.fullmatch(r"\d{12}", aws_account_id):
+        raise ProbeBlocked("AWS_ACCOUNT_ID_UNAVAILABLE")
+    issuer = f"https://sts.windows.net/{tenant_id}/"
+    issuer_host_path = f"sts.windows.net/{tenant_id}"
+    oidc_provider_arn = (
+        f"arn:aws:iam::{aws_account_id}:oidc-provider/{issuer_host_path}"
+    )
+    container_group_path = (
+        f"/subscriptions/{subscription_id}/resourceGroups/{resource_group_name}/"
+        "providers/Microsoft.ContainerInstance/containerGroups/"
+        f"{container_group_name}"
+    )
+    app_role_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{probe}:EventBridge.Exchange")
+    )
+
+    resource_group_created = False
+    identity_created = False
+    application_created = False
+    service_principal_created = False
+    assignment_created = False
+    oidc_provider_created = False
+    role_created = False
+    container_group_created = False
+    principal_id: str | None = None
+    identity_client_id: str | None = None
+    application_object_id: str | None = None
+    application_id: str | None = None
+    service_principal_id: str | None = None
+    assignment_id: str | None = None
+    runner_started_at: str | None = None
+    runner_stopped_at: str | None = None
+    runner_elapsed_seconds: float | None = None
+    exchange_completed_at: str | None = None
+    exchange_error_code: str | None = None
+    exchange_stage = "preflight"
+    result_code = "PROBE_BLOCKED"
+    cleanup_errors: list[str] = []
+    residual_errors: list[str] = []
+
+    try:
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        _expect_azure_resource_group_absent(
+            resource_client,
+            resource_group_name,
+        )
+        _expect_graph_display_name_absent(
+            azure_credential,
+            "applications",
+            application_name,
+        )
+        _expect_graph_display_name_absent(
+            azure_credential,
+            "servicePrincipals",
+            application_name,
+        )
+        _expect_aws_role_absent(iam_aws, role_name)
+        _expect_aws_oidc_provider_absent(iam_aws, oidc_provider_arn)
+
+        exchange_stage = "create_azure_resource_group"
+        resource_client.resource_groups.create_or_update(
+            resource_group_name,
+            {
+                "location": AZURE_REGION,
+                "tags": {
+                    "Twin2MultiCloudPhase": "8",
+                    "Twin2MultiCloudRun": APPROVED_RUN_ID,
+                },
+            },
+        )
+        resource_group_created = True
+        exchange_stage = "create_azure_managed_identity"
+        identity = identity_client.user_assigned_identities.create_or_update(
+            resource_group_name,
+            identity_name,
+            {
+                "location": AZURE_REGION,
+                "tags": {
+                    "Twin2MultiCloudPhase": "8",
+                    "Twin2MultiCloudRun": APPROVED_RUN_ID,
+                },
+            },
+        )
+        identity_created = True
+        principal_id = str(identity.principal_id or "")
+        identity_client_id = str(identity.client_id or "")
+        identity_resource_id = str(identity.id or "")
+        if not principal_id or not identity_client_id or not identity_resource_id:
+            raise ProbeBlocked("AZURE_MANAGED_IDENTITY_IDS_UNAVAILABLE")
+
+        exchange_stage = "create_entra_audience_application"
+        application = _graph_request(
+            azure_credential,
+            "POST",
+            "/v1.0/applications",
+            expected_statuses=(201,),
+            body={
+                "displayName": application_name,
+                "signInAudience": "AzureADMyOrg",
+                "api": {"requestedAccessTokenVersion": 1},
+                "appRoles": [
+                    {
+                        "allowedMemberTypes": ["Application"],
+                        "description": "Permit one thesis federation exchange",
+                        "displayName": "EventBridge.Exchange",
+                        "id": app_role_id,
+                        "isEnabled": True,
+                        "value": "EventBridge.Exchange",
+                    }
+                ],
+            },
+        )
+        application_object_id = str(application.get("id") or "")
+        application_id = str(application.get("appId") or "")
+        if not application_object_id or not application_id:
+            raise ProbeBlocked("AZURE_APPLICATION_IDS_UNAVAILABLE")
+        application_created = True
+        audience = f"api://{application_id}"
+        _graph_request(
+            azure_credential,
+            "PATCH",
+            f"/v1.0/applications/{application_object_id}",
+            expected_statuses=(204,),
+            body={"identifierUris": [audience]},
+        )
+        service_principal = _graph_request(
+            azure_credential,
+            "POST",
+            "/v1.0/servicePrincipals",
+            expected_statuses=(201,),
+            body={
+                "appId": application_id,
+                "appRoleAssignmentRequired": True,
+            },
+        )
+        service_principal_id = str(service_principal.get("id") or "")
+        if not service_principal_id:
+            raise ProbeBlocked("AZURE_SERVICE_PRINCIPAL_ID_UNAVAILABLE")
+        service_principal_created = True
+        assignment = _graph_request(
+            azure_credential,
+            "POST",
+            f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
+            expected_statuses=(201,),
+            body={
+                "principalId": principal_id,
+                "resourceId": service_principal_id,
+                "appRoleId": app_role_id,
+            },
+        )
+        assignment_id = str(assignment.get("id") or "")
+        if not assignment_id:
+            raise ProbeBlocked("AZURE_APP_ROLE_ASSIGNMENT_ID_UNAVAILABLE")
+        assignment_created = True
+        exchange_stage = "await_entra_assignment"
+        _wait_for_graph_app_role_assignment(
+            azure_credential,
+            principal_id,
+            assignment_id,
+            started_monotonic,
+        )
+
+        exchange_stage = "create_aws_oidc_provider"
+        created_provider = iam_aws.create_open_id_connect_provider(
+            Url=issuer,
+            ClientIDList=[audience],
+            Tags=[
+                {"Key": "Twin2MultiCloudPhase", "Value": "8"},
+                {"Key": "Twin2MultiCloudRun", "Value": APPROVED_RUN_ID},
+            ],
+        )
+        created_provider_arn = str(created_provider.get("OpenIDConnectProviderArn") or "")
+        if created_provider_arn != oidc_provider_arn:
+            raise ProbeBlocked("AWS_OIDC_PROVIDER_ARN_UNEXPECTED")
+        oidc_provider_created = True
+        exchange_stage = "create_aws_target_role"
+        trust_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRoleWithWebIdentity",
+                    "Principal": {"Federated": oidc_provider_arn},
+                    "Condition": {
+                        "StringEquals": {
+                            f"{issuer_host_path}:aud": audience,
+                            f"{issuer_host_path}:sub": principal_id,
+                        }
+                    },
+                }
+            ],
+        }
+        created_role = iam_aws.create_role(
+            RoleName=role_name,
+            AssumeRolePolicyDocument=_canonical_json(trust_policy),
+            Description="Ephemeral identity-only thesis evaluation probe",
+            MaxSessionDuration=3600,
+            Tags=[
+                {"Key": "Twin2MultiCloudPhase", "Value": "8"},
+                {"Key": "Twin2MultiCloudRun", "Value": APPROVED_RUN_ID},
+            ],
+        )
+        role_created = True
+        role_arn = _aws_role_subject(
+            str((created_role.get("Role") or {}).get("Arn") or ""),
+            role_name,
+        )
+
+        exchange_stage = "run_azure_managed_identity_source"
+        runner_started_at = now()
+        _azure_arm_request(
+            azure_credential,
+            "PUT",
+            container_group_path,
+            expected_statuses=(200, 201, 202),
+            body=_azure_container_group_body(
+                identity_resource_id,
+                {
+                    "AWS_REGION": aws["aws_region"],
+                    "AWS_ROLE_ARN": role_arn,
+                    "AZURE_AUDIENCE": audience,
+                    "AZURE_CLIENT_ID": identity_client_id,
+                },
+                _azure_to_aws_runner_script(),
+            ),
+        )
+        container_group_created = True
+        group, runner_elapsed_seconds = _wait_for_azure_container(
+            azure_credential,
+            container_group_path,
+            started_monotonic,
+        )
+        runner_stopped_at = now()
+        containers = (group.get("properties") or {}).get("containers") or []
+        current_state = (
+            ((containers[0].get("properties") or {}).get("instanceView") or {})
+            .get("currentState", {})
+        )
+        if current_state.get("exitCode") != 0:
+            raise ProbeBlocked("AZURE_RUNNER_FAILED")
+        if _azure_container_logs(
+            azure_credential,
+            container_group_path,
+            container_name,
+        ) != "PROBE_PASSED":
+            raise ProbeBlocked("AZURE_RUNNER_RESULT_INVALID")
+        exchange_completed_at = now()
+        exchange_stage = "completed"
+        result_code = "PROBE_PASSED"
+    except Exception as exc:  # provider boundary, redacted below
+        exchange_error_code = _safe_error_code(exc)
+        result_code = f"PROBE_BLOCKED_{exchange_error_code}"
+    finally:
+        if role_created:
+            try:
+                _delete_aws_role(iam_aws, role_name)
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if oidc_provider_created:
+            try:
+                _delete_aws_oidc_provider(iam_aws, oidc_provider_arn)
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if container_group_created:
+            try:
+                _azure_arm_request(
+                    azure_credential,
+                    "DELETE",
+                    container_group_path,
+                    expected_statuses=(200, 202, 204, 404),
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if assignment_created and principal_id and assignment_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/servicePrincipals/{principal_id}/"
+                    f"appRoleAssignments/{assignment_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if service_principal_created and service_principal_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/servicePrincipals/{service_principal_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if application_created and application_object_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/applications/{application_object_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if identity_created:
+            try:
+                identity_client.user_assigned_identities.delete(
+                    resource_group_name,
+                    identity_name,
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if resource_group_created:
+            try:
+                resource_client.resource_groups.begin_delete(
+                    resource_group_name
+                ).result(timeout=180)
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+
+        for attempt in range(12):
+            residual_errors = []
+            try:
+                _expect_aws_role_absent(iam_aws, role_name)
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            try:
+                _expect_aws_oidc_provider_absent(iam_aws, oidc_provider_arn)
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            try:
+                _expect_azure_resource_group_absent(
+                    resource_client,
+                    resource_group_name,
+                )
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            try:
+                _expect_graph_display_name_absent(
+                    azure_credential,
+                    "applications",
+                    application_name,
+                )
+                _expect_graph_display_name_absent(
+                    azure_credential,
+                    "servicePrincipals",
+                    application_name,
+                )
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            if principal_id:
+                try:
+                    _expect_azure_service_principal_absent(
+                        azure_credential,
+                        principal_id,
+                    )
+                except Exception as exc:
+                    residual_errors.append(_safe_error_code(exc))
+            if not residual_errors or attempt == 11:
+                break
+            time.sleep(5)
+
+    azure_credential.close()
+    cleanup_completed_at = now()
+    cleanup_status = "clean" if not cleanup_errors else "failed"
+    residual_status = "clean" if not residual_errors else "active_residual_detected"
+    if cleanup_errors or residual_errors:
+        result_code = "PROBE_BLOCKED_CLEANUP_OR_RESIDUAL_FAILED"
+    record: dict[str, Any] = {
+        "schema_version": "six-layer-directed-federation-probe-result.v1",
+        "run_id": APPROVED_RUN_ID,
+        "plan_record_digest": APPROVED_PLAN_DIGEST,
+        "probe_id": probe,
+        "started_at": started_at,
+        "runner_started_at": runner_started_at,
+        "runner_stopped_at": runner_stopped_at,
+        "runner_elapsed_seconds": (
+            round(runner_elapsed_seconds, 3)
+            if runner_elapsed_seconds is not None
+            else None
+        ),
+        "exchange_completed_at": exchange_completed_at,
+        "exchange_status": "passed" if exchange_completed_at else "blocked",
+        "exchange_stage": exchange_stage,
+        "exchange_error_code": exchange_error_code,
+        "cleanup_completed_at": cleanup_completed_at,
+        "result_code": result_code,
+        "cleanup_status": cleanup_status,
+        "residual_status": residual_status,
+        "direct_cost_cap_usd": AZURE_SOURCE_DIRECT_COST_CAP_USD,
+        "credential_values_included": False,
+        "provider_scope_values_included": False,
+        "resource_identifiers_included": False,
+    }
+    record["record_digest"] = _digest(record)
+    return record
+
+
+def _run_azure_to_gcp(
+    gcp: dict[str, Any],
+    gcp_key: dict[str, Any],
+    azure: dict[str, Any],
+    *,
+    now: Callable[[], str] = _utc_now,
+) -> dict[str, Any]:
+    started_monotonic = time.monotonic()
+    started_at = now()
+    probe = "federation-azure-to-gcp"
+    resource_group_name = AZURE_TO_GCP_NAMES["azure_resource_group"]
+    identity_name = AZURE_TO_GCP_NAMES["azure_managed_identity"]
+    application_name = AZURE_TO_GCP_NAMES["azure_application"]
+    container_group_name = AZURE_TO_GCP_NAMES["azure_container_group"]
+    container_name = AZURE_TO_GCP_NAMES["azure_container"]
+    service_account_id = AZURE_TO_GCP_NAMES["gcp_service_account"]
+    pool_id = AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
+    provider_id = AZURE_TO_GCP_NAMES["gcp_workload_identity_provider"]
+    subscription_id = azure["azure_subscription_id"]
+    tenant_id = azure["azure_tenant_id"]
+    try:
+        uuid.UUID(tenant_id)
+    except ValueError as exc:
+        raise ProbeBlocked("AZURE_TENANT_ID_INVALID") from exc
+    service_account_email = (
+        f"{service_account_id}@{gcp['gcp_project_id']}.iam.gserviceaccount.com"
+    )
+    service_account_name = (
+        f"projects/{gcp['gcp_project_id']}/serviceAccounts/"
+        f"{service_account_email}"
+    )
+
+    azure_credential = _azure_credentials(azure)
+    resource_client = ResourceManagementClient(azure_credential, subscription_id)
+    identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
+    google_credentials = _gcp_credentials(gcp_key)
+    iam_gcp = build_google_api(
+        "iam", "v1", credentials=google_credentials, cache_discovery=False
+    )
+    resource_manager = build_google_api(
+        "cloudresourcemanager",
+        "v1",
+        credentials=google_credentials,
+        cache_discovery=False,
+    )
+    project = _gcp_execute(
+        resource_manager.projects().get(projectId=gcp["gcp_project_id"])
+    )
+    project_number = str(project.get("projectNumber") or "")
+    if not project_number.isdigit():
+        raise ProbeBlocked("GCP_PROJECT_NUMBER_UNAVAILABLE")
+    pool_parent = f"projects/{project_number}/locations/global"
+    pool_name = f"{pool_parent}/workloadIdentityPools/{pool_id}"
+    provider_name = f"{pool_name}/providers/{provider_id}"
+    pools = iam_gcp.projects().locations().workloadIdentityPools()
+    providers = pools.providers()
+    container_group_path = (
+        f"/subscriptions/{subscription_id}/resourceGroups/{resource_group_name}/"
+        "providers/Microsoft.ContainerInstance/containerGroups/"
+        f"{container_group_name}"
+    )
+    app_role_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{probe}:EventBridge.Exchange")
+    )
+
+    resource_group_created = False
+    identity_created = False
+    application_created = False
+    service_principal_created = False
+    assignment_created = False
+    service_account_created = False
+    pool_created = False
+    provider_created = False
+    binding_created = False
+    container_group_created = False
+    principal_id: str | None = None
+    identity_client_id: str | None = None
+    application_object_id: str | None = None
+    application_id: str | None = None
+    service_principal_id: str | None = None
+    assignment_id: str | None = None
+    member: str | None = None
+    runner_started_at: str | None = None
+    runner_stopped_at: str | None = None
+    runner_elapsed_seconds: float | None = None
+    exchange_completed_at: str | None = None
+    exchange_error_code: str | None = None
+    exchange_stage = "preflight"
+    result_code = "PROBE_BLOCKED"
+    cleanup_errors: list[str] = []
+    residual_errors: list[str] = []
+
+    try:
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        _expect_azure_resource_group_absent(
+            resource_client,
+            resource_group_name,
+        )
+        _expect_graph_display_name_absent(
+            azure_credential,
+            "applications",
+            application_name,
+        )
+        _expect_graph_display_name_absent(
+            azure_credential,
+            "servicePrincipals",
+            application_name,
+        )
+        _expect_gcp_service_account_absent(
+            iam_gcp,
+            gcp["gcp_project_id"],
+            service_account_email,
+        )
+        _expect_gcp_workload_identity_pool_absent(
+            pools,
+            pool_parent,
+            pool_id,
+        )
+
+        exchange_stage = "create_azure_resource_group"
+        resource_client.resource_groups.create_or_update(
+            resource_group_name,
+            {
+                "location": AZURE_REGION,
+                "tags": {
+                    "Twin2MultiCloudPhase": "8",
+                    "Twin2MultiCloudRun": APPROVED_RUN_ID,
+                },
+            },
+        )
+        resource_group_created = True
+        exchange_stage = "create_azure_managed_identity"
+        identity = identity_client.user_assigned_identities.create_or_update(
+            resource_group_name,
+            identity_name,
+            {
+                "location": AZURE_REGION,
+                "tags": {
+                    "Twin2MultiCloudPhase": "8",
+                    "Twin2MultiCloudRun": APPROVED_RUN_ID,
+                },
+            },
+        )
+        identity_created = True
+        principal_id = str(identity.principal_id or "")
+        identity_client_id = str(identity.client_id or "")
+        identity_resource_id = str(identity.id or "")
+        if not principal_id or not identity_client_id or not identity_resource_id:
+            raise ProbeBlocked("AZURE_MANAGED_IDENTITY_IDS_UNAVAILABLE")
+
+        exchange_stage = "create_entra_audience_application"
+        application = _graph_request(
+            azure_credential,
+            "POST",
+            "/v1.0/applications",
+            expected_statuses=(201,),
+            body={
+                "displayName": application_name,
+                "signInAudience": "AzureADMyOrg",
+                "api": {"requestedAccessTokenVersion": 1},
+                "appRoles": [
+                    {
+                        "allowedMemberTypes": ["Application"],
+                        "description": "Permit one thesis federation exchange",
+                        "displayName": "EventBridge.Exchange",
+                        "id": app_role_id,
+                        "isEnabled": True,
+                        "value": "EventBridge.Exchange",
+                    }
+                ],
+            },
+        )
+        application_object_id = str(application.get("id") or "")
+        application_id = str(application.get("appId") or "")
+        if not application_object_id or not application_id:
+            raise ProbeBlocked("AZURE_APPLICATION_IDS_UNAVAILABLE")
+        application_created = True
+        audience = f"api://{application_id}"
+        _graph_request(
+            azure_credential,
+            "PATCH",
+            f"/v1.0/applications/{application_object_id}",
+            expected_statuses=(204,),
+            body={"identifierUris": [audience]},
+        )
+        service_principal = _graph_request(
+            azure_credential,
+            "POST",
+            "/v1.0/servicePrincipals",
+            expected_statuses=(201,),
+            body={
+                "appId": application_id,
+                "appRoleAssignmentRequired": True,
+            },
+        )
+        service_principal_id = str(service_principal.get("id") or "")
+        if not service_principal_id:
+            raise ProbeBlocked("AZURE_SERVICE_PRINCIPAL_ID_UNAVAILABLE")
+        service_principal_created = True
+        assignment = _graph_request(
+            azure_credential,
+            "POST",
+            f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
+            expected_statuses=(201,),
+            body={
+                "principalId": principal_id,
+                "resourceId": service_principal_id,
+                "appRoleId": app_role_id,
+            },
+        )
+        assignment_id = str(assignment.get("id") or "")
+        if not assignment_id:
+            raise ProbeBlocked("AZURE_APP_ROLE_ASSIGNMENT_ID_UNAVAILABLE")
+        assignment_created = True
+        exchange_stage = "await_entra_assignment"
+        _wait_for_graph_app_role_assignment(
+            azure_credential,
+            principal_id,
+            assignment_id,
+            started_monotonic,
+        )
+
+        exchange_stage = "create_gcp_service_account"
+        _gcp_execute(
+            iam_gcp.projects().serviceAccounts().create(
+                name=f"projects/{gcp['gcp_project_id']}",
+                body={
+                    "accountId": service_account_id,
+                    "serviceAccount": {
+                        "displayName": "Twin2MultiCloud Azure to GCP probe",
+                        "description": (
+                            "Ephemeral identity-only thesis evaluation probe"
+                        ),
+                    },
+                },
+            )
+        )
+        service_account_created = True
+        exchange_stage = "create_gcp_workload_identity_pool"
+        pool_operation = _gcp_execute(
+            pools.create(
+                parent=pool_parent,
+                workloadIdentityPoolId=pool_id,
+                body={
+                    "displayName": "Twin2MultiCloud Azure to GCP",
+                    "description": (
+                        "Ephemeral identity-only thesis evaluation probe"
+                    ),
+                    "disabled": False,
+                },
+            )
+        )
+        pool_created = True
+        _wait_for_gcp_operation(
+            pools.operations(),
+            pool_operation,
+            started_monotonic,
+        )
+        exchange_stage = "create_gcp_entra_provider"
+        provider_operation = _gcp_execute(
+            providers.create(
+                parent=pool_name,
+                workloadIdentityPoolProviderId=provider_id,
+                body=_azure_to_gcp_provider_body(
+                    tenant_id,
+                    audience,
+                    principal_id,
+                ),
+            )
+        )
+        provider_created = True
+        _wait_for_gcp_operation(
+            providers.operations(),
+            provider_operation,
+            started_monotonic,
+        )
+        member = _azure_to_gcp_principal(
+            project_number,
+            pool_id,
+            principal_id,
+        )
+        exchange_stage = "bind_gcp_service_account"
+        _add_service_account_workload_identity_user(
+            iam_gcp,
+            service_account_name,
+            member,
+        )
+        binding_created = True
+
+        exchange_stage = "run_azure_managed_identity_source"
+        gcp_audience = f"//iam.googleapis.com/{provider_name}"
+        impersonation_url = (
+            "https://iamcredentials.googleapis.com/v1/projects/-/"
+            f"serviceAccounts/{service_account_email}:generateAccessToken"
+        )
+        runner_started_at = now()
+        _azure_arm_request(
+            azure_credential,
+            "PUT",
+            container_group_path,
+            expected_statuses=(200, 201, 202),
+            body=_azure_container_group_body(
+                identity_resource_id,
+                {
+                    "AZURE_AUDIENCE": audience,
+                    "AZURE_CLIENT_ID": identity_client_id,
+                    "GCP_AUDIENCE": gcp_audience,
+                    "GCP_IMPERSONATION_URL": impersonation_url,
+                },
+                _azure_to_gcp_runner_script(),
+            ),
+        )
+        container_group_created = True
+        group, runner_elapsed_seconds = _wait_for_azure_container(
+            azure_credential,
+            container_group_path,
+            started_monotonic,
+        )
+        runner_stopped_at = now()
+        containers = (group.get("properties") or {}).get("containers") or []
+        current_state = (
+            ((containers[0].get("properties") or {}).get("instanceView") or {})
+            .get("currentState", {})
+        )
+        if current_state.get("exitCode") != 0:
+            raise ProbeBlocked("AZURE_RUNNER_FAILED")
+        if _azure_container_logs(
+            azure_credential,
+            container_group_path,
+            container_name,
+        ) != "PROBE_PASSED":
+            raise ProbeBlocked("AZURE_RUNNER_RESULT_INVALID")
+        exchange_completed_at = now()
+        exchange_stage = "completed"
+        result_code = "PROBE_PASSED"
+    except Exception as exc:  # provider boundary, redacted below
+        exchange_error_code = _safe_error_code(exc)
+        result_code = f"PROBE_BLOCKED_{exchange_error_code}"
+    finally:
+        if binding_created and member:
+            try:
+                _remove_service_account_workload_identity_user(
+                    iam_gcp,
+                    service_account_name,
+                    member,
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if provider_created:
+            try:
+                operation = _gcp_execute(providers.delete(name=provider_name))
+                _wait_for_gcp_operation(
+                    providers.operations(),
+                    operation,
+                    started_monotonic,
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if pool_created:
+            try:
+                operation = _gcp_execute(pools.delete(name=pool_name))
+                _wait_for_gcp_operation(
+                    pools.operations(),
+                    operation,
+                    started_monotonic,
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if service_account_created:
+            try:
+                _delete_gcp_service_account(iam_gcp, service_account_name)
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if container_group_created:
+            try:
+                _azure_arm_request(
+                    azure_credential,
+                    "DELETE",
+                    container_group_path,
+                    expected_statuses=(200, 202, 204, 404),
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if assignment_created and principal_id and assignment_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/servicePrincipals/{principal_id}/"
+                    f"appRoleAssignments/{assignment_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if service_principal_created and service_principal_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/servicePrincipals/{service_principal_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if application_created and application_object_id:
+            try:
+                _delete_graph_object(
+                    azure_credential,
+                    f"/v1.0/applications/{application_object_id}",
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if identity_created:
+            try:
+                identity_client.user_assigned_identities.delete(
+                    resource_group_name,
+                    identity_name,
+                )
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+        if resource_group_created:
+            try:
+                resource_client.resource_groups.begin_delete(
+                    resource_group_name
+                ).result(timeout=180)
+            except Exception as exc:
+                cleanup_errors.append(_safe_error_code(exc))
+
+        for attempt in range(12):
+            residual_errors = []
+            try:
+                _expect_azure_resource_group_absent(
+                    resource_client,
+                    resource_group_name,
+                )
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            try:
+                _expect_graph_display_name_absent(
+                    azure_credential,
+                    "applications",
+                    application_name,
+                )
+                _expect_graph_display_name_absent(
+                    azure_credential,
+                    "servicePrincipals",
+                    application_name,
+                )
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            if principal_id:
+                try:
+                    _expect_azure_service_principal_absent(
+                        azure_credential,
+                        principal_id,
+                    )
+                except Exception as exc:
+                    residual_errors.append(_safe_error_code(exc))
+            try:
+                _expect_gcp_service_account_absent(
+                    iam_gcp,
+                    gcp["gcp_project_id"],
+                    service_account_email,
+                )
+                _expect_gcp_workload_identity_pool_absent(
+                    pools,
+                    pool_parent,
+                    pool_id,
+                )
+            except Exception as exc:
+                residual_errors.append(_safe_error_code(exc))
+            if not residual_errors or attempt == 11:
+                break
+            time.sleep(5)
+
+    azure_credential.close()
+    cleanup_completed_at = now()
+    cleanup_status = "clean" if not cleanup_errors else "failed"
+    residual_status = "clean" if not residual_errors else "active_residual_detected"
+    if cleanup_errors or residual_errors:
+        result_code = "PROBE_BLOCKED_CLEANUP_OR_RESIDUAL_FAILED"
+    record: dict[str, Any] = {
+        "schema_version": "six-layer-directed-federation-probe-result.v1",
+        "run_id": APPROVED_RUN_ID,
+        "plan_record_digest": APPROVED_PLAN_DIGEST,
+        "probe_id": probe,
+        "started_at": started_at,
+        "runner_started_at": runner_started_at,
+        "runner_stopped_at": runner_stopped_at,
+        "runner_elapsed_seconds": (
+            round(runner_elapsed_seconds, 3)
+            if runner_elapsed_seconds is not None
+            else None
+        ),
+        "exchange_completed_at": exchange_completed_at,
+        "exchange_status": "passed" if exchange_completed_at else "blocked",
+        "exchange_stage": exchange_stage,
+        "exchange_error_code": exchange_error_code,
+        "cleanup_completed_at": cleanup_completed_at,
+        "result_code": result_code,
+        "cleanup_status": cleanup_status,
+        "residual_status": residual_status,
+        "accepted_inactive_tombstone_classes": [
+            "gcp.service_account",
+            "gcp.workload_identity_pool",
+            "gcp.workload_identity_pool_provider",
+        ],
+        "direct_cost_cap_usd": AZURE_SOURCE_DIRECT_COST_CAP_USD,
+        "credential_values_included": False,
+        "provider_scope_values_included": False,
+        "resource_identifiers_included": False,
+    }
+    record["record_digest"] = _digest(record)
+    return record
+
+
 def execute(
     probe_id: str,
     provider_config_path: Path,
@@ -1912,6 +3362,10 @@ def execute(
         record = _run_aws_to_azure(aws, azure)
     elif probe_id == "federation-aws-to-gcp":
         record = _run_aws_to_gcp(aws, gcp, gcp_key)
+    elif probe_id == "federation-azure-to-aws":
+        record = _run_azure_to_aws(aws, azure)
+    elif probe_id == "federation-azure-to-gcp":
+        record = _run_azure_to_gcp(gcp, gcp_key, azure)
     else:  # pragma: no cover - guarded above
         raise ProbeBlocked("PROBE_NOT_IMPLEMENTED")
     _assert_no_sensitive_values(record, credentials)

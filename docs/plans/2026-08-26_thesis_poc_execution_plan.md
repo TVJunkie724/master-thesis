@@ -427,6 +427,11 @@ minutes with a USD 0.01 cap; the aggregate plan cap is USD 0.02. Prices must be
 refreshed before execution. The exact plan received supervised approval for
 run `26083001`. The four USD 0.00 local-runner probes passed with clean active
 residual inventory; only the two bounded Azure-source probes remain.
+The first Azure-to-AWS attempt stopped before the billable runner because the
+deployment application lacks the tenant-level Microsoft Graph permission to
+create the ephemeral audience application. Cleanup and active residual checks
+passed with no direct charge. Azure-to-GCP remains unexecuted behind the same
+prerequisite.
 
 Continue Phase 8 in this order:
 
