@@ -360,9 +360,26 @@ L4 path now has an approved console-assisted custom OAuth bootstrap with a
 five-minute limit and USD 0.00 direct incremental cap, but it remains
 unexecuted and therefore is not live readiness evidence.
 
-All six federation probes are now planned, schema-checked, digest-bound, and
-disabled. No federation resource has been created. The open work is one-by-one
-approved federation execution and cleanup, the scenario-bound GCP processor
-image, the approved-but-unexecuted GCP L4 bootstrap during the first applicable
-run, and finally the nine supervised Small scenarios. None of those live
-results is claimed complete.
+All six federation probes are planned, schema-checked, and digest-bound. Their
+exact resource manifests received supervised approval for run `26083001`. AWS
+outbound identity federation is enabled as a zero-direct-charge evaluation
+prerequisite and remains inventoried until the final AWS-to-Azure Twin
+scenario, after which it must be disabled explicitly.
+
+The first directed probe, GCP-to-AWS, passed one Google OIDC to AWS STS
+exchange and one `GetCallerIdentity` check after the harness accounted for IAM
+propagation. Its AWS resources were removed immediately; only inactive GCP
+service-account soft-delete tombstones remain. The next probe, GCP-to-Azure,
+proved that the Resource Group, managed identity, and federated credential can
+be created and removed, but stopped before token exchange because the
+deployment principal has Subscription `Contributor` without permission to
+create the required temporary Reader role assignment. Cleanup and active
+residual inventory passed, no directly charged resource was used, and the next
+direction remains blocked by the plan's stop-on-first-failure rule. RQ1 records
+the additional RBAC prerequisite, RQ2 does not yet claim GCP-to-Azure
+interoperability, and RQ3 attributes zero direct charge to both attempts.
+
+The remaining open work is the minimal Azure RBAC prerequisite, continuation
+of the one-by-one federation probes, the scenario-bound GCP processor image,
+the approved-but-unexecuted GCP L4 bootstrap during the first applicable run,
+and finally the nine supervised Small scenarios.
