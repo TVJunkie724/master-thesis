@@ -41,7 +41,8 @@ void main() {
         Column(
           children: [
             ConfigurationWorkspaceHeader(
-              isCreateMode: false,
+              phaseIndex: 3,
+              phaseCount: 4,
               phaseLabel: 'Prepare deployment',
               taskLabel: 'Twin assets',
               onClose: () => closed = true,
@@ -58,13 +59,16 @@ void main() {
       ),
     );
 
-    expect(find.text('Edit Digital Twin'), findsOneWidget);
-    expect(find.text('Prepare deployment · Twin assets'), findsOneWidget);
+    expect(find.text('Configure experiment'), findsOneWidget);
+    expect(
+      find.text('Phase 3 of 4 · Prepare deployment · Twin assets'),
+      findsOneWidget,
+    );
     expect(find.text('Validation failed'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
     expect(find.text('Review required'), findsNothing);
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back to experiments'));
     await tester.tap(find.byTooltip('Dismiss'));
     expect(closed, isTrue);
     expect(dismissedError, isTrue);
@@ -101,16 +105,20 @@ void main() {
             ),
           ),
         ),
+        textScale: 2,
       ),
     );
 
-    expect(find.text('CALCULATE'), findsOneWidget);
-    expect(find.text('Finish Configuration'), findsOneWidget);
+    expect(find.text('Calculate'), findsOneWidget);
+    expect(find.text('Finish configuration'), findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.widgetWithText(FilledButton, 'CALCULATE'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Calculate'));
     await tester.tap(find.widgetWithText(OutlinedButton, 'Back'));
     await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
-    await tester.tap(find.widgetWithText(FilledButton, 'Finish Configuration'));
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Finish configuration'),
+    );
     expect(invoked, ['calculate', 'back', 'save', 'finish']);
   });
 
@@ -162,7 +170,8 @@ void main() {
         Column(
           children: [
             ConfigurationWorkspaceHeader(
-              isCreateMode: true,
+              phaseIndex: 1,
+              phaseCount: 4,
               phaseLabel: 'Define workload',
               taskLabel: 'Cloud access',
               onClose: null,
@@ -211,7 +220,9 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Continue'),
+          )
           .onPressed,
       isNull,
     );
@@ -279,7 +290,7 @@ void main() {
     expect(dismissed, 2);
   });
 
-  testWidgets('profile menu emits settings callback only', (tester) async {
+  testWidgets('app bar exposes direct cloud access callback', (tester) async {
     final invoked = <String>[];
     await tester.pumpWidget(
       _app(
@@ -287,22 +298,19 @@ void main() {
           appBar: ConfigurationWorkspaceAppBar(
             isDarkMode: false,
             onToggleTheme: () => invoked.add('theme'),
-            onOpenSettings: () => invoked.add('settings'),
+            onOpenCloudAccess: () => invoked.add('cloud'),
           ),
         ),
       ),
     );
 
     await tester.tap(find.byTooltip('Toggle theme'));
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
-    expect(find.text('Logout'), findsNothing);
-    expect(invoked, ['theme', 'settings']);
+    await tester.tap(find.byTooltip('Open cloud access'));
+    expect(find.byIcon(Icons.person), findsNothing);
+    expect(invoked, ['theme', 'cloud']);
   });
 
-  testWidgets('profile navigation is disabled while a command is active', (
+  testWidgets('cloud navigation is disabled while a command is active', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -312,20 +320,19 @@ void main() {
             isDarkMode: false,
             navigationEnabled: false,
             onToggleTheme: () {},
-            onOpenSettings: () => fail('Settings must stay disabled'),
+            onOpenCloudAccess: () => fail('Cloud access must stay disabled'),
           ),
         ),
       ),
     );
 
-    final disabledProfile = find.byTooltip(
+    final disabledCloudAccess = find.byTooltip(
       'Wait for the current command to finish',
     );
-    expect(disabledProfile, findsOneWidget);
-    await tester.tap(disabledProfile);
+    expect(disabledCloudAccess, findsOneWidget);
+    await tester.tap(disabledCloudAccess);
     await tester.pumpAndSettle();
-    expect(find.text('Settings'), findsNothing);
-    expect(find.text('Logout'), findsNothing);
+    expect(find.byIcon(Icons.cloud_outlined), findsOneWidget);
   });
 
   testWidgets('exit dialogs return typed choices and support Escape', (
@@ -411,10 +418,18 @@ void main() {
   });
 }
 
-Widget _app(Widget child) => MaterialApp(home: child);
+Widget _app(Widget child, {double textScale = 1}) => MaterialApp(
+  builder: (context, appChild) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(textScale)),
+    child: appChild!,
+  ),
+  home: child,
+);
 
 PreferredSizeWidget _appBar() => ConfigurationWorkspaceAppBar(
   isDarkMode: false,
   onToggleTheme: () {},
-  onOpenSettings: () {},
+  onOpenCloudAccess: () {},
 );

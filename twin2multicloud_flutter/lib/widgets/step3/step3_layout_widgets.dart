@@ -111,7 +111,7 @@ class Step3FlowFooter extends StatelessWidget {
           const SizedBox(width: AppSpacing.md - AppSpacing.xs),
           Expanded(
             child: Text(
-              'Click "Finish Configuration" when ready.',
+              'Click "Finish configuration" when ready.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
               ),

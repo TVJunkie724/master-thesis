@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/colors.dart';
 import '../../../theme/spacing.dart';
+import 'configuration_workspace_strings.dart';
 
 class ConfigurationNavigationBar extends StatelessWidget {
   final String backLabel;
@@ -55,8 +56,11 @@ class ConfigurationNavigationBar extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final textScale = MediaQuery.textScalerOf(context).scale(1);
                 if (constraints.maxWidth <
-                    AppSpacing.configurationNavigationWideBreakpoint) {
+                        AppSpacing.configurationNavigationWideBreakpoint ||
+                    textScale >
+                        AppSpacing.resolvedArchitectureWideTextScaleLimit) {
                   return _buildCompact(context);
                 }
                 return _buildWide(context);
@@ -72,18 +76,26 @@ class ConfigurationNavigationBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showCalculation) ...[
-          _buildCalculateButton(context),
-          const SizedBox(height: AppSpacing.sm),
-        ],
         Row(
           children: [
             Expanded(child: _buildBackButton()),
             const SizedBox(width: AppSpacing.sm),
             Expanded(child: _buildSaveButton()),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _buildForwardButton()),
           ],
+        ),
+        if (showCalculation) ...[
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: _buildForwardButton(primary: false),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: showCalculation
+              ? _buildCalculateButton(context)
+              : _buildForwardButton(primary: true),
         ),
       ],
     );
@@ -92,32 +104,16 @@ class ConfigurationNavigationBar extends StatelessWidget {
   Widget _buildWide(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _buildBackButton(),
-          ),
-        ),
-        Expanded(
-          child: Center(
-            child: showCalculation
-                ? _buildCalculateButton(context)
-                : const SizedBox.shrink(),
-          ),
-        ),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSaveButton(),
-                const SizedBox(width: AppSpacing.md),
-                _buildForwardButton(),
-              ],
-            ),
-          ),
-        ),
+        _buildBackButton(),
+        const Spacer(),
+        _buildSaveButton(),
+        const SizedBox(width: AppSpacing.md),
+        if (showCalculation) ...[
+          _buildForwardButton(primary: false),
+          const SizedBox(width: AppSpacing.md),
+          _buildCalculateButton(context),
+        ] else
+          _buildForwardButton(primary: true),
       ],
     );
   }
@@ -145,7 +141,11 @@ class ConfigurationNavigationBar extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: AppSpacing.xxs),
               )
             : const Icon(Icons.calculate),
-        label: Text(isCalculating ? 'CALCULATING...' : 'CALCULATE'),
+        label: Text(
+          isCalculating
+              ? ConfigurationWorkspaceStrings.calculating
+              : ConfigurationWorkspaceStrings.calculate,
+        ),
       ),
     );
   }
@@ -181,25 +181,27 @@ class ConfigurationNavigationBar extends StatelessWidget {
               ),
           ],
         ),
-        label: const Text('Save'),
+        label: const Text(ConfigurationWorkspaceStrings.save),
       ),
     );
   }
 
-  Widget _buildForwardButton() {
-    return Tooltip(
-      message: forwardDisabledReason,
-      child: showFinish
-          ? FilledButton.icon(
-              onPressed: onForward,
-              icon: const Icon(Icons.check_circle),
-              label: const Text('Finish Configuration'),
-            )
-          : FilledButton.icon(
-              onPressed: onForward,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Continue'),
-            ),
-    );
+  Widget _buildForwardButton({required bool primary}) {
+    final label = showFinish
+        ? ConfigurationWorkspaceStrings.finishConfiguration
+        : ConfigurationWorkspaceStrings.continueAction;
+    final icon = showFinish ? Icons.check_circle : Icons.arrow_forward;
+    final button = primary
+        ? FilledButton.icon(
+            onPressed: onForward,
+            icon: Icon(icon),
+            label: Text(label),
+          )
+        : OutlinedButton.icon(
+            onPressed: onForward,
+            icon: Icon(icon),
+            label: Text(label),
+          );
+    return Tooltip(message: forwardDisabledReason, child: button);
   }
 }

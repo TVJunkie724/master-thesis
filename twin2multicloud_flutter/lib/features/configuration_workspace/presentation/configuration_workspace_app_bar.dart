@@ -2,20 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/spacing.dart';
 import '../../../widgets/branded_app_bar.dart';
+import 'configuration_workspace_strings.dart';
 
 class ConfigurationWorkspaceAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   final bool isDarkMode;
   final bool navigationEnabled;
   final VoidCallback onToggleTheme;
-  final VoidCallback onOpenSettings;
+  final VoidCallback onOpenCloudAccess;
 
   const ConfigurationWorkspaceAppBar({
     super.key,
     required this.isDarkMode,
     this.navigationEnabled = true,
     required this.onToggleTheme,
-    required this.onOpenSettings,
+    required this.onOpenCloudAccess,
   });
 
   @override
@@ -24,47 +25,23 @@ class ConfigurationWorkspaceAppBar extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     return BrandedAppBar(
-      title: 'Twin2MultiCloud',
+      title: ConfigurationWorkspaceStrings.appTitle,
       actions: [
         IconButton(
           icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
           onPressed: onToggleTheme,
-          tooltip: 'Toggle theme',
+          tooltip: ConfigurationWorkspaceStrings.toggleThemeTooltip,
         ),
         const SizedBox(width: AppSpacing.sm),
-        PopupMenuButton<_WorkspaceProfileAction>(
-          enabled: navigationEnabled,
-          offset: const Offset(0, AppSpacing.xxl + AppSpacing.sm),
+        IconButton(
+          onPressed: navigationEnabled ? onOpenCloudAccess : null,
+          icon: const Icon(Icons.cloud_outlined),
           tooltip: navigationEnabled
-              ? 'Profile menu'
-              : 'Wait for the current command to finish',
-          onSelected: (action) {
-            switch (action) {
-              case _WorkspaceProfileAction.settings:
-                onOpenSettings();
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: _WorkspaceProfileAction.settings,
-              child: Row(
-                children: [
-                  Icon(Icons.settings, size: AppSpacing.iconMd),
-                  SizedBox(width: AppSpacing.md - AppSpacing.xs),
-                  Text('Settings'),
-                ],
-              ),
-            ),
-          ],
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            child: CircleAvatar(child: Icon(Icons.person)),
-          ),
+              ? ConfigurationWorkspaceStrings.openCloudAccess
+              : ConfigurationWorkspaceStrings.commandInProgress,
         ),
         const SizedBox(width: AppSpacing.sm),
       ],
     );
   }
 }
-
-enum _WorkspaceProfileAction { settings }

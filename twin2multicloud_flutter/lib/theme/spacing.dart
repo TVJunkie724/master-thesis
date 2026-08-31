@@ -92,12 +92,6 @@ abstract class AppSpacing {
   /// Evidence cards stack below this width.
   static const double evidenceCardBreakpoint = 900;
 
-  /// Configuration Workspace switches between sidebar and task selector.
-  static const double workspaceSidebarBreakpoint = 960;
-
-  /// Stable width of the Configuration Workspace task sidebar.
-  static const double workspaceSidebarWidth = 300;
-
   /// Minimum width covered by the compact supported-layout contract.
   static const double compactSupportedWidth = 640;
 

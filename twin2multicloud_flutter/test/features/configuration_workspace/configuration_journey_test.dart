@@ -89,7 +89,7 @@ void main() {
         expect(journey.recommendedTaskId, ConfigurationTaskId.defineTwin);
         expect(
           journey.task(ConfigurationTaskId.defineTwin).status,
-          ConfigurationTaskStatus.current,
+          ConfigurationTaskStatus.attention,
         );
         expect(
           journey.task(ConfigurationTaskId.processing).blockingReason,
@@ -112,7 +112,7 @@ void main() {
       );
       expect(
         journey.task(ConfigurationTaskId.calculateCostAllocation).status,
-        ConfigurationTaskStatus.current,
+        ConfigurationTaskStatus.available,
       );
       expect(
         journey.task(ConfigurationTaskId.reviewImmutableResult).status,
@@ -127,6 +127,109 @@ void main() {
       );
 
       expect(journey.currentTaskId, ConfigurationTaskId.defineTwin);
+    });
+
+    test('selection never overwrites the projected domain status', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        architectureReadyWizardState(),
+        requestedTaskId: ConfigurationTaskId.deviceTraffic,
+      );
+
+      expect(journey.currentTaskId, ConfigurationTaskId.deviceTraffic);
+      expect(
+        journey.task(ConfigurationTaskId.deviceTraffic).status,
+        ConfigurationTaskStatus.available,
+      );
+    });
+
+    test(
+      'phase target prefers current attention available then completion',
+      () {
+        const phase = ConfigurationPhase(
+          id: ConfigurationPhaseId.scenario,
+          label: 'Scenario',
+          tasks: [
+            ConfigurationTask(
+              id: ConfigurationTaskId.defineTwin,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Complete',
+              status: ConfigurationTaskStatus.complete,
+            ),
+            ConfigurationTask(
+              id: ConfigurationTaskId.deviceTraffic,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Attention',
+              status: ConfigurationTaskStatus.attention,
+            ),
+            ConfigurationTask(
+              id: ConfigurationTaskId.processing,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Available',
+              status: ConfigurationTaskStatus.available,
+            ),
+          ],
+        );
+
+        expect(
+          phase.taskTarget(ConfigurationTaskId.processing),
+          ConfigurationTaskId.processing,
+        );
+        expect(
+          phase.taskTarget(ConfigurationTaskId.retention),
+          ConfigurationTaskId.deviceTraffic,
+        );
+      },
+    );
+
+    test('completed phase targets its last completed task', () {
+      const phase = ConfigurationPhase(
+        id: ConfigurationPhaseId.optimize,
+        label: 'Optimize',
+        tasks: [
+          ConfigurationTask(
+            id: ConfigurationTaskId.calculateCostAllocation,
+            phaseId: ConfigurationPhaseId.optimize,
+            label: 'Calculate',
+            status: ConfigurationTaskStatus.complete,
+          ),
+          ConfigurationTask(
+            id: ConfigurationTaskId.reviewImmutableResult,
+            phaseId: ConfigurationPhaseId.optimize,
+            label: 'Review',
+            status: ConfigurationTaskStatus.complete,
+          ),
+        ],
+      );
+
+      expect(
+        phase.taskTarget(ConfigurationTaskId.defineTwin),
+        ConfigurationTaskId.reviewImmutableResult,
+      );
+      expect(phase.complete, isTrue);
+    });
+
+    test('blocked and not-required phase has no navigation target', () {
+      const phase = ConfigurationPhase(
+        id: ConfigurationPhaseId.prepare,
+        label: 'Prepare',
+        tasks: [
+          ConfigurationTask(
+            id: ConfigurationTaskId.cloudAccess,
+            phaseId: ConfigurationPhaseId.prepare,
+            label: 'Cloud access',
+            status: ConfigurationTaskStatus.blocked,
+            blockingReason: 'Calculate first',
+          ),
+          ConfigurationTask(
+            id: ConfigurationTaskId.twinAssets,
+            phaseId: ConfigurationPhaseId.prepare,
+            label: 'Twin assets',
+            status: ConfigurationTaskStatus.notRequired,
+          ),
+        ],
+      );
+
+      expect(phase.taskTarget(ConfigurationTaskId.defineTwin), isNull);
     });
   });
 }

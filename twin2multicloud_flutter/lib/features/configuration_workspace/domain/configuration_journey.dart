@@ -24,7 +24,6 @@ enum ConfigurationTaskId {
 
 enum ConfigurationTaskStatus {
   complete,
-  current,
   attention,
   available,
   blocked,
@@ -48,7 +47,6 @@ class ConfigurationTask {
 
   bool get isNavigable => switch (status) {
     ConfigurationTaskStatus.complete ||
-    ConfigurationTaskStatus.current ||
     ConfigurationTaskStatus.attention ||
     ConfigurationTaskStatus.available => true,
     ConfigurationTaskStatus.blocked ||
@@ -75,6 +73,24 @@ class ConfigurationPhase {
 
   bool get requiresAttention =>
       tasks.any((task) => task.status == ConfigurationTaskStatus.attention);
+
+  ConfigurationTaskId? taskTarget(ConfigurationTaskId currentTaskId) {
+    for (final task in tasks) {
+      if (task.id == currentTaskId) return task.id;
+    }
+    for (final status in const [
+      ConfigurationTaskStatus.attention,
+      ConfigurationTaskStatus.available,
+    ]) {
+      for (final task in tasks) {
+        if (task.status == status) return task.id;
+      }
+    }
+    for (final task in tasks.reversed) {
+      if (task.status == ConfigurationTaskStatus.complete) return task.id;
+    }
+    return null;
+  }
 }
 
 class ConfigurationJourney {
@@ -118,22 +134,10 @@ class ConfigurationJourney {
     final current = requested?.isNavigable == true
         ? requestedTaskId!
         : recommended;
-    final tasks = {
-      for (final entry in baseTasks.entries)
-        entry.key: entry.key == current
-            ? ConfigurationTask(
-                id: entry.value.id,
-                phaseId: entry.value.phaseId,
-                label: entry.value.label,
-                status: ConfigurationTaskStatus.current,
-                blockingReason: entry.value.blockingReason,
-              )
-            : entry.value,
-    };
 
     return ConfigurationJourney(
       phases: [
-        _phase(ConfigurationPhaseId.scenario, 'Scenario', tasks, const [
+        _phase(ConfigurationPhaseId.scenario, 'Scenario', baseTasks, const [
           ConfigurationTaskId.defineTwin,
           ConfigurationTaskId.scenarioAndCurrency,
           ConfigurationTaskId.deviceTraffic,
@@ -142,16 +146,16 @@ class ConfigurationJourney {
           ConfigurationTaskId.twinCapabilities,
           ConfigurationTaskId.userLogic,
         ]),
-        _phase(ConfigurationPhaseId.optimize, 'Optimize', tasks, const [
+        _phase(ConfigurationPhaseId.optimize, 'Optimize', baseTasks, const [
           ConfigurationTaskId.calculateCostAllocation,
           ConfigurationTaskId.reviewImmutableResult,
         ]),
-        _phase(ConfigurationPhaseId.prepare, 'Prepare', tasks, const [
+        _phase(ConfigurationPhaseId.prepare, 'Prepare', baseTasks, const [
           ConfigurationTaskId.cloudAccess,
           ConfigurationTaskId.dataContracts,
           ConfigurationTaskId.twinAssets,
         ]),
-        _phase(ConfigurationPhaseId.review, 'Review', tasks, const [
+        _phase(ConfigurationPhaseId.review, 'Review', baseTasks, const [
           ConfigurationTaskId.summary,
           ConfigurationTaskId.readinessFindings,
           ConfigurationTaskId.validationAndPreflight,

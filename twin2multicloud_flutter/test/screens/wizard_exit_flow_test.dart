@@ -38,7 +38,7 @@ void main() {
     ).thenAnswer((_) => persistence.future);
     final harness = await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back to experiments'));
     await tester.pumpAndSettle();
     expect(find.text('Leave Wizard?'), findsOneWidget);
     expect(find.text('Dashboard destination'), findsNothing);
@@ -75,7 +75,7 @@ void main() {
     ).thenThrow(Exception('transport unavailable'));
     final harness = await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back to experiments'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save & Leave'));
     await tester.pump();
@@ -113,9 +113,7 @@ void main() {
     final api = _MockApiService();
     await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Open cloud access'));
     await tester.pumpAndSettle();
     expect(find.text('Leave Wizard?'), findsOneWidget);
     expect(find.text('Settings destination'), findsNothing);
@@ -124,9 +122,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(WizardView), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Open cloud access'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discard Changes'));
     await tester.pumpAndSettle();

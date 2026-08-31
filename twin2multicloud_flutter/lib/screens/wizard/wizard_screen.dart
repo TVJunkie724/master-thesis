@@ -16,6 +16,7 @@ import '../../features/configuration_workspace/presentation/configuration_worksp
 import '../../features/configuration_workspace/presentation/configuration_workspace_header.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_scaffold.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
+import '../../features/configuration_workspace/presentation/configuration_workspace_strings.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/twins_provider.dart';
 import 'step1_configuration.dart';
@@ -103,7 +104,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           isDarkMode: ref.watch(themeProvider) == ThemeMode.dark,
           navigationEnabled: !commandInProgress,
           onToggleTheme: () => ref.read(themeProvider.notifier).toggle(),
-          onOpenSettings: () =>
+          onOpenCloudAccess: () =>
               _requestExit(context, state, _WorkspaceExitDestination.settings),
         );
         if (state.status == WizardStatus.loading) {
@@ -126,7 +127,12 @@ class _WizardViewState extends ConsumerState<WizardView> {
           appBar: appBar,
           isLoading: false,
           header: ConfigurationWorkspaceHeader(
-            isCreateMode: state.mode == WizardMode.create,
+            phaseIndex:
+                journey.phases.indexWhere(
+                  (phase) => phase.id == journey.currentPhase.id,
+                ) +
+                1,
+            phaseCount: journey.phases.length,
             phaseLabel: journey.currentPhase.label,
             taskLabel: journey.task(journey.currentTaskId).label,
             onClose: commandInProgress
@@ -136,7 +142,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
                     state,
                     _WorkspaceExitDestination.dashboard,
                   ),
-            closeDisabledReason: 'Wait for the current command to finish',
+            closeDisabledReason:
+                ConfigurationWorkspaceStrings.commandInProgress,
           ),
           alerts: ConfigurationAlertStack(
             errorMessage: state.errorMessage,
@@ -150,6 +157,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ),
           workspace: ConfigurationWorkspaceShell(
             journey: journey,
+            isNavigationEnabled: !commandInProgress,
             onTaskSelected: (taskId) => _selectTask(context, taskId),
             child: _buildTaskContent(context, journey.currentTaskId),
           ),
@@ -227,9 +235,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
         : '';
 
     return ConfigurationNavigationBar(
-      backLabel: journey.previousNavigableTaskId == null ? 'Exit' : 'Back',
+      backLabel: journey.previousNavigableTaskId == null
+          ? ConfigurationWorkspaceStrings.exit
+          : ConfigurationWorkspaceStrings.back,
       backDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : '',
       onBack: commandInProgress
           ? null
@@ -244,7 +254,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
       isSaving: isSaving,
       hasUnsavedChanges: state.hasUnsavedChanges,
       saveDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : !state.canModify
           ? 'Cannot modify a deployed twin'
           : '',
@@ -253,7 +263,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           : () => _handleSaveDraft(context, state),
       showFinish: isFinish,
       forwardDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : forwardDisabledReason,
       onForward: isFinish
           ? canFinish && !commandInProgress

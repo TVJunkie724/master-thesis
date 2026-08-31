@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/spacing.dart';
+import 'configuration_workspace_strings.dart';
 
 class ConfigurationWorkspaceHeader extends StatelessWidget {
-  final bool isCreateMode;
+  final int phaseIndex;
+  final int phaseCount;
   final String phaseLabel;
   final String taskLabel;
   final VoidCallback? onClose;
@@ -11,7 +13,8 @@ class ConfigurationWorkspaceHeader extends StatelessWidget {
 
   const ConfigurationWorkspaceHeader({
     super.key,
-    required this.isCreateMode,
+    required this.phaseIndex,
+    required this.phaseCount,
     required this.phaseLabel,
     required this.taskLabel,
     required this.onClose,
@@ -24,13 +27,7 @@ class ConfigurationWorkspaceHeader extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.08),
-            blurRadius: AppSpacing.sm,
-            offset: const Offset(0, AppSpacing.xxs),
-          ),
-        ],
+        border: Border(bottom: BorderSide(color: theme.dividerColor)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -40,7 +37,9 @@ class ConfigurationWorkspaceHeader extends StatelessWidget {
         child: Row(
           children: [
             Tooltip(
-              message: onClose == null ? closeDisabledReason : 'Close',
+              message: onClose == null
+                  ? closeDisabledReason
+                  : ConfigurationWorkspaceStrings.backToExperiments,
               child: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: onClose,
@@ -52,12 +51,14 @@ class ConfigurationWorkspaceHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isCreateMode ? 'Create Digital Twin' : 'Edit Digital Twin',
+                    ConfigurationWorkspaceStrings.configureExperiment,
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    '$phaseLabel · $taskLabel',
+                    '${ConfigurationWorkspaceStrings.phasePrefix}$phaseIndex'
+                    '${ConfigurationWorkspaceStrings.ofSeparator}$phaseCount'
+                    ' · $phaseLabel · $taskLabel',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

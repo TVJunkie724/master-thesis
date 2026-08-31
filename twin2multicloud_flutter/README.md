@@ -36,6 +36,13 @@ The **Twin experiments** inventory is intentionally a start-or-resume surface:
 continuation, and Duplicate/Export/Delete remain in a secondary overflow.
 There are no filters, analytics, provider columns or bulk operations.
 
+The **Configuration Workspace** keeps all required scientific inputs and
+findings behind four phases: Scenario, Optimize, Prepare and Review. Only the
+active phase's tasks appear in the task selector. Status remains independent
+from selection, blocked phases explain their prerequisite, and the bottom bar
+shows one primary next action. The Wizard BLoC and Management contracts are
+unchanged.
+
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place
 infrastructure update.

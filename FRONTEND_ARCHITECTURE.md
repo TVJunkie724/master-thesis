@@ -73,6 +73,21 @@ hygiene without competing with the next research task. Filtering, analytics,
 provider columns, last-deployment columns and bulk operations are outside the
 PoC inventory.
 
+## Configuration Workspace
+
+The `/wizard` and `/wizard/:twinId` routes present one dependency-aware
+experiment configuration through four stable thesis phases: **Scenario**,
+**Optimize**, **Prepare**, and **Review**. These phases are the only persistent
+top-level navigation. The task selector exposes only the tasks in the current
+phase; Back and Continue preserve the complete 15-task order.
+
+Task status and UI selection are separate. Selecting a task must not turn an
+available, complete, or attention status into a presentation-only state.
+Blocked phases remain disabled with their dependency reason. Existing save,
+invalidation, cost calculation, immutable-result selection, CloudConnection,
+artifact validation and finish contracts remain owned by `WizardBloc` and the
+Management API. The bottom navigation shows at most one filled primary action.
+
 ## Canonical architecture UI
 
 The client loads `GET /architecture-contract` and the current Twin's immutable

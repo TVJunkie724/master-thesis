@@ -468,6 +468,16 @@ and duplicate icon cluster are removed. Existing Management endpoints, routes
 and mutation semantics are unchanged; this checkpoint performs no provider
 operation.
 
+The third screen checkpoint is implemented offline. **Configuration
+Workspace** now exposes the complete dependency-aware workflow through four
+stable thesis phases while the task selector is scoped to the active phase.
+Task status is no longer overwritten by UI selection, blocked phases explain
+their dependency, the artificial profile menu is replaced by direct Cloud
+access, and the bottom bar has one filled primary action. All 15 tasks and the
+existing Wizard BLoC, invalidation, save, calculation, immutable-selection,
+CloudConnection, validation and finish contracts remain unchanged. This
+checkpoint performs no provider operation.
+
 Continue Phase 8 in this order:
 
 1. perform the read-only Azure identity/scope and split-authority validation

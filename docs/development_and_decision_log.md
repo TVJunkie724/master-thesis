@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-01"
-version: "1.8"
+version: "1.9"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -350,6 +350,26 @@ last-deploy presentation and the duplicate action cluster. Latest-update
 ordering is deterministic, draft continuation opens Configuration Workspace,
 and all other lifecycle states open the overview. Cloud access remains a
 separate app-bar utility.
+
+## D-19 — Four-phase Configuration Workspace
+
+**Decision:** The Flutter Wizard retains all 15 scientific tasks but exposes
+only four persistent top-level phases: **Scenario**, **Optimize**, **Prepare**,
+and **Review**. The task selector is scoped to the active phase, task status is
+independent from UI selection, and the bottom bar has at most one filled
+primary action.
+
+**Rationale:** The thesis workflow requires dependency, completeness and
+invalidation evidence, not a product-scale task tree. Showing every task as
+global navigation and presenting both Calculate and Continue as primary made
+the implementation surface appear broader than the research method.
+
+**Consequence:** Phase selection resolves to a deterministic reachable task;
+blocked phases explain their prerequisite. The existing ordered Back/Continue
+path, Wizard BLoC, Management-only contracts, save/invalidation dialogs,
+calculation, immutable selection, CloudConnection binding, validation and
+finish semantics remain unchanged. Cloud access is a direct app-bar utility,
+not an account-profile menu.
 
 ## Current implementation checkpoint
 
