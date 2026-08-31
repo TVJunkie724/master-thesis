@@ -433,14 +433,29 @@ create the ephemeral audience application. Cleanup and active residual checks
 passed with no direct charge. Azure-to-GCP remains unexecuted behind the same
 prerequisite.
 
+The follow-up provider-access implementation is complete offline. Azure now
+uses one encrypted bundle with a resource-only deployment principal and a
+separate preparation principal for exact conditional RBAC and the three
+graph-required application permissions. All active Azure role assignments use
+the preparation Terraform provider alias; the nonexistent `IoT Hub Data
+Receiver` reference was corrected to the public `IoT Hub Data Reader` role.
+The complete credential-free Deployer suite passes with 2,082 tests and one
+intentional skip. The same offline gate covers an idempotent SQLite migration
+that removes the three obsolete production-auth user columns while preserving
+active user data. Provider setup guides and the Settings links now cover AWS,
+Azure, and GCP. This is implementation evidence only: the two-principal Azure
+bundle has not yet been revalidated live and no cloud mutation was performed.
+
 Continue Phase 8 in this order:
 
-1. execute each remaining approved Azure-source federation probe separately,
+1. perform the read-only Azure identity/scope and split-authority validation
+   with the completed two-principal bundle;
+2. execute each remaining approved Azure-source federation probe separately,
    enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
    and reconcile residual inventory before considering the next direction;
-2. freeze and locally build the scenario-bound processor extension during the
+3. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
-3. only after those gates pass, set the matrix to
+4. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
    bootstrap only after L1--L3/Event Layer pass and before L4 verification.

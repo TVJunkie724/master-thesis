@@ -1,20 +1,34 @@
 # Cloud Setup
 
-Cloud setup is intentionally small. The operator provides an existing isolated
-AWS account, Azure subscription, or GCP project with billing already usable and
-a pre-existing non-root administrator credential.
+Cloud access is deliberately narrow for this thesis PoC. Start with an existing,
+billing-enabled and isolated provider scope. Twin2MultiCloud stores the supplied
+credential bundle encrypted, validates it read-only, and uses it only for a
+confirmed deployment, verification, Destroy, or bounded preparation operation.
 
-1. Add/import the credential as a named deployment CloudConnection.
-2. Review the detected identity and target scope.
-3. Bind it only to a Twin whose resolved graph uses that provider.
-4. Run identity validation and graph-derived readiness.
-5. Review and explicitly confirm any supported bounded preparation.
-6. Complete external prerequisites manually and rerun readiness.
+| Provider | Stored authority | Accepted input |
+|---|---:|---|
+| AWS | one deployment identity | access-key CSV or typed fields |
+| Azure | one deployment principal plus one preparation principal in one bundle | typed fields, or one deployment-principal JSON plus typed preparation fields |
+| Google Cloud | one deployment service account | service-account JSON or typed fields |
 
-The PoC does not create cloud accounts/subscriptions/projects, repair billing,
-approve quotas, override organization policy, grant tenant-wide consent,
-accept legal terms, or manage credential lifecycle.
+## Common lifecycle
 
-See [AWS](aws.md), [Azure](azure.md), [Google Cloud](gcp.md), and the official
-[Provider Links](provider-links.md). Provider commands are not run as part of
-ordinary documentation verification.
+1. Prepare the provider identity or identities outside Twin2MultiCloud.
+2. In **Settings → Deployment administrators**, open the provider setup guide.
+3. Enter or import the credential material through the write-only form.
+4. Validate the returned identity, target scope, effective permissions, Regions,
+   quotas, and provider prerequisites before binding the connection to a Twin.
+5. Review every graph-derived preparation plan and explicitly confirm it.
+6. Deploy only from the immutable plan, verify the run, Destroy immediately, and
+   inspect residual inventory.
+7. After the evaluation, delete the unbound CloudConnection and revoke or delete
+   the provider-side credential manually.
+
+Twin2MultiCloud does not create accounts, subscriptions, or projects; repair
+billing; approve quota increases; override organization policy; accept legal or
+preview terms; grant Microsoft Graph admin consent; or manage credential
+rotation. Those conditions are reported as external blockers.
+
+Continue with [AWS](aws.md), [Azure](azure.md), or
+[Google Cloud](gcp.md). Current provider documentation is collected under
+[Provider Links](provider-links.md).

@@ -1,58 +1,35 @@
 # Provider Links
 
-This page preserves the important cloud-provider links that were spread across the original HTML documentation.
+These are the provider-owned setup and permission references used by the PoC.
+Procedural Twin2MultiCloud steps remain on the provider setup pages.
 
 ## AWS
 
-- [AWS IAM Console](https://console.aws.amazon.com/iam/)
-- [AWS IAM Identity Center](https://console.aws.amazon.com/singlesignon/)
-- [AWS Pricing API examples](https://docs.aws.amazon.com/code-library/latest/ug/pricing_example_pricing_GetProducts_section.html)
-- [AWS IoT Core pricing](https://aws.amazon.com/iot-core/pricing/)
-- [AWS Lambda pricing](https://aws.amazon.com/lambda/pricing/)
-- [Amazon DynamoDB on-demand pricing](https://aws.amazon.com/dynamodb/pricing/on-demand/)
-- [Amazon S3 pricing](https://aws.amazon.com/s3/pricing/)
-- [Amazon API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/)
-- [AWS Step Functions pricing](https://aws.amazon.com/step-functions/pricing/)
-- [Amazon EventBridge pricing](https://aws.amazon.com/eventbridge/pricing/)
-- [AWS IoT TwinMaker pricing](https://aws.amazon.com/iot-twinmaker/pricing/)
-- [Amazon Managed Grafana pricing](https://aws.amazon.com/grafana/pricing/)
+- [IAM security best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [Manage IAM user access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)
+- [IAM policy validation with Access Analyzer](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-policy-validation.html)
+- [IAM Identity Center Regions](https://docs.aws.amazon.com/singlesignon/latest/userguide/regions.html)
+- [AWS STS endpoints](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_enable-regions.html)
+- [Service Quotas](https://docs.aws.amazon.com/servicequotas/latest/userguide/intro.html)
 
 ## Azure
 
-- [Azure App Registrations](https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps)
-- [Azure Subscriptions](https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade)
-- [Azure Policy Assignments](https://portal.azure.com/#view/Microsoft_Azure_Policy/PolicyMenuBlade/~/Assignments)
-- [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- [Azure Bandwidth pricing](https://azure.microsoft.com/en-us/pricing/details/bandwidth/)
-- [Azure IoT Hub pricing](https://azure.microsoft.com/en-us/pricing/details/iot-hub/)
-- [Azure Functions pricing](https://azure.microsoft.com/en-us/pricing/details/functions/)
-- [Azure Cosmos DB serverless pricing](https://azure.microsoft.com/en-us/pricing/details/cosmos-db/serverless/)
-- [Azure Blob Storage pricing](https://azure.microsoft.com/en-us/pricing/details/storage/blobs/)
-- [Azure API Management pricing](https://azure.microsoft.com/en-us/pricing/details/api-management/)
-- [Azure Logic Apps pricing](https://azure.microsoft.com/en-us/pricing/details/logic-apps/)
-- [Azure Event Grid pricing](https://azure.microsoft.com/en-us/pricing/details/event-grid/)
-- [Azure Digital Twins pricing](https://azure.microsoft.com/en-us/pricing/details/digital-twins/)
-- [Azure Managed Grafana pricing](https://azure.microsoft.com/en-us/pricing/details/managed-grafana/)
-- [Azure Functions Python developer guide](https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python)
-- [Azure Functions deployment technologies](https://learn.microsoft.com/en-us/azure/azure-functions/functions-deployment-technologies)
-- [Azure Functions Flex Consumption plan](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan)
-- [Azure Linux Consumption retirement notice](https://azure.microsoft.com/en-us/updates/retirement-notice-transition-from-azure-functions-linux-consumption-by-30-september-2028/)
+- [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
+- [Add application credentials](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-add-credentials)
+- [Assign Azure roles in the portal](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal)
+- [Delegate role assignment management with conditions](https://learn.microsoft.com/en-us/azure/role-based-access-control/delegate-role-assignments-overview)
+- [Azure built-in roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles)
+- [Microsoft Graph permissions reference](https://learn.microsoft.com/en-us/graph/permissions-reference)
+- [Grant tenant-wide admin consent](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/grant-admin-consent)
+- [Azure resource providers and types](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types)
+- [Azure quotas overview](https://learn.microsoft.com/en-us/azure/quotas/quotas-overview)
 
 ## GCP
 
-- [Create GCP project](https://console.cloud.google.com/projectcreate)
-- [Cloud Billing API](https://console.cloud.google.com/apis/library/cloudbilling.googleapis.com)
-- [GCP Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
-- [GCP IAM](https://console.cloud.google.com/iam-admin/iam)
-- [Cloud Billing](https://console.cloud.google.com/billing)
-- [Cloud Resource Manager API](https://console.cloud.google.com/apis/library/cloudresourcemanager.googleapis.com)
-- [Cloud Pub/Sub pricing](https://cloud.google.com/pubsub/pricing)
-- [Cloud Functions pricing](https://cloud.google.com/functions/pricing)
-- [Firestore pricing](https://cloud.google.com/firestore/pricing)
-- [Cloud Storage pricing](https://cloud.google.com/storage/pricing)
-- [API Gateway pricing](https://cloud.google.com/api-gateway/pricing)
-- [Cloud Scheduler pricing](https://cloud.google.com/scheduler/pricing)
-- [Cloud Workflows pricing](https://cloud.google.com/workflows/pricing)
-- [Compute Engine pricing](https://cloud.google.com/compute/all-pricing)
-
-During migration, provider setup pages should link to this page rather than duplicating cloud-console URLs in many places.
+- [Create and manage service accounts](https://cloud.google.com/iam/docs/service-accounts-create)
+- [Create and delete service-account keys](https://cloud.google.com/iam/docs/keys-create-delete)
+- [Choose predefined IAM roles](https://cloud.google.com/iam/docs/choose-predefined-roles)
+- [Enable and disable services](https://cloud.google.com/service-usage/docs/enable-disable)
+- [View and manage quotas](https://cloud.google.com/docs/quotas/view-manage)
+- [Cloud Billing access control](https://cloud.google.com/billing/docs/how-to/billing-access)
+- [Identity-Aware Proxy OAuth configuration](https://cloud.google.com/iap/docs/programmatic-oauth-clients)

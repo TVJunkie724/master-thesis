@@ -85,12 +85,20 @@ calculation and architecture digest.
 ## D-05 — Pre-existing deployment administrator credentials
 
 **Decision:** Users can store several named encrypted deployment
-CloudConnections per provider and select the required ones for a Twin.
+CloudConnections per provider and select the required ones for a Twin. AWS and
+Google Cloud use one principal per connection. Azure is a bounded exception:
+one deployment-purpose connection contains a resource-only deployment
+principal and a distinct preparation principal for exact conditional RBAC and
+graph-required Entra operations.
 
 **Rationale:** Creating, rotating, revoking, and minimizing cloud authority is
 a large security product in its own right. The PoC instead accepts a
 pre-existing non-root administrator credential for isolated thesis scopes and
-concentrates on safe use of that authority.
+concentrates on safe use of that authority. Azure cannot safely combine
+ordinary resource CRUD, role-assignment delegation, and Microsoft Graph
+application administration in one principal without granting broader authority
+than the PoC needs, so the two responsibilities are separated inside the same
+encrypted lifecycle object.
 
 **Consequence:** Credential values are write-only and transient outside the
 encrypted Management store. Identity probes and graph-derived readiness are
@@ -98,6 +106,13 @@ separate. Supported account preparation is shown before mutation, requires
 confirmation, is idempotent, and offers typed manual repair or connection
 replacement. Account creation, billing repair, quota approval, organization
 policy, tenant consent, and provider-side revocation remain external.
+The Azure deployment principal must not mutate role assignments. The
+preparation principal is accepted only with one condition-version-2.0 Role
+Based Access Control Administrator assignment limited to the active role
+allowlist and `User`/`ServicePrincipal` targets, plus exactly
+`Application.ReadWrite.OwnedBy`, `Application.Read.All`, and
+`AppRoleAssignment.ReadWrite.All` with manual tenant admin consent. This does
+not generalize CloudConnection purposes or add an IAM administration product.
 
 ## D-06 — Immutable deployed Twins and bounded interchange
 
@@ -321,6 +336,22 @@ Flutter confirmation and repair surface and the provider-native diagnostic
 checkpoint path are implemented and covered by offline tests. GCP Small L1 is
 fixed to a non-HA 1+1 broker/adapter allocation, and all three device simulators
 expose bounded telemetry-send and actual command-receipt checkpoints.
+
+The 2026-08-31 offline provider-access correction implements the Azure
+exception from D-05 across Management, Deployer, Terraform, Flutter, and the
+setup guides. Every active Azure role assignment is now authenticated through
+the separate preparation provider; ordinary resources remain on the deployment
+provider. The same review found that `IoT Hub Data Receiver` is not a public
+Azure built-in role. The active Six-layer contract and Terraform were corrected
+to `IoT Hub Data Reader`, whose immutable public role definition is covered by
+the preparation allowlist. The split authority, exact three-permission Graph
+contract, legacy-connection replacement behavior, redaction, and policy
+references pass the credential-free Deployer suite with 2,082 tests and one
+intentional skip. The same offline gate covers an idempotent SQLite migration
+that removes the three obsolete production-auth user columns while preserving
+active user data. This is offline implementation evidence, not a live Azure
+success claim; the completed two-principal bundle still requires a read-only
+live validation before either remaining Azure-source probe.
 
 The first supervised Phase 8 checkpoint has additionally verified the three
 configured principals and their account scopes, AWS account/Region/STS/IAM

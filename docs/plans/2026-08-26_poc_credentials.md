@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-08-30"
-version: "2.2"
+lastUpdated: "2026-08-31"
+version: "2.3"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -16,6 +16,14 @@ The proof of concept accepts a pre-existing, non-root deployment administrator
 credential for an isolated thesis account, Azure subscription, or Google Cloud
 project. It does not create, rotate, or revoke this deployment authority and
 does not claim that it is least privilege or production ready.
+
+AWS and Google Cloud each use one provider principal. Azure is the bounded
+exception: one encrypted deployment-purpose CloudConnection contains two
+distinct service principals for the same tenant and subscription. The
+deployment principal owns ordinary resource CRUD; the preparation principal
+owns only the exact conditional RBAC and Microsoft Graph operations required
+by the resolved graph. This does not introduce a general credential-purpose
+registry.
 
 Twin2MultiCloud may use the supplied authority to prepare a closed set of
 provider capabilities that the selected resolved deployment graph actually
@@ -78,6 +86,13 @@ original file is not retained after validated field extraction.
 
 Immediately after entry or import, a non-mutating identity probe verifies the
 principal and target scope. It does not yet claim deployment readiness.
+
+For Azure, typed entry requires both client IDs and secrets. Import accepts one
+standard JSON document for the deployment principal plus typed preparation
+client ID and secret fields; it does not retain or invent a two-file archive.
+Both principals must resolve to the same tenant and subscription and their
+client IDs must differ. Legacy single-principal Azure records remain listable
+and deletable but must be replaced before readiness or deployment.
 
 ## 5. Graph-derived readiness
 
@@ -150,6 +165,26 @@ requires Microsoft Graph permissions in addition to Azure subscription roles.
 Readiness tests both planes. Missing tenant consent is classified as
 `manual_action`; it is not hidden behind a generic Owner-role check and is not
 granted automatically by the PoC.
+
+The deployment principal must have the resource actions required by the
+Six-layer graph and must not have effective
+`Microsoft.Authorization/roleAssignments/write` or `delete`. Terraform uses
+this principal for the default AzureRM and AzAPI providers.
+
+The preparation principal must have exactly one subscription-scoped **Role
+Based Access Control Administrator** assignment with condition version 2.0.
+The condition permits only the active Six-layer data/access role definitions
+plus the identity-probe `Reader` role, and only `User` or `ServicePrincipal`
+targets. Owner, Contributor, User Access Administrator, group targets,
+unrestricted delegation, and ordinary resource write/delete authority are
+rejected. Terraform uses this principal only for Azure role assignments and
+Entra operations.
+
+The same preparation principal requires exactly the Microsoft Graph
+application permissions `Application.ReadWrite.OwnedBy`,
+`Application.Read.All`, and `AppRoleAssignment.ReadWrite.All`, with tenant
+administrator consent. Twin2MultiCloud verifies this consent but never grants
+it.
 
 ## 9. Repair flow
 
@@ -264,7 +299,9 @@ The remaining boundary is deliberately visible:
   the repository or application;
 - a manual acknowledgement records the supervised operator decision but is not
   substituted for a provider probe where a non-mutating probe exists;
-- provider-console links are not yet a structured cross-provider contract; and
+- provider-specific text setup guides and canonical Settings links are
+  available for AWS, Azure, and GCP without embedding provider identifiers or
+  secrets; and
 - Flutter exposes the digest-bound plan, warns about persistent account-level
   changes, confirms only the listed automatic actions, records individually
   selected manual acknowledgements, and renders the returned readiness result.
