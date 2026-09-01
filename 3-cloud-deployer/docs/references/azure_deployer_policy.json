@@ -2,12 +2,14 @@
     "description": "Split Azure authority contract for the supervised Six-layer thesis PoC",
     "version": "2.0",
     "deployment_principal": {
-        "role": "Digital Twin Deployer",
+        "role": "Contributor",
         "scope": "isolated subscription",
-        "role_definition": "azure_custom_role.json",
         "forbidden_effective_actions": [
             "Microsoft.Authorization/roleAssignments/write",
             "Microsoft.Authorization/roleAssignments/delete"
+        ],
+        "graph_provisioned_resource_roles": [
+            "Azure Digital Twins Data Owner"
         ],
         "microsoft_graph_permissions": []
     },

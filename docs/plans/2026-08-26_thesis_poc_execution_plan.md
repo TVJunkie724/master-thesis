@@ -32,14 +32,14 @@ and the
 
 ## Current phase status
 
-| Phase | Status on 2026-08-31 | Evidence boundary |
+| Phase | Status on 2026-09-01 | Evidence boundary |
 |---|---|---|
 | 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
 | 3 | Implemented offline | connection selection, graph-bound preflight, confirmed preparation, manual acknowledgement, and retry-safe repair |
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks complete; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
+| 8 | Account and read-only provider checks complete, including the live Azure split-authority gate; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; Azure passes all eight deployment layers without ambient ADT data-plane authority; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -442,12 +442,21 @@ Receiver` reference was corrected to the public `IoT Hub Data Reader` role.
 The read-only readiness runner and all directed-federation harness slices use
 the same deployment-versus-preparation boundary and reject legacy one-principal
 compatibility files.
-The complete credential-free Deployer suite passes with 2,082 tests and one
+The complete credential-free Deployer suite passes with 2,085 tests and one
 intentional skip. The same offline gate covers an idempotent SQLite migration
 that removes the three obsolete production-auth user columns while preserving
 active user data. Provider setup guides and the Settings links now cover AWS,
-Azure, and GCP. This is implementation evidence only: the two-principal Azure
-bundle has not yet been revalidated live and no cloud mutation was performed.
+Azure, and GCP.
+
+The completed two-principal Azure bundle was revalidated live and read-only on
+2026-09-01. Authentication, exact Microsoft Graph consent, deployment
+authority, conditional preparation RBAC and all eight deployment layers pass.
+The obsolete custom deployment-role assignment was removed under supervision;
+the supported deployment prerequisite is the built-in Contributor role, whose
+effective exclusions prevent role-assignment mutation. ADT data-plane access
+is not required at subscription scope: the atomic graph grants it to the
+deployment principal only on the created ADT instance through the preparation
+provider. No Terraform Apply or Twin workload was created.
 
 The first screen-by-screen Flutter simplification checkpoint is implemented
 offline. **Settings → Cloud access** now removes the non-actionable local
@@ -499,14 +508,12 @@ excluded. No provider call or Terraform action is part of this audit.
 
 Continue Phase 8 in this order:
 
-1. perform the read-only Azure identity/scope and split-authority validation
-   with the completed two-principal bundle;
-2. execute each remaining approved Azure-source federation probe separately,
+1. execute each remaining approved Azure-source federation probe separately,
    enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
    and reconcile residual inventory before considering the next direction;
-3. freeze and locally build the scenario-bound processor extension during the
+2. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
-4. only after those gates pass, set the matrix to
+3. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
    bootstrap only after L1--L3/Event Layer pass and before L4 verification.

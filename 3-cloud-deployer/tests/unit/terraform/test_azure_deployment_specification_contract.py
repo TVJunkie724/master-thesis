@@ -177,19 +177,19 @@ def test_azure_iot_data_role_name_is_valid():
 
 
 def test_azure_access_references_match_the_split_authority_contract():
-    custom_role = json.loads(
-        (REFERENCE_ROOT / "azure_custom_role.json").read_text(encoding="utf-8")
-    )
-    permission = custom_role["properties"]["permissions"][0]
-    effective_actions = {action.casefold() for action in permission["actions"]} - {
-        action.casefold() for action in permission["notActions"]
-    }
-    assert "microsoft.authorization/roleassignments/write" not in effective_actions
-    assert "microsoft.authorization/roleassignments/delete" not in effective_actions
-
     policy = json.loads(
         (REFERENCE_ROOT / "azure_deployer_policy.json").read_text(encoding="utf-8")
     )
+    deployment = policy["deployment_principal"]
+    assert deployment["role"] == "Contributor"
+    assert deployment["forbidden_effective_actions"] == [
+        "Microsoft.Authorization/roleAssignments/write",
+        "Microsoft.Authorization/roleAssignments/delete",
+    ]
+    assert deployment["graph_provisioned_resource_roles"] == [
+        "Azure Digital Twins Data Owner"
+    ]
+
     preparation = policy["preparation_principal"]
     assert {
         role["role_id"] for role in preparation["allowed_role_definitions"]

@@ -39,25 +39,21 @@ def _identity(principal_id):
 
 
 def _deployment_role_info():
-    from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
-
     return {
         "assignments": [
-            {"role_name": "Digital Twin Deployer", "principal_id": "deployment-sp"}
+            {"role_name": "Contributor", "principal_id": "deployment-sp"}
         ],
         "all_actions": {"*"},
-        "all_data_actions": _all_required_azure_data_actions(
-            REQUIRED_AZURE_PERMISSIONS
-        ),
+        "all_data_actions": set(),
         "permission_blocks": [
             {
-                "role_name": "Digital Twin Deployer",
+                "role_name": "Contributor",
                 "actions": {"*"},
                 "not_actions": {
-                    "Microsoft.Authorization/roleAssignments/write",
-                    "Microsoft.Authorization/roleAssignments/delete",
+                    "Microsoft.Authorization/*/Write",
+                    "Microsoft.Authorization/*/Delete",
                 },
-                "data_actions": {"*"},
+                "data_actions": set(),
                 "not_data_actions": set(),
             }
         ],
@@ -659,6 +655,54 @@ class TestActionMatching:
         # Non-matching suffix returns "none"
         assert _action_matches(user_actions, "Microsoft.Web/sites/write") == "none"
 
+    def test_action_matches_middle_wildcard_case_insensitively(self):
+        """Azure notActions wildcards can occupy an intermediate segment."""
+        from src.api.azure_credentials_checker import _action_matches
+
+        user_actions = {"Microsoft.Authorization/*/Write"}
+
+        assert (
+            _action_matches(
+                user_actions,
+                "Microsoft.Authorization/roleAssignments/write",
+            )
+            == "wildcard"
+        )
+        assert (
+            _action_matches(
+                user_actions,
+                "Microsoft.Authorization/roleAssignments/delete",
+            )
+            == "none"
+        )
+
+    def test_contributor_not_actions_exclude_rbac_mutation(self):
+        """Contributor must not be misclassified as RBAC-mutation authority."""
+        from src.api.azure_credentials_checker import _validate_deployment_authority
+
+        role_info = {
+            "assignments": [{"role_name": "Contributor"}],
+            "all_actions": {"*"},
+            "all_data_actions": set(),
+            "permission_blocks": [
+                {
+                    "role_name": "Contributor",
+                    "actions": {"*"},
+                    "not_actions": {
+                        "Microsoft.Authorization/*/Write",
+                        "Microsoft.Authorization/*/Delete",
+                    },
+                    "data_actions": set(),
+                    "not_data_actions": set(),
+                }
+            ],
+        }
+
+        result = _validate_deployment_authority(role_info)
+
+        assert result["status"] == "ready"
+        assert result["forbidden_actions"] == []
+
 
 class TestComparePermissions:
     """Tests for permission comparison by layer."""
@@ -872,15 +916,39 @@ class TestRequiredPermissionsStructure:
 
         assert not any("Microsoft.Authorization" in a for a in required_actions)
 
-    def test_layer_4_requires_data_actions(self):
-        """Test layer_4 requires Digital Twins data plane actions."""
+    def test_layer_4_data_actions_are_provisioned_at_resource_scope(self):
+        """ADT data access is graph-created, not an ambient prerequisite."""
         from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
 
         layer_4 = REQUIRED_AZURE_PERMISSIONS["layer_4"]
-        data_actions = layer_4.get("required_data_actions", [])
+        required_data_actions = layer_4.get("required_data_actions", [])
+        provisioned_data_actions = layer_4.get("provisioned_data_actions", [])
 
-        assert len(data_actions) > 0
-        assert any("digitaltwins" in a for a in data_actions)
+        assert required_data_actions == []
+        assert provisioned_data_actions
+        assert any("digitaltwins" in a for a in provisioned_data_actions)
+
+    def test_comparison_exposes_graph_provisioned_data_actions_without_requiring_them(
+        self,
+    ):
+        """Preflight reports deferred ADT access without requesting a broad role."""
+        from src.api.azure_credentials_checker import _compare_permissions
+
+        result = _compare_permissions(
+            {
+                "assignments": [{"role_name": "Contributor"}],
+                "all_actions": {"*"},
+                "all_data_actions": set(),
+            }
+        )
+
+        layer_4 = result["by_layer"]["layer_4"]
+        assert layer_4["status"] == "valid"
+        assert layer_4["required_data_actions"] == []
+        assert layer_4["provisioned_data_actions"]
+        assert not any(
+            action.startswith("[data]") for action in layer_4["missing_actions"]
+        )
 
     def test_builtin_roles_contain_key_roles(self):
         """Test AZURE_BUILTIN_ROLES contains essential roles."""

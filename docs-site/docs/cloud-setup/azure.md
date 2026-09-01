@@ -20,10 +20,15 @@ tenant.
    it is shown; do not copy it into the repository or documentation.
 3. Keep the two application/client IDs distinct. Both principals must authenticate
    against the same tenant and subscription.
-4. Assign the repository's deployment custom role to the deployment principal at
-   the isolated subscription scope. Its effective actions must include the
-   Six-layer resource CRUD contract and exclude
-   `Microsoft.Authorization/roleAssignments/write` and `delete`.
+4. Assign the built-in **Contributor** role to the deployment principal at the
+   isolated subscription scope. Do not assign Owner or an additional custom
+   deployer role. Contributor covers ordinary Six-layer resource CRUD while its
+   built-in exclusions prevent role-assignment mutation.
+
+Azure Digital Twins data access is not a subscription prerequisite. During an
+approved atomic Apply, the preparation principal grants **Azure Digital Twins
+Data Owner** to the deployment principal only on the newly created Twin
+instance. That binding is removed with the Twin.
 
 ## 2. Constrain the preparation principal
 

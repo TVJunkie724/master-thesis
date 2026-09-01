@@ -19,6 +19,7 @@ Authentication Flow:
 
 import base64
 import binascii
+from fnmatch import fnmatchcase
 import json
 import os
 import logging
@@ -90,8 +91,8 @@ AZURE_GRAPH_APPLICATION_PERMISSIONS = frozenset(
     }
 )
 
-# Specific RBAC actions required per layer (from azure_custom_role.json)
-# These are validated against the user's role assignments
+# Resource-management actions required by the supported Six-layer graph.
+# These are validated against the deployment principal's role assignments.
 REQUIRED_AZURE_PERMISSIONS = {
     "setup": {
         "description": "Resource Groups, Managed Identity, Storage Account",
@@ -227,7 +228,11 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.DigitalTwins/digitalTwinsInstances/privateEndpointConnections/delete",
             "Microsoft.DigitalTwins/register/action",
         ],
-        "required_data_actions": [
+        # These data-plane actions are not ambient subscription prerequisites.
+        # The atomic Six-layer graph grants Azure Digital Twins Data Owner to
+        # the deployment principal on the newly created ADT instance through
+        # the condition-constrained preparation provider before seed/readback.
+        "provisioned_data_actions": [
             "Microsoft.DigitalTwins/digitaltwins/read",
             "Microsoft.DigitalTwins/digitaltwins/write",
             "Microsoft.DigitalTwins/digitaltwins/delete",
@@ -727,10 +732,6 @@ def _get_role_assignments_with_permissions(
         raise
 
 
-# Custom role name for least-privilege access
-CUSTOM_ROLE_NAME = "Digital Twin Deployer"
-
-
 def _action_matches(user_actions: set, required_action: str) -> str:
     """
     Check if user's actions cover the required action.
@@ -745,24 +746,17 @@ def _action_matches(user_actions: set, required_action: str) -> str:
         "wildcard" - if matched via a wildcard pattern (less reliable)
         "none" - if not matched
     """
-    if required_action in user_actions:
+    normalized_required = required_action.casefold()
+    normalized_actions = {str(action).casefold() for action in user_actions}
+    if normalized_required in normalized_actions:
         return "exact"
 
-    # Check wildcard patterns
-    for action in user_actions:
-        if action == "*":
-            return "wildcard"  # Owner role - matches but may not be reliable
-        if action.endswith("/*"):
-            prefix = action[:-1]  # Remove "*"
-            if required_action.startswith(prefix):
-                return "wildcard"
-        if action == "*/read" and required_action.endswith("/read"):
-            return "wildcard"
-        if action == "*/write" and required_action.endswith("/write"):
-            return "wildcard"
-        if action == "*/delete" and required_action.endswith("/delete"):
-            return "wildcard"
-        if action == "*/action" and required_action.endswith("/action"):
+    # Azure role definitions can place wildcards in any action segment, for
+    # example ``Microsoft.Authorization/*/Write`` in Contributor.notActions.
+    # Match them case-insensitively because Azure resource-provider operations
+    # are case-insensitive.
+    for action in normalized_actions:
+        if "*" in action and fnmatchcase(normalized_required, action):
             return "wildcard"
 
     return "none"
@@ -1035,6 +1029,9 @@ def _compare_permissions(
             "resource_providers": requirements["resource_providers"],
             "required_actions": requirements.get("required_actions", []),
             "required_data_actions": requirements.get("required_data_actions", []),
+            "provisioned_data_actions": requirements.get(
+                "provisioned_data_actions", []
+            ),
             "present_actions": present_actions,
             "wildcard_actions": wildcard_actions,  # Permissions matched via wildcards (may not work at runtime)
             "missing_actions": missing_actions,
@@ -1071,7 +1068,7 @@ def check_azure_credentials(credentials: dict) -> dict:
             "invalid_layers": 0,
         },
         "recommended_roles": {
-            "deployment": "Digital Twin Deployer",
+            "deployment": "Contributor",
             "preparation": AZURE_PREPARATION_ASSIGNMENT_ROLE,
         },
     }

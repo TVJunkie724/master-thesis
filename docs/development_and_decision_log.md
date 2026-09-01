@@ -409,6 +409,25 @@ confirmation, and each surface owns actionable loading/error states. The
 shared audit changes presentation only and introduces no provider, Terraform
 or Management API capability.
 
+## D-22 — Resource-scoped Azure data-plane bootstrap
+
+**Decision:** Azure preflight requires the built-in Contributor role for
+ordinary resource management and rejects effective role-assignment mutation.
+It does not require Azure Digital Twins data-plane authority at subscription
+scope. The atomic Six-layer graph uses the preparation provider to grant Azure
+Digital Twins Data Owner to the deployment principal only on the newly created
+ADT instance before seed and readback.
+
+**Rationale:** Requiring the later resource-scoped data role before the resource
+exists produced a false readiness failure and encouraged a redundant,
+subscription-wide custom role. Contributor plus the existing split preparation
+authority is the smaller supported PoC setup.
+
+**Consequence:** The obsolete Azure custom deployer-role artifacts are removed.
+Preflight reports graph-provisioned data actions without treating them as
+ambient prerequisites, while Terraform drift tests retain the L4 binding as a
+mandatory part of the atomic deployment graph.
+
 ## Current implementation checkpoint
 
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
@@ -432,12 +451,20 @@ Azure built-in role. The active Six-layer contract and Terraform were corrected
 to `IoT Hub Data Reader`, whose immutable public role definition is covered by
 the preparation allowlist. The split authority, exact three-permission Graph
 contract, legacy-connection replacement behavior, redaction, and policy
-references pass the credential-free Deployer suite with 2,082 tests and one
+references pass the credential-free Deployer suite with 2,085 tests and one
 intentional skip. The same offline gate covers an idempotent SQLite migration
 that removes the three obsolete production-auth user columns while preserving
-active user data. This is offline implementation evidence, not a live Azure
-success claim; the completed two-principal bundle still requires a read-only
-live validation before either remaining Azure-source probe.
+active user data.
+
+On 2026-09-01 the completed two-principal bundle passed a read-only live
+validation: both identities authenticated, Microsoft Graph and the conditional
+preparation role were ready, the deployment principal excluded RBAC mutation,
+and all eight deployment layers passed. The check also exposed that ADT
+data-plane actions were incorrectly modeled as ambient subscription
+prerequisites although Terraform creates the exact resource-scoped assignment.
+The checker and setup guide now match the atomic graph, and the redundant
+custom deployment-role assignment was removed under supervision. No Terraform
+Apply or Twin workload was created.
 
 The first supervised Phase 8 checkpoint has additionally verified the three
 configured principals and their account scopes, AWS account/Region/STS/IAM

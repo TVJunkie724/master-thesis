@@ -123,6 +123,13 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
 run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
   command = plan
 
+  override_data {
+    target = data.azurerm_client_config.azure_six_layer_layer_access
+    values = {
+      object_id = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+
   variables {
     digital_twin_name                      = "drift-test"
     architecture_profile_id                = "six-layer-eventing"
@@ -201,6 +208,14 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
       azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.SIX_LAYER_EVENTING_DELIVERY_ENDPOINT_ENABLED == "true"
     )
     error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].role_definition_name == "Azure Digital Twins Data Owner" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].principal_id == "22222222-2222-2222-2222-222222222222"
+    )
+    error_message = "Azure L4 must grant the deployment principal ADT data access only on the created Twin instance."
   }
 }
 
