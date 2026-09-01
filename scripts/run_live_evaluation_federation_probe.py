@@ -834,22 +834,32 @@ def _wait_for_graph_service_principal(
     credential: ClientSecretCredential,
     principal_id: str,
     started_monotonic: float,
+    *,
+    required_app_role_id: str | None = None,
 ) -> None:
-    """Wait until a newly created managed identity is addressable in Graph."""
+    """Wait until a new service principal and optional app role are readable."""
     for attempt in range(AZURE_PROPAGATION_ATTEMPTS):
         _assert_deadline(
             started_monotonic,
             AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
         )
         try:
-            _graph_request(
+            result = _graph_request(
                 credential,
                 "GET",
                 f"/v1.0/servicePrincipals/{principal_id}",
                 expected_statuses=(200,),
-                params={"$select": "id"},
+                params={
+                    "$select": (
+                        "id,appRoles" if required_app_role_id else "id"
+                    )
+                },
             )
-            return
+            if required_app_role_id is None or any(
+                str(role.get("id") or "") == required_app_role_id
+                for role in result.get("appRoles") or []
+            ):
+                return
         except ProbeBlocked as exc:
             if str(exc) != "AZURE_GRAPH_HTTP_404":
                 raise
@@ -2653,6 +2663,14 @@ def _run_azure_to_aws(
         if not service_principal_id:
             raise ProbeBlocked("AZURE_SERVICE_PRINCIPAL_ID_UNAVAILABLE")
         service_principal_created = True
+        exchange_stage = "await_entra_audience_service_principal"
+        _wait_for_graph_service_principal(
+            azure_preparation_credential,
+            service_principal_id,
+            started_monotonic,
+            required_app_role_id=app_role_id,
+        )
+        exchange_stage = "create_entra_app_role_assignment"
         assignment = _graph_request(
             azure_preparation_credential,
             "POST",
@@ -3116,6 +3134,14 @@ def _run_azure_to_gcp(
         if not service_principal_id:
             raise ProbeBlocked("AZURE_SERVICE_PRINCIPAL_ID_UNAVAILABLE")
         service_principal_created = True
+        exchange_stage = "await_entra_audience_service_principal"
+        _wait_for_graph_service_principal(
+            azure_preparation_credential,
+            service_principal_id,
+            started_monotonic,
+            required_app_role_id=app_role_id,
+        )
+        exchange_stage = "create_entra_app_role_assignment"
         assignment = _graph_request(
             azure_preparation_credential,
             "POST",

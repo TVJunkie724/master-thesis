@@ -282,6 +282,41 @@ def test_managed_identity_graph_wait_fails_closed_on_non_404(monkeypatch) -> Non
         )
 
 
+def test_waits_until_audience_service_principal_exposes_expected_app_role(
+    monkeypatch,
+) -> None:
+    responses = [
+        {"id": "audience-id", "appRoles": []},
+        {
+            "id": "audience-id",
+            "appRoles": [{"id": "expected-role-id"}],
+        },
+    ]
+    sleeps: list[int] = []
+
+    def graph_request(_credential, method, path, **kwargs):
+        assert method == "GET"
+        assert path == "/v1.0/servicePrincipals/audience-id"
+        assert kwargs == {
+            "expected_statuses": (200,),
+            "params": {"$select": "id,appRoles"},
+        }
+        return responses.pop(0)
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    runner._wait_for_graph_service_principal(
+        object(),
+        "audience-id",
+        runner.time.monotonic(),
+        required_app_role_id="expected-role-id",
+    )
+
+    assert responses == []
+    assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
+
+
 def test_graph_application_residual_retries_exact_object_delete(monkeypatch) -> None:
     deleted: list[str] = []
 

@@ -469,6 +469,14 @@ repeat only that known application delete during residual reconciliation. No
 further cloud retry was started because the approved stop condition is
 `first_exchange_failed`.
 
+The explicitly re-approved retry passed the managed-identity visibility gate
+but stopped before the ACI runner because the new audience service principal
+and its app role were not yet readable for assignment. Cleanup and residual
+inventory were immediately clean, and direct cost again remained USD 0.00.
+The same bounded harness now waits for the exact audience service principal to
+expose the expected app-role ID before assigning it. No additional cloud retry
+was started.
+
 The first screen-by-screen Flutter simplification checkpoint is implemented
 offline. **Settings → Cloud access** now removes the non-actionable local
 profile card, makes provider-file import primary and keeps manual entry and the

@@ -557,3 +557,13 @@ known application delete during residual reconciliation. RQ1 records both
 identity and deletion propagation, RQ2 remains at four of six successful
 directions, and RQ3 records no direct charge for this attempt. The
 `first_exchange_failed` stop condition prevented an unsupervised retry.
+
+The explicitly approved retry confirmed that the managed-identity wait works,
+then exposed a second Entra propagation boundary: the newly created audience
+service principal did not yet expose its app role when the assignment was
+requested. The attempt again stopped before ACI creation, incurred USD 0.00,
+and completed with immediately clean residual inventory. The harness now waits
+for the exact audience service principal and expected app-role ID before
+assignment. This adds a second measured RQ1 propagation point without changing
+the four-of-six RQ2 result or the zero-charge RQ3 attribution. No additional
+cloud retry was started.

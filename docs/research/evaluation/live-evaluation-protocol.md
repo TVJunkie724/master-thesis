@@ -83,6 +83,14 @@ to become Graph-readable and retries only the known application delete during
 residual reconciliation. In accordance with `first_exchange_failed`, no further
 cloud retry was started without renewed supervision.
 
+The subsequently approved retry passed the managed-identity visibility gate
+but stopped before ACI creation when the newly created audience service
+principal and its app role had not yet propagated sufficiently for the exact
+app-role assignment. Cleanup and residual inventory were immediately clean;
+direct cost again remained USD 0.00. The harness now also waits for that exact
+service principal to expose the expected app-role ID before creating the
+assignment. No additional cloud retry was started after this failure.
+
 ## Execution boundary
 
 Scenario Apply remains disabled until all of the following are present for one
