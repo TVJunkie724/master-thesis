@@ -830,6 +830,34 @@ def _expect_graph_display_name_absent(
         raise ProbeBlocked("PREEXISTING_RESOURCE")
 
 
+def _wait_for_graph_service_principal(
+    credential: ClientSecretCredential,
+    principal_id: str,
+    started_monotonic: float,
+) -> None:
+    """Wait until a newly created managed identity is addressable in Graph."""
+    for attempt in range(AZURE_PROPAGATION_ATTEMPTS):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        try:
+            _graph_request(
+                credential,
+                "GET",
+                f"/v1.0/servicePrincipals/{principal_id}",
+                expected_statuses=(200,),
+                params={"$select": "id"},
+            )
+            return
+        except ProbeBlocked as exc:
+            if str(exc) != "AZURE_GRAPH_HTTP_404":
+                raise
+        if attempt + 1 < AZURE_PROPAGATION_ATTEMPTS:
+            time.sleep(AZURE_PROPAGATION_DELAY_SECONDS)
+    raise ProbeBlocked("AZURE_MANAGED_IDENTITY_NOT_READABLE")
+
+
 def _wait_for_graph_app_role_assignment(
     credential: ClientSecretCredential,
     principal_id: str,
@@ -865,6 +893,27 @@ def _delete_graph_object(
         path,
         expected_statuses=(204, 404),
     )
+
+
+def _expect_graph_application_absent_with_delete_retry(
+    credential: ClientSecretCredential,
+    display_name: str,
+    application_object_id: str | None,
+) -> None:
+    """Reissue the exact application delete while Graph still lists it."""
+    try:
+        _expect_graph_display_name_absent(
+            credential,
+            "applications",
+            display_name,
+        )
+    except Exception:
+        if application_object_id:
+            _delete_graph_object(
+                credential,
+                f"/v1.0/applications/{application_object_id}",
+            )
+        raise
 
 
 def _azure_arm_request(
@@ -2549,6 +2598,12 @@ def _run_azure_to_aws(
         if not principal_id or not identity_client_id or not identity_resource_id:
             raise ProbeBlocked("AZURE_MANAGED_IDENTITY_IDS_UNAVAILABLE")
 
+        exchange_stage = "await_managed_identity_graph_principal"
+        _wait_for_graph_service_principal(
+            azure_preparation_credential,
+            principal_id,
+            started_monotonic,
+        )
         exchange_stage = "create_entra_audience_application"
         application = _graph_request(
             azure_preparation_credential,
@@ -2791,10 +2846,10 @@ def _run_azure_to_aws(
             except Exception as exc:
                 residual_errors.append(_safe_error_code(exc))
             try:
-                _expect_graph_display_name_absent(
+                _expect_graph_application_absent_with_delete_retry(
                     azure_preparation_credential,
-                    "applications",
                     application_name,
+                    application_object_id,
                 )
                 _expect_graph_display_name_absent(
                     azure_preparation_credential,
@@ -3006,6 +3061,12 @@ def _run_azure_to_gcp(
         if not principal_id or not identity_client_id or not identity_resource_id:
             raise ProbeBlocked("AZURE_MANAGED_IDENTITY_IDS_UNAVAILABLE")
 
+        exchange_stage = "await_managed_identity_graph_principal"
+        _wait_for_graph_service_principal(
+            azure_preparation_credential,
+            principal_id,
+            started_monotonic,
+        )
         exchange_stage = "create_entra_audience_application"
         application = _graph_request(
             azure_preparation_credential,
@@ -3290,10 +3351,10 @@ def _run_azure_to_gcp(
             except Exception as exc:
                 residual_errors.append(_safe_error_code(exc))
             try:
-                _expect_graph_display_name_absent(
+                _expect_graph_application_absent_with_delete_retry(
                     azure_preparation_credential,
-                    "applications",
                     application_name,
+                    application_object_id,
                 )
                 _expect_graph_display_name_absent(
                     azure_preparation_credential,

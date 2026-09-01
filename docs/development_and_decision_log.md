@@ -542,6 +542,18 @@ resources were removed immediately, active residual inventory is clean, and
 the attempt incurred USD 0.00 direct charge. Subscription RBAC does not grant
 this tenant-directory operation. RQ1 therefore records temporary, explicitly
 consented Microsoft Graph application permissions as the remaining Azure
-source prerequisite; RQ2 still claims four, not six, successful directed
-identity paths. Azure-to-GCP remains unexecuted until the same prerequisite is
-resolved.
+source prerequisite; RQ2 still claimed four, not six, successful directed
+identity paths. Azure-to-GCP remained unexecuted at that checkpoint.
+
+After the Azure split authority passed live, the next Azure-to-AWS attempt
+exposed a second operational prerequisite: a new managed identity can exist in
+Azure Resource Manager before its service principal is readable through
+Microsoft Graph. The attempt therefore stopped before the billable ACI runner
+and incurred USD 0.00 direct cost. Cleanup completed; one application required
+an exact object-bound delete retry after Graph continued to list it, after which
+all active AWS, ARM and Graph residual classes were absent. The harness now
+waits for this propagation within the existing deadline and retries only the
+known application delete during residual reconciliation. RQ1 records both
+identity and deletion propagation, RQ2 remains at four of six successful
+directions, and RQ3 records no direct charge for this attempt. The
+`first_exchange_failed` stop condition prevented an unsupervised retry.

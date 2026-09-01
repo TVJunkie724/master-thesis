@@ -236,6 +236,75 @@ def test_azure_probe_slices_route_privileged_calls_to_preparation_principal() ->
         assert "_graph_request(\n            azure_preparation_credential," in source
 
 
+def test_waits_for_managed_identity_graph_propagation(monkeypatch) -> None:
+    calls: list[str] = []
+    sleeps: list[int] = []
+
+    def graph_request(_credential, method, path, **kwargs):
+        calls.append(path)
+        assert method == "GET"
+        assert kwargs == {
+            "expected_statuses": (200,),
+            "params": {"$select": "id"},
+        }
+        if len(calls) == 1:
+            raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_404")
+        return {"id": "principal-id"}
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    started_monotonic = runner.time.monotonic()
+    runner._wait_for_graph_service_principal(
+        object(),
+        "principal-id",
+        started_monotonic,
+    )
+
+    assert calls == [
+        "/v1.0/servicePrincipals/principal-id",
+        "/v1.0/servicePrincipals/principal-id",
+    ]
+    assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
+
+
+def test_managed_identity_graph_wait_fails_closed_on_non_404(monkeypatch) -> None:
+    def graph_request(*_args, **_kwargs):
+        raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_403")
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+
+    with pytest.raises(runner.ProbeBlocked, match="AZURE_GRAPH_HTTP_403"):
+        runner._wait_for_graph_service_principal(
+            object(),
+            "principal-id",
+            runner.time.monotonic(),
+        )
+
+
+def test_graph_application_residual_retries_exact_object_delete(monkeypatch) -> None:
+    deleted: list[str] = []
+
+    def expect_absent(*_args, **_kwargs):
+        raise runner.ProbeBlocked("PREEXISTING_RESOURCE")
+
+    monkeypatch.setattr(runner, "_expect_graph_display_name_absent", expect_absent)
+    monkeypatch.setattr(
+        runner,
+        "_delete_graph_object",
+        lambda _credential, path: deleted.append(path),
+    )
+
+    with pytest.raises(runner.ProbeBlocked, match="PREEXISTING_RESOURCE"):
+        runner._expect_graph_application_absent_with_delete_retry(
+            object(),
+            "probe-app",
+            "application-object-id",
+        )
+
+    assert deleted == ["/v1.0/applications/application-object-id"]
+
+
 def test_load_credentials_requires_service_account_schema(tmp_path) -> None:
     config = tmp_path / "config.json"
     key = tmp_path / "gcp.json"

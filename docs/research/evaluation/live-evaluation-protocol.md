@@ -72,6 +72,17 @@ bounds. A first Azure-to-AWS attempt stopped before ACI creation on the missing
 Microsoft Graph application-management prerequisite; cleanup and active
 residual checks passed with no direct charge. Azure-to-GCP was not started.
 
+After the split-authority prerequisite passed, a second Azure-to-AWS attempt
+stopped before ACI creation because the new managed-identity service principal
+was not yet readable through Microsoft Graph. Direct cost remained USD 0.00.
+The normal cleanup calls completed; one application remained temporarily
+visible and was removed by one exact object-bound delete retry. The final AWS,
+Azure Resource Manager and active Microsoft Graph inventories are clean. The
+harness now waits within the existing overall deadline for the managed identity
+to become Graph-readable and retries only the known application delete during
+residual reconciliation. In accordance with `first_exchange_failed`, no further
+cloud retry was started without renewed supervision.
+
 ## Execution boundary
 
 Scenario Apply remains disabled until all of the following are present for one

@@ -458,6 +458,17 @@ is not required at subscription scope: the atomic graph grants it to the
 deployment principal only on the created ADT instance through the preparation
 provider. No Terraform Apply or Twin workload was created.
 
+The following Azure-to-AWS retry reached the approved identity-only mutation
+path but stopped before the billable ACI runner: ARM had created the managed
+identity before its service principal became readable through Microsoft Graph.
+Cleanup completed, and one still-visible application required one exact
+object-bound delete retry before AWS, Azure Resource Manager and active Graph
+inventories were clean. Direct cost was USD 0.00. The harness now waits for
+this provider propagation before creating the audience application and can
+repeat only that known application delete during residual reconciliation. No
+further cloud retry was started because the approved stop condition is
+`first_exchange_failed`.
+
 The first screen-by-screen Flutter simplification checkpoint is implemented
 offline. **Settings → Cloud access** now removes the non-actionable local
 profile card, makes provider-file import primary and keeps manual entry and the
