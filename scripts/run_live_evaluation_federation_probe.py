@@ -868,6 +868,35 @@ def _wait_for_graph_service_principal(
     raise ProbeBlocked("AZURE_MANAGED_IDENTITY_NOT_READABLE")
 
 
+def _update_graph_application_identifier_uri(
+    credential: ClientSecretCredential,
+    application_object_id: str,
+    audience: str,
+    started_monotonic: float,
+) -> None:
+    """Retry only the idempotent identifier update while a new app propagates."""
+    for attempt in range(AZURE_PROPAGATION_ATTEMPTS):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        try:
+            _graph_request(
+                credential,
+                "PATCH",
+                f"/v1.0/applications/{application_object_id}",
+                expected_statuses=(204,),
+                body={"identifierUris": [audience]},
+            )
+            return
+        except ProbeBlocked as exc:
+            if str(exc) != "AZURE_GRAPH_HTTP_404":
+                raise
+        if attempt + 1 < AZURE_PROPAGATION_ATTEMPTS:
+            time.sleep(AZURE_PROPAGATION_DELAY_SECONDS)
+    raise ProbeBlocked("AZURE_APPLICATION_NOT_WRITABLE")
+
+
 def _wait_for_graph_app_role_assignment(
     credential: ClientSecretCredential,
     principal_id: str,
@@ -2643,12 +2672,11 @@ def _run_azure_to_aws(
         application_created = True
         audience = f"api://{application_id}"
         exchange_stage = "update_entra_audience_identifier_uri"
-        _graph_request(
+        _update_graph_application_identifier_uri(
             azure_preparation_credential,
-            "PATCH",
-            f"/v1.0/applications/{application_object_id}",
-            expected_statuses=(204,),
-            body={"identifierUris": [audience]},
+            application_object_id,
+            audience,
+            started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(
@@ -3116,12 +3144,11 @@ def _run_azure_to_gcp(
         application_created = True
         audience = f"api://{application_id}"
         exchange_stage = "update_entra_audience_identifier_uri"
-        _graph_request(
+        _update_graph_application_identifier_uri(
             azure_preparation_credential,
-            "PATCH",
-            f"/v1.0/applications/{application_object_id}",
-            expected_statuses=(204,),
-            body={"identifierUris": [audience]},
+            application_object_id,
+            audience,
+            started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(

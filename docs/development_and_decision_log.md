@@ -584,3 +584,13 @@ and direct cost was USD 0.00. RQ1 records the service-principal mutation
 boundary, RQ2 remains at four of six successful directions and RQ3 remains
 zero-charge for the attempt. The stop condition again prevented another live
 retry without approval.
+
+The following supervised attempt stopped before reaching service-principal
+creation: the audience application was created, but its immediate identifier
+URI PATCH returned HTTP 404 while the new object propagated through Graph.
+Cleanup and active residual inventory were clean, ACI was never started and
+direct cost was USD 0.00. The runner now retries only that exact idempotent
+PATCH on 404 within the existing deadline; any other response still stops the
+probe. RQ1 records this additional read-after-write boundary, while RQ2 remains
+four of six and RQ3 records another zero-charge attempt. No permission, trust
+or resource scope was expanded, and no further live retry was started.

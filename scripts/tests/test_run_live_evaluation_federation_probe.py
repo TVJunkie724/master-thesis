@@ -329,6 +329,55 @@ def test_waits_until_audience_service_principal_exposes_expected_app_role(
     assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
 
 
+def test_retries_identifier_update_while_new_application_propagates(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+    sleeps: list[int] = []
+
+    def graph_request(_credential, method, path, **kwargs):
+        calls.append(path)
+        assert method == "PATCH"
+        assert kwargs == {
+            "expected_statuses": (204,),
+            "body": {"identifierUris": ["api://audience-id"]},
+        }
+        if len(calls) == 1:
+            raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_404")
+        return {}
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    runner._update_graph_application_identifier_uri(
+        object(),
+        "application-object-id",
+        "api://audience-id",
+        runner.time.monotonic(),
+    )
+
+    assert calls == [
+        "/v1.0/applications/application-object-id",
+        "/v1.0/applications/application-object-id",
+    ]
+    assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
+
+
+def test_identifier_update_fails_closed_on_non_404(monkeypatch) -> None:
+    def graph_request(*_args, **_kwargs):
+        raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_403")
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+
+    with pytest.raises(runner.ProbeBlocked, match="AZURE_GRAPH_HTTP_403"):
+        runner._update_graph_application_identifier_uri(
+            object(),
+            "application-object-id",
+            "api://audience-id",
+            runner.time.monotonic(),
+        )
+
+
 def test_graph_application_residual_retries_exact_object_delete(monkeypatch) -> None:
     deleted: list[str] = []
 

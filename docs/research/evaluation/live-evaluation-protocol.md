@@ -106,6 +106,15 @@ records application creation, identifier-URI update and service-principal
 creation as separate stages. Cleanup and active residual inventory were clean;
 no further retry was started.
 
+The following supervised attempt proved that the reduced request had not yet
+been reached: Microsoft Graph accepted the application creation but returned
+HTTP 404 for the immediate identifier-URI update. ACI was not created, cleanup
+and active residual inventory were clean, and direct cost was USD 0.00. The
+harness now retries only that idempotent PATCH on HTTP 404 within the existing
+overall deadline; every other response remains fail-closed. This records an
+additional Entra read-after-write propagation boundary without expanding the
+permission or resource scope. No further cloud retry was started.
+
 ## Execution boundary
 
 Scenario Apply remains disabled until all of the following are present for one

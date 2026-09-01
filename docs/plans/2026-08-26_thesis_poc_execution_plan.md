@@ -490,6 +490,14 @@ because the AWS/GCP trust policy already enforces the assigned
 separate stages. Cleanup and active residual inventory were clean. A new live
 attempt still requires renewed approval under `first_exchange_failed`.
 
+The next approved attempt stopped one stage earlier: Graph created the
+audience application but returned HTTP 404 when its identifier URI was patched
+immediately afterward. No ACI or AWS trust resource was created, cleanup and
+active residual inventory were clean, and direct cost was USD 0.00. The runner
+now retries only this idempotent PATCH on 404 within the unchanged overall
+deadline and still fails immediately on all other responses. Another live
+attempt requires renewed approval.
+
 The first screen-by-screen Flutter simplification checkpoint is implemented
 offline. **Settings → Cloud access** now removes the non-actionable local
 profile card, makes provider-file import primary and keeps manual entry and the
