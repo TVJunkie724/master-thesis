@@ -135,6 +135,27 @@ Deploy and Destroy can incur cost. The Twin overview therefore:
 - preserves terminal verification and cleanup evidence;
 - requires explicit destructive confirmation.
 
+## Twin lifecycle overview
+
+The `/twins/:id/overview` route is the execution and evidence surface for one
+bounded experiment. One summary owns the Twin identity, lifecycle state and
+next safe step. Edit and Delete remain in a secondary overflow, while the app
+bar owns return navigation, theme and direct Cloud access.
+
+The visible section order follows lifecycle state rather than a product
+dashboard grid:
+
+1. configured or deploying: **Prepare and deploy**;
+2. deployed: **Verify and access**, then **Destroy and cleanup**;
+3. error: **Destroy and cleanup** before preparation for another run;
+4. destroyed: cleanup evidence before preparation for another approved run;
+5. **Configuration evidence** remains last in every state.
+
+Exactly one lifecycle mutation command is shown at a time. A ready preflight
+re-check is secondary so Deploy is the only filled action; a blocking
+preflight remains the primary remediation. All commands retain the existing
+BLoC, confirmation, Management API, durable operation and SSE boundaries.
+
 ## Access handoff
 
 L4/L5 cards consume typed Management read models containing provider URL,

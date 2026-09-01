@@ -43,6 +43,14 @@ from selection, blocked phases explain their prerequisite, and the bottom bar
 shows one primary next action. The Wizard BLoC and Management contracts are
 unchanged.
 
+The **Twin lifecycle** overview presents one next safe step and one lifecycle
+command at a time. Configured Twins prepare and deploy; deployed Twins verify
+L1–L3/Event, L4/L5, telemetry and commands before Destroy; failed Twins clean
+up before another attempt; destroyed Twins show cleanup evidence before a new
+approved run. Configuration evidence remains available last. This ordering
+changes presentation only—the operation, access, verification and cleanup
+contracts remain Management-owned.
+
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place
 infrastructure update.

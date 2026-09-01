@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-01"
-version: "1.9"
+version: "2.0"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -370,6 +370,25 @@ path, Wizard BLoC, Management-only contracts, save/invalidation dialogs,
 calculation, immutable selection, CloudConnection binding, validation and
 finish semantics remain unchanged. Cloud access is a direct app-bar utility,
 not an account-profile menu.
+
+## D-20 — State-ordered Twin lifecycle overview
+
+**Decision:** The Twin overview uses one identity/state/next-step summary and
+shows exactly one lifecycle mutation command at a time. Its sections follow
+the safe experimental sequence: prepare/deploy; verify/access before Destroy;
+cleanup before retry; cleanup evidence before another approved run; then
+configuration evidence.
+
+**Rationale:** The thesis requires a reproducible lifecycle and observable
+evidence, not a product operations dashboard. Duplicate headers and competing
+Deploy/Destroy controls obscured the safe next action and weakened the
+relationship between verification, immediate cleanup and residual inventory.
+
+**Consequence:** Ready preflight becomes secondary to Deploy, blocking
+preflight remains the primary remediation, and error states require Cleanup
+before another attempt. Existing BLoC events, Management-only transport,
+durable operation/SSE replay, access handoff, telemetry, simulator,
+verification and cleanup-evidence contracts remain unchanged.
 
 ## Current implementation checkpoint
 

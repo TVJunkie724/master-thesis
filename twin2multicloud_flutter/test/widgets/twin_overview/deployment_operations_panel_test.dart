@@ -47,11 +47,11 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('DEPLOY'));
+      await tester.tap(find.text('Deploy'));
       await tester.pump();
 
       expect(deployed, isTrue);
-      expect(find.text('DESTROY'), findsOneWidget);
+      expect(find.text('Destroy'), findsNothing);
     });
 
     testWidgets('blocks deploy with an adjacent readiness explanation', (
@@ -75,7 +75,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.tap(find.text('DEPLOY'));
+      await tester.tap(find.text('Deploy'));
       await tester.pump();
       expect(deployed, isFalse);
     });
@@ -98,6 +98,8 @@ void main() {
       );
 
       expect(find.text('Deployment Failed'), findsOneWidget);
+      expect(find.text('Cleanup'), findsOneWidget);
+      expect(find.text('Deploy'), findsNothing);
 
       await tester.tap(find.text('View Logs'));
       await tester.pump();
@@ -128,6 +130,31 @@ void main() {
       expect(closed, isTrue);
     });
 
+    testWidgets('active operations expose one disabled busy command', (
+      tester,
+    ) async {
+      var mutations = 0;
+      await tester.pumpWidget(
+        buildWidget(
+          state: _state(
+            twinState: 'deploying',
+            canDeploy: true,
+            showTerminal: true,
+          ),
+          onDeploy: () => mutations += 1,
+        ),
+      );
+
+      expect(find.text('Deploy'), findsOneWidget);
+      expect(find.text('Destroy'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      expect(mutations, 0);
+    });
+
     testWidgets('shows reconnect state and actionable operation detail', (
       tester,
     ) async {
@@ -150,7 +177,7 @@ void main() {
       );
     });
 
-    testWidgets('stacks commands at 640 pixels without overflowing', (
+    testWidgets('shows one cleanup command at 640 pixels without overflowing', (
       tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(640, 900));
@@ -168,9 +195,9 @@ void main() {
         ),
       );
 
-      final deployTop = tester.getTopLeft(find.text('RETRY DEPLOY'));
-      final destroyTop = tester.getTopLeft(find.text('CLEANUP'));
-      expect(destroyTop.dy, greaterThan(deployTop.dy));
+      expect(find.text('Cleanup'), findsOneWidget);
+      expect(find.text('Deploy'), findsNothing);
+      expect(find.text('Destroy'), findsNothing);
       expect(find.text('View Logs'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

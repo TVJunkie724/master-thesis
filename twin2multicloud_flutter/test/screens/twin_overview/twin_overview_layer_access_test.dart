@@ -18,6 +18,7 @@ import 'package:twin2multicloud_flutter/screens/twin_overview/twin_overview_scre
 import 'package:twin2multicloud_flutter/services/external_auth_launcher.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
 import 'package:twin2multicloud_flutter/widgets/terraform_outputs_card.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/cleanup_evidence_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/deployment_operations_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/layer_access_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/testing_utilities_panel.dart';
@@ -240,6 +241,49 @@ void main() {
     expect(find.byType(TestingUtilitiesPanel), findsOneWidget);
     expect(find.byType(TerraformOutputsCard), findsOneWidget);
     expect(find.byType(TwinOverviewConfigurationReview), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Verify and access')).dy,
+      lessThan(tester.getTopLeft(find.text('Destroy and cleanup')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Destroy and cleanup')).dy,
+      lessThan(tester.getTopLeft(find.text('Configuration evidence')).dy),
+    );
+  });
+
+  testWidgets('error and destroyed states put cleanup before another run', (
+    tester,
+  ) async {
+    final bloc = _MockTwinOverviewBloc();
+    final launcher = _MockExternalAuthLauncher();
+
+    await _pumpView(
+      tester,
+      bloc: bloc,
+      state: _loadedState(twinState: 'error', canDestroy: true),
+      launcher: launcher,
+    );
+
+    expect(find.byType(DeploymentOperationsPanel), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Destroy and cleanup')).dy,
+      lessThan(tester.getTopLeft(find.text('Prepare the next run')).dy),
+    );
+
+    final destroyedBloc = _MockTwinOverviewBloc();
+    await _pumpView(
+      tester,
+      bloc: destroyedBloc,
+      state: _loadedState(twinState: 'destroyed', canDestroy: false),
+      launcher: launcher,
+    );
+
+    expect(find.byType(CleanupEvidencePanel), findsOneWidget);
+    expect(find.byType(DeploymentOperationsPanel), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Destroy and cleanup')).dy,
+      lessThan(tester.getTopLeft(find.text('Prepare the next run')).dy),
+    );
   });
 }
 
@@ -284,14 +328,16 @@ Future<void> _pumpView(
 TwinOverviewLoaded _loadedState({
   CloudProvider l5 = CloudProvider.aws,
   DeploymentOutputsSnapshot? deploymentOutputs,
+  String twinState = 'deployed',
+  bool canDestroy = true,
 }) {
   return TwinOverviewLoaded(
     twinId: 'twin-1',
     projectName: 'Demo Twin',
     cloudResourceName: 'demo-twin',
-    twinState: 'deployed',
+    twinState: twinState,
     canDeploy: false,
-    canDestroy: true,
+    canDestroy: canDestroy,
     canEdit: false,
     canDelete: false,
     layerAccess: LayerAccessViewState.fromSnapshot(_snapshot(l5: l5)),

@@ -478,6 +478,17 @@ existing Wizard BLoC, invalidation, save, calculation, immutable-selection,
 CloudConnection, validation and finish contracts remain unchanged. This
 checkpoint performs no provider operation.
 
+The fourth screen checkpoint is implemented offline. **Twin lifecycle** now
+uses one identity/state/next-step summary and one lifecycle command at a time.
+Configured Twins prepare and deploy; deployed Twins verify L1–L3/Event,
+L4/L5, telemetry and commands before Destroy; failed Twins clean up before a
+later attempt; and destroyed Twins expose cleanup evidence before another
+approved run. Configuration evidence remains last. The app bar owns Back,
+theme and Cloud access, while Edit/Delete remain secondary. Existing BLoC,
+Management API, durable operation, SSE, access, simulator, verification and
+cleanup contracts are unchanged; this checkpoint performs no provider
+operation.
+
 Continue Phase 8 in this order:
 
 1. perform the read-only Azure identity/scope and split-authority validation

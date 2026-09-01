@@ -51,10 +51,11 @@ class DeploymentOperationsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Operations', style: theme.textTheme.titleLarge),
+            Text('Lifecycle action', style: theme.textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             _DeploymentActions(
               twinState: twinState,
+              deployAvailable: canDeploy,
               deployEnabled: deployEnabled,
               destroyEnabled: canDestroy,
               isDeploying: _isDeploying,
@@ -135,6 +136,7 @@ class DeploymentOutputsError extends StatelessWidget {
 
 class _DeploymentActions extends StatelessWidget {
   final String twinState;
+  final bool deployAvailable;
   final bool deployEnabled;
   final bool destroyEnabled;
   final bool isDeploying;
@@ -144,6 +146,7 @@ class _DeploymentActions extends StatelessWidget {
 
   const _DeploymentActions({
     required this.twinState,
+    required this.deployAvailable,
     required this.deployEnabled,
     required this.destroyEnabled,
     required this.isDeploying,
@@ -155,46 +158,30 @@ class _DeploymentActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final actions = [
-          _PrimaryActionButton(
-            label: twinState == 'error' ? 'RETRY DEPLOY' : 'DEPLOY',
-            icon: Icons.rocket_launch,
-            enabled: deployEnabled,
-            busy: isDeploying,
-            backgroundColor: colors.primary,
-            foregroundColor: colors.onPrimary,
-            onPressed: onDeploy,
-          ),
-          _PrimaryActionButton(
-            label: twinState == 'error' ? 'CLEANUP' : 'DESTROY',
-            icon: Icons.delete_forever,
-            enabled: destroyEnabled,
-            busy: isDestroying,
-            backgroundColor: colors.error,
-            foregroundColor: colors.onError,
-            onPressed: onDestroy,
-          ),
-        ];
-
-        if (constraints.maxWidth < AppSpacing.twinOverviewCompactBreakpoint) {
-          return Column(
-            children: [
-              actions.first,
-              const SizedBox(height: AppSpacing.sm),
-              actions.last,
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: actions.first),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: actions.last),
-          ],
-        );
-      },
+    final destroyAction =
+        isDestroying ||
+        (!isDeploying && (twinState == 'error' || destroyEnabled));
+    final showAction =
+        isDeploying ||
+        isDestroying ||
+        deployAvailable ||
+        destroyEnabled ||
+        twinState == 'error';
+    if (!showAction) {
+      return const Text('No lifecycle action is available in this state.');
+    }
+    return _PrimaryActionButton(
+      label: destroyAction
+          ? twinState == 'error'
+                ? 'Cleanup'
+                : 'Destroy'
+          : 'Deploy',
+      icon: destroyAction ? Icons.delete_forever : Icons.rocket_launch,
+      enabled: destroyAction ? destroyEnabled : deployEnabled,
+      busy: destroyAction ? isDestroying : isDeploying,
+      backgroundColor: destroyAction ? colors.error : colors.primary,
+      foregroundColor: destroyAction ? colors.onError : colors.onPrimary,
+      onPressed: destroyAction ? onDestroy : onDeploy,
     );
   }
 }
@@ -225,7 +212,7 @@ class _PrimaryActionButton extends StatelessWidget {
       height: AppSpacing.actionButtonHeight,
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: enabled ? onPressed : null,
+        onPressed: enabled && !busy ? onPressed : null,
         icon: busy
             ? SizedBox.square(
                 dimension: AppSpacing.iconMd,
@@ -286,7 +273,7 @@ class _DeploymentErrorBanner extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Orphaned cloud resources may exist. Run CLEANUP before retrying deployment.',
+                'Orphaned cloud resources may exist. Run Cleanup before retrying deployment.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
                   fontWeight: FontWeight.w500,

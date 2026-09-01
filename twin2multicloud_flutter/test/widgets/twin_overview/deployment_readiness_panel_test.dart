@@ -43,6 +43,11 @@ void main() {
     expect(find.text('Ready'), findsOneWidget);
     expect(find.text('AWS'), findsOneWidget);
     expect(find.text('Access passed.'), findsNothing);
+    expect(
+      find.widgetWithText(OutlinedButton, 'Run preflight'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(FilledButton, 'Run preflight'), findsNothing);
 
     await tester.tap(find.text('Provider details'));
     await tester.pumpAndSettle();
@@ -67,6 +72,7 @@ void main() {
     expect(find.text('Run preflight'), findsOneWidget);
     expect(find.text('Cloud accounts'), findsOneWidget);
     expect(find.textContaining('Preflight has not been run.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Run preflight'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('Run preflight'));

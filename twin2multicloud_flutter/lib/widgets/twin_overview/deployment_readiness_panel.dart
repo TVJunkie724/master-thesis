@@ -87,6 +87,7 @@ class DeploymentReadinessPanel extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _Actions(
                 isLoading: isLoading,
+                isDeployable: state.isDeployable,
                 canReviewPreparation: canReviewPreparation,
                 onRunPreflight: onRunPreflight,
                 onReviewPreparation: onReviewPreparation,
@@ -328,6 +329,7 @@ class _CheckRow extends StatelessWidget {
 
 class _Actions extends StatelessWidget {
   final bool isLoading;
+  final bool isDeployable;
   final bool canReviewPreparation;
   final VoidCallback onRunPreflight;
   final VoidCallback onReviewPreparation;
@@ -335,6 +337,7 @@ class _Actions extends StatelessWidget {
 
   const _Actions({
     required this.isLoading,
+    required this.isDeployable,
     required this.canReviewPreparation,
     required this.onRunPreflight,
     required this.onReviewPreparation,
@@ -347,20 +350,27 @@ class _Actions extends StatelessWidget {
       builder: (context, constraints) {
         final compact =
             constraints.maxWidth < AppSpacing.twinOverviewCompactBreakpoint;
+        final preflightButton = isDeployable
+            ? OutlinedButton.icon(
+                onPressed: isLoading ? null : onRunPreflight,
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text(_ReadinessStrings.runPreflight),
+              )
+            : FilledButton.icon(
+                onPressed: isLoading ? null : onRunPreflight,
+                icon: isLoading
+                    ? const SizedBox.square(
+                        dimension: AppSpacing.iconSm,
+                        child: CircularProgressIndicator(
+                          strokeWidth: AppSpacing.xxs,
+                        ),
+                      )
+                    : const Icon(Icons.fact_check_outlined),
+                label: const Text(_ReadinessStrings.runPreflight),
+              );
         final preflight = SizedBox(
           height: AppSpacing.actionButtonHeight,
-          child: FilledButton.icon(
-            onPressed: isLoading ? null : onRunPreflight,
-            icon: isLoading
-                ? const SizedBox.square(
-                    dimension: AppSpacing.iconSm,
-                    child: CircularProgressIndicator(
-                      strokeWidth: AppSpacing.xxs,
-                    ),
-                  )
-                : const Icon(Icons.fact_check_outlined),
-            label: const Text(_ReadinessStrings.runPreflight),
-          ),
+          child: preflightButton,
         );
         final accounts = SizedBox(
           height: AppSpacing.actionButtonHeight,

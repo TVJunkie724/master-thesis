@@ -9,10 +9,10 @@ import 'deployment_operations_panel.dart';
 import 'deployment_readiness_panel.dart';
 import 'layer_access_panel.dart';
 import 'testing_utilities_panel.dart';
+import 'twin_lifecycle_summary.dart';
 import 'twin_overview_code_artifact.dart';
 import 'twin_overview_configuration_review.dart';
-import 'twin_overview_name_header.dart';
-import 'twin_overview_navigation_header.dart';
+import 'twin_overview_strings.dart';
 
 class TwinOverviewContent extends StatelessWidget {
   final TwinOverviewLoaded state;
@@ -63,6 +63,9 @@ class TwinOverviewContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDeployed = state.twinState == 'deployed';
+    final isError = state.twinState == 'error';
+    final isDestroyed = state.twinState == 'destroyed';
+    final isDestroying = state.twinState == 'destroying';
     return SingleChildScrollView(
       child: Center(
         child: ConstrainedBox(
@@ -74,49 +77,25 @@ class TwinOverviewContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TwinOverviewNavigationHeader(
-                  twinState: state.twinState,
-                  canEdit: state.canEdit,
-                  canDelete: state.canDelete,
+                TwinLifecycleSummary(
+                  state: state,
                   onEdit: onEdit,
                   onDelete: onDelete,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                TwinOverviewNameHeader(
-                  projectName: state.projectName,
-                  cloudResourceName: state.cloudResourceName,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                DeploymentReadinessPanel(
-                  state: state.deploymentReadiness,
-                  onRunPreflight: onRunPreflight,
-                  onReviewPreparation: onReviewPreparation,
-                  onOpenCloudAccounts: onOpenCloudAccounts,
-                ),
                 if (isDeployed) ...[
                   const SizedBox(height: AppSpacing.lg),
+                  const _LifecycleSectionHeader(
+                    title: TwinOverviewStrings.verifyAndAccess,
+                    description: TwinOverviewStrings.verificationDescription,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
                   LayerAccessPanel(
                     state: state.layerAccess,
                     onRetry: onRetryLayerAccess,
                     onOpenSurface: onOpenLayerAccess,
                     onRotateViewerCredential: onRotateLayerAccessCredential,
                   ),
-                ],
-                const SizedBox(height: AppSpacing.lg),
-                DeploymentOperationsPanel(
-                  twinState: state.twinState,
-                  canDeploy: state.canDeploy,
-                  canDestroy: state.canDestroy,
-                  readiness: state.deploymentReadiness,
-                  operation: state.deploymentOperation,
-                  lastError: state.lastError,
-                  onDeploy: onDeploy,
-                  onDestroy: onDestroy,
-                  onViewLogs: onViewLogs,
-                  onCloseTerminal: onCloseTerminal,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (isDeployed) ...[
+                  const SizedBox(height: AppSpacing.lg),
                   TestingUtilitiesPanel(
                     provider: state.l1ProviderLabel,
                     trace: state.trace,
@@ -125,35 +104,36 @@ class TwinOverviewContent extends StatelessWidget {
                     onCancelTrace: onCancelTrace,
                     onDownloadSimulator: onDownloadSimulator,
                   ),
-                  const SizedBox(height: AppSpacing.lg),
+                  if (state.deploymentOutputs?.outputs != null &&
+                      state.deploymentOutputs!.outputs!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    TerraformOutputsCard(
+                      outputs: state.deploymentOutputs!.outputs!,
+                      deployedAt: state.deploymentOutputs!.deployedAt,
+                      onCopyFeedback: onOutputCopyFeedback,
+                    ),
+                  ],
+                  if (state.outputsError != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    DeploymentOutputsError(message: state.outputsError!),
+                  ],
+                  if (deploymentVerification != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    deploymentVerification!,
+                  ],
                 ],
-                if (isDeployed &&
-                    state.deploymentOutputs?.outputs != null &&
-                    state.deploymentOutputs!.outputs!.isNotEmpty) ...[
-                  TerraformOutputsCard(
-                    outputs: state.deploymentOutputs!.outputs!,
-                    deployedAt: state.deploymentOutputs!.deployedAt,
-                    onCopyFeedback: onOutputCopyFeedback,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                if (state.outputsError != null) ...[
-                  DeploymentOutputsError(message: state.outputsError!),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                if (deploymentVerification != null) ...[
-                  deploymentVerification!,
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                if (state.cleanupEvidence != null ||
-                    state.cleanupEvidenceError != null ||
-                    state.twinState == 'destroyed') ...[
-                  CleanupEvidencePanel(
-                    evidence: state.cleanupEvidence,
-                    errorMessage: state.cleanupEvidenceError,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
+                if (!isDeployed && !isError && !isDestroyed && !isDestroying)
+                  ..._prepareSection(),
+                if (isError) ..._errorSection(),
+                if (isDestroyed) ..._destroyedSection(),
+                if (isDestroying) ..._cleanupSection(includeEvidence: true),
+                if (isDeployed) ..._cleanupSection(includeEvidence: true),
+                const SizedBox(height: AppSpacing.lg),
+                const _LifecycleSectionHeader(
+                  title: TwinOverviewStrings.configurationEvidence,
+                  description: TwinOverviewStrings.evidenceDescription,
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 TwinOverviewConfigurationReview(
                   state: state,
                   onViewArtifact: onViewArtifact,
@@ -166,4 +146,114 @@ class TwinOverviewContent extends StatelessWidget {
       ),
     );
   }
+
+  List<Widget> _prepareSection({
+    bool nextRun = false,
+    bool includeOperation = true,
+  }) => [
+    const SizedBox(height: AppSpacing.lg),
+    _LifecycleSectionHeader(
+      title: nextRun
+          ? TwinOverviewStrings.prepareNextRun
+          : TwinOverviewStrings.prepareAndDeploy,
+      description: nextRun
+          ? TwinOverviewStrings.nextRunDescription
+          : TwinOverviewStrings.preparingDescription,
+    ),
+    const SizedBox(height: AppSpacing.sm),
+    DeploymentReadinessPanel(
+      state: state.deploymentReadiness,
+      onRunPreflight: onRunPreflight,
+      onReviewPreparation: onReviewPreparation,
+      onOpenCloudAccounts: onOpenCloudAccounts,
+    ),
+    const SizedBox(height: AppSpacing.lg),
+    if (includeOperation)
+      DeploymentOperationsPanel(
+        twinState: state.twinState,
+        canDeploy: state.canDeploy,
+        canDestroy: state.canDestroy,
+        readiness: state.deploymentReadiness,
+        operation: state.deploymentOperation,
+        lastError: state.lastError,
+        onDeploy: onDeploy,
+        onDestroy: onDestroy,
+        onViewLogs: onViewLogs,
+        onCloseTerminal: onCloseTerminal,
+      ),
+    if (state.outputsError != null) ...[
+      const SizedBox(height: AppSpacing.lg),
+      DeploymentOutputsError(message: state.outputsError!),
+    ],
+  ];
+
+  List<Widget> _errorSection() => [
+    ..._cleanupSection(includeEvidence: true),
+    ..._prepareSection(nextRun: true, includeOperation: false),
+  ];
+
+  List<Widget> _destroyedSection() => [
+    ..._cleanupSection(includeEvidence: true, includeOperation: false),
+    ..._prepareSection(nextRun: true),
+  ];
+
+  List<Widget> _cleanupSection({
+    required bool includeEvidence,
+    bool includeOperation = true,
+  }) => [
+    const SizedBox(height: AppSpacing.lg),
+    const _LifecycleSectionHeader(
+      title: TwinOverviewStrings.destroyAndCleanup,
+      description: TwinOverviewStrings.cleanupDescription,
+    ),
+    const SizedBox(height: AppSpacing.sm),
+    if (includeOperation)
+      DeploymentOperationsPanel(
+        twinState: state.twinState,
+        canDeploy: state.canDeploy,
+        canDestroy: state.canDestroy,
+        readiness: state.deploymentReadiness,
+        operation: state.deploymentOperation,
+        lastError: state.lastError,
+        onDeploy: onDeploy,
+        onDestroy: onDestroy,
+        onViewLogs: onViewLogs,
+        onCloseTerminal: onCloseTerminal,
+      ),
+    if (includeEvidence &&
+        (state.cleanupEvidence != null ||
+            state.cleanupEvidenceError != null ||
+            state.twinState == 'destroyed')) ...[
+      if (includeOperation) const SizedBox(height: AppSpacing.lg),
+      CleanupEvidencePanel(
+        evidence: state.cleanupEvidence,
+        errorMessage: state.cleanupEvidenceError,
+      ),
+    ],
+  ];
+}
+
+class _LifecycleSectionHeader extends StatelessWidget {
+  final String title;
+  final String description;
+
+  const _LifecycleSectionHeader({
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: AppSpacing.xs),
+      Text(
+        description,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
 }
