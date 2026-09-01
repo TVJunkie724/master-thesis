@@ -489,6 +489,14 @@ Management API, durable operation, SSE, access, simulator, verification and
 cleanup contracts are unchanged; this checkpoint performs no provider
 operation.
 
+The final cross-screen audit is complete offline. Cloud access, Twin
+experiments, Configuration Workspace and Twin lifecycle now share app-bar
+utilities, top-aligned bounded content, one dominant next outcome, secondary
+management actions and responsive 640-pixel behavior. The audit corrected the
+remaining wide-screen vertical centering in Cloud access and verified all four
+surfaces in the deterministic Desktop/Web demo. The dormant login remains
+excluded. No provider call or Terraform action is part of this audit.
+
 Continue Phase 8 in this order:
 
 1. perform the read-only Azure identity/scope and split-authority validation

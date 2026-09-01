@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-01"
-version: "2.0"
+version: "2.1"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -389,6 +389,25 @@ preflight remains the primary remediation, and error states require Cleanup
 before another attempt. Existing BLoC events, Management-only transport,
 durable operation/SSE replay, access handoff, telemetry, simulator,
 verification and cleanup-evidence contracts remain unchanged.
+
+## D-21 — Four-surface PoC presentation boundary
+
+**Decision:** The supported Flutter presentation consists of four focused
+surfaces: Cloud access, Twin experiments, Configuration Workspace and Twin
+lifecycle. They share app-bar utilities, top-aligned bounded content,
+responsive behavior and one dominant next outcome. The dormant login and the
+local profile bootstrap gate are not product screens.
+
+**Rationale:** These four surfaces map directly to provider preparation,
+experiment selection, immutable configuration and safe execution evidence.
+Additional navigation, dashboards or vertically centered short workspaces add
+product chrome without strengthening RQ1, RQ2 or RQ3.
+
+**Consequence:** Secondary reproducibility/management actions remain outlined
+or in overflow menus, destructive and persistent mutations retain explicit
+confirmation, and each surface owns actionable loading/error states. The
+shared audit changes presentation only and introduces no provider, Terraform
+or Management API capability.
 
 ## Current implementation checkpoint
 

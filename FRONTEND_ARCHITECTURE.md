@@ -59,6 +59,20 @@ than a product dashboard hierarchy:
 These responsibilities may use several routes and task panels. Route count is
 not itself the scope metric.
 
+## Shared PoC shell
+
+The four supported surfaces—Cloud access, Twin experiments, Configuration
+Workspace and Twin lifecycle—reuse the branded app bar, theme control,
+top-aligned content, bounded content width and the established spacing tokens.
+Navigation utilities stay in the app bar; research tasks stay in the body.
+
+Each surface has one dominant next outcome. Secondary, reproducibility and
+safe-management actions use outlined controls or overflow menus. Destructive
+and persistent provider actions retain explicit dialogs. Loading, empty and
+error states stay local to the owning surface and always preserve a retry or
+safe exit. Desktop and Web support includes the 640-pixel compact boundary and
+high text scaling; mobile remains outside scope.
+
 ## Twin experiment inventory
 
 The `/dashboard` route is a start-or-resume surface, not a product dashboard.

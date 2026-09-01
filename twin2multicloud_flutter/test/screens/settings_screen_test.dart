@@ -60,6 +60,33 @@ void main() {
     verify(() => api.listCloudConnections()).called(1);
   });
 
+  testWidgets('anchors the focused workspace below the app bar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = MockApiService();
+    when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
+    final container = _container(api);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('Provider connections')).dy,
+      lessThan(160),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('omits non-actionable profile and identity-provider claims', (
     tester,
   ) async {
