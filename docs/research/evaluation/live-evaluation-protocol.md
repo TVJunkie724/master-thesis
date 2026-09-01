@@ -91,6 +91,21 @@ direct cost again remained USD 0.00. The harness now also waits for that exact
 service principal to expose the expected app-role ID before creating the
 assignment. No additional cloud retry was started after this failure.
 
+The next explicitly approved retry again stopped before ACI creation and
+incurred USD 0.00. A read-only comparison with the deleted-object inventory
+confirms that the preparation principal created the audience application and
+set its identifier URI before Microsoft Graph rejected creation of the
+associated service principal with HTTP 403. The preparation token contains
+exactly the three approved Graph permissions. Microsoft documents
+`Application.ReadWrite.OwnedBy` as sufficient for
+[creating a service principal](https://learn.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals?view=graph-rest-1.0),
+while `appRoleAssignmentRequired` defaults to `false`. The probe therefore no
+longer writes that redundant property: the destination trust already requires
+the explicitly assigned `EventBridge.Exchange` role claim. The harness now
+records application creation, identifier-URI update and service-principal
+creation as separate stages. Cleanup and active residual inventory were clean;
+no further retry was started.
+
 ## Execution boundary
 
 Scenario Apply remains disabled until all of the following are present for one

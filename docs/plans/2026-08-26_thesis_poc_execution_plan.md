@@ -477,6 +477,19 @@ The same bounded harness now waits for the exact audience service principal to
 expose the expected app-role ID before assigning it. No additional cloud retry
 was started.
 
+The following explicitly approved attempt again stopped before the billable
+ACI runner and incurred USD 0.00. Read-only deleted-object evidence narrows the
+HTTP 403 to service-principal creation: the preparation principal had already
+created the audience application and set its identifier URI. Its access token
+contains exactly the three approved Graph permissions, and Microsoft lists
+`Application.ReadWrite.OwnedBy` as the least-privileged application permission
+for that operation. The runner now creates the service principal with only its
+required `appId`; it omits the default-false `appRoleAssignmentRequired` write
+because the AWS/GCP trust policy already enforces the assigned
+`EventBridge.Exchange` claim. It also records all three Graph mutations as
+separate stages. Cleanup and active residual inventory were clean. A new live
+attempt still requires renewed approval under `first_exchange_failed`.
+
 The first screen-by-screen Flutter simplification checkpoint is implemented
 offline. **Settings → Cloud access** now removes the non-actionable local
 profile card, makes provider-file import primary and keeps manual entry and the

@@ -2642,6 +2642,7 @@ def _run_azure_to_aws(
             raise ProbeBlocked("AZURE_APPLICATION_IDS_UNAVAILABLE")
         application_created = True
         audience = f"api://{application_id}"
+        exchange_stage = "update_entra_audience_identifier_uri"
         _graph_request(
             azure_preparation_credential,
             "PATCH",
@@ -2649,15 +2650,16 @@ def _run_azure_to_aws(
             expected_statuses=(204,),
             body={"identifierUris": [audience]},
         )
+        exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(
             azure_preparation_credential,
             "POST",
             "/v1.0/servicePrincipals",
             expected_statuses=(201,),
-            body={
-                "appId": application_id,
-                "appRoleAssignmentRequired": True,
-            },
+            # The target trust checks the assigned EventBridge.Exchange claim.
+            # Requiring every tenant caller to have an assignment as well is
+            # redundant for this bounded probe and expands the Graph mutation.
+            body={"appId": application_id},
         )
         service_principal_id = str(service_principal.get("id") or "")
         if not service_principal_id:
@@ -3113,6 +3115,7 @@ def _run_azure_to_gcp(
             raise ProbeBlocked("AZURE_APPLICATION_IDS_UNAVAILABLE")
         application_created = True
         audience = f"api://{application_id}"
+        exchange_stage = "update_entra_audience_identifier_uri"
         _graph_request(
             azure_preparation_credential,
             "PATCH",
@@ -3120,15 +3123,16 @@ def _run_azure_to_gcp(
             expected_statuses=(204,),
             body={"identifierUris": [audience]},
         )
+        exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(
             azure_preparation_credential,
             "POST",
             "/v1.0/servicePrincipals",
             expected_statuses=(201,),
-            body={
-                "appId": application_id,
-                "appRoleAssignmentRequired": True,
-            },
+            # The target trust checks the assigned EventBridge.Exchange claim.
+            # Requiring every tenant caller to have an assignment as well is
+            # redundant for this bounded probe and expands the Graph mutation.
+            body={"appId": application_id},
         )
         service_principal_id = str(service_principal.get("id") or "")
         if not service_principal_id:

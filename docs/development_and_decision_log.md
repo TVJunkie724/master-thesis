@@ -567,3 +567,20 @@ for the exact audience service principal and expected app-role ID before
 assignment. This adds a second measured RQ1 propagation point without changing
 the four-of-six RQ2 result or the zero-charge RQ3 attribution. No additional
 cloud retry was started.
+
+The next supervised Azure-to-AWS attempt passed the managed-identity and
+audience-application steps but received HTTP 403 while creating the audience
+service principal. A free, read-only check of deleted Entra objects proves that
+the preparation principal created the application and set its identifier URI;
+the active permission token contains exactly the approved three Graph roles.
+The service-principal request had included the optional
+`appRoleAssignmentRequired=true` property even though the destination policy
+already rejects assertions without the assigned `EventBridge.Exchange` claim.
+The runner now sends only the required application ID and exposes precise
+stages for application creation, identifier update and service-principal
+creation. This is a PoC-scoped payload reduction, not an expansion of Graph
+authority. Cleanup and residual inventory were clean, ACI was never started,
+and direct cost was USD 0.00. RQ1 records the service-principal mutation
+boundary, RQ2 remains at four of six successful directions and RQ3 remains
+zero-charge for the attempt. The stop condition again prevented another live
+retry without approval.

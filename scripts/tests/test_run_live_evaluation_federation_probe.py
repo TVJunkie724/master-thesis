@@ -236,6 +236,18 @@ def test_azure_probe_slices_route_privileged_calls_to_preparation_principal() ->
         assert "_graph_request(\n            azure_preparation_credential," in source
 
 
+def test_azure_source_probe_uses_minimal_audience_service_principal_create() -> None:
+    for function in (runner._run_azure_to_aws, runner._run_azure_to_gcp):
+        source = inspect.getsource(function)
+        assert 'exchange_stage = "update_entra_audience_identifier_uri"' in source
+        assert (
+            'exchange_stage = "create_entra_audience_service_principal"'
+            in source
+        )
+        assert 'body={"appId": application_id}' in source
+        assert '"appRoleAssignmentRequired": True' not in source
+
+
 def test_waits_for_managed_identity_graph_propagation(monkeypatch) -> None:
     calls: list[str] = []
     sleeps: list[int] = []
