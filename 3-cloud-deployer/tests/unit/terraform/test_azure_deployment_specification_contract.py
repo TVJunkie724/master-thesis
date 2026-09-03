@@ -4,9 +4,6 @@ from pathlib import Path
 import json
 import re
 
-from src.api.azure_credentials_checker import AZURE_PREPARATION_ROLE_IDS
-
-
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 REFERENCE_ROOT = Path(__file__).resolve().parents[3] / "docs" / "references"
 
@@ -142,11 +139,14 @@ def test_azure_usage_meters_remain_non_deployable_evidence():
     assert "azure_digital_twins" not in variables
 
 
-def test_azure_rbac_and_entra_use_only_the_preparation_principal():
+def test_azure_rbac_and_entra_use_the_single_poc_administrator():
     main = _normalized_source("main.tf")
-    assert 'provider "azurerm" { alias = "preparation"' in main
-    assert 'client_id = var.azure_preparation_client_id != ""' in main
-    assert 'client_secret = var.azure_preparation_client_secret != ""' in main
+    assert 'alias = "preparation"' not in main
+    assert "azure_preparation_client_id" not in main
+    assert "azure_preparation_client_secret" not in main
+    assert 'provider "azuread"' in main
+    assert 'client_id = var.azure_client_id != ""' in main
+    assert 'client_secret = var.azure_client_secret != ""' in main
 
     role_files = (
         "azure_eventing.tf",
@@ -165,9 +165,7 @@ def test_azure_rbac_and_entra_use_only_the_preparation_principal():
             flags=re.DOTALL | re.MULTILINE,
         )
         assert blocks, filename
-        assert all(
-            "provider" in block and "azurerm.preparation" in block for block in blocks
-        )
+        assert all("azurerm.preparation" not in block for block in blocks)
 
 
 def test_azure_iot_data_role_name_is_valid():
@@ -176,44 +174,17 @@ def test_azure_iot_data_role_name_is_valid():
     assert 'role  = "IoT Hub Data Reader"' in source
 
 
-def test_azure_access_references_match_the_split_authority_contract():
+def test_azure_access_reference_matches_the_single_administrator_contract():
     policy = json.loads(
         (REFERENCE_ROOT / "azure_deployer_policy.json").read_text(encoding="utf-8")
     )
-    deployment = policy["deployment_principal"]
-    assert deployment["role"] == "Contributor"
-    assert deployment["forbidden_effective_actions"] == [
-        "Microsoft.Authorization/roleAssignments/write",
-        "Microsoft.Authorization/roleAssignments/delete",
-    ]
-    assert deployment["graph_provisioned_resource_roles"] == [
+    administrator = policy["administrator_principal"]
+    assert administrator["role"] == "Owner"
+    assert administrator["scope"] == "isolated subscription"
+    assert administrator["graph_provisioned_resource_roles"] == [
         "Azure Digital Twins Data Owner"
     ]
-
-    preparation = policy["preparation_principal"]
-    assert {
-        role["role_id"] for role in preparation["allowed_role_definitions"]
-    } == AZURE_PREPARATION_ROLE_IDS
-    assert preparation["allowed_principal_types"] == ["User", "ServicePrincipal"]
-    assert preparation["microsoft_graph_application_permissions"] == [
-        "Application.ReadWrite.OwnedBy",
-        "Application.Read.All",
+    assert administrator["microsoft_graph_application_permissions"] == [
+        "Application.ReadWrite.All",
         "AppRoleAssignment.ReadWrite.All",
     ]
-
-    assignment = json.loads(
-        (REFERENCE_ROOT / "azure_role_assignment.json").read_text(encoding="utf-8")
-    )
-    condition = assignment["variables"]["condition"]
-    condition_role_ids = {
-        value.casefold()
-        for value in re.findall(
-            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
-            condition,
-        )
-    }
-    assert condition_role_ids == AZURE_PREPARATION_ROLE_IDS
-    assert "roleAssignments/write" in condition
-    assert "roleAssignments/delete" in condition
-    assert "'User', 'ServicePrincipal'" in condition
-    assert "Group" not in condition

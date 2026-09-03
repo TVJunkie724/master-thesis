@@ -863,7 +863,6 @@ class DeploymentReadinessService:
             "IDENTITY_CENTER_CHECK_FAILED": "aws.iam-identity-center.primary-region",
             "MICROSOFT_GRAPH_AUTHORITY_READY": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CONSENT_REQUIRED": "azure.microsoft-graph.authority",
-            "MICROSOFT_GRAPH_AUTHORITY_OVERPRIVILEGED": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CHECK_FAILED": "azure.microsoft-graph.authority",
             "MICROSOFT_GRAPH_CHECK_UNSUPPORTED": "azure.microsoft-graph.authority",
         }

@@ -182,10 +182,6 @@ class CredentialResolutionService:
                 "azure_subscription_id": credentials.subscription_id,
                 "azure_client_id": credentials.client_id,
                 "azure_client_secret": credentials.client_secret,
-                "azure_preparation_client_id": credentials.preparation_client_id,
-                "azure_preparation_client_secret": (
-                    credentials.preparation_client_secret
-                ),
                 "azure_tenant_id": credentials.tenant_id,
                 "azure_region": azure_region,
                 "azure_region_iothub": credentials.region_iothub or azure_region,
@@ -213,7 +209,10 @@ class CredentialResolutionService:
     def build_deployer_validation_payload(
         cls, provider: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        if cls._normalize_provider(provider) == "gcp":
+        provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload)
+        if provider == "gcp":
             result = {
                 "gcp_credentials_file": payload.get("gcp_credentials_file"),
                 "gcp_project_id": payload.get("gcp_project_id"),
@@ -229,6 +228,8 @@ class CredentialResolutionService:
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
         provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload), None
         if provider != "gcp":
             return payload.copy(), None
 
@@ -342,22 +343,6 @@ class CredentialResolutionService:
     def _validate_payload(
         cls, provider: str, payload: dict[str, Any]
     ) -> list[dict[str, Any]]:
-        if provider == "azure" and not (
-            payload.get("azure_preparation_client_id")
-            and payload.get("azure_preparation_client_secret")
-        ):
-            return [
-                cls._error(
-                    provider,
-                    "AZURE_PREPARATION_PRINCIPAL_REQUIRED",
-                    (
-                        "This legacy Azure Cloud Connection cannot run readiness or "
-                        "deployment. Create a complete Azure access bundle, bind the "
-                        "draft Twin to it, then delete the unbound legacy connection."
-                    ),
-                    field="azure",
-                )
-            ]
         required = {
             "aws": ("aws_access_key_id", "aws_secret_access_key", "aws_region"),
             "azure": (
@@ -365,8 +350,6 @@ class CredentialResolutionService:
                 "azure_tenant_id",
                 "azure_client_id",
                 "azure_client_secret",
-                "azure_preparation_client_id",
-                "azure_preparation_client_secret",
                 "azure_region",
                 "azure_region_iothub",
                 "azure_region_digital_twin",
@@ -383,6 +366,25 @@ class CredentialResolutionService:
             )
             for field in missing
         ]
+
+    @staticmethod
+    def _azure_deployer_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        """Project Azure credentials onto the current single-admin contract.
+
+        Older encrypted Cloud Connections can contain retired preparation keys.
+        They are deliberately ignored here and never cross the Deployer boundary.
+        """
+
+        fields = (
+            "azure_subscription_id",
+            "azure_tenant_id",
+            "azure_client_id",
+            "azure_client_secret",
+            "azure_region",
+            "azure_region_iothub",
+            "azure_region_digital_twin",
+        )
+        return {field: payload[field] for field in fields if payload.get(field)}
 
     @staticmethod
     def _connection_id(config, provider: str) -> str | None:

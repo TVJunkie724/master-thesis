@@ -7,9 +7,6 @@ mock_provider "aws" {
 mock_provider "awscc" {}
 mock_provider "azuread" {}
 mock_provider "azurerm" {}
-mock_provider "azurerm" {
-  alias = "preparation"
-}
 mock_provider "google" {}
 mock_provider "kubernetes" {}
 mock_provider "local" {}
@@ -215,7 +212,7 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
       azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].role_definition_name == "Azure Digital Twins Data Owner" &&
       azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].principal_id == "22222222-2222-2222-2222-222222222222"
     )
-    error_message = "Azure L4 must grant the deployment principal ADT data access only on the created Twin instance."
+    error_message = "Azure L4 must grant the PoC administrator ADT data access only on the created Twin instance."
   }
 }
 

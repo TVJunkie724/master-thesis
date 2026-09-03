@@ -267,10 +267,6 @@ class CloudConnectionService:
                 "azure_subscription_id": request.azure.subscription_id,
                 "azure_client_id": request.azure.client_id,
                 "azure_client_secret": request.azure.client_secret,
-                "azure_preparation_client_id": request.azure.preparation_client_id,
-                "azure_preparation_client_secret": (
-                    request.azure.preparation_client_secret
-                ),
                 "azure_tenant_id": request.azure.tenant_id,
                 "azure_region": request.azure.region,
                 "azure_region_iothub": request.azure.region_iothub
@@ -301,10 +297,6 @@ class CloudConnectionService:
             return {
                 "subscription_configured": bool(payload.get("azure_subscription_id")),
                 "client_configured": bool(payload.get("azure_client_id")),
-                "preparation_client_configured": bool(
-                    payload.get("azure_preparation_client_id")
-                    and payload.get("azure_preparation_client_secret")
-                ),
                 "region": payload.get("azure_region"),
                 "iot_hub_region": payload.get("azure_region_iothub"),
                 "digital_twin_region": payload.get("azure_region_digital_twin"),

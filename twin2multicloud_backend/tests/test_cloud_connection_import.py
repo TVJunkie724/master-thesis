@@ -24,8 +24,6 @@ def _metadata(provider: str, **updates) -> CloudConnectionImportMetadata:
     }
     if provider == "azure":
         value["target_scope_id"] = "subscription-1"
-        value["preparation_client_id"] = "preparation-client-1"
-        value["preparation_client_secret"] = "preparation-secret-1"
     elif provider == "gcp":
         value["target_scope_id"] = "deployment-project"
     value.update(updates)
@@ -65,18 +63,17 @@ def test_azure_cli_json_uses_explicit_subscription_scope():
     assert request.azure.subscription_id == "subscription-1"
     assert request.azure.client_id == "client-1"
     assert request.azure.tenant_id == "tenant-1"
-    assert request.azure.preparation_client_id == "preparation-client-1"
-    assert request.azure.preparation_client_secret == "preparation-secret-1"
 
 
-def test_azure_import_rejects_missing_preparation_principal():
-    with pytest.raises(ValueError, match="preparation principal"):
+def test_azure_import_rejects_retired_preparation_metadata():
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         CloudConnectionImportMetadata.model_validate(
             {
                 "provider": "azure",
                 "display_name": "Azure imported",
                 "region": "westeurope",
                 "target_scope_id": "subscription-1",
+                "preparation_client_id": "retired-client",
             }
         )
 

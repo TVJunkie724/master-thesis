@@ -7,9 +7,6 @@ mock_provider "aws" {
 mock_provider "awscc" {}
 mock_provider "azuread" {}
 mock_provider "azurerm" {}
-mock_provider "azurerm" {
-  alias = "preparation"
-}
 mock_provider "google" {}
 mock_provider "kubernetes" {}
 mock_provider "local" {}

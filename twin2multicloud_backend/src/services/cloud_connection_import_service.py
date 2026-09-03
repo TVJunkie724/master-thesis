@@ -127,8 +127,6 @@ def _parse_azure(
                 "subscription_id": metadata.target_scope_id,
                 "client_id": _first(value, "clientId", "appId"),
                 "client_secret": _first(value, "clientSecret", "password"),
-                "preparation_client_id": metadata.preparation_client_id,
-                "preparation_client_secret": metadata.preparation_client_secret,
                 "tenant_id": _first(value, "tenantId", "tenant"),
                 "region": metadata.region,
                 "region_iothub": metadata.region_iothub,

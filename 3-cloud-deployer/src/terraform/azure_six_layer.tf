@@ -1331,7 +1331,6 @@ locals {
 }
 
 resource "azurerm_role_assignment" "azure_azure_entra_layer_access_bindings" {
-  provider             = azurerm.preparation
   for_each             = local.azure_six_layer_event_role_bindings
   scope                = each.value.scope
   role_definition_name = each.value.role

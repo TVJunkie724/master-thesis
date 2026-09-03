@@ -84,10 +84,8 @@ def _azure_request():
         "azure": {
             "subscription_id": "subscription-1",
             "tenant_id": "tenant-1",
-            "client_id": "deployment-client-1",
-            "client_secret": "deployment-secret-1",
-            "preparation_client_id": "preparation-client-1",
-            "preparation_client_secret": "preparation-secret-1",
+            "client_id": "administrator-client-1",
+            "client_secret": "administrator-secret-1",
             "region": "westeurope",
         },
     }
@@ -129,7 +127,7 @@ def test_create_cloud_connection_masks_secret_response(
     assert payload["aws"]["secret_access_key"] not in stored.encrypted_payload
 
 
-def test_create_azure_bundle_encrypts_both_principals_and_redacts_response(
+def test_create_azure_administrator_encrypts_secret_and_redacts_response(
     authenticated_client, db_session
 ):
     client, headers = authenticated_client
@@ -140,12 +138,9 @@ def test_create_azure_bundle_encrypts_both_principals_and_redacts_response(
     assert response.status_code == 200
     data = response.json()
     assert data["payload_summary"]["client_configured"] is True
-    assert data["payload_summary"]["preparation_client_configured"] is True
     for field in (
-        "deployment-client-1",
-        "deployment-secret-1",
-        "preparation-client-1",
-        "preparation-secret-1",
+        "administrator-client-1",
+        "administrator-secret-1",
         "tenant-1",
     ):
         assert field not in response.text
@@ -154,25 +149,26 @@ def test_create_azure_bundle_encrypts_both_principals_and_redacts_response(
     decrypted = CloudConnectionService(db_session).decrypt_payload(
         stored, stored.user_id
     )
-    assert decrypted["azure_preparation_client_id"] == "preparation-client-1"
-    assert decrypted["azure_preparation_client_secret"] == "preparation-secret-1"
+    assert decrypted["azure_client_id"] == "administrator-client-1"
+    assert decrypted["azure_client_secret"] == "administrator-secret-1"
+    assert not any("preparation" in key for key in decrypted)
 
 
-def test_azure_bundle_requires_distinct_principals(authenticated_client):
+def test_azure_request_rejects_retired_preparation_fields(authenticated_client):
     client, headers = authenticated_client
     payload = _azure_request()
-    payload["azure"]["preparation_client_id"] = payload["azure"]["client_id"]
+    payload["azure"]["preparation_client_id"] = "retired-client"
 
     response = client.post("/cloud-connections/", json=payload, headers=headers)
 
     assert response.status_code == 422
 
 
-def test_azure_fingerprint_changes_when_preparation_secret_rotates(db_session):
+def test_azure_fingerprint_changes_when_administrator_secret_rotates(db_session):
     service = CloudConnectionService(db_session)
     original = _azure_request()
     rotated = _azure_request()
-    rotated["azure"]["preparation_client_secret"] = "rotated-preparation-secret"
+    rotated["azure"]["client_secret"] = "rotated-administrator-secret"
 
     from src.schemas.cloud_connection import CloudConnectionCreate
 

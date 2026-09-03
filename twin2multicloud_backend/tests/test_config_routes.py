@@ -122,8 +122,6 @@ class TestConfigRoutes:
                     "subscription_id": "subscription-id",
                     "client_id": "client-id",
                     "client_secret": "client-secret",
-                    "preparation_client_id": "preparation-client-id",
-                    "preparation_client_secret": "preparation-client-secret",
                     "tenant_id": "tenant-id",
                     "region": "westeurope",
                 },

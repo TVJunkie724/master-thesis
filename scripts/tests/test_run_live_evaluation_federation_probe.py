@@ -122,8 +122,8 @@ def test_result_redaction_rejects_credential_escape() -> None:
         {"gcp_project_id": "example-project"},
         {"private_key": "example-private-key"},
         {
-            "azure_preparation_client_id": "example-preparation-client",
-            "azure_preparation_client_secret": "example-preparation-secret",
+            "azure_client_id": "example-administrator-client",
+            "azure_client_secret": "example-administrator-secret",
         },
     )
     runner._assert_no_sensitive_values(
@@ -135,11 +135,11 @@ def test_result_redaction_rejects_credential_escape() -> None:
         )
     with pytest.raises(ValueError, match="sensitive field escaped"):
         runner._assert_no_sensitive_values(
-            {"unsafe": "example-preparation-secret"}, credentials
+            {"unsafe": "example-administrator-secret"}, credentials
         )
 
 
-def test_load_credentials_requires_split_azure_authority(tmp_path) -> None:
+def test_load_credentials_accepts_single_azure_administrator(tmp_path) -> None:
     config = tmp_path / "config.json"
     key = tmp_path / "gcp.json"
     config.write_text(
@@ -177,11 +177,12 @@ def test_load_credentials_requires_split_azure_authority(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(runner.ProbeBlocked, match="CREDENTIAL_SCHEMA_INVALID"):
-        runner._load_credentials(config, key)
+    _, _, _, azure = runner._load_credentials(config, key)
+
+    assert azure["azure_client_id"] == "deployment-client"
 
 
-def test_azure_credential_factory_selects_distinct_principals(monkeypatch) -> None:
+def test_azure_credential_factory_uses_single_administrator(monkeypatch) -> None:
     created: list[dict[str, str]] = []
 
     class FakeCredential:
@@ -191,30 +192,22 @@ def test_azure_credential_factory_selects_distinct_principals(monkeypatch) -> No
     monkeypatch.setattr(runner, "ClientSecretCredential", FakeCredential)
     values = {
         "azure_tenant_id": "tenant",
-        "azure_client_id": "deployment-client",
-        "azure_client_secret": "deployment-secret",
-        "azure_preparation_client_id": "preparation-client",
-        "azure_preparation_client_secret": "preparation-secret",
+        "azure_client_id": "administrator-client",
+        "azure_client_secret": "administrator-secret",
     }
 
     runner._azure_credentials(values)
-    runner._azure_credentials(values, preparation=True)
 
     assert created == [
         {
             "tenant_id": "tenant",
-            "client_id": "deployment-client",
-            "client_secret": "deployment-secret",
-        },
-        {
-            "tenant_id": "tenant",
-            "client_id": "preparation-client",
-            "client_secret": "preparation-secret",
+            "client_id": "administrator-client",
+            "client_secret": "administrator-secret",
         },
     ]
 
 
-def test_azure_probe_slices_route_privileged_calls_to_preparation_principal() -> None:
+def test_azure_probe_slices_use_only_the_single_administrator() -> None:
     for function in (
         runner._run_gcp_to_azure,
         runner._run_aws_to_azure,
@@ -222,18 +215,19 @@ def test_azure_probe_slices_route_privileged_calls_to_preparation_principal() ->
         runner._run_azure_to_gcp,
     ):
         source = inspect.getsource(function)
-        assert "azure_preparation_credential" in source
+        assert "azure_preparation_credential" not in source
+        assert "azure_credential" in source
 
     for function in (runner._run_gcp_to_azure, runner._run_aws_to_azure):
         source = inspect.getsource(function)
         assert (
             "AuthorizationManagementClient(\n"
-            "        azure_preparation_credential," in source
+            "        azure_credential," in source
         )
 
     for function in (runner._run_azure_to_aws, runner._run_azure_to_gcp):
         source = inspect.getsource(function)
-        assert "_graph_request(\n            azure_preparation_credential," in source
+        assert "_graph_request(\n            azure_credential," in source
 
 
 def test_azure_source_probe_uses_minimal_audience_service_principal_create() -> None:

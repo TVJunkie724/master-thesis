@@ -1037,28 +1037,14 @@ variable "azure_subscription_id" {
 }
 
 variable "azure_client_id" {
-  description = "Azure Service Principal Client ID"
+  description = "Azure thesis-PoC administrator Client ID"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "azure_client_secret" {
-  description = "Azure Service Principal Client Secret"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "azure_preparation_client_id" {
-  description = "Azure preparation Service Principal Client ID"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "azure_preparation_client_secret" {
-  description = "Azure preparation Service Principal Client Secret"
+  description = "Azure thesis-PoC administrator Client Secret"
   type        = string
   default     = ""
   sensitive   = true

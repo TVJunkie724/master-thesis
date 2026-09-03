@@ -200,10 +200,8 @@ def test_azure_split_principal_secrets_are_request_only_in_openapi():
     assert {
         "client_id",
         "client_secret",
-        "preparation_client_id",
-        "preparation_client_secret",
     }.issubset(schema["required"])
     assert properties["client_secret"]["writeOnly"] is True
-    assert properties["preparation_client_secret"]["writeOnly"] is True
     assert "writeOnly" not in properties["client_id"]
-    assert "writeOnly" not in properties["preparation_client_id"]
+    assert "preparation_client_id" not in properties
+    assert "preparation_client_secret" not in properties

@@ -18,10 +18,8 @@ def _azure_credentials():
     return {
         "azure_subscription_id": "sub-123",
         "azure_tenant_id": "tenant-123",
-        "azure_client_id": "deployment-client-123",
-        "azure_client_secret": "deployment-secret-123",
-        "azure_preparation_client_id": "preparation-client-123",
-        "azure_preparation_client_secret": "preparation-secret-123",
+        "azure_client_id": "administrator-client-123",
+        "azure_client_secret": "administrator-secret-123",
         "azure_region": "westeurope",
         "azure_region_iothub": "westeurope",
         "azure_region_digital_twin": "westeurope",
@@ -38,69 +36,23 @@ def _identity(principal_id):
     }
 
 
-def _deployment_role_info():
+def _administrator_role_info():
+    from src.api.azure_credentials_checker import AZURE_BUILTIN_ROLES
+
     return {
         "assignments": [
-            {"role_name": "Contributor", "principal_id": "deployment-sp"}
+            {
+                "role_name": "Owner",
+                "role_definition_id": AZURE_BUILTIN_ROLES["Owner"],
+                "principal_id": "administrator-sp",
+            }
         ],
         "all_actions": {"*"},
         "all_data_actions": set(),
         "permission_blocks": [
             {
-                "role_name": "Contributor",
+                "role_name": "Owner",
                 "actions": {"*"},
-                "not_actions": {
-                    "Microsoft.Authorization/*/Write",
-                    "Microsoft.Authorization/*/Delete",
-                },
-                "data_actions": set(),
-                "not_data_actions": set(),
-            }
-        ],
-    }
-
-
-def _preparation_condition(
-    extra_role_ids=(), principal_types=("User", "ServicePrincipal")
-):
-    from src.api.azure_credentials_checker import AZURE_PREPARATION_ROLE_IDS
-
-    role_ids = sorted({*AZURE_PREPARATION_ROLE_IDS, *extra_role_ids})
-    return (
-        "ActionMatches{'Microsoft.Authorization/roleAssignments/write'} "
-        "ActionMatches{'Microsoft.Authorization/roleAssignments/delete'} "
-        "@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] "
-        f"ForAnyOfAnyValues:GuidEquals {{{' '.join(role_ids)}}} "
-        "@Request[Microsoft.Authorization/roleAssignments:PrincipalType] "
-        f"ForAnyOfAnyValues:StringEqualsIgnoreCase {{{' '.join(principal_types)}}}"
-    )
-
-
-def _preparation_role_info(**assignment_updates):
-    from src.api.azure_credentials_checker import AZURE_BUILTIN_ROLES
-
-    assignment = {
-        "role_name": "Role Based Access Control Administrator",
-        "role_definition_id": AZURE_BUILTIN_ROLES[
-            "Role Based Access Control Administrator"
-        ],
-        "principal_id": "preparation-sp",
-        "scope": "/subscriptions/sub-123",
-        "condition": _preparation_condition(),
-        "condition_version": "2.0",
-    }
-    assignment.update(assignment_updates)
-    return {
-        "assignments": [assignment],
-        "all_actions": set(),
-        "all_data_actions": set(),
-        "permission_blocks": [
-            {
-                "role_name": "Role Based Access Control Administrator",
-                "actions": {
-                    "Microsoft.Authorization/roleAssignments/write",
-                    "Microsoft.Authorization/roleAssignments/delete",
-                },
                 "not_actions": set(),
                 "data_actions": set(),
                 "not_data_actions": set(),
@@ -152,12 +104,9 @@ class TestAzureCredentialValidation:
         """Test successful credential validation with all permissions present."""
         from src.api.azure_credentials_checker import check_azure_credentials
 
-        mock_credential.side_effect = [Mock(), Mock()]
-        mock_identity.side_effect = [
-            _identity("deployment-sp"),
-            _identity("preparation-sp"),
-        ]
-        mock_roles.side_effect = [_deployment_role_info(), _preparation_role_info()]
+        mock_credential.return_value = Mock()
+        mock_identity.return_value = _identity("administrator-sp")
+        mock_roles.return_value = _administrator_role_info()
         mock_regions.return_value = {}
         mock_graph.return_value = {
             "status": "ready",
@@ -170,8 +119,7 @@ class TestAzureCredentialValidation:
         result = check_azure_credentials(_azure_credentials())
 
         assert result["status"] == "valid"
-        assert result["deployment_authority"]["status"] == "ready"
-        assert result["preparation_authority"]["status"] == "ready"
+        assert result["administrator_authority"]["status"] == "ready"
         assert result["microsoft_graph_authority"]["status"] == "ready"
         assert result["can_list_roles"]
 
@@ -193,11 +141,8 @@ class TestAzureCredentialValidation:
         """Test partial credential validation when some actions are missing."""
         from src.api.azure_credentials_checker import check_azure_credentials
 
-        mock_credential.side_effect = [Mock(), Mock()]
-        mock_identity.side_effect = [
-            _identity("deployment-sp"),
-            _identity("preparation-sp"),
-        ]
+        mock_credential.return_value = Mock()
+        mock_identity.return_value = _identity("administrator-sp")
 
         # Missing some required actions
         deployment_roles = {
@@ -205,7 +150,7 @@ class TestAzureCredentialValidation:
             "all_actions": {"*/read"},  # Only read
             "all_data_actions": set(),
         }
-        mock_roles.side_effect = [deployment_roles, _preparation_role_info()]
+        mock_roles.return_value = deployment_roles
         mock_regions.return_value = {}
         mock_graph.return_value = {
             "status": "ready",
@@ -371,47 +316,27 @@ class TestAzureRoleAssignmentFiltering:
         assert result["all_data_actions"] == set()
 
 
-class TestAzureSplitAuthority:
-    def test_preparation_authority_accepts_exact_condition(self):
-        from src.api.azure_credentials_checker import _validate_preparation_authority
+class TestAzureAdministratorAuthority:
+    def test_administrator_authority_accepts_subscription_owner(self):
+        from src.api.azure_credentials_checker import _validate_administrator_authority
 
-        result = _validate_preparation_authority(_preparation_role_info())
+        result = _validate_administrator_authority(_administrator_role_info())
 
         assert result["status"] == "ready"
-        assert result["principal_types"] == ["ServicePrincipal", "User"]
+        assert result["owner_assignment_found"] is True
 
-    def test_preparation_authority_rejects_group_target(self):
-        from src.api.azure_credentials_checker import _validate_preparation_authority
+    def test_administrator_authority_rejects_non_owner(self):
+        from src.api.azure_credentials_checker import _validate_administrator_authority
 
-        role_info = _preparation_role_info(
-            condition=_preparation_condition(
-                principal_types=("User", "ServicePrincipal", "Group")
-            )
-        )
+        role_info = _administrator_role_info()
+        role_info["assignments"][0]["role_definition_id"] = "reader-role-id"
 
-        result = _validate_preparation_authority(role_info)
+        result = _validate_administrator_authority(role_info)
 
         assert result["status"] == "invalid"
-        assert "principal-type" in result["message"]
+        assert result["owner_assignment_found"] is False
 
-    def test_preparation_authority_rejects_owner_role_id(self):
-        from src.api.azure_credentials_checker import (
-            AZURE_BUILTIN_ROLES,
-            _validate_preparation_authority,
-        )
-
-        role_info = _preparation_role_info(
-            condition=_preparation_condition(
-                extra_role_ids=(AZURE_BUILTIN_ROLES["Owner"],)
-            )
-        )
-
-        result = _validate_preparation_authority(role_info)
-
-        assert result["status"] == "invalid"
-        assert result["unexpected_role_ids"] == [AZURE_BUILTIN_ROLES["Owner"]]
-
-    def test_graph_authority_requires_exact_application_permissions(self):
+    def test_graph_authority_requires_application_permissions(self):
         from src.api.azure_credentials_checker import (
             AZURE_GRAPH_APPLICATION_PERMISSIONS,
             _check_microsoft_graph_authority,
@@ -433,7 +358,7 @@ class TestAzureSplitAuthority:
 
         assert result["status"] == "ready"
 
-    def test_graph_authority_rejects_additional_application_permission(self):
+    def test_graph_authority_accepts_additional_application_permission(self):
         from src.api.azure_credentials_checker import (
             AZURE_GRAPH_APPLICATION_PERMISSIONS,
             _check_microsoft_graph_authority,
@@ -457,8 +382,8 @@ class TestAzureSplitAuthority:
 
         result = _check_microsoft_graph_authority(credential)
 
-        assert result["status"] == "overprivileged"
-        assert result["unexpected_permissions"] == ["Directory.Read.All"]
+        assert result["status"] == "ready"
+        assert result["unexpected_permissions"] == []
 
 
 class TestAzureSPExpiration:
@@ -569,11 +494,8 @@ class TestAzureSPExpiration:
         """Test that credentials expiring soon produce warning but don't fail."""
         from src.api.azure_credentials_checker import check_azure_credentials
 
-        mock_create_cred.side_effect = [Mock(), Mock()]
-        mock_get_identity.side_effect = [
-            _identity("deployment-sp"),
-            _identity("preparation-sp"),
-        ]
+        mock_create_cred.return_value = Mock()
+        mock_get_identity.return_value = _identity("administrator-sp")
         mock_expiration.return_value = {
             "status": "expiring_soon",
             "days_until_expiration": 15,
@@ -586,7 +508,7 @@ class TestAzureSPExpiration:
             "missing_permissions": [],
             "unexpected_permissions": [],
         }
-        mock_roles.side_effect = [_deployment_role_info(), _preparation_role_info()]
+        mock_roles.return_value = _administrator_role_info()
 
         result = check_azure_credentials(_azure_credentials())
 
@@ -676,9 +598,8 @@ class TestActionMatching:
             == "none"
         )
 
-    def test_contributor_not_actions_exclude_rbac_mutation(self):
-        """Contributor must not be misclassified as RBAC-mutation authority."""
-        from src.api.azure_credentials_checker import _validate_deployment_authority
+    def test_contributor_is_not_accepted_as_poc_administrator(self):
+        from src.api.azure_credentials_checker import _validate_administrator_authority
 
         role_info = {
             "assignments": [{"role_name": "Contributor"}],
@@ -698,10 +619,10 @@ class TestActionMatching:
             ],
         }
 
-        result = _validate_deployment_authority(role_info)
+        result = _validate_administrator_authority(role_info)
 
-        assert result["status"] == "ready"
-        assert result["forbidden_actions"] == []
+        assert result["status"] == "invalid"
+        assert result["owner_assignment_found"] is False
 
 
 class TestComparePermissions:
@@ -778,45 +699,19 @@ class TestComparePermissions:
         assert "Microsoft.Authorization/roleAssignments/write" not in layer_1_required
         assert "Microsoft.Authorization/roleAssignments/delete" not in layer_1_required
 
-    def test_deployment_authority_rejects_role_assignment_actions(self):
-        """The deployment principal must not retain RBAC mutation authority."""
-        from src.api.azure_credentials_checker import _validate_deployment_authority
+    def test_administrator_authority_requires_rbac_mutation_actions(self):
+        from src.api.azure_credentials_checker import _validate_administrator_authority
 
-        role_info = {
-            "assignments": [
-                {"role_name": "Contributor"},
-                {"role_name": "User Access Administrator"},
-            ],
-            "all_actions": {"*"},
-            "all_data_actions": set(),
-            "permission_blocks": [
-                {
-                    "role_name": "Contributor",
-                    "actions": {"*"},
-                    "not_actions": {
-                        "Microsoft.Authorization/roleAssignments/write",
-                        "Microsoft.Authorization/roleAssignments/delete",
-                    },
-                    "data_actions": set(),
-                    "not_data_actions": set(),
-                },
-                {
-                    "role_name": "User Access Administrator",
-                    "actions": {
-                        "Microsoft.Authorization/roleAssignments/write",
-                        "Microsoft.Authorization/roleAssignments/delete",
-                    },
-                    "not_actions": set(),
-                    "data_actions": set(),
-                    "not_data_actions": set(),
-                },
-            ],
+        role_info = _administrator_role_info()
+        role_info["permission_blocks"][0]["not_actions"] = {
+            "Microsoft.Authorization/roleAssignments/write",
+            "Microsoft.Authorization/roleAssignments/delete",
         }
 
-        result = _validate_deployment_authority(role_info)
+        result = _validate_administrator_authority(role_info)
 
         assert result["status"] == "invalid"
-        assert result["forbidden_actions"] == [
+        assert result["missing_actions"] == [
             "Microsoft.Authorization/roleAssignments/write",
             "Microsoft.Authorization/roleAssignments/delete",
         ]
@@ -908,7 +803,7 @@ class TestRequiredPermissionsStructure:
             assert layer in REQUIRED_AZURE_PERMISSIONS, f"Missing layer: {layer}"
 
     def test_layer_1_excludes_authorization_actions(self):
-        """Role assignments belong exclusively to the preparation principal."""
+        """RBAC is checked once at administrator scope, not per runtime layer."""
         from src.api.azure_credentials_checker import REQUIRED_AZURE_PERMISSIONS
 
         layer_1 = REQUIRED_AZURE_PERMISSIONS["layer_1"]

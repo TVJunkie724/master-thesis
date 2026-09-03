@@ -248,8 +248,6 @@ def _load_credentials(
         "azure_tenant_id",
         "azure_client_id",
         "azure_client_secret",
-        "azure_preparation_client_id",
-        "azure_preparation_client_secret",
         "azure_region",
     }
     if (
@@ -435,23 +433,11 @@ def _gcp_credentials(key: dict[str, Any]) -> service_account.Credentials:
     )
 
 
-def _azure_credentials(
-    values: dict[str, Any],
-    *,
-    preparation: bool = False,
-) -> ClientSecretCredential:
-    client_key = (
-        "azure_preparation_client_id" if preparation else "azure_client_id"
-    )
-    secret_key = (
-        "azure_preparation_client_secret"
-        if preparation
-        else "azure_client_secret"
-    )
+def _azure_credentials(values: dict[str, Any]) -> ClientSecretCredential:
     return ClientSecretCredential(
         tenant_id=values["azure_tenant_id"],
-        client_id=values[client_key],
-        client_secret=values[secret_key],
+        client_id=values["azure_client_id"],
+        client_secret=values["azure_client_secret"],
     )
 
 
@@ -1539,11 +1525,10 @@ def _run_gcp_to_azure(
         "iamcredentials", "v1", credentials=google_credentials, cache_discovery=False
     )
     azure_credential = _azure_credentials(azure)
-    azure_preparation_credential = _azure_credentials(azure, preparation=True)
     resource_client = ResourceManagementClient(azure_credential, subscription_id)
     identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
     authorization_client = AuthorizationManagementClient(
-        azure_preparation_credential,
+        azure_credential,
         subscription_id,
     )
 
@@ -1764,7 +1749,7 @@ def _run_gcp_to_azure(
             if principal_id:
                 try:
                     _expect_azure_service_principal_absent(
-                        azure_preparation_credential,
+                        azure_credential,
                         principal_id,
                     )
                 except Exception as exc:
@@ -1782,7 +1767,6 @@ def _run_gcp_to_azure(
             time.sleep(5)
 
     azure_credential.close()
-    azure_preparation_credential.close()
     cleanup_completed_at = now()
     cleanup_status = "clean" if not cleanup_errors else "failed"
     residual_status = (
@@ -1848,11 +1832,10 @@ def _run_aws_to_azure(
     iam_aws = aws_session.client("iam")
     sts_aws = _aws_regional_sts(aws_session, aws["aws_region"])
     azure_credential = _azure_credentials(azure)
-    azure_preparation_credential = _azure_credentials(azure, preparation=True)
     resource_client = ResourceManagementClient(azure_credential, subscription_id)
     identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
     authorization_client = AuthorizationManagementClient(
-        azure_preparation_credential,
+        azure_credential,
         subscription_id,
     )
 
@@ -2132,7 +2115,7 @@ def _run_aws_to_azure(
             if principal_id:
                 try:
                     _expect_azure_service_principal_absent(
-                        azure_preparation_credential,
+                        azure_credential,
                         principal_id,
                     )
                 except Exception as exc:
@@ -2142,7 +2125,6 @@ def _run_aws_to_azure(
             time.sleep(5)
 
     azure_credential.close()
-    azure_preparation_credential.close()
     cleanup_completed_at = now()
     cleanup_status = "clean" if not cleanup_errors else "failed"
     residual_status = "clean" if not residual_errors else "active_residual_detected"
@@ -2536,7 +2518,6 @@ def _run_azure_to_aws(
         raise ProbeBlocked("AZURE_TENANT_ID_INVALID") from exc
 
     azure_credential = _azure_credentials(azure)
-    azure_preparation_credential = _azure_credentials(azure, preparation=True)
     resource_client = ResourceManagementClient(azure_credential, subscription_id)
     identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
     aws_session = _aws_session(aws)
@@ -2594,12 +2575,12 @@ def _run_azure_to_aws(
             resource_group_name,
         )
         _expect_graph_display_name_absent(
-            azure_preparation_credential,
+            azure_credential,
             "applications",
             application_name,
         )
         _expect_graph_display_name_absent(
-            azure_preparation_credential,
+            azure_credential,
             "servicePrincipals",
             application_name,
         )
@@ -2639,13 +2620,13 @@ def _run_azure_to_aws(
 
         exchange_stage = "await_managed_identity_graph_principal"
         _wait_for_graph_service_principal(
-            azure_preparation_credential,
+            azure_credential,
             principal_id,
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_application"
         application = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             "/v1.0/applications",
             expected_statuses=(201,),
@@ -2673,14 +2654,14 @@ def _run_azure_to_aws(
         audience = f"api://{application_id}"
         exchange_stage = "update_entra_audience_identifier_uri"
         _update_graph_application_identifier_uri(
-            azure_preparation_credential,
+            azure_credential,
             application_object_id,
             audience,
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             "/v1.0/servicePrincipals",
             expected_statuses=(201,),
@@ -2695,14 +2676,14 @@ def _run_azure_to_aws(
         service_principal_created = True
         exchange_stage = "await_entra_audience_service_principal"
         _wait_for_graph_service_principal(
-            azure_preparation_credential,
+            azure_credential,
             service_principal_id,
             started_monotonic,
             required_app_role_id=app_role_id,
         )
         exchange_stage = "create_entra_app_role_assignment"
         assignment = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
             expected_statuses=(201,),
@@ -2718,7 +2699,7 @@ def _run_azure_to_aws(
         assignment_created = True
         exchange_stage = "await_entra_assignment"
         _wait_for_graph_app_role_assignment(
-            azure_preparation_credential,
+            azure_credential,
             principal_id,
             assignment_id,
             started_monotonic,
@@ -2838,7 +2819,7 @@ def _run_azure_to_aws(
         if assignment_created and principal_id and assignment_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/servicePrincipals/{principal_id}/"
                     f"appRoleAssignments/{assignment_id}",
                 )
@@ -2847,7 +2828,7 @@ def _run_azure_to_aws(
         if service_principal_created and service_principal_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/servicePrincipals/{service_principal_id}",
                 )
             except Exception as exc:
@@ -2855,7 +2836,7 @@ def _run_azure_to_aws(
         if application_created and application_object_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/applications/{application_object_id}",
                 )
             except Exception as exc:
@@ -2895,12 +2876,12 @@ def _run_azure_to_aws(
                 residual_errors.append(_safe_error_code(exc))
             try:
                 _expect_graph_application_absent_with_delete_retry(
-                    azure_preparation_credential,
+                    azure_credential,
                     application_name,
                     application_object_id,
                 )
                 _expect_graph_display_name_absent(
-                    azure_preparation_credential,
+                    azure_credential,
                     "servicePrincipals",
                     application_name,
                 )
@@ -2909,7 +2890,7 @@ def _run_azure_to_aws(
             if principal_id:
                 try:
                     _expect_azure_service_principal_absent(
-                        azure_preparation_credential,
+                        azure_credential,
                         principal_id,
                     )
                 except Exception as exc:
@@ -2919,7 +2900,6 @@ def _run_azure_to_aws(
             time.sleep(5)
 
     azure_credential.close()
-    azure_preparation_credential.close()
     cleanup_completed_at = now()
     cleanup_status = "clean" if not cleanup_errors else "failed"
     residual_status = "clean" if not residual_errors else "active_residual_detected"
@@ -2988,7 +2968,6 @@ def _run_azure_to_gcp(
     )
 
     azure_credential = _azure_credentials(azure)
-    azure_preparation_credential = _azure_credentials(azure, preparation=True)
     resource_client = ResourceManagementClient(azure_credential, subscription_id)
     identity_client = ManagedServiceIdentityClient(azure_credential, subscription_id)
     google_credentials = _gcp_credentials(gcp_key)
@@ -3058,12 +3037,12 @@ def _run_azure_to_gcp(
             resource_group_name,
         )
         _expect_graph_display_name_absent(
-            azure_preparation_credential,
+            azure_credential,
             "applications",
             application_name,
         )
         _expect_graph_display_name_absent(
-            azure_preparation_credential,
+            azure_credential,
             "servicePrincipals",
             application_name,
         )
@@ -3111,13 +3090,13 @@ def _run_azure_to_gcp(
 
         exchange_stage = "await_managed_identity_graph_principal"
         _wait_for_graph_service_principal(
-            azure_preparation_credential,
+            azure_credential,
             principal_id,
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_application"
         application = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             "/v1.0/applications",
             expected_statuses=(201,),
@@ -3145,14 +3124,14 @@ def _run_azure_to_gcp(
         audience = f"api://{application_id}"
         exchange_stage = "update_entra_audience_identifier_uri"
         _update_graph_application_identifier_uri(
-            azure_preparation_credential,
+            azure_credential,
             application_object_id,
             audience,
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
         service_principal = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             "/v1.0/servicePrincipals",
             expected_statuses=(201,),
@@ -3167,14 +3146,14 @@ def _run_azure_to_gcp(
         service_principal_created = True
         exchange_stage = "await_entra_audience_service_principal"
         _wait_for_graph_service_principal(
-            azure_preparation_credential,
+            azure_credential,
             service_principal_id,
             started_monotonic,
             required_app_role_id=app_role_id,
         )
         exchange_stage = "create_entra_app_role_assignment"
         assignment = _graph_request(
-            azure_preparation_credential,
+            azure_credential,
             "POST",
             f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
             expected_statuses=(201,),
@@ -3190,7 +3169,7 @@ def _run_azure_to_gcp(
         assignment_created = True
         exchange_stage = "await_entra_assignment"
         _wait_for_graph_app_role_assignment(
-            azure_preparation_credential,
+            azure_credential,
             principal_id,
             assignment_id,
             started_monotonic,
@@ -3360,7 +3339,7 @@ def _run_azure_to_gcp(
         if assignment_created and principal_id and assignment_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/servicePrincipals/{principal_id}/"
                     f"appRoleAssignments/{assignment_id}",
                 )
@@ -3369,7 +3348,7 @@ def _run_azure_to_gcp(
         if service_principal_created and service_principal_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/servicePrincipals/{service_principal_id}",
                 )
             except Exception as exc:
@@ -3377,7 +3356,7 @@ def _run_azure_to_gcp(
         if application_created and application_object_id:
             try:
                 _delete_graph_object(
-                    azure_preparation_credential,
+                    azure_credential,
                     f"/v1.0/applications/{application_object_id}",
                 )
             except Exception as exc:
@@ -3409,12 +3388,12 @@ def _run_azure_to_gcp(
                 residual_errors.append(_safe_error_code(exc))
             try:
                 _expect_graph_application_absent_with_delete_retry(
-                    azure_preparation_credential,
+                    azure_credential,
                     application_name,
                     application_object_id,
                 )
                 _expect_graph_display_name_absent(
-                    azure_preparation_credential,
+                    azure_credential,
                     "servicePrincipals",
                     application_name,
                 )
@@ -3423,7 +3402,7 @@ def _run_azure_to_gcp(
             if principal_id:
                 try:
                     _expect_azure_service_principal_absent(
-                        azure_preparation_credential,
+                        azure_credential,
                         principal_id,
                     )
                 except Exception as exc:
@@ -3446,7 +3425,6 @@ def _run_azure_to_gcp(
             time.sleep(5)
 
     azure_credential.close()
-    azure_preparation_credential.close()
     cleanup_completed_at = now()
     cleanup_status = "clean" if not cleanup_errors else "failed"
     residual_status = "clean" if not residual_errors else "active_residual_detected"

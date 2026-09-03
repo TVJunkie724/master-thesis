@@ -46,31 +46,6 @@ provider "azurerm" {
   tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
-# Azure preparation provider. Only condition-constrained role assignments use
-# this alias; ordinary resources stay on the default deployment provider.
-provider "azurerm" {
-  alias = "preparation"
-
-  features {
-    resource_group {
-      prevent_deletion_if_contains_resources = false
-    }
-    log_analytics_workspace {
-      permanently_delete_on_destroy = true
-    }
-  }
-
-  resource_provider_registrations = "none"
-  use_cli                         = false
-  use_msi                         = false
-  use_oidc                        = false
-
-  subscription_id = var.azure_subscription_id != "" ? var.azure_subscription_id : "00000000-0000-0000-0000-000000000000"
-  client_id       = var.azure_preparation_client_id != "" ? var.azure_preparation_client_id : "00000000-0000-0000-0000-000000000000"
-  client_secret   = var.azure_preparation_client_secret != "" ? var.azure_preparation_client_secret : "placeholder-secret-not-used"
-  tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
-}
-
 provider "azapi" {
   use_cli  = false
   use_msi  = false
@@ -83,7 +58,7 @@ provider "azapi" {
 }
 
 # Azure AD Provider for the bounded Entra objects required by directed federation.
-# It intentionally uses the preparation principal, not the deployment principal.
+# The isolated thesis PoC uses the same administrator as Azure Resource Manager.
 provider "azuread" {
   # Same fallback auth suppression as azurerm — prevents Azure CLI lookup on
   # deployments that don't use Azure layers.
@@ -91,8 +66,8 @@ provider "azuread" {
   use_msi  = false
   use_oidc = false
 
-  client_id     = var.azure_preparation_client_id != "" ? var.azure_preparation_client_id : "00000000-0000-0000-0000-000000000000"
-  client_secret = var.azure_preparation_client_secret != "" ? var.azure_preparation_client_secret : "placeholder-secret-not-used"
+  client_id     = var.azure_client_id != "" ? var.azure_client_id : "00000000-0000-0000-0000-000000000000"
+  client_secret = var.azure_client_secret != "" ? var.azure_client_secret : "placeholder-secret-not-used"
   tenant_id     = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 

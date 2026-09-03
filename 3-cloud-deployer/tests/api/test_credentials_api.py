@@ -155,8 +155,6 @@ class TestAzurePermissionsFromBody:
                 "azure_tenant_id": "tenant-123",
                 "azure_client_id": "client-123",
                 "azure_client_secret": "secret",
-                "azure_preparation_client_id": "preparation-client-123",
-                "azure_preparation_client_secret": "preparation-secret",
                 "azure_region": "westeurope",
                 "azure_region_iothub": "westeurope",
                 "azure_region_digital_twin": "westeurope",
@@ -173,8 +171,6 @@ class TestAzurePermissionsFromBody:
                 "azure_tenant_id": "tenant-123",
                 "azure_client_id": "client-123",
                 "azure_client_secret": "secret",
-                "azure_preparation_client_id": "preparation-client-123",
-                "azure_preparation_client_secret": "preparation-secret",
                 "azure_region": "westeurope",
                 "azure_region_iothub": "westeurope",
                 "azure_region_digital_twin": "westeurope",
@@ -191,8 +187,6 @@ class TestAzurePermissionsFromBody:
                 "azure_subscription_id": "sub-123",
                 "azure_client_id": "client-123",
                 "azure_client_secret": "secret",
-                "azure_preparation_client_id": "preparation-client-123",
-                "azure_preparation_client_secret": "preparation-secret",
                 "azure_region": "westeurope",
                 "azure_region_iothub": "westeurope",
                 "azure_region_digital_twin": "westeurope",
@@ -209,8 +203,6 @@ class TestAzurePermissionsFromBody:
                 "azure_subscription_id": "sub-123",
                 "azure_tenant_id": "tenant-123",
                 "azure_client_id": "client-123",
-                "azure_preparation_client_id": "preparation-client-123",
-                "azure_preparation_client_secret": "preparation-secret",
                 "azure_region": "westeurope",
                 "azure_region_iothub": "westeurope",
                 "azure_region_digital_twin": "westeurope",
@@ -436,7 +428,7 @@ class TestCredentialResponseFormats:
         assert "required_roles" in data
 
 
-def test_azure_split_principal_secrets_are_request_only_in_openapi():
+def test_azure_administrator_secret_is_request_only_in_openapi():
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     request = schemas["AzureCredentialsRequest"]
     properties = request["properties"]
@@ -444,13 +436,10 @@ def test_azure_split_principal_secrets_are_request_only_in_openapi():
     assert {
         "azure_client_id",
         "azure_client_secret",
-        "azure_preparation_client_id",
-        "azure_preparation_client_secret",
     }.issubset(request["required"])
     assert properties["azure_client_secret"]["writeOnly"] is True
-    assert properties["azure_preparation_client_secret"]["writeOnly"] is True
+    assert "azure_preparation_client_id" not in properties
+    assert "azure_preparation_client_secret" not in properties
     response_properties = schemas["AzureCredentialsCheckResponse"]["properties"]
     assert "azure_client_id" not in response_properties
     assert "azure_client_secret" not in response_properties
-    assert "azure_preparation_client_id" not in response_properties
-    assert "azure_preparation_client_secret" not in response_properties

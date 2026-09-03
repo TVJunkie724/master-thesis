@@ -94,18 +94,6 @@ class CloudConnectionImportMetadata(BaseModel):
         min_length=1,
         max_length=80,
     )
-    preparation_client_id: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=256,
-    )
-    preparation_client_secret: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=4_096,
-        json_schema_extra={"writeOnly": True},
-    )
-
     @model_validator(mode="after")
     def validate_target_scope(self):
         if self.provider in {"azure", "gcp"} and not self.target_scope_id:
@@ -117,16 +105,8 @@ class CloudConnectionImportMetadata(BaseModel):
         if self.provider != "azure" and (
             self.region_iothub
             or self.region_digital_twin
-            or self.preparation_client_id
-            or self.preparation_client_secret
         ):
             raise ValueError("Azure region overrides are only valid for Azure")
-        if self.provider == "azure" and not (
-            self.preparation_client_id and self.preparation_client_secret
-        ):
-            raise ValueError(
-                "Azure import requires the preparation principal client ID and secret"
-            )
         return self
 
 
