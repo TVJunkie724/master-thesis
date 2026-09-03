@@ -87,7 +87,7 @@ void main() {
   });
 
   testWidgets(
-    'Azure captures separate required principals and clears secrets',
+    'Azure captures one required administrator and clears its secret',
     (tester) async {
       final key = GlobalKey<ProviderPayloadFormState>();
       await tester.pumpWidget(
@@ -106,17 +106,14 @@ void main() {
       );
 
       expect(find.text('Target scope'), findsOneWidget);
-      expect(find.text('Deployment principal'), findsOneWidget);
-      expect(find.text('Preparation principal'), findsOneWidget);
+      expect(find.text('Azure PoC administrator'), findsOneWidget);
       expect(key.currentState!.validate(), isFalse);
 
       final values = {
         'Subscription ID': 'subscription',
         'Tenant ID': 'tenant',
-        'Client ID': 'deployment-client',
-        'Client Secret': 'deployment-secret',
-        'Preparation client ID': 'preparation-client',
-        'Preparation client secret': 'preparation-secret',
+        'Client ID': 'administrator-client',
+        'Client Secret': 'administrator-secret',
       };
       for (final entry in values.entries) {
         await tester.enterText(
@@ -128,15 +125,14 @@ void main() {
       expect(key.currentState!.validate(), isTrue);
       final credentials = key.currentState!.takeCredentials();
       await tester.pump();
-      expect(credentials['client_id'], 'deployment-client');
-      expect(credentials['preparation_client_id'], 'preparation-client');
-      expect(credentials['preparation_client_secret'], 'preparation-secret');
-      expect(find.text('deployment-secret'), findsNothing);
-      expect(find.text('preparation-secret'), findsNothing);
+      expect(credentials['client_id'], 'administrator-client');
+      expect(credentials, isNot(contains('preparation_client_id')));
+      expect(credentials, isNot(contains('preparation_client_secret')));
+      expect(find.text('administrator-secret'), findsNothing);
       expect(
         tester
             .widget<TextFormField>(
-              find.widgetWithText(TextFormField, 'Preparation client secret'),
+              find.widgetWithText(TextFormField, 'Client Secret'),
             )
             .controller
             ?.text,

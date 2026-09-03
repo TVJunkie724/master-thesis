@@ -16,7 +16,6 @@ void main() {
 
       expect(result.kind, AzureCredentialFileKind.servicePrincipal);
       expect(result.subscriptionId, 'subscription');
-      expect(result.preparationClientId, isNull);
       expect(_normalized(result), {
         'appId': 'deployment-client',
         'password': 'deployment-secret',
@@ -37,8 +36,6 @@ void main() {
       expect(result.region, 'westeurope');
       expect(result.regionIotHub, 'northeurope');
       expect(result.regionDigitalTwin, 'westeurope');
-      expect(result.preparationClientId, 'preparation-client');
-      expect(result.preparationClientSecret, 'preparation-secret');
       final normalizedText = utf8.decode(result.normalizedUploadBytes);
       expect(normalizedText, isNot(contains('aws-marker')));
       expect(normalizedText, isNot(contains('gcp-marker')));
@@ -55,7 +52,6 @@ void main() {
       final result = _parse(_completeBundle());
 
       expect(result.kind, AzureCredentialFileKind.compatibilityBundle);
-      expect(result.preparationClientId, 'preparation-client');
       expect(_normalized(result).keys, {
         'appId',
         'password',
@@ -106,14 +102,13 @@ void main() {
       expect(result.regionDigitalTwin, isNull);
     });
 
-    test('rejects one client ID reused for both principals', () {
+    test('ignores legacy preparation fields', () {
       final bundle = _completeBundle()
         ..['azure_preparation_client_id'] = 'deployment-client';
 
-      expect(
-        () => _parse(bundle),
-        _throwsCode(AzureCredentialFileErrorCode.sharedPrincipal),
-      );
+      final result = _parse(bundle);
+
+      expect(jsonEncode(_normalized(result)), isNot(contains('preparation')));
     });
 
     test('accepts UTF-8 BOM input', () {
@@ -182,8 +177,7 @@ void main() {
     );
 
     test('rejects incomplete bundles without echoing input values', () {
-      final bundle = _completeBundle()
-        ..remove('azure_preparation_client_secret');
+      final bundle = _completeBundle()..remove('azure_client_secret');
 
       expect(
         () => _parse(bundle),

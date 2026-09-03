@@ -255,15 +255,6 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
         ),
         ProviderPayloadField('client_id', 'Client ID'),
         ProviderPayloadField('client_secret', 'Client Secret', secret: true),
-        ProviderPayloadField(
-          'preparation_client_id',
-          CloudConnectionStrings.preparationClientId,
-        ),
-        ProviderPayloadField(
-          'preparation_client_secret',
-          CloudConnectionStrings.preparationClientSecret,
-          secret: true,
-        ),
       ],
       CloudProvider.gcp => const [
         ProviderPayloadField('project_id', 'Existing project ID'),
@@ -281,12 +272,8 @@ class ProviderPayloadFormState extends State<ProviderPayloadForm> {
         CloudConnectionStrings.targetScope,
       ),
       'client_id' => const _PayloadSection(
-        CloudConnectionStrings.deploymentPrincipal,
-        CloudConnectionStrings.deploymentPrincipalHelp,
-      ),
-      'preparation_client_id' => const _PayloadSection(
-        CloudConnectionStrings.preparationPrincipal,
-        CloudConnectionStrings.preparationPrincipalHelp,
+        CloudConnectionStrings.azurePocAdministrator,
+        CloudConnectionStrings.azurePocAdministratorHelp,
       ),
       _ => null,
     };

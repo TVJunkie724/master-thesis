@@ -38,8 +38,6 @@ class _CloudConnectionImportDialogState
   final _ssoRegion = TextEditingController();
   final _regionIotHub = TextEditingController();
   final _regionDigitalTwin = TextEditingController();
-  final _preparationClientId = TextEditingController();
-  final _preparationClientSecret = TextEditingController();
   String? _filename;
   Uint8List? _bytes;
   String? _fileError;
@@ -61,10 +59,6 @@ class _CloudConnectionImportDialogState
     _ssoRegion.dispose();
     _regionIotHub.dispose();
     _regionDigitalTwin.dispose();
-    _preparationClientId.clear();
-    _preparationClientId.dispose();
-    _preparationClientSecret.clear();
-    _preparationClientSecret.dispose();
     super.dispose();
   }
 
@@ -151,28 +145,6 @@ class _CloudConnectionImportDialogState
                   _optionalField(
                     _regionDigitalTwin,
                     'Digital Twins region (optional)',
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    CloudConnectionStrings.preparationPrincipal,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    CloudConnectionStrings.preparationPrincipalHelp,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _requiredField(
-                    _preparationClientId,
-                    CloudConnectionStrings.preparationClientId,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _requiredField(
-                    _preparationClientSecret,
-                    CloudConnectionStrings.preparationClientSecret,
-                    obscureText: true,
-                    onFieldSubmitted: (_) => _submit(),
                   ),
                 ],
               ],
@@ -287,8 +259,6 @@ class _CloudConnectionImportDialogState
       _targetScopeId.text = selection.subscriptionId ?? '';
       _regionIotHub.text = selection.regionIotHub ?? '';
       _regionDigitalTwin.text = selection.regionDigitalTwin ?? '';
-      _preparationClientId.text = selection.preparationClientId ?? '';
-      _preparationClientSecret.text = selection.preparationClientSecret ?? '';
       setState(() {
         _filename = file.name;
         _bytes = selection.normalizedUploadBytes;
@@ -320,8 +290,6 @@ class _CloudConnectionImportDialogState
     _targetScopeId.clear();
     _regionIotHub.clear();
     _regionDigitalTwin.clear();
-    _preparationClientId.clear();
-    _preparationClientSecret.clear();
   }
 
   void _submit() {
@@ -342,13 +310,10 @@ class _CloudConnectionImportDialogState
         ssoRegion: _optional(_ssoRegion.text),
         regionIotHub: _optional(_regionIotHub.text),
         regionDigitalTwin: _optional(_regionDigitalTwin.text),
-        preparationClientId: _optional(_preparationClientId.text),
-        preparationClientSecret: _optional(_preparationClientSecret.text),
         filename: _filename!,
         bytes: _bytes!,
       );
       _bytes = null;
-      _preparationClientSecret.clear();
       Navigator.of(context).pop(request);
     } catch (error) {
       setState(() => _fileError = ApiErrorHandler.extractMessage(error));
@@ -432,12 +397,10 @@ String _azureFormatErrorMessage(FormatException error) =>
         CloudConnectionStrings.azureInvalidEncoding,
       AzureCredentialFileErrorCode.invalidJson =>
         CloudConnectionStrings.azureInvalidJson,
-      AzureCredentialFileErrorCode.missingDeploymentFields =>
-        CloudConnectionStrings.azureMissingDeploymentFields,
+      AzureCredentialFileErrorCode.missingAdministratorFields =>
+        CloudConnectionStrings.azureMissingAdministratorFields,
       AzureCredentialFileErrorCode.incompleteBundle =>
         CloudConnectionStrings.azureIncompleteBundle,
-      AzureCredentialFileErrorCode.sharedPrincipal =>
-        CloudConnectionStrings.azureSharedPrincipal,
       _ => CloudConnectionStrings.azureUnsupportedShape,
     };
 

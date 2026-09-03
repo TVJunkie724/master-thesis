@@ -384,9 +384,7 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => {
         'region': request.region,
         'credential_source': 'azure_service_principal_json',
-        'preparation_client_configured':
-            request.preparationClientId != null &&
-            request.preparationClientSecret != null,
+        'client_configured': true,
       },
       CloudProvider.gcp => {
         'region': request.region,
@@ -2147,9 +2145,7 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => {
         if (request.cloudScope['subscription_id'] != null)
           'subscription_id': request.cloudScope['subscription_id'],
-        'preparation_client_configured':
-            request.credentials['preparation_client_id'] != null &&
-            request.credentials['preparation_client_secret'] != null,
+        'client_configured': request.credentials['client_id'] != null,
       },
       CloudProvider.gcp => {
         if (request.cloudScope['project_id'] != null)

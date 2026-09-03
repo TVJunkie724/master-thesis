@@ -408,14 +408,13 @@ String _connectionSummary(CloudConnection connection) {
   return [
     connection.validationStatus.replaceAll('_', ' '),
     connection.authType,
-    if (connection.provider == CloudProvider.azure &&
-        connection.payloadSummary['preparation_client_configured'] == true)
-      CloudConnectionStrings.azureBundleSummary,
+    if (connection.provider == CloudProvider.azure)
+      CloudConnectionStrings.azureAdministratorSummary,
   ].where((value) => value.isNotEmpty).join(' · ');
 }
 
 String _providerResponsibility(CloudProvider provider) => switch (provider) {
   CloudProvider.aws => 'One identity for PoC deployment and cleanup.',
-  CloudProvider.azure => CloudConnectionStrings.azureBundleSummary,
+  CloudProvider.azure => CloudConnectionStrings.azureAdministratorSummary,
   CloudProvider.gcp => 'One service account for PoC deployment and cleanup.',
 };

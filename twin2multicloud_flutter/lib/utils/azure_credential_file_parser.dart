@@ -8,10 +8,9 @@ abstract class AzureCredentialFileErrorCode {
   static const invalidEncoding = 'azure_credential_invalid_encoding';
   static const invalidJson = 'azure_credential_invalid_json';
   static const unsupportedShape = 'azure_credential_unsupported_shape';
-  static const missingDeploymentFields =
-      'azure_credential_missing_deployment_fields';
+  static const missingAdministratorFields =
+      'azure_credential_missing_administrator_fields';
   static const incompleteBundle = 'azure_credential_incomplete_bundle';
-  static const sharedPrincipal = 'azure_credential_shared_principal';
 }
 
 class AzureCredentialFileSelection {
@@ -21,8 +20,6 @@ class AzureCredentialFileSelection {
   final String? region;
   final String? regionIotHub;
   final String? regionDigitalTwin;
-  final String? preparationClientId;
-  final String? preparationClientSecret;
   final AzureCredentialFileKind kind;
 
   AzureCredentialFileSelection({
@@ -32,8 +29,6 @@ class AzureCredentialFileSelection {
     required this.region,
     required this.regionIotHub,
     required this.regionDigitalTwin,
-    required this.preparationClientId,
-    required this.preparationClientSecret,
     required this.kind,
   }) : _normalizedUploadBytes = Uint8List.fromList(normalizedUploadBytes);
 
@@ -129,27 +124,15 @@ AzureCredentialFileSelection _parseCompatibilityAzure(
     maxLength: 256,
     errorCode: AzureCredentialFileErrorCode.incompleteBundle,
   );
-  final deploymentClientId = _requiredString(
+  final administratorClientId = _requiredString(
     value,
     'azure_client_id',
     maxLength: 256,
     errorCode: AzureCredentialFileErrorCode.incompleteBundle,
   );
-  final deploymentClientSecret = _requiredString(
+  final administratorClientSecret = _requiredString(
     value,
     'azure_client_secret',
-    maxLength: 4096,
-    errorCode: AzureCredentialFileErrorCode.incompleteBundle,
-  );
-  final preparationClientId = _requiredString(
-    value,
-    'azure_preparation_client_id',
-    maxLength: 256,
-    errorCode: AzureCredentialFileErrorCode.incompleteBundle,
-  );
-  final preparationClientSecret = _requiredString(
-    value,
-    'azure_preparation_client_secret',
     maxLength: 4096,
     errorCode: AzureCredentialFileErrorCode.incompleteBundle,
   );
@@ -160,14 +143,10 @@ AzureCredentialFileSelection _parseCompatibilityAzure(
     errorCode: AzureCredentialFileErrorCode.incompleteBundle,
   );
 
-  if (deploymentClientId == preparationClientId) {
-    throw const FormatException(AzureCredentialFileErrorCode.sharedPrincipal);
-  }
-
   return AzureCredentialFileSelection(
     normalizedUploadBytes: _normalizedBytes(
-      clientId: deploymentClientId,
-      clientSecret: deploymentClientSecret,
+      clientId: administratorClientId,
+      clientSecret: administratorClientSecret,
       tenantId: tenantId,
       subscriptionId: subscriptionId,
     ),
@@ -180,8 +159,6 @@ AzureCredentialFileSelection _parseCompatibilityAzure(
       'azure_region_digital_twin',
       maxLength: 80,
     ),
-    preparationClientId: preparationClientId,
-    preparationClientSecret: preparationClientSecret,
     kind: AzureCredentialFileKind.compatibilityBundle,
   );
 }
@@ -193,11 +170,11 @@ AzureCredentialFileSelection _parseStandardServicePrincipal(
     throw const FormatException(AzureCredentialFileErrorCode.unsupportedShape);
   }
 
-  final deploymentClientId = _requiredAlias(value, const [
+  final administratorClientId = _requiredAlias(value, const [
     'clientId',
     'appId',
   ], maxLength: 256);
-  final deploymentClientSecret = _requiredAlias(value, const [
+  final administratorClientSecret = _requiredAlias(value, const [
     'clientSecret',
     'password',
   ], maxLength: 4096);
@@ -212,8 +189,8 @@ AzureCredentialFileSelection _parseStandardServicePrincipal(
 
   return AzureCredentialFileSelection(
     normalizedUploadBytes: _normalizedBytes(
-      clientId: deploymentClientId,
-      clientSecret: deploymentClientSecret,
+      clientId: administratorClientId,
+      clientSecret: administratorClientSecret,
       tenantId: tenantId,
       subscriptionId: subscriptionId,
     ),
@@ -225,8 +202,6 @@ AzureCredentialFileSelection _parseStandardServicePrincipal(
     region: null,
     regionIotHub: null,
     regionDigitalTwin: null,
-    preparationClientId: null,
-    preparationClientSecret: null,
     kind: AzureCredentialFileKind.servicePrincipal,
   );
 }
@@ -258,7 +233,7 @@ String _requiredAlias(
   final result = _optionalAlias(value, aliases, maxLength: maxLength);
   if (result == null) {
     throw const FormatException(
-      AzureCredentialFileErrorCode.missingDeploymentFields,
+      AzureCredentialFileErrorCode.missingAdministratorFields,
     );
   }
   return result;

@@ -40,17 +40,6 @@ void main() {
           'scope-1',
         );
       }
-      if (provider == CloudProvider.azure) {
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Preparation client ID'),
-          'manual-preparation-client',
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Preparation client secret'),
-          'manual-preparation-secret',
-        );
-      }
-
       final submit = find.byKey(const Key('import-cloud-credential'));
       await tester.ensureVisible(submit);
       await tester.tap(submit);
@@ -64,16 +53,11 @@ void main() {
         CloudProvider.gcp => 'scope-1',
       });
       if (provider == CloudProvider.azure) {
-        expect(captured?.preparationClientId, 'manual-preparation-client');
         expect(
-          jsonDecode(captured!.metadataJson)['preparation_client_secret'],
-          'manual-preparation-secret',
+          jsonDecode(captured!.metadataJson).keys,
+          isNot(contains('preparation_client_secret')),
         );
         expect(_decodedBytes(captured!), _standardAzureJson());
-        expect(
-          captured.toString(),
-          isNot(contains('manual-preparation-secret')),
-        );
       } else {
         expect(captured?.bytes, [1, 2, 3]);
       }
@@ -98,31 +82,13 @@ void main() {
     await tester.tap(find.byKey(const Key('select-cloud-credential-file')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Complete Azure bundle detected'), findsOneWidget);
+    expect(find.text('Twin2MultiCloud Azure JSON detected'), findsOneWidget);
     expect(_fieldText(tester, 'Display name'), 'Azure administrator');
     expect(_fieldText(tester, 'Primary region'), 'westeurope');
     expect(_fieldText(tester, 'Subscription ID'), 'subscription');
     expect(_fieldText(tester, 'IoT Hub region (optional)'), 'northeurope');
     expect(_fieldText(tester, 'Digital Twins region (optional)'), 'westeurope');
-    expect(_fieldText(tester, 'Preparation client ID'), 'preparation-client');
-    expect(
-      _fieldText(tester, 'Preparation client secret'),
-      'preparation-secret',
-    );
-    expect(
-      tester
-          .widget<EditableText>(
-            find.descendant(
-              of: find.widgetWithText(
-                TextFormField,
-                'Preparation client secret',
-              ),
-              matching: find.byType(EditableText),
-            ),
-          )
-          .obscureText,
-      isTrue,
-    );
+    expect(find.textContaining('Preparation client'), findsNothing);
 
     final submit = find.byKey(const Key('import-cloud-credential'));
     await tester.ensureVisible(submit);
@@ -134,7 +100,7 @@ void main() {
     expect(jsonEncode(normalized), isNot(contains('preparation-client')));
     expect(jsonEncode(normalized), isNot(contains('aws-not-uploaded')));
     expect(jsonEncode(normalized), isNot(contains('gcp-not-uploaded')));
-    expect(captured!.preparationClientId, 'preparation-client');
+    expect(captured!.metadataJson, isNot(contains('preparation')));
   });
 
   testWidgets('shows fixed Azure parse errors and returns no request', (
@@ -161,7 +127,7 @@ void main() {
     expect(captured, isNull);
   });
 
-  testWidgets('standard Azure JSON keeps preparation fields required', (
+  testWidgets('standard Azure JSON requires no second principal', (
     tester,
   ) async {
     CloudConnectionImportRequest? captured;
@@ -179,11 +145,10 @@ void main() {
     final submit = find.byKey(const Key('import-cloud-credential'));
     await tester.ensureVisible(submit);
     await tester.tap(submit);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Preparation client ID is required.'), findsOneWidget);
-    expect(find.text('Preparation client secret is required.'), findsOneWidget);
-    expect(captured, isNull);
+    expect(find.textContaining('Preparation client'), findsNothing);
+    expect(captured, isNotNull);
   });
 
   testWidgets(
@@ -203,15 +168,6 @@ void main() {
         find.widgetWithText(TextFormField, 'Subscription ID'),
         'edited-subscription',
       );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Preparation client ID'),
-        'manual-preparation-client',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Preparation client secret'),
-        'manual-preparation-secret',
-      );
-
       await tester.ensureVisible(
         find.byKey(const Key('import-cloud-credential')),
       );
@@ -223,9 +179,7 @@ void main() {
     },
   );
 
-  testWidgets('Enter on the final Azure secret submits valid input', (
-    tester,
-  ) async {
+  testWidgets('Azure file secrets never render as form fields', (tester) async {
     CloudConnectionImportRequest? captured;
     await _pumpLauncher(
       tester,
@@ -236,13 +190,11 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('select-cloud-credential-file')));
     await tester.pumpAndSettle();
-    final secret = find.widgetWithText(
-      TextFormField,
-      'Preparation client secret',
+    expect(find.textContaining('Client secret'), findsNothing);
+    await tester.ensureVisible(
+      find.byKey(const Key('import-cloud-credential')),
     );
-    await tester.ensureVisible(secret);
-    await tester.tap(secret);
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.tap(find.byKey(const Key('import-cloud-credential')));
     await tester.pumpAndSettle();
 
     expect(captured, isNotNull);
@@ -265,8 +217,8 @@ void main() {
 
     expect(find.text('Standard Azure JSON'), findsOneWidget);
     expect(find.text('Twin2MultiCloud Azure bundle'), findsOneWidget);
-    expect(find.textContaining('<deployment-client-id>'), findsNWidgets(2));
-    expect(find.textContaining('<preparation-client-id>'), findsOneWidget);
+    expect(find.textContaining('<administrator-client-id>'), findsNWidgets(2));
+    expect(find.textContaining('<preparation-client-id>'), findsNothing);
     expect(find.textContaining('aws-not-uploaded'), findsNothing);
   });
 
@@ -289,10 +241,7 @@ void main() {
     final select = find.byKey(const Key('select-cloud-credential-file'));
     await tester.tap(select);
     await tester.pumpAndSettle();
-    expect(
-      _fieldText(tester, 'Preparation client secret'),
-      'preparation-secret',
-    );
+    expect(_fieldText(tester, 'Subscription ID'), 'subscription');
 
     await tester.tap(select);
     await tester.pumpAndSettle();
@@ -301,9 +250,8 @@ void main() {
       find.text('Azure credential JSON does not match a supported format.'),
       findsOneWidget,
     );
-    expect(_fieldText(tester, 'Preparation client secret'), isEmpty);
-    expect(_fieldText(tester, 'Preparation client ID'), isEmpty);
-    expect(find.text('Complete Azure bundle detected'), findsNothing);
+    expect(_fieldText(tester, 'Subscription ID'), isEmpty);
+    expect(find.text('Twin2MultiCloud Azure JSON detected'), findsNothing);
   });
 
   testWidgets('cancelled picker retains a valid Azure selection', (
@@ -329,7 +277,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('valid.json'), findsOneWidget);
-    expect(find.text('Complete Azure bundle detected'), findsOneWidget);
+    expect(find.text('Twin2MultiCloud Azure JSON detected'), findsOneWidget);
     expect(_fieldText(tester, 'Subscription ID'), 'subscription');
   });
 

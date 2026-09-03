@@ -132,83 +132,78 @@ void main() {
       }
     });
 
-    testWidgets('imports, lists, and deletes one redacted Azure bundle', (
-      tester,
-    ) async {
-      const deploymentClientId = 'synthetic-deployment-principal';
-      const deploymentSecret = 'synthetic-deployment-secret';
-      const preparationClientId = 'synthetic-preparation-principal';
-      const preparationSecret = 'synthetic-preparation-secret';
-      String? connectionId;
-      try {
-        final selection = parseAzureCredentialFileSelection(
-          Uint8List.fromList(
-            utf8.encode(
-              jsonEncode({
-                'azure': {
-                  'azure_subscription_id': 'synthetic-subscription',
-                  'azure_tenant_id': 'synthetic-tenant',
-                  'azure_client_id': deploymentClientId,
-                  'azure_client_secret': deploymentSecret,
-                  'azure_preparation_client_id': preparationClientId,
-                  'azure_preparation_client_secret': preparationSecret,
-                  'azure_region': 'westeurope',
-                },
-              }),
+    testWidgets(
+      'imports, lists, and deletes one redacted Azure administrator',
+      (tester) async {
+        const administratorClientId = 'synthetic-administrator-principal';
+        const administratorSecret = 'synthetic-administrator-secret';
+        String? connectionId;
+        try {
+          final selection = parseAzureCredentialFileSelection(
+            Uint8List.fromList(
+              utf8.encode(
+                jsonEncode({
+                  'azure': {
+                    'azure_subscription_id': 'synthetic-subscription',
+                    'azure_tenant_id': 'synthetic-tenant',
+                    'azure_client_id': administratorClientId,
+                    'azure_client_secret': administratorSecret,
+                    'azure_region': 'westeurope',
+                  },
+                }),
+              ),
             ),
-          ),
-        );
-        final request = CloudConnectionImportRequest(
-          provider: CloudProvider.azure,
-          displayName: 'Azure integration bundle',
-          region: selection.region!,
-          targetScopeId: selection.subscriptionId,
-          preparationClientId: selection.preparationClientId,
-          preparationClientSecret: selection.preparationClientSecret,
-          filename: 'synthetic-azure.json',
-          bytes: selection.normalizedUploadBytes,
-        );
-        final createdRaw = await _authenticatedImportPost(request);
-        expect(_containsForbiddenKey(createdRaw), isFalse);
-        expect(
-          _containsAnyValue(createdRaw, const {
-            deploymentClientId,
-            deploymentSecret,
-            preparationClientId,
-            preparationSecret,
-          }),
-          isFalse,
-        );
-        final created = CloudConnection.fromJson(
-          Map<String, dynamic>.from(createdRaw! as Map),
-        );
-        connectionId = created.id;
-        expect(created.payloadSummary['preparation_client_configured'], isTrue);
+          );
+          final request = CloudConnectionImportRequest(
+            provider: CloudProvider.azure,
+            displayName: 'Azure integration bundle',
+            region: selection.region!,
+            targetScopeId: selection.subscriptionId,
+            filename: 'synthetic-azure.json',
+            bytes: selection.normalizedUploadBytes,
+          );
+          final createdRaw = await _authenticatedImportPost(request);
+          expect(_containsForbiddenKey(createdRaw), isFalse);
+          expect(
+            _containsAnyValue(createdRaw, const {
+              administratorClientId,
+              administratorSecret,
+            }),
+            isFalse,
+          );
+          final created = CloudConnection.fromJson(
+            Map<String, dynamic>.from(createdRaw! as Map),
+          );
+          connectionId = created.id;
+          expect(created.payloadSummary['client_configured'], isTrue);
+          expect(
+            created.payloadSummary,
+            isNot(contains('preparation_client_configured')),
+          );
 
-        final listedRaw = await _authenticatedJsonRequest(
-          '/cloud-connections/',
-        );
-        expect(_containsForbiddenKey(listedRaw), isFalse);
-        expect(
-          _containsAnyValue(listedRaw, const {
-            deploymentClientId,
-            deploymentSecret,
-            preparationClientId,
-            preparationSecret,
-          }),
-          isFalse,
-        );
-        final listed = await _api.listCloudConnections();
-        expect(listed.map((item) => item.id), contains(connectionId));
-      } finally {
-        if (connectionId != null) {
-          await _api.deleteCloudConnection(connectionId);
+          final listedRaw = await _authenticatedJsonRequest(
+            '/cloud-connections/',
+          );
+          expect(_containsForbiddenKey(listedRaw), isFalse);
+          expect(
+            _containsAnyValue(listedRaw, const {
+              administratorClientId,
+              administratorSecret,
+            }),
+            isFalse,
+          );
+          final listed = await _api.listCloudConnections();
+          expect(listed.map((item) => item.id), contains(connectionId));
+        } finally {
+          if (connectionId != null) {
+            await _api.deleteCloudConnection(connectionId);
+          }
         }
-      }
 
-      final remaining = await _api.listCloudConnections();
-      expect(remaining.map((item) => item.id), isNot(contains(connectionId)));
-    });
+        final remaining = await _api.listCloudConnections();
+        expect(remaining.map((item) => item.id), isNot(contains(connectionId)));
+      },
+    );
 
     testWidgets('keeps readiness payloads free of credential keys', (
       tester,
