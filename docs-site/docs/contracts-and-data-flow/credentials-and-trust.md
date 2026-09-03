@@ -4,33 +4,32 @@ Twin2MultiCloud accepts pre-existing, non-root deployment authority for isolated
 thesis accounts, subscriptions, or projects. It does not create, rotate, or
 revoke provider credentials.
 
-AWS and Google Cloud each use one provider principal. Azure stores two distinct
-principals in one deployment-purpose CloudConnection: a deployment principal for
-ordinary resource CRUD and a preparation principal for exact conditional RBAC
-assignments and graph-required Entra objects. This is a bounded Azure exception,
-not a generic credential-purpose registry.
+Each CloudConnection stores one provider principal. Azure uses one
+subscription administrator for resource CRUD, RBAC assignments and
+graph-required Entra objects. This is an isolated thesis-PoC simplification,
+not a production least-privilege claim or generic identity-governance model.
 
 ## Runtime flow
 
-1. The operator enters or imports AWS access-key CSV, Azure deployment
-   service-principal JSON plus typed preparation fields, or GCP service-account
-   JSON through a write-only request.
+1. The operator enters or imports AWS access-key CSV, Azure administrator
+   service-principal JSON, or GCP service-account JSON through a write-only
+   request.
 2. Management validates the allowlisted shape, encrypts the complete payload, and
    returns only safe configured flags and non-secret scope metadata.
 3. The user may retain several named connections per provider and explicitly bind
    one required connection per provider to a Twin.
 4. Identity validation verifies each principal and its target scope. Azure checks
-   deployment ARM authority, conditional preparation RBAC, and Microsoft Graph
-   application permissions independently.
+   subscription Owner authority and Microsoft Graph application permissions
+   independently.
 5. Graph-derived readiness sends plaintext only to the Deployer for that request.
-   Terraform uses the Azure deployment principal by default and the preparation
-   alias only for role assignments and Entra operations.
+   Terraform uses the same Azure administrator for resources, role assignments
+   and Entra operations.
 6. Missing preparable capabilities produce a reviewed, digest-bound plan;
    external blockers produce typed manual or connection-replacement guidance.
 
-Replacing either Azure principal changes the one-way credential fingerprint and
-invalidates stale readiness evidence. Existing single-principal Azure records
-remain readable and deletable, but cannot be used for readiness or deployment.
+Replacing the Azure administrator changes the one-way credential fingerprint
+and invalidates stale readiness evidence. Retired preparation fields from old
+encrypted records are dropped before the Deployer boundary.
 
 ## Secret exit rules
 

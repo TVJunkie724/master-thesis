@@ -8,7 +8,7 @@ confirmed deployment, verification, Destroy, or bounded preparation operation.
 | Provider | Stored authority | Accepted input |
 |---|---:|---|
 | AWS | one deployment identity | access-key CSV or typed fields |
-| Azure | one deployment principal plus one preparation principal in one bundle | typed fields, one deployment-principal JSON plus typed preparation fields, or one complete allowlisted compatibility JSON |
+| Azure | one subscription administrator | typed fields, one service-principal JSON, or one allowlisted compatibility JSON |
 | Google Cloud | one deployment service account | service-account JSON or typed fields |
 
 ## Common lifecycle

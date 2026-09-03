@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks complete, including the live Azure split-authority gate; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites are checked; Azure passes all eight deployment layers without ambient ADT data-plane authority; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
+| 8 | Account and read-only provider checks complete for AWS/GCP and the former Azure split authority; the approved one-administrator Azure contract is implemented offline and awaits read-only revalidation; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the current Azure administrator contract is not yet live evidence; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -433,7 +433,11 @@ create the ephemeral audience application. Cleanup and active residual checks
 passed with no direct charge. Azure-to-GCP remains unexecuted behind the same
 prerequisite.
 
-The follow-up provider-access implementation is complete offline. Azure now
+The following paragraphs preserve the earlier split-authority checkpoint as
+historical evidence. The active single-administrator contract is recorded
+below and supersedes it for future runs.
+
+The follow-up provider-access implementation was complete offline. Azure then
 uses one encrypted bundle with a resource-only deployment principal and a
 separate preparation principal for exact conditional RBAC and the three
 graph-required application permissions. All active Azure role assignments use
@@ -504,9 +508,9 @@ profile card, makes provider-file import primary and keeps manual entry and the
 provider guides as fallbacks. Azure accepts a standard service-principal JSON
 or the complete allowlisted compatibility shape, explains both with
 placeholder-only examples, prefills known values locally and uploads only a
-rebuilt deployment-principal document. The Management contract, provider
-validation boundary and cloud state are unchanged; no provider call or
-Terraform action is part of this checkpoint.
+rebuilt administrator document. The one-administrator Management contract and
+provider-validation boundary are now aligned; no provider call or Terraform
+action is part of this checkpoint.
 
 The second screen checkpoint is also implemented offline. **Twin experiments**
 is now a bounded start-or-resume inventory: `New Twin` is the sole primary
@@ -546,14 +550,29 @@ remaining wide-screen vertical centering in Cloud access and verified all four
 surfaces in the deterministic Desktop/Web demo. The dormant login remains
 excluded. No provider call or Terraform action is part of this audit.
 
+The approved Azure PoC simplification is now implemented offline across
+Management, Deployer, Terraform, the federation runner and Flutter. One Azure
+service principal supplies subscription Owner plus the consented Microsoft
+Graph permissions `Application.ReadWrite.All` and
+`AppRoleAssignment.ReadWrite.All`. Retired preparation fields are not part of
+the active API or Terraform contract. The local compatibility parser may
+discard them when reading an older file, but never uploads them. This change
+made no provider call and does not upgrade the earlier live evidence to the new
+contract. The offline gate passes with 684 Management tests, 2,084 Deployer
+tests plus one intentional skip, 812 Flutter tests, 40 focused runner tests,
+eight Management integration checks, Terraform validation, Flutter
+architecture, Web/macOS builds and strict documentation.
+
 Continue Phase 8 in this order:
 
-1. execute each remaining approved Azure-source federation probe separately,
+1. revalidate the one Azure administrator with the non-mutating credential and
+   readiness checks;
+2. execute each remaining approved Azure-source federation probe separately,
    enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
    and reconcile residual inventory before considering the next direction;
-2. freeze and locally build the scenario-bound processor extension during the
+3. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
-3. only after those gates pass, set the matrix to
+4. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
    bootstrap only after L1--L3/Event Layer pass and before L4 verification.

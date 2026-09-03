@@ -104,8 +104,8 @@ The final PoC supports one cohesive workflow:
 2. Configure its typed workload, devices, events, state behavior, bounded user
    functions, simulator settings, and provider-independent Twin inputs.
 3. Select one deployment CloudConnection per required provider from the
-   user's existing connections. An Azure connection is one encrypted bundle
-   containing separate deployment and preparation principals.
+   user's existing connections. Each connection contains one provider
+   administrator for the isolated thesis scope.
 4. Calculate the cost-only Six-layer result and review the selected provider
    allocation, exclusions, assumptions, and trace.
 5. Run graph-derived provider readiness checks.
@@ -184,11 +184,11 @@ one connection per required provider for a Twin. Credential values are
 write-only, redacted from logs and responses, and forwarded only for the
 current downstream request.
 
-AWS and Google Cloud use one principal per connection. Azure uses two distinct
-principals in one deployment-purpose connection: resource CRUD is isolated in
-the deployment principal, while condition-constrained role assignments and
-graph-required Entra objects use the preparation principal. This exception is
-fixed to Azure and does not create a generic authority administration model.
+Each provider uses one principal per connection. The Azure principal has the
+broad subscription and Microsoft Graph authority needed for resource CRUD,
+role assignments and graph-required Entra objects. This is a deliberate
+single-operator thesis-PoC simplification, not a production security model or
+a generic authority-administration feature.
 
 The operator supplies a pre-existing, non-root deployment administrator
 credential for an isolated thesis account, subscription, or project. The PoC
@@ -206,11 +206,10 @@ the exact account capabilities required by the selected deployment:
 - create Twin-scoped runtime identities, roles, trust objects, service
   accounts, managed identities, and role assignments through the deployment.
 
-For Azure, Terraform binds ordinary resources to the deployment principal and
-role assignments/Entra operations to the preparation principal. The latter is
-accepted only with the exact role-definition/principal-type condition and the
-three exact consented Microsoft Graph application permissions. Consent itself
-remains manual.
+For Azure, Terraform uses the same administrator for ordinary resources, role
+assignments and Entra operations. Readiness requires subscription Owner plus
+the documented Microsoft Graph application permissions. Tenant administrator
+consent itself remains the one unavoidable manual directory step.
 
 Account-level changes are listed before execution, require explicit
 confirmation, are idempotent, and are recorded separately from Twin-owned

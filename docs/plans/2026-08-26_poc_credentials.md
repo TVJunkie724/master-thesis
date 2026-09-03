@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-09-01"
-version: "2.4"
+lastUpdated: "2026-09-03"
+version: "2.5"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -17,13 +17,11 @@ credential for an isolated thesis account, Azure subscription, or Google Cloud
 project. It does not create, rotate, or revoke this deployment authority and
 does not claim that it is least privilege or production ready.
 
-AWS and Google Cloud each use one provider principal. Azure is the bounded
-exception: one encrypted deployment-purpose CloudConnection contains two
-distinct service principals for the same tenant and subscription. The
-deployment principal owns ordinary resource CRUD; the preparation principal
-owns only the exact conditional RBAC and Microsoft Graph operations required
-by the resolved graph. This does not introduce a general credential-purpose
-registry.
+Each provider uses one administrator principal per CloudConnection. For Azure,
+that one service principal performs resource CRUD, Azure RBAC assignment,
+Microsoft Graph operations, verification, and cleanup in the isolated thesis
+subscription. The deliberately broad authority minimizes manual setup for the
+PoC; it is not a least-privilege or production recommendation.
 
 Twin2MultiCloud may use the supplied authority to prepare a closed set of
 provider capabilities that the selected resolved deployment graph actually
@@ -76,30 +74,27 @@ credential files. Import is a convenience parser, not a general file upload.
 | Provider | Accepted PoC input | Required target metadata |
 |---|---|---|
 | AWS | access-key CSV or equivalent typed fields; optional session token for a supervised temporary session | account identity discovered by STS, intended regions |
-| Azure | deployment service-principal JSON, complete allowlisted compatibility bundle, or equivalent typed fields | tenant ID, subscription ID, two distinct client IDs |
+| Azure | administrator service-principal JSON, allowlisted compatibility JSON, or equivalent typed fields | tenant ID and subscription ID |
 | GCP | service-account JSON or equivalent typed fields | existing billing-enabled project ID |
 
 The exact schemas are versioned and allowlisted. Unknown keys, executable
 content, provider CLI profiles with implicit local dependencies, and arbitrary
 ZIP layouts are rejected. The original file is not retained after validated
-field extraction. The Azure compatibility form is the only bounded
-multi-principal exception: Flutter extracts its Azure member locally, ignores
-known AWS/GCP members and rebuilds a deployment-only JSON before calling the
-existing one-provider Management import endpoint.
+field extraction. For the Azure compatibility form, Flutter extracts its Azure
+member locally, ignores known AWS/GCP members and retired preparation fields,
+then rebuilds one administrator JSON before calling the one-provider
+Management import endpoint.
 
 Immediately after entry or import, a non-mutating identity probe verifies the
 principal and target scope. It does not yet claim deployment readiness.
 
-For Azure, typed entry requires both client IDs and secrets. Import accepts one
-standard JSON document for the deployment principal plus typed preparation
-client ID and secret fields, or one complete allowlisted compatibility object
-containing the Azure subscription, tenant, Regions and both principal pairs.
-The compatibility object may be the direct Azure object or the tracked root
-object with only `aws`, `azure` and `gcp` members. It is a convenience input,
-not a retained credential archive. Both principals must resolve to the same
-tenant and subscription and their client IDs must differ. Legacy
-single-principal Azure records remain listable and deletable but must be
-replaced before readiness or deployment.
+For Azure, typed entry requires one client ID and secret. Import accepts one
+standard service-principal JSON document or one allowlisted compatibility
+object containing the Azure subscription, tenant, Regions and administrator
+pair. The compatibility object may be the direct Azure object or the tracked
+root object with only `aws`, `azure` and `gcp` members. It is a convenience
+input, not a retained credential archive. Retired preparation fields are
+accepted only by the local compatibility parser, ignored, and never uploaded.
 
 ## 5. Graph-derived readiness
 
@@ -173,25 +168,15 @@ Readiness tests both planes. Missing tenant consent is classified as
 `manual_action`; it is not hidden behind a generic Owner-role check and is not
 granted automatically by the PoC.
 
-The deployment principal must have the resource actions required by the
-Six-layer graph and must not have effective
-`Microsoft.Authorization/roleAssignments/write` or `delete`. Terraform uses
-this principal for the default AzureRM and AzAPI providers.
+The Azure service principal must have the built-in **Owner** role at the
+isolated subscription scope. Terraform uses the same principal for AzureRM,
+AzAPI, Azure RBAC assignments and Entra operations.
 
-The preparation principal must have exactly one subscription-scoped **Role
-Based Access Control Administrator** assignment with condition version 2.0.
-The condition permits only the active Six-layer data/access role definitions
-plus the identity-probe `Reader` role, and only `User` or `ServicePrincipal`
-targets. Owner, Contributor, User Access Administrator, group targets,
-unrestricted delegation, and ordinary resource write/delete authority are
-rejected. Terraform uses this principal only for Azure role assignments and
-Entra operations.
-
-The same preparation principal requires exactly the Microsoft Graph
-application permissions `Application.ReadWrite.OwnedBy`,
-`Application.Read.All`, and `AppRoleAssignment.ReadWrite.All`, with tenant
-administrator consent. Twin2MultiCloud verifies this consent but never grants
-it.
+The same principal requires the Microsoft Graph application permissions
+`Application.ReadWrite.All` and `AppRoleAssignment.ReadWrite.All`, with tenant
+administrator consent. Twin2MultiCloud verifies the required permissions but
+never grants consent. Additional permissions do not make readiness fail,
+because this PoC accepts an administrator rather than auditing least privilege.
 
 ## 9. Repair flow
 

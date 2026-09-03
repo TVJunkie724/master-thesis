@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-01"
-version: "2.1"
+lastUpdated: "2026-09-03"
+version: "2.2"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -85,20 +85,18 @@ calculation and architecture digest.
 ## D-05 — Pre-existing deployment administrator credentials
 
 **Decision:** Users can store several named encrypted deployment
-CloudConnections per provider and select the required ones for a Twin. AWS and
-Google Cloud use one principal per connection. Azure is a bounded exception:
-one deployment-purpose connection contains a resource-only deployment
-principal and a distinct preparation principal for exact conditional RBAC and
-graph-required Entra operations.
+CloudConnections per provider and select the required ones for a Twin. Every
+connection contains one administrator principal for its isolated thesis scope.
+The Azure administrator is used for ordinary resources, Azure RBAC assignments,
+Microsoft Graph operations, verification, and cleanup.
 
 **Rationale:** Creating, rotating, revoking, and minimizing cloud authority is
 a large security product in its own right. The PoC instead accepts a
 pre-existing non-root administrator credential for isolated thesis scopes and
-concentrates on safe use of that authority. Azure cannot safely combine
-ordinary resource CRUD, role-assignment delegation, and Microsoft Graph
-application administration in one principal without granting broader authority
-than the PoC needs, so the two responsibilities are separated inside the same
-encrypted lifecycle object.
+concentrates on safe use of that authority. One Azure administrator deliberately
+trades least privilege for a shorter, reproducible supervised setup. That trade
+is appropriate only for this isolated single-operator PoC and is not presented
+as a production pattern.
 
 **Consequence:** Credential values are write-only and transient outside the
 encrypted Management store. Identity probes and graph-derived readiness are
@@ -106,19 +104,16 @@ separate. Supported account preparation is shown before mutation, requires
 confirmation, is idempotent, and offers typed manual repair or connection
 replacement. Account creation, billing repair, quota approval, organization
 policy, tenant consent, and provider-side revocation remain external.
-The Azure deployment principal must not mutate role assignments. The
-preparation principal is accepted only with one condition-version-2.0 Role
-Based Access Control Administrator assignment limited to the active role
-allowlist and `User`/`ServicePrincipal` targets, plus exactly
-`Application.ReadWrite.OwnedBy`, `Application.Read.All`, and
+The Azure principal must have subscription Owner and the Microsoft Graph
+application permissions `Application.ReadWrite.All` and
 `AppRoleAssignment.ReadWrite.All` with manual tenant admin consent. This does
 not generalize CloudConnection purposes or add an IAM administration product.
 The Flutter Cloud-access surface is import-first but retains typed fallback.
 Its Azure compatibility parser is deliberately local and closed-schema: it
-extracts the two-principal Azure member, discards other-provider members and
-uploads only normalized deployment-principal JSON through the unchanged
-Management endpoint. This removes avoidable manual re-entry without adding a
-generic credential mapper or changing the two-principal security boundary.
+extracts the Azure administrator member, discards other-provider and retired
+preparation fields, and uploads only normalized administrator JSON through the
+unchanged Management endpoint. This removes avoidable manual re-entry without
+adding a generic credential mapper.
 
 ## D-06 — Immutable deployed Twins and bounded interchange
 
@@ -411,6 +406,9 @@ or Management API capability.
 
 ## D-22 — Resource-scoped Azure data-plane bootstrap
 
+**Status:** Superseded by D-23. Retained to preserve the rationale and evidence
+state of the earlier two-principal checkpoint.
+
 **Decision:** Azure preflight requires the built-in Contributor role for
 ordinary resource management and rejects effective role-assignment mutation.
 It does not require Azure Digital Twins data-plane authority at subscription
@@ -428,7 +426,36 @@ Preflight reports graph-provisioned data actions without treating them as
 ambient prerequisites, while Terraform drift tests retain the L4 binding as a
 mandatory part of the atomic deployment graph.
 
+## D-23 — One Azure administrator for the thesis PoC
+
+**Decision:** The active Azure contract uses one service principal with the
+built-in Owner role at the isolated subscription scope and the required
+consented Microsoft Graph application permissions. The same identity performs
+AzureRM, AzAPI, Azure RBAC, Entra, verification and cleanup operations.
+
+**Rationale:** The earlier split-authority design was valid but disproportionate
+for a single-operator thesis PoC. It created extra credentials, conditional RBAC
+configuration, UI fields and failure modes without contributing evidence for
+RQ1, RQ2 or RQ3. One administrator keeps the evaluated cloud workflow lean and
+reproducible. The loss of least privilege is explicit and bounded to the
+isolated thesis subscription.
+
+**Consequence:** Azure input contains one client ID and secret. Readiness checks
+subscription Owner plus `Application.ReadWrite.All` and
+`AppRoleAssignment.ReadWrite.All`; it does not reject unrelated additional
+Graph grants. Terraform has no preparation provider alias. The operator still
+creates the app, secret, role assignment and tenant admin consent manually;
+subsequent graph-required setup remains programmatic and review-gated. Retired
+preparation fields are ignored by the local compatibility parser and dropped
+before the Deployer boundary. Existing historical live results remain valid as
+records of the authority used at that time, but they do not describe the active
+credential contract.
+
 ## Current implementation checkpoint
+
+The dated paragraphs below preserve the sequence of Phase 8 observations. D-23
+governs the active Azure implementation; earlier split-authority wording is
+historical rather than current setup guidance.
 
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
@@ -594,3 +621,16 @@ PATCH on 404 within the existing deadline; any other response still stops the
 probe. RQ1 records this additional read-after-write boundary, while RQ2 remains
 four of six and RQ3 records another zero-charge attempt. No permission, trust
 or resource scope was expanded, and no further live retry was started.
+
+On 2026-09-03 the user approved the D-23 PoC simplification. Management,
+Deployer, Terraform, the federation runner and Flutter now use one Azure
+administrator credential. The current API rejects retired preparation fields;
+the local Flutter compatibility parser may read and discard them so an existing
+untracked credential file can still be imported without exposing those values.
+The local credential-free gate passes with 684 Management tests, 2,084 Deployer
+tests plus one intentional skip, 812 Flutter tests, 40 focused evaluation-runner
+tests and eight Management integration checks. Terraform validation, Flutter
+architecture, Web/macOS builds and strict documentation build also pass. This
+checkpoint changes no provider state and does not claim that the new
+one-principal contract has been validated live; the next Azure provider check
+still requires explicit approval if it would exceed read-only behavior.

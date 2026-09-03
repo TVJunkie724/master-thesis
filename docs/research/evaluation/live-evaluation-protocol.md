@@ -1,8 +1,9 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation, read-only
-provider checks, and four local directed federation probes are verified, but
-no Twin workload deployment is claimed.
+Status: planned and offline-validated; bounded account preparation and four
+local directed federation probes are verified. The approved one-administrator
+Azure contract awaits read-only revalidation, and no Twin workload deployment
+is claimed.
 
 ## Purpose
 
@@ -26,7 +27,8 @@ On 2026-08-29, the supervised account-level gate completed without Terraform
 Apply or workload-resource creation. AWS identity, Region, regional STS, IAM
 Identity Center, and 108 required permissions are ready. Azure subscription,
 Regions, Microsoft Graph authority, all 16 required resource providers, and all
-eight permission groups are ready. The GCP project, billing check, Region, all
+eight permission groups were ready under the then-active two-principal
+contract. The GCP project, billing check, Region, all
 18 Six-layer APIs, and all 80 project-testable permissions are ready.
 
 The secret-free local summary is
@@ -72,8 +74,16 @@ bounds. A first Azure-to-AWS attempt stopped before ACI creation on the missing
 Microsoft Graph application-management prerequisite; cleanup and active
 residual checks passed with no direct charge. Azure-to-GCP was not started.
 
-After the split-authority prerequisite passed, a second Azure-to-AWS attempt
-stopped before ACI creation because the new managed-identity service principal
+On 2026-09-03 the Azure credential contract was deliberately reduced to one
+administrator for the isolated thesis subscription. The current readiness gate
+requires subscription Owner, `Application.ReadWrite.All`, and
+`AppRoleAssignment.ReadWrite.All`. The change is verified offline only; a
+non-mutating revalidation is required before either Azure-source probe. The
+following attempt records remain historical evidence and must not be read as
+validation of the new credential contract.
+
+After the earlier split-authority prerequisite passed, a second Azure-to-AWS
+attempt stopped before ACI creation because the new managed-identity service principal
 was not yet readable through Microsoft Graph. Direct cost remained USD 0.00.
 The normal cleanup calls completed; one application remained temporarily
 visible and was removed by one exact object-bound delete retry. The final AWS,
