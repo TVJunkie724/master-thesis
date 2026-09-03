@@ -2,8 +2,8 @@
 
 Status: planned and offline-validated; bounded account preparation and four
 local directed federation probes are verified. The approved one-administrator
-Azure contract awaits read-only revalidation, and no Twin workload deployment
-is claimed.
+Azure contract is live-revalidated without workload creation, and no Twin
+workload deployment is claimed.
 
 ## Purpose
 
@@ -77,10 +77,16 @@ residual checks passed with no direct charge. Azure-to-GCP was not started.
 On 2026-09-03 the Azure credential contract was deliberately reduced to one
 administrator for the isolated thesis subscription. The current readiness gate
 requires subscription Owner, `Application.ReadWrite.All`, and
-`AppRoleAssignment.ReadWrite.All`. The change is verified offline only; a
-non-mutating revalidation is required before either Azure-source probe. The
+`AppRoleAssignment.ReadWrite.All`. On 2026-09-04, a supervised one-time
+operator session applied those grants to the existing application and removed
+the four redundant subscription roles. No application, secret or workload
+resource was created, no Terraform action ran and no direct charge was
+incurred. With the operator session removed, the application credential then
+passed the non-mutating Owner, Microsoft Graph, Region, all six Azure
+control-plane and L4/L5 prerequisite checks. Quota evidence remains partial
+only for services that expose usage at resource scope or after creation. The
 following attempt records remain historical evidence and must not be read as
-validation of the new credential contract.
+validation of the current credential contract.
 
 After the earlier split-authority prerequisite passed, a second Azure-to-AWS
 attempt stopped before ACI creation because the new managed-identity service principal

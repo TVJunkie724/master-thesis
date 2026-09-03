@@ -14,17 +14,20 @@ tenant.
 1. In **Microsoft Entra ID → App registrations**, create one application.
 2. Under **Certificates & secrets**, create one client secret. Copy its value
    when it is shown; never add it to the repository or documentation.
-3. At the isolated subscription scope, assign the built-in **Owner** role to
-   the application's service principal.
-4. On the app registration, add these Microsoft Graph **application**
+3. Sign in once with an operator who can create subscription role assignments
+   and grant tenant-wide Microsoft Graph application consent.
+4. From that supervised session, assign the built-in **Owner** role at the
+   isolated subscription scope and add these Microsoft Graph **application**
    permissions:
    - `Application.ReadWrite.All`
    - `AppRoleAssignment.ReadWrite.All`
-5. A tenant administrator grants admin consent once in the portal.
+5. Grant admin consent, verify the application credential, then sign out and
+   remove the temporary operator session.
 
 Subscription Owner does not grant Microsoft Graph directory permissions. The
 two consented application permissions are therefore checked separately. The
-PoC validates them but cannot grant tenant admin consent itself.
+one-time operator session may apply the exact role and consent grants
+programmatically, but the PoC application cannot grant them to itself.
 
 ## 2. Enter or import the credential
 
@@ -77,8 +80,9 @@ Readiness must confirm:
    prerequisites are ready or explicitly deferred by the protocol.
 
 Resource-provider registration may be proposed as a bounded, reviewed
-preparation plan. Quota increases, policy exemptions, billing repair, Graph
-consent and credential creation remain manual.
+preparation plan. Quota increases, policy exemptions, billing repair and
+credential creation remain manual. Graph consent is a one-time supervised
+operator bootstrap and is never an automatic deployment or UI action.
 
 ## Cleanup and revocation
 

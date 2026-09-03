@@ -444,8 +444,11 @@ isolated thesis subscription.
 subscription Owner plus `Application.ReadWrite.All` and
 `AppRoleAssignment.ReadWrite.All`; it does not reject unrelated additional
 Graph grants. Terraform has no preparation provider alias. The operator still
-creates the app, secret, role assignment and tenant admin consent manually;
-subsequent graph-required setup remains programmatic and review-gated. Retired
+creates the app and secret manually and performs one privileged interactive
+login. From that supervised session, the exact Owner assignment and Graph
+admin consent may be applied programmatically; the deployment application
+never elevates itself. Subsequent graph-required setup remains programmatic and
+review-gated. Retired
 preparation fields are ignored by the local compatibility parser and dropped
 before the Deployer boundary. Existing historical live results remain valid as
 records of the authority used at that time, but they do not describe the active
@@ -456,6 +459,18 @@ credential contract.
 The dated paragraphs below preserve the sequence of Phase 8 observations. D-23
 governs the active Azure implementation; earlier split-authority wording is
 historical rather than current setup guidance.
+
+On 2026-09-04, the one-administrator contract was bootstrapped under a
+supervised, temporary Global Administrator user session using the already
+pinned Azure CLI image. The existing PoC service principal received
+subscription Owner and the two approved Microsoft Graph application grants;
+its redundant Contributor, Reader, Billing Reader and Cost Management Reader
+assignments were removed only after the new authority was verified. The user
+session and device code were then removed locally. A fresh application-token
+probe passed Azure administrator authority, Graph authority, all six required
+control planes and the Azure L4/L5 Region prerequisites. No application,
+secret, workload or Terraform resource was created and no direct cloud charge
+was incurred. Azure quota visibility remains partial by provider API design.
 
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
