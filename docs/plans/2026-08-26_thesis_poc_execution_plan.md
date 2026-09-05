@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-04"
-version: "1.6"
+lastUpdated: "2026-09-05"
+version: "1.7"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -566,9 +566,20 @@ session was removed, the application credential passed the non-mutating Owner,
 Microsoft Graph, Region, six-control-plane and L4/L5 readiness checks. Azure
 quota evidence remains explicitly partial where usage is exposed only after
 resource creation. The offline gate passes with 684 Management tests, 2,084
-Deployer tests plus one intentional skip, 812 Flutter tests, 40 focused runner
+Deployer tests plus one intentional skip, 812 Flutter tests, 42 focused runner
 tests, eight Management integration checks, Terraform validation, Flutter
 architecture, Web/macOS builds and strict documentation.
+
+The first supervised Azure-to-AWS probe under the one-administrator contract
+stopped before AWS role or billable Azure runner creation. AWS returned the
+new OIDC provider ARN with a trailing-slash normalization that the harness
+rejected. The strict stop was correct, but the returned object had not yet been
+marked as cleanup-owned, so the initial result incorrectly reported clean
+residual inventory. A separate exact tag- and issuer-bound reconciliation
+found and deleted that one provider; subsequent AWS, Azure Resource Manager
+and Microsoft Graph inventories are clean and direct cost was USD 0.00. The
+harness now accepts only the two equivalent trailing-slash ARN forms and owns
+the returned provider before validation. No retry was started.
 
 Continue Phase 8 in this order:
 

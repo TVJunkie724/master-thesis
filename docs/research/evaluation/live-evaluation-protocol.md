@@ -85,8 +85,22 @@ incurred. With the operator session removed, the application credential then
 passed the non-mutating Owner, Microsoft Graph, Region, all six Azure
 control-plane and L4/L5 prerequisite checks. Quota evidence remains partial
 only for services that expose usage at resource scope or after creation. The
-following attempt records remain historical evidence and must not be read as
-validation of the current credential contract.
+first supervised Azure-to-AWS attempt under this current authority reached AWS
+OIDC provider creation but stopped before target-role or billable-runner
+creation because AWS returned the provider ARN with an equivalent trailing
+slash. The harness correctly stopped on the unexpected representation, but a
+cleanup-ownership flag was set after the strict comparison and its initial
+record therefore incorrectly reported clean residual inventory. An immediate
+tag- and issuer-bound reconciliation found and deleted exactly one provider;
+the final AWS, Azure Resource Manager and Microsoft Graph inventories are
+clean and direct cost was USD 0.00. The harness now allowlists only the two
+equivalent ARN forms and owns the returned provider before validating it. This
+attempt contributes operational and cleanup evidence to RQ1 and a zero-cost
+boundary observation to RQ3; it does not claim the RQ2 exchange succeeded. No
+retry was started.
+
+The following earlier attempt records remain historical evidence and must not
+be read as validation of the current credential contract.
 
 After the earlier split-authority prerequisite passed, a second Azure-to-AWS
 attempt stopped before ACI creation because the new managed-identity service principal

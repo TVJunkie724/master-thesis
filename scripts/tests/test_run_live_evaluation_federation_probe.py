@@ -499,6 +499,39 @@ def test_azure_to_aws_runner_is_valid_and_emits_only_typed_result() -> None:
     assert "traceback" not in script.lower()
 
 
+def test_azure_to_aws_accepts_only_aws_trailing_slash_arn_normalization() -> None:
+    canonical = (
+        "arn:aws:iam::123456789012:oidc-provider/"
+        "sts.windows.net/11111111-1111-4111-8111-111111111111"
+    )
+
+    assert runner._aws_oidc_provider_arn_variants(canonical) == (
+        canonical,
+        f"{canonical}/",
+    )
+    runner._validate_created_aws_oidc_provider_arn(canonical, canonical)
+    runner._validate_created_aws_oidc_provider_arn(f"{canonical}/", canonical)
+
+    with pytest.raises(
+        runner.ProbeBlocked,
+        match="AWS_OIDC_PROVIDER_ARN_UNEXPECTED",
+    ):
+        runner._validate_created_aws_oidc_provider_arn(
+            "arn:aws:iam::123456789012:oidc-provider/example.invalid",
+            canonical,
+        )
+
+
+def test_azure_to_aws_owns_created_oidc_provider_before_validation() -> None:
+    source = inspect.getsource(runner._run_azure_to_aws)
+
+    ownership = source.index("oidc_provider_created = True")
+    validation = source.index("_validate_created_aws_oidc_provider_arn")
+    cleanup = source.index("if oidc_provider_created:")
+
+    assert ownership < validation < cleanup
+
+
 def test_azure_to_gcp_provider_and_binding_are_exact_identity_bound() -> None:
     tenant_id = "11111111-1111-4111-8111-111111111111"
     application_id = "22222222-2222-4222-8222-222222222222"

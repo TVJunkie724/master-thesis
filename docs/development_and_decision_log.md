@@ -472,6 +472,19 @@ control planes and the Azure L4/L5 Region prerequisites. No application,
 secret, workload or Terraform resource was created and no direct cloud charge
 was incurred. Azure quota visibility remains partial by provider API design.
 
+On 2026-09-05, the first supervised Azure-to-AWS probe with that administrator
+stopped at AWS OIDC-provider validation before the target role or billable ACI
+runner was created. AWS preserved a trailing slash from the issuer URL in the
+returned provider ARN. The harness rejected this unallowlisted representation,
+but set its cleanup-ownership flag only after the comparison and consequently
+reported a false clean residual result. Immediate reconciliation selected the
+single object by the exact Phase 8 run tags and normalized issuer, deleted it,
+and then confirmed clean AWS, Azure Resource Manager and Microsoft Graph
+inventories. Direct cost was USD 0.00. The runner now accepts only the two
+semantically equivalent ARN forms and records the returned provider as
+cleanup-owned before validation; focused coverage increased from 40 to 42
+tests. No live retry followed the fix.
+
 As of 2026-08-29, the standalone contract, graph boundary, credential services,
 immutable interchange, durable operations, access handoff, cost-only Optimizer,
 frozen pricing snapshots, and narrowed Flutter/Management contracts are

@@ -466,6 +466,23 @@ def _expect_aws_oidc_provider_absent(iam: Any, provider_arn: str) -> None:
     raise ProbeBlocked("PREEXISTING_RESOURCE")
 
 
+def _aws_oidc_provider_arn_variants(canonical_arn: str) -> tuple[str, str]:
+    """Return the only two ARN spellings AWS uses for a trailing-slash issuer."""
+
+    without_trailing_slash = canonical_arn.rstrip("/")
+    return without_trailing_slash, f"{without_trailing_slash}/"
+
+
+def _validate_created_aws_oidc_provider_arn(
+    created_arn: str,
+    canonical_arn: str,
+) -> None:
+    """Accept AWS trailing-slash normalization but no other provider ARN drift."""
+
+    if created_arn not in _aws_oidc_provider_arn_variants(canonical_arn):
+        raise ProbeBlocked("AWS_OIDC_PROVIDER_ARN_UNEXPECTED")
+
+
 def _delete_aws_oidc_provider(iam: Any, provider_arn: str) -> None:
     try:
         iam.delete_open_id_connect_provider(
@@ -2529,9 +2546,10 @@ def _run_azure_to_aws(
         raise ProbeBlocked("AWS_ACCOUNT_ID_UNAVAILABLE")
     issuer = f"https://sts.windows.net/{tenant_id}/"
     issuer_host_path = f"sts.windows.net/{tenant_id}"
-    oidc_provider_arn = (
+    expected_oidc_provider_arn = (
         f"arn:aws:iam::{aws_account_id}:oidc-provider/{issuer_host_path}"
     )
+    oidc_provider_arn = expected_oidc_provider_arn
     container_group_path = (
         f"/subscriptions/{subscription_id}/resourceGroups/{resource_group_name}/"
         "providers/Microsoft.ContainerInstance/containerGroups/"
@@ -2585,7 +2603,10 @@ def _run_azure_to_aws(
             application_name,
         )
         _expect_aws_role_absent(iam_aws, role_name)
-        _expect_aws_oidc_provider_absent(iam_aws, oidc_provider_arn)
+        for candidate_arn in _aws_oidc_provider_arn_variants(
+            expected_oidc_provider_arn
+        ):
+            _expect_aws_oidc_provider_absent(iam_aws, candidate_arn)
 
         exchange_stage = "create_azure_resource_group"
         resource_client.resource_groups.create_or_update(
@@ -2715,9 +2736,16 @@ def _run_azure_to_aws(
             ],
         )
         created_provider_arn = str(created_provider.get("OpenIDConnectProviderArn") or "")
-        if created_provider_arn != oidc_provider_arn:
-            raise ProbeBlocked("AWS_OIDC_PROVIDER_ARN_UNEXPECTED")
+        if not created_provider_arn:
+            raise ProbeBlocked("AWS_OIDC_PROVIDER_ARN_UNAVAILABLE")
+        # Cleanup must own the exact provider returned by AWS even when the
+        # subsequent allowlist validation fails.
+        oidc_provider_arn = created_provider_arn
         oidc_provider_created = True
+        _validate_created_aws_oidc_provider_arn(
+            created_provider_arn,
+            expected_oidc_provider_arn,
+        )
         exchange_stage = "create_aws_target_role"
         trust_policy = {
             "Version": "2012-10-17",
