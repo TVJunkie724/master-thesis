@@ -723,7 +723,10 @@ def test_azure_to_gcp_runner_is_valid_and_emits_only_typed_result() -> None:
     script = runner._azure_to_gcp_runner_script()
     compile(script, "<azure-to-gcp-runner>", "exec")
     assert "print('PROBE_PASSED')" in script
-    assert "print('PROBE_BLOCKED')" in script
+    assert "print('PROBE_BLOCKED_' + stage)" in script
+    assert "AZURE_MANAGED_IDENTITY_TOKEN" in script
+    assert "GCP_WORKLOAD_IDENTITY_EXCHANGE" in script
+    assert "GCP_SERVICE_ACCOUNT_IMPERSONATION" in script
     assert "traceback" not in script.lower()
 
 

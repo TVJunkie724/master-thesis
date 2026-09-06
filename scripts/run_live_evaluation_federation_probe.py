@@ -1322,6 +1322,7 @@ def request(url, data=None, headers=None):
     with urllib.request.urlopen(req, timeout=20) as response:
         return response.read()
 
+stage = 'AZURE_MANAGED_IDENTITY_TOKEN'
 try:
     query = urllib.parse.urlencode({
         'api-version': '2018-02-01',
@@ -1345,6 +1346,7 @@ try:
     if token is None:
         raise RuntimeError('managed identity token unavailable')
 
+    stage = 'GCP_WORKLOAD_IDENTITY_EXCHANGE'
     exchange = json.dumps({
         'audience': os.environ['GCP_AUDIENCE'],
         'grantType': 'urn:ietf:params:oauth:grant-type:token-exchange',
@@ -1362,6 +1364,7 @@ try:
     if not isinstance(federated_token, str):
         raise RuntimeError('GCP federation token unavailable')
 
+    stage = 'GCP_SERVICE_ACCOUNT_IMPERSONATION'
     impersonation = json.dumps({
         'scope': ['https://www.googleapis.com/auth/cloud-platform'],
         'lifetime': '300s',
@@ -1378,7 +1381,7 @@ try:
         raise RuntimeError('GCP service account token unavailable')
     print('PROBE_PASSED')
 except Exception:
-    print('PROBE_BLOCKED')
+    print('PROBE_BLOCKED_' + stage)
     sys.exit(1)
 '''
 
@@ -3403,13 +3406,20 @@ def _run_azure_to_gcp(
             ((containers[0].get("properties") or {}).get("instanceView") or {})
             .get("currentState", {})
         )
-        if current_state.get("exitCode") != 0:
-            raise ProbeBlocked("AZURE_RUNNER_FAILED")
-        if _azure_container_logs(
+        runner_result = _azure_container_logs(
             azure_credential,
             container_group_path,
             container_name,
-        ) != "PROBE_PASSED":
+        )
+        if current_state.get("exitCode") != 0:
+            blocked = re.fullmatch(
+                r"PROBE_BLOCKED_([A-Z0-9_]{1,64})",
+                runner_result,
+            )
+            raise ProbeBlocked(
+                blocked.group(1) if blocked else "AZURE_RUNNER_FAILED"
+            )
+        if runner_result != "PROBE_PASSED":
             raise ProbeBlocked("AZURE_RUNNER_RESULT_INVALID")
         exchange_completed_at = now()
         exchange_stage = "completed"
