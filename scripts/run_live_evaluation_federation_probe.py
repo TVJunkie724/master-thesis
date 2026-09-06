@@ -916,6 +916,37 @@ def _update_graph_application_identifier_uri(
     raise ProbeBlocked("AZURE_APPLICATION_NOT_WRITABLE")
 
 
+def _create_graph_service_principal(
+    credential: ClientSecretCredential,
+    application_id: str,
+    started_monotonic: float,
+) -> dict[str, Any]:
+    """Retry the exact SP create while the new application is propagating."""
+
+    for attempt in range(AZURE_PROPAGATION_ATTEMPTS):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        try:
+            return _graph_request(
+                credential,
+                "POST",
+                "/v1.0/servicePrincipals",
+                expected_statuses=(201,),
+                body={"appId": application_id},
+            )
+        except ProbeBlocked as exc:
+            if str(exc) not in {
+                "AZURE_GRAPH_HTTP_400",
+                "AZURE_GRAPH_HTTP_404",
+            }:
+                raise
+        if attempt + 1 < AZURE_PROPAGATION_ATTEMPTS:
+            time.sleep(AZURE_PROPAGATION_DELAY_SECONDS)
+    raise ProbeBlocked("AZURE_AUDIENCE_SERVICE_PRINCIPAL_NOT_CREATABLE")
+
+
 def _wait_for_graph_app_role_assignment(
     credential: ClientSecretCredential,
     principal_id: str,
@@ -2700,15 +2731,10 @@ def _run_azure_to_aws(
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
-        service_principal = _graph_request(
+        service_principal = _create_graph_service_principal(
             azure_credential,
-            "POST",
-            "/v1.0/servicePrincipals",
-            expected_statuses=(201,),
-            # The target trust checks the assigned EventBridge.Exchange claim.
-            # Requiring every tenant caller to have an assignment as well is
-            # redundant for this bounded probe and expands the Graph mutation.
-            body={"appId": application_id},
+            application_id,
+            started_monotonic,
         )
         service_principal_id = str(service_principal.get("id") or "")
         if not service_principal_id:
@@ -3184,15 +3210,10 @@ def _run_azure_to_gcp(
             started_monotonic,
         )
         exchange_stage = "create_entra_audience_service_principal"
-        service_principal = _graph_request(
+        service_principal = _create_graph_service_principal(
             azure_credential,
-            "POST",
-            "/v1.0/servicePrincipals",
-            expected_statuses=(201,),
-            # The target trust checks the assigned EventBridge.Exchange claim.
-            # Requiring every tenant caller to have an assignment as well is
-            # redundant for this bounded probe and expands the Graph mutation.
-            body={"appId": application_id},
+            application_id,
+            started_monotonic,
         )
         service_principal_id = str(service_principal.get("id") or "")
         if not service_principal_id:

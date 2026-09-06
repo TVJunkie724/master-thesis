@@ -238,8 +238,12 @@ def test_azure_source_probe_uses_minimal_audience_service_principal_create() -> 
             'exchange_stage = "create_entra_audience_service_principal"'
             in source
         )
-        assert 'body={"appId": application_id}' in source
+        assert "_create_graph_service_principal(" in source
         assert '"appRoleAssignmentRequired": True' not in source
+
+    helper_source = inspect.getsource(runner._create_graph_service_principal)
+    assert 'body={"appId": application_id}' in helper_source
+    assert '"appRoleAssignmentRequired": True' not in helper_source
 
 
 def test_waits_for_managed_identity_graph_propagation(monkeypatch) -> None:
@@ -368,6 +372,53 @@ def test_identifier_update_fails_closed_on_non_404(monkeypatch) -> None:
             object(),
             "application-object-id",
             "api://audience-id",
+            runner.time.monotonic(),
+        )
+
+
+def test_retries_service_principal_create_while_application_propagates(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+    sleeps: list[int] = []
+
+    def graph_request(_credential, method, path, **kwargs):
+        calls.append(path)
+        assert method == "POST"
+        assert kwargs == {
+            "expected_statuses": (201,),
+            "body": {"appId": "application-id"},
+        }
+        if len(calls) == 1:
+            raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_400")
+        return {"id": "service-principal-id"}
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    result = runner._create_graph_service_principal(
+        object(),
+        "application-id",
+        runner.time.monotonic(),
+    )
+
+    assert result == {"id": "service-principal-id"}
+    assert calls == ["/v1.0/servicePrincipals", "/v1.0/servicePrincipals"]
+    assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
+
+
+def test_service_principal_create_fails_closed_on_non_propagation_error(
+    monkeypatch,
+) -> None:
+    def graph_request(*_args, **_kwargs):
+        raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_403")
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+
+    with pytest.raises(runner.ProbeBlocked, match="AZURE_GRAPH_HTTP_403"):
+        runner._create_graph_service_principal(
+            object(),
+            "application-id",
             runner.time.monotonic(),
         )
 
