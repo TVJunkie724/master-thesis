@@ -495,8 +495,25 @@ def test_azure_to_aws_runner_is_valid_and_emits_only_typed_result() -> None:
     script = runner._azure_to_aws_runner_script()
     compile(script, "<azure-to-aws-runner>", "exec")
     assert "print('PROBE_PASSED')" in script
-    assert "print('PROBE_BLOCKED')" in script
+    assert "print('PROBE_BLOCKED_' + stage)" in script
+    assert "AZURE_MANAGED_IDENTITY_TOKEN" in script
+    assert "AWS_WEB_IDENTITY_EXCHANGE" in script
+    assert "AWS_SESSION_IDENTITY_CHECK" in script
     assert "traceback" not in script.lower()
+
+
+def test_azure_issuer_path_is_preserved_in_aws_condition_prefix() -> None:
+    tenant_id = "11111111-1111-4111-8111-111111111111"
+
+    assert runner._aws_oidc_condition_prefix(
+        f"https://sts.windows.net/{tenant_id}/"
+    ) == f"sts.windows.net/{tenant_id}/"
+
+    with pytest.raises(
+        runner.ProbeBlocked,
+        match="AZURE_OIDC_ISSUER_INVALID",
+    ):
+        runner._aws_oidc_condition_prefix("http://sts.windows.net/tenant/")
 
 
 def test_azure_to_aws_accepts_only_aws_trailing_slash_arn_normalization() -> None:

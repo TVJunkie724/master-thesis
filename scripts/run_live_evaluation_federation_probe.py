@@ -473,6 +473,22 @@ def _aws_oidc_provider_arn_variants(canonical_arn: str) -> tuple[str, str]:
     return without_trailing_slash, f"{without_trailing_slash}/"
 
 
+def _aws_oidc_condition_prefix(issuer: str) -> str:
+    """Preserve the complete HTTPS issuer host and path for IAM conditions."""
+
+    parsed = urlparse(issuer)
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ProbeBlocked("AZURE_OIDC_ISSUER_INVALID")
+    return f"{parsed.netloc}{parsed.path}"
+
+
 def _validate_created_aws_oidc_provider_arn(
     created_arn: str,
     canonical_arn: str,
@@ -1105,6 +1121,7 @@ def xml_value(root, name):
             return item.text
     return None
 
+stage = 'AZURE_MANAGED_IDENTITY_TOKEN'
 try:
     query = urllib.parse.urlencode({
         'api-version': '2018-02-01',
@@ -1128,6 +1145,7 @@ try:
     if token is None:
         raise RuntimeError('managed identity token unavailable')
 
+    stage = 'AWS_WEB_IDENTITY_EXCHANGE'
     region = os.environ['AWS_REGION']
     host = 'sts.' + region + '.amazonaws.com'
     endpoint = 'https://' + host + '/'
@@ -1150,6 +1168,7 @@ try:
     if not access_key or not secret_key or not session_token:
         raise RuntimeError('AWS session unavailable')
 
+    stage = 'AWS_SESSION_IDENTITY_CHECK'
     body = b'Action=GetCallerIdentity&Version=2011-06-15'
     moment = datetime.datetime.now(datetime.timezone.utc)
     amz_date = moment.strftime('%Y%m%dT%H%M%SZ')
@@ -1195,7 +1214,7 @@ try:
     })
     print('PROBE_PASSED')
 except Exception:
-    print('PROBE_BLOCKED')
+    print('PROBE_BLOCKED_' + stage)
     sys.exit(1)
 '''
 
@@ -2545,7 +2564,7 @@ def _run_azure_to_aws(
     if not re.fullmatch(r"\d{12}", aws_account_id):
         raise ProbeBlocked("AWS_ACCOUNT_ID_UNAVAILABLE")
     issuer = f"https://sts.windows.net/{tenant_id}/"
-    issuer_host_path = f"sts.windows.net/{tenant_id}"
+    issuer_host_path = _aws_oidc_condition_prefix(issuer)
     expected_oidc_provider_arn = (
         f"arn:aws:iam::{aws_account_id}:oidc-provider/{issuer_host_path}"
     )
@@ -2809,13 +2828,20 @@ def _run_azure_to_aws(
             ((containers[0].get("properties") or {}).get("instanceView") or {})
             .get("currentState", {})
         )
-        if current_state.get("exitCode") != 0:
-            raise ProbeBlocked("AZURE_RUNNER_FAILED")
-        if _azure_container_logs(
+        runner_result = _azure_container_logs(
             azure_credential,
             container_group_path,
             container_name,
-        ) != "PROBE_PASSED":
+        )
+        if current_state.get("exitCode") != 0:
+            blocked = re.fullmatch(
+                r"PROBE_BLOCKED_([A-Z0-9_]{1,64})",
+                runner_result,
+            )
+            raise ProbeBlocked(
+                blocked.group(1) if blocked else "AZURE_RUNNER_FAILED"
+            )
+        if runner_result != "PROBE_PASSED":
             raise ProbeBlocked("AZURE_RUNNER_RESULT_INVALID")
         exchange_completed_at = now()
         exchange_stage = "completed"
