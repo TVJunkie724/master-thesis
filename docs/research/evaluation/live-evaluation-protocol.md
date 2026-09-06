@@ -1,6 +1,6 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation and five
+Status: planned and offline-validated; bounded account preparation and all six
 directed federation probes are verified. The approved one-administrator Azure
 contract is live-revalidated without workload creation, and no Twin workload
 deployment is claimed.
@@ -66,10 +66,9 @@ caps, cleanup order, and residual-inventory rules are frozen in
 [`directed-federation-probe-plan.json`](directed-federation-probe-plan.json).
 Its record digest is
 `sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754`.
-The exact plan received supervised approval for run `26083001`. GCP-to-AWS,
-GCP-to-Azure, AWS-to-Azure, AWS-to-GCP, and Azure-to-AWS passed with immediate
-cleanup and clean active residual inventory. Azure-to-GCP remains pending and
-retains its separate pinned-image, runtime, cost, and cleanup bounds.
+The exact plan received supervised approval for run `26083001`. All six
+directions passed with immediate cleanup and clean active residual inventory.
+Only the expected, non-usable GCP soft-delete tombstones remain.
 
 On 2026-09-03 the Azure credential contract was deliberately reduced to one
 administrator for the isolated thesis subscription. The current readiness gate
@@ -118,8 +117,35 @@ all six classes. No Terraform Apply, Twin workload, message transfer, or full
 E2E run occurred. RQ1 gains measured Entra propagation and cleanup behavior;
 RQ2 now has standalone directed-identity evidence for five of six directions;
 RQ3 bounds the two billable retries by their unchanged USD 0.01 per-attempt
-technical caps rather than inferring an unobserved provider invoice. The only
-remaining directed prerequisite is Azure-to-GCP.
+technical caps rather than inferring an unobserved provider invoice. At this
+checkpoint, Azure-to-GCP was the only remaining directed prerequisite.
+
+Azure-to-GCP then completed under the same independently cleaned retry model.
+The first attempt reached ACI for 51.225 seconds, but the immediate terminated-
+container log request returned HTTP 400; the exchange was therefore not
+claimed even though cleanup and eight independent active-inventory checks were
+clean. The harness now retries only empty, HTTP 400, or HTTP 404 log reads
+within the existing deadline. The second attempt stopped before ACI after
+creating the GCP provider because a downstream validator still rejected the
+bounded retry suffix. Cleanup was clean and direct cost was USD 0.00. GCP does
+not permit a soft-deleted pool ID to be reused for approximately 30 days, so
+subsequent attempts use a two-digit suffix inside the already approved name
+prefix and retain the tombstones as explicit, non-active evidence.
+
+The third attempt passed the managed-identity and GCP STS stages but stopped at
+service-account impersonation after 33.908 seconds of ACI runtime. Immediate
+cleanup and all eight active-inventory checks were clean. The runner now
+retries only that exact token-generation operation ten times at five-second
+intervals, still within its 300-second limit. The fourth attempt passed the
+managed-identity assertion, GCP workload-identity exchange, and one target
+service-account access-token issuance in 57.268 seconds. Immediate cleanup and
+an independent ten-class inventory were clean; the four expected pool/provider
+tombstones are deleted and unusable. RQ1 records log, namespace, and IAM
+propagation behavior; RQ2 now has standalone directed-identity evidence for
+all six directions. RQ3 records three Azure-to-GCP attempts that reached ACI,
+each below its USD 0.01 technical cap, without inferring an exact provider
+invoice. No Terraform Apply, Twin workload, message transfer, or full E2E run
+occurred.
 
 The following earlier attempt records remain historical evidence and must not
 be read as validation of the current credential contract.

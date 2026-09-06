@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; five directed federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator now passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and Azure-to-GCP federation execution remain open |
+| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, static images, federation plans, the GCP L4 bootstrap decision, and all six directed federation probes are complete | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; only the scenario-bound dynamic GCP processor image remains before supervised scenario approval |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -423,11 +423,11 @@ digest-bound plan permits no Terraform Apply, Twin workload, message transfer,
 static secret, or destination data permission. Four local-runner probes have a
 direct technical cost cap of USD 0.00. The two exact Azure managed-identity
 source paths each use at most one no-ingress 1-vCPU/1-GiB container for five
-minutes with a USD 0.01 cap; the aggregate plan cap is USD 0.02. Prices must be
-refreshed before execution. The exact plan received supervised approval for
-run `26083001`. The four USD 0.00 local-runner probes and the bounded
-Azure-to-AWS probe passed with clean active residual inventory. Azure-to-GCP is
-the only remaining direction.
+minutes with a USD 0.01 per-attempt cap; the original one-attempt-per-direction
+aggregate cap is USD 0.02. Prices must be refreshed before execution. The exact
+plan received supervised approval for run `26083001`. All six probes passed
+with clean active residual inventory; only the expected non-usable GCP
+soft-delete tombstones remain.
 
 The following paragraphs preserve the earlier split-authority checkpoint as
 historical evidence. The active single-administrator contract is recorded
@@ -590,17 +590,35 @@ managed-identity token, AWS web-identity exchange, and session-identity check
 in 40.320 seconds. Immediate cleanup and a separate inventory check were clean
 across all six AWS, ARM, and Graph classes. The two billable retries each
 remained under the frozen USD 0.01 technical cap. This establishes five of six
-directed identity paths without Terraform Apply or a Twin workload; only
-Azure-to-GCP remains.
+directed identity paths without Terraform Apply or a Twin workload; at that
+checkpoint only Azure-to-GCP remained.
+
+The subsequent Azure-to-GCP sequence completed on 2026-09-06. An initial
+51.225-second ACI attempt was not counted as an exchange because the immediate
+terminated-container log read returned HTTP 400; cleanup and the independent
+active inventory were clean. The next attempt created and then removed its GCP
+provider but stopped before ACI on a stale exact-name validator, with USD 0.00
+direct cost. The retry-safe harness now waits only for the one-line ACI result
+on empty/400/404 responses and uses a bounded two-digit pool/provider suffix
+because GCP prevents reuse of soft-deleted names for approximately 30 days.
+
+The next attempt passed managed identity and GCP STS but stopped at target
+service-account impersonation after 33.908 seconds; cleanup and independent
+inventory were clean. A bounded ten-by-five-second retry now covers only that
+known IAM propagation window. The final attempt passed all three stages in
+57.268 seconds. Immediate cleanup and a separate ten-class inventory found no
+active Azure, Entra, or GCP probe resource; the four expected GCP tombstones
+were deleted and unusable. Three Azure-to-GCP attempts reached ACI and each
+remained under its USD 0.01 cap. Across both Azure-source directions, five
+runner-reaching attempts give a conservative cumulative technical ceiling of
+USD 0.05; no exact provider invoice is inferred. All six standalone federation
+directions are now complete without Terraform Apply or Twin deployment.
 
 Continue Phase 8 in this order:
 
-1. execute the remaining approved Azure-to-GCP federation probe separately,
-   enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
-   and reconcile residual inventory;
-2. freeze and locally build the scenario-bound processor extension during the
+1. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
-3. only after those gates pass, set the matrix to
+2. only after that gate passes, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
    bootstrap only after L1--L3/Event Layer pass and before L4 verification.

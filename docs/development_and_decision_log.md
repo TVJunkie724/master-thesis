@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-06"
-version: "2.3"
+version: "2.4"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -682,4 +682,29 @@ full E2E run occurred. For RQ1, the sequence records concrete identity
 propagation and cleanup complexity. For RQ2, five of six directed standalone
 identity paths now pass. For RQ3, only two retries reached billable ACI and
 each stayed within its unchanged USD 0.01 technical cap; no exact provider
-invoice is inferred. Azure-to-GCP remains the sole directed prerequisite.
+invoice is inferred. At that checkpoint, Azure-to-GCP remained the sole
+directed prerequisite.
+
+Azure-to-GCP then required four individually cleaned attempts. The first
+reached ACI for 51.225 seconds, but the immediate terminated-container log read
+returned HTTP 400, so no exchange success was inferred. The second created its
+GCP provider but stopped before ACI because the Principal-URI validator still
+accepted only the original pool name. Both cleanups and independent active
+inventories were clean; the second attempt incurred USD 0.00. The harness now
+retries only temporarily unavailable one-line ACI logs and derives a bounded
+two-digit pool/provider suffix for retries because GCP soft-deleted names are
+not reusable for approximately 30 days.
+
+The third attempt passed the managed-identity and GCP STS stages but stopped at
+service-account impersonation after 33.908 seconds. The exact token-generation
+request now retries ten times with five-second spacing inside the unchanged
+300-second ACI limit. The fourth attempt passed all three stages in 57.268
+seconds, followed by immediate cleanup and a clean independent ten-class
+inventory. Four expected pool/provider tombstones remain deleted and unusable.
+RQ1 now includes measured Azure-log, GCP namespace, and IAM-propagation
+behavior; RQ2 has standalone evidence for all six directed identity contracts.
+RQ3 records three billable Azure-to-GCP runner attempts, each under USD 0.01,
+and a conservative USD 0.05 cumulative technical ceiling for the five ACI-
+reaching attempts across both Azure-source directions. No exact provider
+invoice, Terraform Apply, Twin workload, message transfer, or full E2E run is
+claimed.
