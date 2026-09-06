@@ -76,12 +76,25 @@
   ],
   "dynamic_runtime_images": [
     {
-      "blocking_condition": "canonical_bound_user_function_artifact_required",
+      "applicable_scenarios": [
+        "small-local-gcp",
+        "small-focus-gcp-to-aws",
+        "small-focus-azure-to-gcp",
+        "small-focus-gcp-to-azure"
+      ],
+      "artifact_digest": "sha256:5b67706381aabed09f225f8a832d59e55c864e9602e967cb70110dd0e59b85b1",
+      "artifact_manifest": "contracts/user-function-extension/v1/examples/valid-artifact.json",
+      "build_context_digest": "sha256:d489a113b28204c87a2dd598afce1606de15b83455e01d868f9611d8533b2f6b",
+      "builder": "3-cloud-deployer/src/providers/terraform/package_builders/gcp_six_layer.py",
       "image_id": "gcp-processor-extension",
+      "local_image_id": "sha256:3fc64e955fa20b84b60f4acbefeae2ec5d13a99d1f70f7fb3b6e62e1d84326a2",
+      "package_digest": "sha256:fd614efea5a7e591d7bf98ba8b5ae8ebc09cbc98c4ab6c875fbf787b87252f99",
+      "platform": "linux/amd64",
       "provider": "gcp",
       "registry_digest": null,
-      "source": "3-cloud-deployer/src/providers/terraform/package_builders/gcp_six_layer.py",
-      "status": "pending_scenario_bound_source_freeze"
+      "source": "contracts/user-function-extension/v1/examples/source/valid",
+      "source_payload_digest": "sha256:4260d6ab46b7153b64cd0eb5a460459d15560d6d643a9f7898ac57c30237d2d1",
+      "status": "local_build_and_contract_check_complete_registry_publication_pending"
     }
   ],
   "execution_enabled": false,
@@ -125,11 +138,12 @@
       "status": "remote_manifest_resolved"
     }
   ],
-  "record_digest": "sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9",
+  "record_digest": "sha256:30fe0808341565f501dcb90b7574220559b4a4101f06d79125fbde9be0793873",
   "schema_version": "six-layer-live-image-readiness.v1",
-  "status": "static_images_local_build_complete_registry_publication_pending",
+  "status": "all_images_local_build_complete_registry_publication_pending",
   "summary": {
-    "dynamic_images_deferred": 1,
+    "dynamic_images_built": 1,
+    "dynamic_images_deferred": 0,
     "pinned_build_inputs_resolved": 4,
     "public_runtime_images_resolved": 2,
     "registry_publications_performed": 0,

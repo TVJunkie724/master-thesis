@@ -357,7 +357,7 @@ python scripts/verify_live_evaluation_image_readiness.py
 The record is bound to candidate-pack manifest
 `sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346`
 and has record digest
-`sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9`.
+`sha256:30fe0808341565f501dcb90b7574220559b4a4101f06d79125fbde9be0793873`.
 Both public runtime images and all four pinned build inputs resolve at their
 declared registry digests. All seven static custom runtime images build locally
 for `linux/amd64`. No image was pushed and no provider registry was mutated, so
@@ -365,10 +365,13 @@ local image IDs are deliberately not represented as deployable registry
 digests.
 
 The GCP processor extension is not a static profile image. Its context is
-content-bound to the canonical user-function artifact selected for one Twin.
-It remains fail-closed until that exact artifact is frozen; its local build and
-registry publication then belong to the reviewed scenario preparation. This
-deferment does not broaden the PoC into a generic image publication system.
+content-bound to the one canonical evaluation function already referenced by
+the candidate pack. That exact artifact is now frozen, packaged deterministically,
+built locally for `linux/amd64`, and checked against its runtime-envelope
+contract. The same immutable source applies only to the four candidates that
+place L2 on GCP. Registry publication remains part of a separately approved
+scenario deployment; the local check did not create a parallel image
+publication system.
 
 ## Cost-efficient order
 

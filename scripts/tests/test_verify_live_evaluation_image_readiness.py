@@ -14,7 +14,24 @@ def test_tracked_image_readiness_record_is_valid() -> None:
     assert record["execution_enabled"] is False
     assert record["cloud_mutation_performed"] is False
     assert record["summary"]["static_custom_images_built"] == 7
+    assert record["summary"]["dynamic_images_built"] == 1
+    assert record["summary"]["dynamic_images_deferred"] == 0
     assert record["summary"]["registry_publications_performed"] == 0
+
+
+def test_dynamic_processor_image_is_bound_to_gcp_processing_scenarios() -> None:
+    record = verifier.verify(verifier.DEFAULT_RECORD, verifier.DEFAULT_SCHEMA)
+    dynamic = record["dynamic_runtime_images"][0]
+
+    assert set(dynamic["applicable_scenarios"]) == {
+        "small-local-gcp",
+        "small-focus-gcp-to-aws",
+        "small-focus-azure-to-gcp",
+        "small-focus-gcp-to-azure",
+    }
+    assert dynamic["status"] == (
+        "local_build_and_contract_check_complete_registry_publication_pending"
+    )
 
 
 def test_record_is_bound_to_current_candidate_pack(tmp_path) -> None:

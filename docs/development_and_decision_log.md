@@ -545,9 +545,11 @@ declared immutable digests; seven custom images build locally for
 `linux/amd64`. The build exposed and regression-covered a GCP Grafana context
 path defect. The checked record is
 `docs/research/evaluation/small-runtime-image-readiness.json` with digest
-`sha256:895b1bc40ae6e9862422110ccee01652de5dc7f09141fd0976ab118b8222e6e9`.
-No registry image was published, and the per-Twin GCP processor extension
-remains blocked until the exact canonical user-function artifact is frozen.
+`sha256:30fe0808341565f501dcb90b7574220559b4a4101f06d79125fbde9be0793873`.
+The candidate-bound canonical function is also packaged deterministically; its
+GCP processor extension builds locally for `linux/amd64` and passes the frozen
+runtime-envelope contract. No registry image was published and no provider was
+mutated.
 
 The subsequent read-only provider probe completed without a write operation.
 AWS has sufficient checked Grafana, TwinMaker, and Kinesis headroom; Azure
@@ -708,3 +710,13 @@ and a conservative USD 0.05 cumulative technical ceiling for the five ACI-
 reaching attempts across both Azure-source directions. No exact provider
 invoice, Terraform Apply, Twin workload, message transfer, or full E2E run is
 claimed.
+
+The remaining runtime-image gate then completed entirely offline. The exact
+canonical `processor.telemetry@1` artifact already bound into the candidate
+pack produced a deterministic GCP package and container context, built for
+`linux/amd64`, and returned the expected frozen runtime response. The updated
+readiness record binds the artifact, package, context and local image digests
+to exactly the four scenarios that place L2 on GCP. No registry publication,
+Terraform action or provider mutation occurred. This is a deployment fixture
+for the resource-integration evaluation, not a separate image feature or
+research claim.

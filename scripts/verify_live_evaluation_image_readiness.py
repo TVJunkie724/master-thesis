@@ -48,7 +48,13 @@ def verify(record_path: Path, schema_path: Path) -> dict[str, Any]:
             f"expected {expected_digest}, got {record['record_digest']}"
         )
 
-    image_ids = [item["image_id"] for item in record["custom_runtime_images"]]
+    image_ids = [
+        item["image_id"]
+        for item in [
+            *record["custom_runtime_images"],
+            *record["dynamic_runtime_images"],
+        ]
+    ]
     if len(image_ids) != len(set(image_ids)):
         raise ValueError("custom runtime image IDs must be unique")
 
@@ -66,6 +72,42 @@ def verify(record_path: Path, schema_path: Path) -> dict[str, Any]:
         source = ROOT / image["source"]
         if not source.exists():
             raise ValueError(f"custom runtime source does not exist: {source}")
+
+    plan = _load(ROOT / "docs/research/evaluation/small-scenario-matrix.json")
+    expected_gcp_processing_scenarios = {
+        item["scenario_id"]
+        for item in plan["scenarios"]
+        if item["assignments"]["component.processing"] == "gcp"
+    }
+    dynamic = record["dynamic_runtime_images"][0]
+    if set(dynamic["applicable_scenarios"]) != expected_gcp_processing_scenarios:
+        raise ValueError("GCP processor image scenario binding drifted")
+    for field in ("source", "builder", "artifact_manifest"):
+        path = ROOT / dynamic[field]
+        if not path.exists():
+            raise ValueError(f"dynamic runtime {field} does not exist: {path}")
+
+    manifest = _load(ROOT / dynamic["artifact_manifest"])
+    if dynamic["artifact_digest"] != manifest.get("artifact_digest"):
+        raise ValueError("GCP processor artifact digest drifted")
+    source_metadata = manifest.get("source")
+    if (
+        not isinstance(source_metadata, dict)
+        or dynamic["source_payload_digest"]
+        != source_metadata.get("payload_digest")
+    ):
+        raise ValueError("GCP processor source payload digest drifted")
+    source_root = ROOT / dynamic["source"]
+    for item in source_metadata.get("files", []):
+        path = source_root / item["relative_path"]
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"GCP processor source file is unavailable: {path}")
+        content = path.read_bytes()
+        if len(content) != item["size_bytes"] or (
+            "sha256:" + hashlib.sha256(content).hexdigest()
+            != item["content_digest"]
+        ):
+            raise ValueError(f"GCP processor source file digest drifted: {path}")
 
     return record
 

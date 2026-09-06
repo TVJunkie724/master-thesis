@@ -25,7 +25,7 @@
       "const": "six-layer-live-image-readiness.v1"
     },
     "status": {
-      "const": "static_images_local_build_complete_registry_publication_pending"
+      "const": "all_images_local_build_complete_registry_publication_pending"
     },
     "architecture_profile": {
       "const": "six-layer-eventing@1"
@@ -117,9 +117,17 @@
           "image_id",
           "provider",
           "source",
+          "builder",
+          "artifact_manifest",
+          "artifact_digest",
+          "source_payload_digest",
+          "package_digest",
+          "build_context_digest",
+          "local_image_id",
+          "platform",
+          "applicable_scenarios",
           "registry_digest",
-          "status",
-          "blocking_condition"
+          "status"
         ],
         "properties": {
           "image_id": {
@@ -132,14 +140,51 @@
             "type": "string",
             "minLength": 1
           },
+          "builder": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifact_manifest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "artifact_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "source_payload_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "package_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "build_context_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "local_image_id": {
+            "$ref": "#/$defs/digest"
+          },
+          "platform": {
+            "const": "linux/amd64"
+          },
+          "applicable_scenarios": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "small-local-gcp",
+                "small-focus-gcp-to-aws",
+                "small-focus-azure-to-gcp",
+                "small-focus-gcp-to-azure"
+              ]
+            }
+          },
           "registry_digest": {
             "type": "null"
           },
           "status": {
-            "const": "pending_scenario_bound_source_freeze"
-          },
-          "blocking_condition": {
-            "const": "canonical_bound_user_function_artifact_required"
+            "const": "local_build_and_contract_check_complete_registry_publication_pending"
           }
         }
       }
@@ -152,6 +197,7 @@
         "pinned_build_inputs_resolved",
         "static_custom_images_built",
         "static_custom_images_expected",
+        "dynamic_images_built",
         "dynamic_images_deferred",
         "registry_publications_performed"
       ],
@@ -169,6 +215,9 @@
           "const": 7
         },
         "dynamic_images_deferred": {
+          "const": 0
+        },
+        "dynamic_images_built": {
           "const": 1
         },
         "registry_publications_performed": {
