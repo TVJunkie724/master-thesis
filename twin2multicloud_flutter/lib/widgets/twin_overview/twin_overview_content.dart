@@ -31,7 +31,6 @@ class TwinOverviewContent extends StatelessWidget {
   final VoidCallback onDownloadSimulator;
   final VoidCallback onRetryLayerAccess;
   final ValueChanged<DeploymentAccessSurface> onOpenLayerAccess;
-  final VoidCallback onRotateLayerAccessCredential;
   final ValueChanged<String> onOutputCopyFeedback;
   final ValueChanged<TwinOverviewCodeArtifact> onViewArtifact;
   final ValueChanged<TwinOverviewCodeArtifact> onDownloadArtifact;
@@ -54,7 +53,6 @@ class TwinOverviewContent extends StatelessWidget {
     required this.onDownloadSimulator,
     required this.onRetryLayerAccess,
     required this.onOpenLayerAccess,
-    required this.onRotateLayerAccessCredential,
     required this.onOutputCopyFeedback,
     required this.onViewArtifact,
     required this.onDownloadArtifact,
@@ -93,7 +91,6 @@ class TwinOverviewContent extends StatelessWidget {
                     state: state.layerAccess,
                     onRetry: onRetryLayerAccess,
                     onOpenSurface: onOpenLayerAccess,
-                    onRotateViewerCredential: onRotateLayerAccessCredential,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   TestingUtilitiesPanel(

@@ -49,8 +49,7 @@ run "six_layer_aws_azure_gcp_routes_event_targets_without_hidden_landing" {
     gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/storage@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_six_layer_grafana_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-a-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    gcp_grafana_source_cidrs                = ["203.0.113.42/32"]
+    gcp_deployment_principal_email          = "deployer@phase8-poc-project.iam.gserviceaccount.com"
     aws_six_layer_bridge_image              = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     aws_outbound_identity_required          = true
     aws_outbound_identity_destinations      = ["azure"]
@@ -273,9 +272,8 @@ run "six_layer_azure_gcp_aws_routes_cover_remaining_directed_pairs" {
     gcp_region                            = "europe-west1"
     gcp_six_layer_platform_image          = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_six_layer_storage_mover_image     = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/storage@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    gcp_six_layer_grafana_image           = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/grafana@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     gcp_event_runtime_image               = "europe-west1-docker.pkg.dev/phase8-poc-project/route-test-b-v2/event@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    gcp_grafana_source_cidrs              = ["203.0.113.42/32"]
+    gcp_deployment_principal_email        = "deployer@phase8-poc-project.iam.gserviceaccount.com"
     aws_six_layer_bridge_image            = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     aws_six_layer_storage_mover_image     = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/route-test-storage@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     enable_aws_logging                    = false

@@ -16,14 +16,14 @@ void main() {
             )
             as Map<String, dynamic>;
     final result = CalcResult.fromJson({
-      'totalCost': 196.07170186,
-      'totalCostExact': '196.07170186',
+      'totalCost': 145.58670186,
+      'totalCostExact': '145.58670186',
       'currency': 'USD',
       'resolvedTwinArchitecture': architecture,
       'inputParamsUsed': <String, dynamic>{},
     });
 
-    expect(result.totalCost, 196.07170186);
+    expect(result.totalCost, 145.58670186);
     expect(result.cheapestPath, hasLength(7));
     expect(result.cheapestPath.first, startsWith('L1_'));
     expect(result.awsCosts.l3Hot, isNull);
@@ -40,8 +40,8 @@ void main() {
             )
             as Map<String, dynamic>;
     final result = CalcResult.fromJson({
-      'totalCost': 196.07170186,
-      'totalCostExact': '196.07170186',
+      'totalCost': 145.58670186,
+      'totalCostExact': '145.58670186',
       'currency': 'USD',
       'resolvedTwinArchitecture': architecture,
       'awsCosts': {
@@ -53,7 +53,7 @@ void main() {
       'cheapestPath': ['L1_GCP'],
     });
 
-    expect(result.totalCost, 196.07170186);
+    expect(result.totalCost, 145.58670186);
     expect(result.cheapestPath, hasLength(7));
     expect(result.cheapestPath.first, 'L1_AWS');
     expect(result.awsCosts.l1?.cost, 28.45183018);

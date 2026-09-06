@@ -777,51 +777,6 @@
         "title": "DeployerValidationResponse",
         "type": "object"
       },
-      "DeploymentAccessCredentialResult": {
-        "additionalProperties": false,
-        "properties": {
-          "issued_at": {
-            "format": "date-time",
-            "title": "Issued At",
-            "type": "string"
-          },
-          "layer": {
-            "pattern": "^l5$",
-            "title": "Layer",
-            "type": "string"
-          },
-          "password": {
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
-          },
-          "provider": {
-            "pattern": "^gcp$",
-            "title": "Provider",
-            "type": "string"
-          },
-          "schema_version": {
-            "pattern": "^deployment-access-credential\\.v1$",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "username": {
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "layer",
-          "provider",
-          "username",
-          "password",
-          "issued_at"
-        ],
-        "title": "DeploymentAccessCredentialResult",
-        "type": "object"
-      },
       "GCPCredentialsCheckResponse": {
         "description": "Response schema for GCP credential validation.",
         "properties": {
@@ -1842,66 +1797,6 @@
           }
         },
         "summary": "Deploy with SSE streaming logs",
-        "tags": [
-          "Infrastructure"
-        ]
-      }
-    },
-    "/infrastructure/deployment-access/l5/credentials:rotate": {
-      "post": {
-        "operationId": "rotate_deployment_access_credential_infrastructure_deployment_access_l5_credentials_rotate_post",
-        "parameters": [
-          {
-            "description": "Name of the project context",
-            "in": "query",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the project context",
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Operation-Package",
-            "required": true,
-            "schema": {
-              "minLength": 1,
-              "title": "X-Operation-Package",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentAccessCredentialResult"
-                }
-              }
-            },
-            "description": "One-time Viewer credential"
-          },
-          "400": {
-            "description": "Invalid or expired operation package"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Bounded GKE rotation failed"
-          }
-        },
-        "summary": "Rotate the deployed GCP Grafana Viewer credential once",
         "tags": [
           "Infrastructure"
         ]

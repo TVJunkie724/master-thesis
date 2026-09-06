@@ -69,34 +69,6 @@ class TwinOverviewView extends ConsumerWidget {
             context.go('/dashboard');
           },
         ),
-        // Capture and clear the one-time Viewer credential before presentation.
-        BlocListener<TwinOverviewBloc, TwinOverviewState>(
-          listenWhen: (previous, current) {
-            if (current is! TwinOverviewLoaded ||
-                current.layerAccess.pendingCredential == null) {
-              return false;
-            }
-            return previous is! TwinOverviewLoaded ||
-                previous.layerAccess.credentialRequestToken !=
-                    current.layerAccess.credentialRequestToken;
-          },
-          listener: (context, state) async {
-            if (state is! TwinOverviewLoaded) return;
-            final credential = state.layerAccess.pendingCredential;
-            if (credential == null) return;
-            final token = state.layerAccess.credentialRequestToken;
-            context.read<TwinOverviewBloc>().add(
-              TwinOverviewAccessCredentialConsumed(token),
-            );
-            await showDialog<void>(
-              context: context,
-              builder: (_) => GcpGrafanaCredentialRevealDialog(
-                username: credential.username,
-                password: credential.password,
-              ),
-            );
-          },
-        ),
         // Save the one-shot simulator payload outside Equatable state handling.
         BlocListener<TwinOverviewBloc, TwinOverviewState>(
           listenWhen: (previous, current) {
@@ -393,7 +365,6 @@ class TwinOverviewView extends ConsumerWidget {
         const TwinOverviewRetryLayerAccess(),
       ),
       onOpenLayerAccess: (surface) => _openLayerAccess(context, ref, surface),
-      onRotateLayerAccessCredential: () => _confirmGcpViewerRotation(context),
       onOutputCopyFeedback: (message) => context.read<TwinOverviewBloc>().add(
         TwinOverviewShowMessage(message, MessageType.success),
       ),
@@ -463,18 +434,6 @@ class TwinOverviewView extends ConsumerWidget {
         MessageType.error,
       ),
     );
-  }
-
-  Future<void> _confirmGcpViewerRotation(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => const RotateGcpGrafanaViewerConfirmationDialog(),
-    );
-    if (confirmed == true && context.mounted) {
-      context.read<TwinOverviewBloc>().add(
-        const TwinOverviewRotateGcpGrafanaViewerCredential(),
-      );
-    }
   }
 
   void _showCodeArtifact(

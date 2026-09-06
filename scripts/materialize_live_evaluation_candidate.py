@@ -43,6 +43,7 @@ ARTIFACT_PATH = (
     ROOT / "contracts/user-function-extension/v1/examples/valid-artifact.json"
 )
 PROVIDER_ORDER = ("aws", "azure", "gcp")
+DEFINITIONS_ROOT = ROOT / "contracts" / "architecture-profiles" / "definitions"
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -100,6 +101,39 @@ def _scenario(plan: Mapping[str, Any], scenario_id: str) -> Mapping[str, Any]:
     return scenario
 
 
+def _source_registry() -> ArchitectureProfileRegistry:
+    """Resolve directly from the canonical contract source during regeneration."""
+
+    profile = _read(
+        DEFINITIONS_ROOT / "profiles" / "six-layer-eventing" / "1" / "profile.json"
+    )
+    catalog = _read(
+        DEFINITIONS_ROOT
+        / "component-catalogs"
+        / "six-layer-eventing"
+        / "1"
+        / "catalog.json"
+    )
+    providers = {
+        provider: _read(
+            DEFINITIONS_ROOT
+            / "provider-implementations"
+            / "six-layer-eventing"
+            / "1"
+            / provider
+            / "1.json"
+        )
+        for provider in PROVIDER_ORDER
+    }
+    return ArchitectureProfileRegistry(
+        profile=profile,
+        catalog=catalog,
+        providers=providers,
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
+
+
 def materialize(scenario_id: str) -> dict[str, Any]:
     """Cost and materialize one exact, admissible planned candidate offline."""
 
@@ -115,10 +149,7 @@ def materialize(scenario_id: str) -> dict[str, Any]:
 
     workload_path = ROOT / str(plan["workload_fixture"])
     workload = _read(workload_path)
-    registry = ArchitectureProfileRegistry(
-        profile_id="six-layer-eventing",
-        profile_version="1",
-    )
+    registry = _source_registry()
     repository = get_pricing_catalog_repository()
     context = PricingCatalogContext(
         catalogs={

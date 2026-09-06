@@ -1141,9 +1141,7 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
                 commandArn=command_arn,
                 parameters={
                     "message": {"S": str(body.get("message") or "Rule matched")},
-                    "trace_id": {
-                        "S": _diagnostic_trace_id(event) or _event_id(event)
-                    },
+                    "trace_id": {"S": _diagnostic_trace_id(event) or _event_id(event)},
                 },
                 executionTimeoutSeconds=300,
                 clientToken=_event_id(event)[:64],
@@ -1380,16 +1378,13 @@ def _reader_response(status: int, payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _verify_reader_key(event: Mapping[str, Any]) -> bytes:
-    expected = os.environ.get("READER_KEY_SHA256", "")
-    if len(expected) != 64:
+def _reader_cursor_key() -> bytes:
+    """Return the private cursor key after Function URL IAM authentication."""
+
+    value = os.environ.get("CURSOR_HMAC_KEY", "")
+    if len(value) < 32:
         raise ContractError("READER_NOT_PROVISIONED", 503)
-    headers = {str(k).lower(): str(v) for k, v in (event.get("headers") or {}).items()}
-    supplied = headers.get("x-twin-reader-key", "")
-    actual = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
-    if not hmac.compare_digest(actual, expected):
-        raise ContractError("READER_UNAUTHORIZED", 401)
-    return bytes.fromhex(expected)
+    return value.encode("utf-8")
 
 
 def _query_params(
@@ -1479,7 +1474,7 @@ def raw_history_reader(event: Mapping[str, Any], _context: Any) -> dict[str, Any
 
     correlation_id = str(uuid.uuid4())
     try:
-        cursor_key = _verify_reader_key(event)
+        cursor_key = _reader_cursor_key()
         if not event.get("queryStringParameters"):
             return _reader_response(
                 200,

@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 import hashlib
-import hmac
 import html
 import json
 import logging
@@ -796,18 +795,6 @@ def _model_detail(model_id: str) -> dict[str, Any]:
     }
 
 
-def _verify_reader_key() -> None:
-    expected = os.environ.get("READER_KEY_SHA256", "")
-    supplied = request.headers.get("x-twin2multicloud-reader-key", "")
-    if len(expected) != 64 or any(
-        character not in "0123456789abcdef" for character in expected
-    ):
-        raise core.ContractError("READER_NOT_PROVISIONED", 503)
-    actual = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
-    if not hmac.compare_digest(actual, expected):
-        raise core.ContractError("READER_UNAUTHORIZED", 401)
-
-
 def _history_deadline_timeout(deadline: float) -> float:
     remaining = deadline - time.monotonic()
     if remaining <= 0:
@@ -1340,7 +1327,6 @@ def raw_history_reader():
     if os.environ.get("RUNTIME_ROLE") != "raw-history-reader":
         return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
     try:
-        _verify_reader_key()
         if any(len(request.args.getlist(key)) != 1 for key in request.args):
             raise core.ContractError("INVALID_QUERY")
         payload = _read_raw_history(request.args.to_dict(flat=True))
@@ -1375,25 +1361,14 @@ def raw_history_reader():
 def raw_history_health():
     if os.environ.get("RUNTIME_ROLE") != "raw-history-reader":
         return jsonify({"error": {"code": "RUNTIME_ROLE_NOT_CONFIGURED"}}), 404
-    try:
-        _verify_reader_key()
-        response = jsonify(
-            {
-                "schema_version": "raw-history-health.v1",
-                "status": "ready",
-            }
-        )
-        response.headers["cache-control"] = "no-store"
-        return response, 200
-    except core.ContractError as exc:
-        response = jsonify(
-            {
-                "schema_version": "architecture-runtime-error.v1",
-                "code": exc.code,
-            }
-        )
-        response.headers["cache-control"] = "no-store"
-        return response, exc.status
+    response = jsonify(
+        {
+            "schema_version": "raw-history-health.v1",
+            "status": "ready",
+        }
+    )
+    response.headers["cache-control"] = "no-store"
+    return response, 200
 
 
 @app.post("/")

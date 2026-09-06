@@ -77,9 +77,9 @@
             "aws_iot_twinmaker",
             "azure_digital_twins",
             "gcp_twin_explorer",
-            "aws_managed_grafana",
-            "azure_managed_grafana",
-            "gcp_grafana_oss"
+            "aws_raw_history_reader",
+            "azure_raw_history_reader",
+            "gcp_raw_history_reader"
           ]
         },
         "display_name": {"type": "string", "minLength": 1},
@@ -94,11 +94,13 @@
                 "aws_identity_center",
                 "azure_entra",
                 "gcp_iap",
-                "generated_viewer"
+                "aws_sigv4",
+                "azure_function_key",
+                "gcp_identity_token"
               ]
             },
             "principal_label": {"type": "string", "minLength": 1},
-            "credential_action": {"enum": ["none", "rotate"]}
+            "credential_action": {"const": "none"}
           }
         },
         "readiness": {

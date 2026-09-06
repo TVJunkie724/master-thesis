@@ -18,7 +18,9 @@ enum DeploymentAccessAuthMode {
   awsIdentityCenter('aws_identity_center'),
   azureEntra('azure_entra'),
   gcpIap('gcp_iap'),
-  generatedViewer('generated_viewer');
+  awsSigv4('aws_sigv4'),
+  azureFunctionKey('azure_function_key'),
+  gcpIdentityToken('gcp_identity_token');
 
   final String apiValue;
 
@@ -33,13 +35,11 @@ enum DeploymentAccessAuthMode {
 }
 
 enum DeploymentAccessCredentialAction {
-  none,
-  rotate;
+  none;
 
   static DeploymentAccessCredentialAction parse(Object? value, String field) {
     return switch (value) {
       'none' => DeploymentAccessCredentialAction.none,
-      'rotate' => DeploymentAccessCredentialAction.rotate,
       _ => throw _contractError('$field contains an unknown action.'),
     };
   }
@@ -399,62 +399,6 @@ class DeploymentAccessSnapshot extends Equatable {
   ];
 }
 
-class DeploymentAccessCredential extends Equatable {
-  static const supportedSchemaVersion = 'deployment-access-credential.v1';
-
-  final String username;
-  final String password;
-  final DateTime issuedAt;
-
-  const DeploymentAccessCredential._({
-    required this.username,
-    required this.password,
-    required this.issuedAt,
-  });
-
-  factory DeploymentAccessCredential.fromJson(Map<String, dynamic> json) {
-    _expectKeys(json, const {
-      'schema_version',
-      'layer',
-      'provider',
-      'username',
-      'password',
-      'issued_at',
-    }, 'deployment_access_credential');
-    if (json['schema_version'] != supportedSchemaVersion ||
-        json['layer'] != 'l5' ||
-        json['provider'] != 'gcp') {
-      throw _contractError('Unsupported deployment access credential.');
-    }
-    return DeploymentAccessCredential._(
-      username: _requiredString(
-        json,
-        'username',
-        'deployment_access_credential',
-        maxLength: 320,
-      ),
-      password: _requiredString(
-        json,
-        'password',
-        'deployment_access_credential',
-        maxLength: 4096,
-      ),
-      issuedAt: _requiredDate(
-        json,
-        'issued_at',
-        'deployment_access_credential',
-      ),
-    );
-  }
-
-  @override
-  List<Object?> get props => [username, issuedAt];
-
-  @override
-  String toString() =>
-      'DeploymentAccessCredential(username: $username, issuedAt: $issuedAt)';
-}
-
 T _parseNamedEnum<T extends Enum>(List<T> values, Object? value, String field) {
   for (final candidate in values) {
     if (candidate.name == value) return candidate;
@@ -483,17 +427,17 @@ void _validateSurfaceCombination(
           auth.mode == DeploymentAccessAuthMode.gcpIap &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.aws) =>
-      serviceId == 'aws_managed_grafana' &&
-          auth.mode == DeploymentAccessAuthMode.awsIdentityCenter &&
+      serviceId == 'aws_raw_history_reader' &&
+          auth.mode == DeploymentAccessAuthMode.awsSigv4 &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.azure) =>
-      serviceId == 'azure_managed_grafana' &&
-          auth.mode == DeploymentAccessAuthMode.azureEntra &&
+      serviceId == 'azure_raw_history_reader' &&
+          auth.mode == DeploymentAccessAuthMode.azureFunctionKey &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.gcp) =>
-      serviceId == 'gcp_grafana_oss' &&
-          auth.mode == DeploymentAccessAuthMode.generatedViewer &&
-          auth.credentialAction == DeploymentAccessCredentialAction.rotate,
+      serviceId == 'gcp_raw_history_reader' &&
+          auth.mode == DeploymentAccessAuthMode.gcpIdentityToken &&
+          auth.credentialAction == DeploymentAccessCredentialAction.none,
   };
   if (!valid) {
     throw _contractError('$path has an unsupported provider surface.');

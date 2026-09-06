@@ -2,7 +2,7 @@
 Azure-specific deployment functions for Terraform.
 
 This module handles SDK-owned DTDL model upload, IoT device registration,
-and Grafana configuration after Terraform has published function packages.
+and L5 verification after Terraform has published function packages.
 """
 
 import logging
@@ -67,25 +67,20 @@ def register_azure_iot_devices(
 def configure_azure_grafana(
     context: "DeploymentContext", terraform_outputs: dict
 ) -> None:
-    """Configure Azure Grafana datasources."""
-    logger.info("  Configuring Azure Grafana...")
-    from src.providers.azure.layers.layer_5_grafana import (
-        configure_six_layer_grafana,
-        configure_grafana_datasource,
-    )
-
+    """Verify active-profile L5 or configure the historical Grafana path."""
     provider = _require_azure_provider(context)
     if _is_active_phase8_profile(context):
+        from src.providers.azure.layers.layer_5_raw_history import (
+            verify_raw_history_reader,
+        )
+
         bundle = terraform_outputs.get("azure_component_visualization_output")
         if not isinstance(bundle, dict):
             raise RuntimeError(
                 "Terraform output azure_component_visualization_output is required"
             )
         required = {
-            "workspace_name",
             "access_url",
-            "workspace_url",
-            "reader_url",
             "reader_function_name",
         }
         missing = sorted(key for key in required if not bundle.get(key))
@@ -94,18 +89,20 @@ def configure_azure_grafana(
                 "Azure visualization output is missing: " + ", ".join(missing)
             )
         device_id, metric = _default_v2_dashboard_series(context.config)
-        configure_six_layer_grafana(
+        verify_raw_history_reader(
             provider,
-            workspace_name=str(bundle["workspace_name"]),
-            grafana_url=str(bundle["workspace_url"]).rstrip("/"),
-            hot_reader_url=str(bundle["reader_url"]),
+            endpoint=str(bundle["access_url"]),
             function_app_name=str(bundle["reader_function_name"]),
             device_id=device_id,
             metric=metric,
-            architecture_profile=_active_phase8_profile(context),
         )
-        logger.info("  Azure Grafana configured")
+        logger.info(
+            "  Azure %s raw-history surface is ready", _active_phase8_profile(context)
+        )
         return
+    logger.info("  Configuring Azure Grafana...")
+    from src.providers.azure.layers.layer_5_grafana import configure_grafana_datasource
+
     hot_reader_url = terraform_outputs.get("azure_l3_hot_reader_url")
     if not hot_reader_url:
         raise RuntimeError("Terraform output azure_l3_hot_reader_url is required")

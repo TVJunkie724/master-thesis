@@ -52,7 +52,7 @@ void main() {
 
     expect(snapshot.surfaces, hasLength(2));
     expect(find.text('AWS IoT TwinMaker'), findsOneWidget);
-    expect(find.text('Amazon Managed Grafana'), findsOneWidget);
+    expect(find.text('AWS Raw-history Reader'), findsOneWidget);
     await _tapOpen(tester, DeploymentLayer.l4);
     await _tapOpen(tester, DeploymentLayer.l5);
     expect(opened, snapshot.surfaces.map((surface) => surface.url).toList());
@@ -69,7 +69,7 @@ void main() {
     await _expandDetails(tester, DeploymentLayer.l5);
 
     expect(find.text('Google Cloud IAP'), findsOneWidget);
-    expect(find.text('Microsoft Entra ID'), findsOneWidget);
+    expect(find.text('Azure Function key'), findsOneWidget);
     await _tapOpen(tester, DeploymentLayer.l4);
     await _tapOpen(tester, DeploymentLayer.l5);
     expect(opened, snapshot.surfaces.map((surface) => surface.url).toList());
@@ -182,34 +182,6 @@ void main() {
     expect(find.byKey(const Key('layer-access-card-l5')), findsNothing);
   });
 
-  testWidgets('GCP Viewer rotations replace only fingerprinted fixture state', (
-    tester,
-  ) async {
-    final twinId = _fixtures['rotation_twin_id'] as String;
-    final accessBefore = await _api.getDeploymentAccess(twinId);
-    final rawAccessBefore = await _raw.get('/twins/$twinId/deployment-access');
-    final first = await _api.rotateGcpGrafanaViewerCredential(twinId);
-    final firstState = await _rotationState(twinId);
-    final second = await _api.rotateGcpGrafanaViewerCredential(twinId);
-    final secondState = await _rotationState(twinId);
-
-    expect(first.username, 'viewer@example.invalid');
-    expect(second.username, 'viewer@example.invalid');
-    expect(second.password, isNot(first.password));
-    expect(firstState['provider_mutation_count'], 1);
-    expect(secondState['provider_mutation_count'], 2);
-    expect(
-      secondState['credential_fingerprint'],
-      isNot(firstState['credential_fingerprint']),
-    );
-    expect(accessBefore.surfaces, hasLength(2));
-    final readModel = jsonEncode(rawAccessBefore.data);
-    expect(readModel, isNot(contains(first.password)));
-    expect(readModel, isNot(contains(second.password)));
-    expect(readModel, isNot(contains('admin_password')));
-    expect(readModel, isNot(contains('reader_token')));
-  });
-
   testWidgets('generic outputs remain separate, rendered, and redacted', (
     tester,
   ) async {
@@ -226,76 +198,11 @@ void main() {
     expect(find.text('[REDACTED]'), findsNWidgets(2));
     expect(find.byKey(const Key('layer-access-card-l4')), findsOneWidget);
   });
-
-  testWidgets(
-    'concurrent rotation returns 409 and one mutation with retry UI',
-    (tester) async {
-      final twinId = _fixtures['rotation_twin_id'] as String;
-      final before = await _rotationState(twinId);
-      final first = _captureResponse(
-        () =>
-            _raw.post('/twins/$twinId/deployment-access/l5/credentials:rotate'),
-      );
-      final second = Future<void>.delayed(const Duration(milliseconds: 40))
-          .then(
-            (_) => _captureResponse(
-              () => _raw.post(
-                '/twins/$twinId/deployment-access/l5/credentials:rotate',
-              ),
-            ),
-          );
-      final responses = await Future.wait([first, second]);
-      final after = await _rotationState(twinId);
-
-      expect(responses.map((response) => response.statusCode).toSet(), {
-        200,
-        409,
-      });
-      final conflict = responses.singleWhere(
-        (response) => response.statusCode == 409,
-      );
-      expect(
-        _map(conflict.data, 'rotation conflict')['detail'],
-        'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS',
-      );
-      expect(
-        after['provider_mutation_count'],
-        (before['provider_mutation_count'] as int) + 1,
-      );
-
-      final snapshot = await _api.getDeploymentAccess(twinId);
-      await _pumpOverview(
-        tester,
-        layerAccess: LayerAccessViewState.fromSnapshot(snapshot).copyWith(
-          rotationError:
-              'Viewer credential rotation failed: '
-              'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS',
-        ),
-      );
-      expect(
-        find.textContaining('GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS'),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<OutlinedButton>(find.byKey(const Key('rotate-gcp-viewer')))
-            .onPressed,
-        isNotNull,
-      );
-    },
-  );
 }
 
 Future<DeploymentAccessSnapshot> _placement(String key) async {
   final placements = _map(_fixtures['placements'], 'placements');
   return _api.getDeploymentAccess(placements[key] as String);
-}
-
-Future<Map<String, dynamic>> _rotationState(String twinId) async {
-  final response = await _raw.get(
-    '/twins/$twinId/test-fixtures/layer-access-rotation',
-  );
-  return _map(response.data, 'rotation state');
 }
 
 Future<Response<dynamic>> _captureResponse(
@@ -360,7 +267,6 @@ Future<void> _pumpOverview(
           onDownloadSimulator: () {},
           onRetryLayerAccess: () {},
           onOpenLayerAccess: (surface) => opened?.add(surface.url),
-          onRotateLayerAccessCredential: () {},
           onOutputCopyFeedback: (_) {},
           onViewArtifact: _ignoreArtifact,
           onDownloadArtifact: _ignoreArtifact,

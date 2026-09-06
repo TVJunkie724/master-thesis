@@ -1,6 +1,6 @@
 {
   "architecture_profile": "six-layer-eventing@1",
-  "candidate_pack_manifest_digest": "sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346",
+  "candidate_pack_manifest_digest": "sha256:e5610e90570d44d9aff97537b721ff3324b1f2ad2b853b2fbe2e0e3ff3ffb476",
   "cloud_mutation_performed": false,
   "custom_runtime_images": [
     {
@@ -34,9 +34,9 @@
       "status": "local_build_complete_registry_publication_pending"
     },
     {
-      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
+      "build_context_digest": "sha256:34522bd7c47c6182dfad75dd248a213f98ee07006b98791c04aa21d618c9bec7",
       "image_id": "gcp-platform-bridge",
-      "local_image_id": "sha256:c9e3628351da7e3497796a878b7d2f12cf3e731ff572736c5baf20f4e51ac60c",
+      "local_image_id": "sha256:7b42abc72d419fc0290d4dfbf01a3ae6ca18d96dd4c09b08a8de1c16b5bfec63",
       "platform": "linux/amd64",
       "provider": "gcp",
       "registry_digest": null,
@@ -44,19 +44,9 @@
       "status": "local_build_complete_registry_publication_pending"
     },
     {
-      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
-      "image_id": "gcp-grafana",
-      "local_image_id": "sha256:5df2aafa172dfc612b7bf176169e1fc6f1a7a6ab8a8678717ee65d04e301ac45",
-      "platform": "linux/amd64",
-      "provider": "gcp",
-      "registry_digest": null,
-      "source": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain/grafana",
-      "status": "local_build_complete_registry_publication_pending"
-    },
-    {
-      "build_context_digest": "sha256:30d36f99aeeec17f4e407ac69c3f41fcebe0e8ff3f56bf5e2c9d7a39fe8c854d",
+      "build_context_digest": "sha256:34522bd7c47c6182dfad75dd248a213f98ee07006b98791c04aa21d618c9bec7",
       "image_id": "gcp-storage-mover",
-      "local_image_id": "sha256:5f5824c906105d0dbd60fe206edc7b8694bae1ad59c04cb24d43ad2ff6282e6c",
+      "local_image_id": "sha256:75d9050570b3ed9bbe63cd217d6c58ea65494d94981841408969ba92006b76c2",
       "platform": "linux/amd64",
       "provider": "gcp",
       "registry_digest": null,
@@ -130,25 +120,19 @@
       "reference": "docker.io/apache/bifromq@sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
       "resolved_digest": "sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
       "status": "remote_manifest_resolved"
-    },
-    {
-      "purpose": "gcp-l4-grafana-base",
-      "reference": "docker.io/grafana/grafana:12.4.2@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
-      "resolved_digest": "sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505",
-      "status": "remote_manifest_resolved"
     }
   ],
-  "record_digest": "sha256:30fe0808341565f501dcb90b7574220559b4a4101f06d79125fbde9be0793873",
+  "record_digest": "sha256:9ecdd560136650fd99d5287fdfa9418341a107bf4ea0deea74cd8fe6a7e793d9",
   "schema_version": "six-layer-live-image-readiness.v1",
   "status": "all_images_local_build_complete_registry_publication_pending",
   "summary": {
     "dynamic_images_built": 1,
     "dynamic_images_deferred": 0,
     "pinned_build_inputs_resolved": 4,
-    "public_runtime_images_resolved": 2,
+    "public_runtime_images_resolved": 1,
     "registry_publications_performed": 0,
-    "static_custom_images_built": 7,
-    "static_custom_images_expected": 7
+    "static_custom_images_built": 6,
+    "static_custom_images_expected": 6
   },
   "target_platform": "linux/amd64",
   "verification_mode": "offline_build_and_public_registry_read_only"

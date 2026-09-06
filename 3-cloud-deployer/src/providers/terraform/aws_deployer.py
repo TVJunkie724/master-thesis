@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote
+from urllib.parse import unquote, urlencode
 
 from src.core.secure_files import atomic_write_private_bytes
 from src.deployment_access.runtime_evidence import (
@@ -742,39 +743,29 @@ def configure_aws_grafana(
     context: "DeploymentContext",
     terraform_outputs: dict,
 ) -> None:
-    """Create the required Grafana datasource or fail the deployment."""
+    """Verify active-profile L5 or configure the historical Grafana path."""
     provider = _require_aws_provider(context)
     if _is_active_phase8_profile(context):
-        from src.providers.aws.layers.layer_5_grafana import (
-            configure_six_layer_grafana,
-        )
-
         bundle = terraform_outputs.get("aws_component_visualization_output")
         if not isinstance(bundle, dict):
             raise RuntimeError(
                 "Terraform output aws_component_visualization_output is required"
             )
-        required = {
-            "workspace_id",
-            "workspace_url",
-            "reader_url",
-            "reader_function_name",
-        }
+        required = {"access_url", "reader_function_name"}
         missing = sorted(key for key in required if not bundle.get(key))
         if missing:
             raise RuntimeError(
                 "AWS visualization output is missing: " + ", ".join(missing)
             )
         device_id, metric = _default_v2_dashboard_series(context.config)
-        configure_six_layer_grafana(
-            provider,
-            workspace_id=str(bundle["workspace_id"]),
-            grafana_url=str(bundle["workspace_url"]).rstrip("/"),
-            reader_url=str(bundle["reader_url"]),
-            reader_function_name=str(bundle["reader_function_name"]),
+        _probe_aws_raw_history_reader(
+            provider=provider,
+            reader_url=str(bundle["access_url"]),
             device_id=device_id,
             metric=metric,
-            architecture_profile=_active_phase8_profile(context),
+        )
+        logger.info(
+            "  AWS %s raw-history surface is ready", _active_phase8_profile(context)
         )
         return
 
@@ -805,6 +796,51 @@ def configure_aws_grafana(
     )
     if response.status_code not in {200, 201, 409}:
         raise RuntimeError(f"Grafana API returned HTTP {response.status_code}")
+
+
+def _probe_aws_raw_history_reader(
+    *,
+    provider,
+    reader_url: str,
+    device_id: str,
+    metric: str,
+) -> None:
+    """Exercise both bounded L5 query modes through the IAM-protected URL."""
+
+    import requests
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    signer = provider.clients["lambda"]._request_signer
+    credentials = signer._credentials.get_frozen_credentials()
+    now = datetime.now(timezone.utc)
+    for bucket, start in (
+        (0, now - timedelta(hours=24)),
+        (3600, now - timedelta(days=30)),
+    ):
+        query = urlencode(
+            {
+                "device_id": device_id,
+                "metric": metric,
+                "from": start.isoformat().replace("+00:00", "Z"),
+                "to": now.isoformat().replace("+00:00", "Z"),
+                "bucket_seconds": str(bucket),
+                "limit": "1",
+            }
+        )
+        url = f"{reader_url.rstrip('/')}?{query}"
+        request = AWSRequest(method="GET", url=url)
+        SigV4Auth(credentials, "lambda", provider.region).add_auth(request)
+        response = requests.get(url, headers=dict(request.headers), timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"AWS raw-history query probe returned HTTP {response.status_code}"
+            )
+        body = response.json()
+        if body.get("schema_version") != "raw-history-query.v1":
+            raise RuntimeError(
+                "AWS raw-history query probe returned an invalid contract"
+            )
 
 
 def _default_v2_dashboard_series(config) -> tuple[str, str]:

@@ -269,8 +269,7 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
         if item["provider"] not in PROVIDERS:
             errors.append(f"{item['component_id']}: invalid provider")
         if not item["component_id"].startswith(f"{item['provider']}.") and not (
-            item["provider"] == "gcp"
-            and item["component_id"].startswith(("apache.", "grafana."))
+            item["provider"] == "gcp" and item["component_id"].startswith("apache.")
         ):
             errors.append(
                 f"{item['component_id']}: component identity is not owned by its provider"
@@ -511,20 +510,8 @@ def validate_immutable_inputs(decision: dict[str, Any], errors: list[str]) -> No
 
 
 def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
-    plugins = {item["plugin_id"]: item for item in bundle["plugin_decisions"]}
-    json_api = plugins.get("marcusolsson-json-datasource", {})
-    if json_api.get("selected_version") != "1.4.0":
-        errors.append("JSON API plugin version must be frozen to 1.4.0")
-    if json_api.get("hard_end_date") != "2027-02-01":
-        errors.append("JSON API support-end date must match current provider evidence")
-    infinity = plugins.get("yesoreyeram-infinity-datasource", {})
-    if infinity.get("selected_version") != "3.10.1":
-        errors.append("Infinity plugin version must be frozen to 3.10.1")
-    if (
-        infinity.get("artifact_digest")
-        != "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59"
-    ):
-        errors.append("Infinity plugin artifact digest mismatch")
+    if bundle["plugin_decisions"]:
+        errors.append("L5 raw-history readback must not require dashboard plugins")
 
 
 def validate() -> list[str]:

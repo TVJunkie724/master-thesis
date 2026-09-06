@@ -17,10 +17,10 @@ void main() {
       expect(v2.architectureProfileRef.id, 'six-layer-eventing');
       expect(v2.architectureProfileRef.version, '1');
       expect(v2.logicalComponentCount, 8);
-      expect(v2.componentSelections, hasLength(25));
+      expect(v2.componentSelections, hasLength(23));
       expect(v2.providers, {CloudProvider.aws, CloudProvider.azure});
       expect(v2.readiness.evaluationOnly, isTrue);
-      expect(v2.readiness.blockingGateIds, isNotEmpty);
+      expect(v2.readiness.blockingGateIds, isEmpty);
       expect(
         v2.componentSelections.any(
           (item) => item.logicalComponentId == 'component.eventing',

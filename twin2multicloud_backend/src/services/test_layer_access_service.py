@@ -1,17 +1,13 @@
 """Deterministic Layer Access fixtures for local UI integration tests only.
 
 This module is imported exclusively when ``ENABLE_TEST_ENDPOINTS=true``.  It
-creates no cloud resources, accepts no cloud credentials, and retains only
-non-secret rotation observations.
+creates no cloud resources and accepts no cloud credentials.
 """
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
-import threading
 import uuid
-from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -42,26 +38,24 @@ _SURFACE_MATRIX = {
         "none",
     ),
     ("l5", "aws"): (
-        "aws_managed_grafana",
-        "Amazon Managed Grafana",
-        "aws_identity_center",
+        "aws_raw_history_reader",
+        "AWS Raw-history Reader",
+        "aws_sigv4",
         "none",
     ),
     ("l5", "azure"): (
-        "azure_managed_grafana",
-        "Azure Managed Grafana",
-        "azure_entra",
+        "azure_raw_history_reader",
+        "Azure Raw-history Reader",
+        "azure_function_key",
         "none",
     ),
     ("l5", "gcp"): (
-        "gcp_grafana_oss",
-        "Grafana OSS on GKE",
-        "generated_viewer",
-        "rotate",
+        "gcp_raw_history_reader",
+        "GCP Raw-history Reader",
+        "gcp_identity_token",
+        "none",
     ),
 }
-_ROTATION_LOCK = threading.Lock()
-_ROTATION_COUNTS: dict[str, int] = {}
 
 
 def _surface(
@@ -88,11 +82,7 @@ def _surface(
         "url": (f"https://{provider}-{layer}-{run_id}.example.invalid/access"),
         "auth": {
             "mode": auth_mode,
-            "principal_label": (
-                "viewer@example.invalid"
-                if auth_mode == "generated_viewer"
-                else "researcher@example.invalid"
-            ),
+            "principal_label": "researcher@example.invalid",
             "credential_action": credential_action,
         },
         "readiness": {
@@ -256,8 +246,6 @@ def seed_layer_access_fixtures(
     )
     db.commit()
 
-    rotation_twin_id = placements["aws-gcp"]
-    reset_test_rotation_count(rotation_twin_id)
     return {
         "schema_version": "layer-access-test-fixtures.v1",
         "placements": placements,
@@ -265,56 +253,5 @@ def seed_layer_access_fixtures(
         "destroyed_twin_id": destroyed.id,
         "blocked_twin_id": blocked.id,
         "foreign_owner_twin_id": foreign.id,
-        "rotation_twin_id": rotation_twin_id,
         "outputs_twin_id": placements["aws-aws"],
     }
-
-
-def reset_test_rotation_count(twin_id: str) -> None:
-    with _ROTATION_LOCK:
-        _ROTATION_COUNTS[twin_id] = 0
-
-
-def test_rotation_count(twin_id: str) -> int:
-    with _ROTATION_LOCK:
-        return _ROTATION_COUNTS.get(twin_id, 0)
-
-
-class TestLayerAccessDeployerClient:
-    """Credential-free deterministic substitute for the local integration API."""
-
-    async def rotate_gcp_grafana_viewer_credential(
-        self,
-        resource_name: str,
-        _operation_token: str,
-    ) -> dict[str, Any]:
-        with _ROTATION_LOCK:
-            ordinal = _ROTATION_COUNTS.get(resource_name, 0) + 1
-            _ROTATION_COUNTS[resource_name] = ordinal
-        # Keep the first request active long enough to exercise the server-side
-        # rotation guard through two concurrent local HTTP requests.
-        await asyncio.sleep(0.25)
-        return {
-            "schema_version": "deployment-access-credential.v1",
-            "layer": "l5",
-            "provider": "gcp",
-            "username": "viewer@example.invalid",
-            "password": f"fixture-viewer-{ordinal}-{resource_name[-8:]}",
-            "issued_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-
-async def prepare_test_layer_access_rotation(
-    twin: DigitalTwin,
-    _user_id: str,
-    *,
-    frozen_graph_evidence: dict[str, Any] | None = None,
-) -> SimpleNamespace:
-    """Return opaque graph-compatible context without reading credentials."""
-
-    return SimpleNamespace(
-        resource_name=twin.id,
-        # Opaque local sentinel; it never authenticates against a provider.
-        operation_token="test-only-operation-token",  # nosec B106
-        graph_evidence=frozen_graph_evidence,
-    )

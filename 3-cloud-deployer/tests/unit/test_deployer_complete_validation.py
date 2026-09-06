@@ -45,7 +45,6 @@ VALID_PHASE8_USER_CONFIG = json.dumps(
         "aws_layer_access_principal_intent": "existing",
         "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
         "azure_principal_label": "researcher@example.com",
-        "gcp_grafana_source_cidrs": ["203.0.113.42/32"],
     }
 )
 
@@ -102,10 +101,9 @@ def test_optimization_file_api_exposes_stable_unsupported_topology_error():
     }
 
 
-def test_phase8_user_config_editor_validation_uses_both_layer_providers():
+def test_phase8_user_config_editor_validation_uses_l4_access_provider():
     user_config = json.loads(VALID_PHASE8_USER_CONFIG)
     del user_config["azure_principal_object_id"]
-    user_config["gcp_grafana_source_cidrs"] = ["0.0.0.0/0"]
     response = client.post(
         (
             "/validate/user-config?provider=gcp&"
@@ -124,7 +122,6 @@ def test_phase8_user_config_editor_validation_uses_both_layer_providers():
 
     assert response.status_code == 400
     assert "user_config.azure_principal_object_id" in response.json()["detail"]
-    assert "user_config.gcp_grafana_source_cidrs" in response.json()["detail"]
 
 
 def test_phase8_user_config_editor_accepts_complete_cross_cloud_identity():
@@ -224,10 +221,9 @@ class TestDeployerCompleteValidation:
             "FORBIDDEN_PROFILE_FIELD",
         } <= {error["code"] for error in response.json()["errors"]}
 
-    def test_phase8_user_config_covers_both_l4_and_l5_provider_requirements(self):
+    def test_phase8_user_config_covers_l4_provider_requirements(self):
         user_config = json.loads(VALID_PHASE8_USER_CONFIG)
         del user_config["azure_principal_object_id"]
-        user_config["gcp_grafana_source_cidrs"] = ["0.0.0.0/0"]
         response = client.post(
             "/validate/deployer-complete",
             json={
@@ -252,7 +248,6 @@ class TestDeployerCompleteValidation:
 
         fields = {error["field"] for error in response.json()["errors"]}
         assert "user_config.azure_principal_object_id" in fields
-        assert "user_config.gcp_grafana_source_cidrs" in fields
 
     def test_D1_gcp_l4_l5_are_rejected_as_unavailable(self):
         """D1: GCP L4/L5 must fail before deployment side effects."""

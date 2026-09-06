@@ -39,20 +39,17 @@ from src.api.preflight import build_provider_preflight  # noqa: E402
 
 
 AWS_QUOTA_SERVICES = {
-    "grafana": "number of workspaces",
     "iottwinmaker": "workspaces in this account in the current region",
     "kinesis": "shards per region",
 }
 AZURE_CONTROL_PLANES = {
     "Microsoft.App": "managedEnvironments",
-    "Microsoft.Dashboard": "grafana",
     "Microsoft.DocumentDB": "databaseAccounts",
     "Microsoft.EventHub": "namespaces",
     "Microsoft.Web": "sites",
 }
 AZURE_ACCESS_TYPES = {
     "l4": ("Microsoft.DigitalTwins", "digitalTwinsInstances"),
-    "l5": ("Microsoft.Dashboard", "grafana"),
 }
 GCP_QUOTA_SERVICES = (
     "compute.googleapis.com",
@@ -124,9 +121,13 @@ def _safe_error_code(exc: Exception) -> str:
     return type(exc).__name__.upper()
 
 
-def _preflight_summary(provider: str, result: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+def _preflight_summary(
+    provider: str, result: dict[str, Any], payload: dict[str, Any]
+) -> dict[str, Any]:
     preflight = build_provider_preflight(provider, result, payload).model_dump()
-    summary = result.get("summary") or result.get("permission_status", {}).get("summary")
+    summary = result.get("summary") or result.get("permission_status", {}).get(
+        "summary"
+    )
     return {
         "ready": preflight["ready"],
         "status": result.get("status", "unknown"),
@@ -176,7 +177,9 @@ def _aws_probe(credentials: dict[str, Any]) -> dict[str, Any]:
                     "status": "readable",
                     "quota_count": len(items),
                     "relevant_quotas": relevant,
-                    "sufficiency": "requires_inventory_comparison" if relevant else "not_exposed",
+                    "sufficiency": "requires_inventory_comparison"
+                    if relevant
+                    else "not_exposed",
                 }
             )
         except Exception as exc:  # provider SDK boundary
@@ -192,7 +195,6 @@ def _aws_probe(credentials: dict[str, Any]) -> dict[str, Any]:
             )
 
     inventory_operations: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
-        ("grafana", "list_workspaces", "workspaces", {"maxResults": 25}),
         ("iottwinmaker", "list_workspaces", "workspaceSummaries", {"maxResults": 25}),
         ("kinesis", "list_streams", "StreamNames", {"Limit": 100}),
     )
@@ -204,8 +206,14 @@ def _aws_probe(credentials: dict[str, Any]) -> dict[str, Any]:
                 {
                     "control_plane": service,
                     "status": "readable",
-                    "existing_resource_count_lower_bound": len(response.get(result_key, [])),
-                    "truncated": bool(response.get("nextToken") or response.get("NextToken") or response.get("HasMoreStreams")),
+                    "existing_resource_count_lower_bound": len(
+                        response.get(result_key, [])
+                    ),
+                    "truncated": bool(
+                        response.get("nextToken")
+                        or response.get("NextToken")
+                        or response.get("HasMoreStreams")
+                    ),
                 }
             )
         except Exception as exc:  # provider SDK boundary
@@ -235,9 +243,7 @@ def _aws_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         if current is not None and limits:
             quota["minimum_required"] = 1
             quota["observed_usage_lower_bound"] = current
-            quota["sufficiency"] = (
-                "passed" if max(limits) - current >= 1 else "blocked"
-            )
+            quota["sufficiency"] = "passed" if max(limits) - current >= 1 else "blocked"
 
     identity_center_ready = any(
         item["code"] == "IDENTITY_CENTER_PRIMARY_REGION_READY"
@@ -258,14 +264,18 @@ def _aws_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         "capacity_inventory": inventory,
         "access_prerequisites": {
             "l4_twinmaker_control_plane": _inventory_status(inventory, "iottwinmaker"),
-            "l5_identity_center_primary_region": "passed" if identity_center_ready else "blocked",
-            "l5_managed_grafana_control_plane": _inventory_status(inventory, "grafana"),
+            "l4_identity_center_primary_region": "passed"
+            if identity_center_ready
+            else "blocked",
+            "l5_iam_authenticated_raw_history_reader": "deferred_to_atomic_twin_apply",
         },
     }
 
 
 def _inventory_status(items: list[dict[str, Any]], control_plane: str) -> str:
-    item = next((value for value in items if value["control_plane"] == control_plane), None)
+    item = next(
+        (value for value in items if value["control_plane"] == control_plane), None
+    )
     return "passed" if item and item["status"] == "readable" else "blocked"
 
 
@@ -413,25 +423,27 @@ def _azure_probe(credentials: dict[str, Any]) -> dict[str, Any]:
             )
 
     graph_ready = any(
-        item["code"] == "MICROSOFT_GRAPH_AUTHORITY_READY"
-        and item["status"] == "passed"
+        item["code"] == "MICROSOFT_GRAPH_AUTHORITY_READY" and item["status"] == "passed"
         for item in _preflight_summary("azure", preflight_result, credentials)["checks"]
     )
-    l4 = next(item for item in type_results if item["control_plane"] == "Microsoft.DigitalTwins")
-    l5 = next(item for item in type_results if item["control_plane"] == "Microsoft.Dashboard")
+    l4 = next(
+        item
+        for item in type_results
+        if item["control_plane"] == "Microsoft.DigitalTwins"
+    )
     return {
         "preflight": _preflight_summary("azure", preflight_result, credentials),
         "quota": {
             "status": "partial",
-            "reason": "four_control_planes_expose_resource_scoped_or_post_creation_usage_only",
+            "reason": "provider_control_planes_expose_resource_scoped_or_post_creation_usage_only",
             "control_planes": quota_results,
         },
         "regional_capacity": type_results,
         "access_prerequisites": {
             "l4_digital_twins_region": _azure_region_status(l4),
             "l4_microsoft_graph_authority": "passed" if graph_ready else "blocked",
-            "l5_managed_grafana_region": _azure_region_status(l5),
-            "l4_l5_runtime_role_assignments": "deferred_to_atomic_twin_apply",
+            "l4_runtime_role_assignments": "deferred_to_atomic_twin_apply",
+            "l5_function_key_authenticated_raw_history_reader": "deferred_to_atomic_twin_apply",
         },
     }
 
@@ -486,11 +498,15 @@ def _gcp_quota_probe(
     metrics: list[dict[str, Any]] = []
     page_token: str | None = None
     while True:
-        request = service_usage.services().consumerQuotaMetrics().list(
-            parent=f"projects/{project_number}/services/{service}",
-            view="FULL",
-            pageSize=200,
-            **({"pageToken": page_token} if page_token else {}),
+        request = (
+            service_usage.services()
+            .consumerQuotaMetrics()
+            .list(
+                parent=f"projects/{project_number}/services/{service}",
+                view="FULL",
+                pageSize=200,
+                **({"pageToken": page_token} if page_token else {}),
+            )
         )
         page, error = _gcp_execute(request)
         if error:
@@ -499,7 +515,9 @@ def _gcp_quota_probe(
                 "status": "not_readable",
                 "error_code": error,
                 "metric_count": len(metrics),
-                "limit_count": sum(len(item.get("consumerQuotaLimits", [])) for item in metrics),
+                "limit_count": sum(
+                    len(item.get("consumerQuotaLimits", [])) for item in metrics
+                ),
                 "relevant_limits": [],
             }
         metrics.extend((page or {}).get("metrics", []))
@@ -536,7 +554,9 @@ def _gcp_quota_probe(
         "control_plane": service,
         "status": "readable",
         "metric_count": len(metrics),
-        "limit_count": sum(len(item.get("consumerQuotaLimits", [])) for item in metrics),
+        "limit_count": sum(
+            len(item.get("consumerQuotaLimits", [])) for item in metrics
+        ),
         "relevant_limits": relevant,
     }
 
@@ -616,7 +636,10 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         ]
     else:
         service_usage = build_google_api(
-            "serviceusage", "v1beta1", credentials=gcp_credentials, cache_discovery=False
+            "serviceusage",
+            "v1beta1",
+            credentials=gcp_credentials,
+            cache_discovery=False,
         )
         quota_results = [
             _gcp_quota_probe(
@@ -656,7 +679,13 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
     if region_info:
         for item in region_info.get("quotas", []):
             metric = str(item.get("metric", ""))
-            if metric in {"CPUS", "E2_CPUS", "IN_USE_ADDRESSES", "DISKS_TOTAL_GB", "SSD_TOTAL_GB"}:
+            if metric in {
+                "CPUS",
+                "E2_CPUS",
+                "IN_USE_ADDRESSES",
+                "DISKS_TOTAL_GB",
+                "SSD_TOTAL_GB",
+            }:
                 regional_quota.append(
                     {
                         "metric": metric,
@@ -669,14 +698,15 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         "container", "v1", credentials=gcp_credentials, cache_discovery=False
     )
     _, gke_error = _gcp_execute(
-        container.projects().locations().getServerConfig(
-            name=f"projects/{project_id}/locations/{zone}"
-        )
+        container.projects()
+        .locations()
+        .getServerConfig(name=f"projects/{project_id}/locations/{zone}")
     )
     cluster_inventory, cluster_error = _gcp_execute(
-        container.projects().locations().clusters().list(
-            parent=f"projects/{project_id}/locations/{zone}"
-        )
+        container.projects()
+        .locations()
+        .clusters()
+        .list(parent=f"projects/{project_id}/locations/{zone}")
     )
     firestore = build_google_api(
         "firestore", "v1", credentials=gcp_credentials, cache_discovery=False
@@ -688,14 +718,13 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         "run", "v2", credentials=gcp_credentials, cache_discovery=False
     )
     service_inventory, service_error = _gcp_execute(
-        cloud_run.projects().locations().services().list(
-            parent=f"projects/{project_id}/locations/{region}"
-        )
+        cloud_run.projects()
+        .locations()
+        .services()
+        .list(parent=f"projects/{project_id}/locations/{region}")
     )
 
-    regional_by_metric = {
-        str(item.get("metric")): item for item in regional_quota
-    }
+    regional_by_metric = {str(item.get("metric")): item for item in regional_quota}
     cpu = regional_by_metric.get("E2_CPUS") or regional_by_metric.get("CPUS") or {}
     disk = regional_by_metric.get("DISKS_TOTAL_GB") or {}
     address = regional_by_metric.get("IN_USE_ADDRESSES") or {}
@@ -703,12 +732,12 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
     existing_databases = len((database_inventory or {}).get("databases", []))
     small_requirements = {
         "gke_e2_vcpu": {
-            "minimum_required": 10,
-            "status": _minimum_status(cpu.get("limit"), 10, cpu.get("usage", 0)),
+            "minimum_required": 6,
+            "status": _minimum_status(cpu.get("limit"), 6, cpu.get("usage", 0)),
         },
         "persistent_disk_gib": {
-            "minimum_required": 130,
-            "status": _minimum_status(disk.get("limit"), 130, disk.get("usage", 0)),
+            "minimum_required": 80,
+            "status": _minimum_status(disk.get("limit"), 80, disk.get("usage", 0)),
         },
         "regional_in_use_addresses": {
             "minimum_required": 1,
@@ -772,12 +801,16 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
     return {
         "preflight": _preflight_summary("gcp", preflight_result, credentials),
         "quota": {
-            "status": "passed" if all(item["status"] == "readable" for item in quota_results) else "blocked",
+            "status": "passed"
+            if all(item["status"] == "readable" for item in quota_results)
+            else "blocked",
             "control_planes": quota_results,
         },
         "regional_capacity": {
             "machine_types": machine_types,
-            "regional_compute_quota_status": "readable" if not region_error else "not_readable",
+            "regional_compute_quota_status": "readable"
+            if not region_error
+            else "not_readable",
             "regional_compute_quota": regional_quota,
             **({"regional_compute_error_code": region_error} if region_error else {}),
             "gke_server_config_status": "readable" if not gke_error else "not_readable",
@@ -806,9 +839,9 @@ def _gcp_probe(credentials: dict[str, Any]) -> dict[str, Any]:
         },
         "access_prerequisites": {
             "l4_iap": iap_status,
-            "l5_grafana_access": {
+            "l5_identity_token_authenticated_raw_history_reader": {
                 "status": "deferred_to_atomic_twin_apply",
-                "mode": "cidr_restricted_gke_and_one_time_viewer_credential",
+                "mode": "deployment_principal_cloud_run_invoker",
             },
         },
         "project_hierarchy": hierarchy,
@@ -835,7 +868,9 @@ def build_record(
         timestamp = timestamp.replace(tzinfo=timezone.utc)
     record: dict[str, Any] = {
         "schema_version": "six-layer-phase8-readonly-readiness.v1",
-        "checked_at": timestamp.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "checked_at": timestamp.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "mode": SAFE_MODE,
         "mutation_methods_allowed": [],
         "mutations_performed": False,
@@ -862,7 +897,9 @@ def main() -> int:
         raise FileExistsError(f"Output already exists: {args.output}")
     record = build_record(args.credentials.resolve(), args.gcp_credentials.resolve())
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.output.write_text(
+        json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(
         "Phase 8 read-only readiness probe complete "
         f"({record['record_digest']}); no mutation methods were enabled"

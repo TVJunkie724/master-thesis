@@ -564,13 +564,11 @@ def test_raw_history_query_cursor_and_points_are_closed():
     ]
 
 
-def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monkeypatch):
+def test_raw_history_reader_delegates_auth_to_cloud_run_and_closes_response(
+    monkeypatch,
+):
     runtime = _load("app")
-    reader_key = "reader-secret"
     monkeypatch.setenv("RUNTIME_ROLE", "raw-history-reader")
-    monkeypatch.setenv(
-        "READER_KEY_SHA256", hashlib.sha256(reader_key.encode()).hexdigest()
-    )
     monkeypatch.setattr(
         runtime,
         "_read_raw_history",
@@ -589,20 +587,10 @@ def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monke
         "&from=2026-08-05T00:00:00Z&to=2026-08-05T01:00:00Z"
     )
 
-    unauthorized = runtime.app.test_client().get(path)
-    accepted = runtime.app.test_client().get(
-        path,
-        headers={"x-twin2multicloud-reader-key": reader_key},
-    )
-    health_unauthorized = runtime.app.test_client().get("/raw-history-health/v1")
-    health = runtime.app.test_client().get(
-        "/raw-history-health/v1",
-        headers={"x-twin2multicloud-reader-key": reader_key},
-    )
+    accepted = runtime.app.test_client().get(path)
+    health = runtime.app.test_client().get("/raw-history-health/v1")
 
-    assert unauthorized.status_code == 401
-    assert unauthorized.get_json()["code"] == "READER_UNAUTHORIZED"
-    assert health_unauthorized.status_code == 401
+    assert health.status_code == 200
     assert health.get_json() == {
         "schema_version": "raw-history-health.v1",
         "status": "ready",

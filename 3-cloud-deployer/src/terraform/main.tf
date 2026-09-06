@@ -228,13 +228,13 @@ resource "terraform_data" "six_layer_retention_guard" {
     precondition {
       condition = (
         !local.azure_six_layer_enabled ||
-        (var.layer_4_provider != "azure" && var.layer_5_provider != "azure") ||
+        var.layer_4_provider != "azure" ||
         (
           var.azure_layer_access_principal_object_id != "" &&
           var.azure_layer_access_principal_label != ""
         )
       )
-      error_message = "Six-layer Azure L4/L5 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
+      error_message = "Six-layer Azure L4 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
     }
   }
 }

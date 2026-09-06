@@ -13,7 +13,6 @@ Usage:
 """
 
 import ast
-import ipaddress
 import json
 import os
 import re
@@ -1104,7 +1103,7 @@ def _check_phase8_user_config(
     if not re.match(pattern, admin_email):
         raise ValueError(f"Invalid email format for admin_email: '{admin_email}'.")
 
-    if "azure" in {l4_provider, l5_provider}:
+    if l4_provider == "azure":
         object_id = user_config.get("azure_principal_object_id")
         if not isinstance(object_id, str) or not re.fullmatch(
             r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
@@ -1112,29 +1111,13 @@ def _check_phase8_user_config(
             object_id,
         ):
             raise ValueError(
-                "Azure L4/L5 requires an existing Entra principal object ID UUID"
+                "Azure L4 requires an existing Entra principal object ID UUID"
             )
         label = user_config.get("azure_principal_label")
         if not isinstance(label, str) or not label.strip():
             raise ValueError(
-                "Azure L4/L5 requires a non-empty Entra principal label or UPN"
+                "Azure L4 requires a non-empty Entra principal label or UPN"
             )
-
-    if l5_provider == "gcp":
-        cidrs = user_config.get("gcp_grafana_source_cidrs")
-        if not isinstance(cidrs, list) or not cidrs:
-            raise ValueError("GCP L5 requires at least one bounded Grafana source CIDR")
-        for cidr in cidrs:
-            if not isinstance(cidr, str) or cidr in {"0.0.0.0/0", "::/0"}:
-                raise ValueError(
-                    "GCP Grafana source CIDRs must be valid and non-wildcard"
-                )
-            try:
-                ipaddress.ip_network(cidr, strict=False)
-            except ValueError as exc:
-                raise ValueError(
-                    "GCP Grafana source CIDRs must be valid and non-wildcard"
-                ) from exc
 
 
 def check_phase8_profile_artifacts(ctx: ValidationContext) -> None:

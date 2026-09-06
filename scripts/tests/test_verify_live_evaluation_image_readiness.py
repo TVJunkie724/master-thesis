@@ -13,7 +13,7 @@ def test_tracked_image_readiness_record_is_valid() -> None:
 
     assert record["execution_enabled"] is False
     assert record["cloud_mutation_performed"] is False
-    assert record["summary"]["static_custom_images_built"] == 7
+    assert record["summary"]["static_custom_images_built"] == 6
     assert record["summary"]["dynamic_images_built"] == 1
     assert record["summary"]["dynamic_images_deferred"] == 0
     assert record["summary"]["registry_publications_performed"] == 0

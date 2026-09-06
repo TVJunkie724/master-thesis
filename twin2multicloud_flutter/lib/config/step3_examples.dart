@@ -320,8 +320,7 @@ def process_event(request):
   "admin_last_name": "Admin",
   "aws_layer_access_principal_intent": "existing",
   "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
-  "azure_principal_label": "your-user@example.com",
-  "gcp_grafana_source_cidrs": ["203.0.113.42/32"]
+  "azure_principal_label": "your-user@example.com"
 }''';
 
   /// Azure-specific user config (requires tenant format email)
@@ -331,7 +330,6 @@ def process_event(request):
   "admin_last_name": "Admin",
   "aws_layer_access_principal_intent": "existing",
   "azure_principal_object_id": "00000000-0000-4000-8000-000000000001",
-  "azure_principal_label": "user@yourtenant.onmicrosoft.com",
-  "gcp_grafana_source_cidrs": ["203.0.113.42/32"]
+  "azure_principal_label": "user@yourtenant.onmicrosoft.com"
 }''';
 }

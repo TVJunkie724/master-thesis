@@ -917,7 +917,19 @@ def _load_credentials(project_dir: Path) -> dict:
 
         if creds_file_path.exists():
             with open(creds_file_path) as f:
-                tfvars["gcp_credentials_json"] = f.read()
+                credential_payload = f.read()
+            tfvars["gcp_credentials_json"] = credential_payload
+            try:
+                principal_email = json.loads(credential_payload).get("client_email")
+            except (AttributeError, json.JSONDecodeError) as exc:
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON is invalid"
+                ) from exc
+            if not isinstance(principal_email, str) or not principal_email.strip():
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON has no client_email"
+                )
+            tfvars["gcp_deployment_principal_email"] = principal_email.strip()
         else:
             raise ConfigurationError(
                 "Configured GCP credentials file is missing or unreadable"
@@ -1110,9 +1122,6 @@ def _load_platform_user_config(project_dir: Path) -> dict:
 
     if user.get("azure_principal_label"):
         result["azure_layer_access_principal_label"] = user["azure_principal_label"]
-
-    if user.get("gcp_grafana_source_cidrs"):
-        result["gcp_grafana_source_cidrs"] = user["gcp_grafana_source_cidrs"]
 
     return result
 

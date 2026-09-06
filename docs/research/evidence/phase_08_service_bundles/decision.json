@@ -26,19 +26,19 @@
   ],
   "artifact_byte_digests": {
     "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:5f040b94df9f1d002eb1a39c40f8798b9865d072d7cb5be5ca7cb198e55fdf23",
-    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:d04f85064b701f614dd5b1af544aea78a355515b0a9a558185ca341d178afdee",
+    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
     "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:113c76ef298b20391cf07e9f033514189248fbf8043d30baf262246274ab62d6",
-    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:3ad5e2db348609896645cc15abf16cf316b53d9a4b64ed61ddd659f236752dfb",
-    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:ec3b3fb61974446b51cb3c708a520de204f12dee453abafe818f103bffd5096e",
-    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:a25799ee9a15a409036222cab676c2c1e9fada0873d53f59ba83d7942a3324ec",
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:c7ba88c359f7ef2ae67e4ff154029a7022865acef377e45636357e5b8eef16cb",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:8e6a2658b83e3a429400fd65ea966b28f94b855e8958a2b8ffc1e23a1b70c287",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:9ca64e504c9b20f7ca175b2a121ac8294867d5869418bd097d38ae96c5d2fe76",
     "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
-    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:ed5912010862a654759ec92625350449a74a2bee674eca340c9f52f52a06eddb"
+    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:b7fba186a5dea6517fcacf8b68827d15a687d4ae5d725d822b84ae61550d6e6a"
   },
   "immutable_input_byte_digests": {
     "docs/research/evidence/phase_08_eventing/decision.json": "sha256:3f74c8325b85581f119cb7f66acd3d2187c1d6ef96f2d442863c08d3f05dabc7",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:45ea441400fd75d65c667c95da36bc232f189308d2b2bfb96a6a985fc0de8dea",
+  "package_digest": "sha256:0a91453fe04da4e3aad6e322e810b4252b8a0499713cafdae059a5e3e067e5c6",
   "reviews": [
     {
       "review_id": "six-layer-architecture",

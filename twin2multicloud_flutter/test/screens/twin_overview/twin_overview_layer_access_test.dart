@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,7 +21,6 @@ import 'package:twin2multicloud_flutter/widgets/twin_overview/deployment_operati
 import 'package:twin2multicloud_flutter/widgets/twin_overview/layer_access_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/testing_utilities_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_configuration_review.dart';
-import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_operation_dialogs.dart';
 
 class _MockTwinOverviewBloc
     extends MockBloc<TwinOverviewEvent, TwinOverviewState>
@@ -114,110 +111,6 @@ void main() {
     verify(() => launcher.reserve()).called(2);
     verify(() => firstHandle.navigate(l4.url)).called(1);
     verify(() => secondHandle.navigate(l4.url)).called(1);
-  });
-
-  testWidgets('GCP Viewer rotation requires confirmation before one event', (
-    tester,
-  ) async {
-    final bloc = _MockTwinOverviewBloc();
-    final launcher = _MockExternalAuthLauncher();
-    final state = _loadedState(l5: CloudProvider.gcp);
-
-    await _pumpView(tester, bloc: bloc, state: state, launcher: launcher);
-    await tester.ensureVisible(find.byKey(const Key('rotate-gcp-viewer')));
-    await tester.tap(find.byKey(const Key('rotate-gcp-viewer')));
-    await tester.pumpAndSettle();
-
-    verifyNever(
-      () => bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential()),
-    );
-    await tester.tap(find.byKey(const Key('confirm-gcp-viewer-rotation')));
-    await tester.pumpAndSettle();
-    verify(
-      () => bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential()),
-    ).called(1);
-  });
-
-  testWidgets('one-time Viewer credential is consumed before one reveal', (
-    tester,
-  ) async {
-    final bloc = _MockTwinOverviewBloc();
-    final launcher = _MockExternalAuthLauncher();
-    final states = StreamController<TwinOverviewState>.broadcast(sync: true);
-    addTearDown(states.close);
-    final initial = _loadedState(l5: CloudProvider.gcp);
-    whenListen(bloc, states.stream, initialState: initial);
-
-    await _pumpView(
-      tester,
-      bloc: bloc,
-      state: initial,
-      launcher: launcher,
-      stubStream: false,
-    );
-    final pending = initial.copyWith(
-      layerAccess: initial.layerAccess.copyWith(
-        credentialRequestToken: 7,
-        pendingCredential: _credential(),
-      ),
-    );
-    states.add(pending);
-    await tester.pumpAndSettle();
-
-    expect(find.text('viewer@example.invalid'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('gcp-viewer-password')))
-          .obscureText,
-      isTrue,
-    );
-    verify(
-      () => bloc.add(const TwinOverviewAccessCredentialConsumed(7)),
-    ).called(1);
-
-    await tester.tap(find.byKey(const Key('close-gcp-viewer-credential')));
-    await tester.pumpAndSettle();
-    states.add(pending.copyWith(infoMessage: 'Unrelated update'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(GcpGrafanaCredentialRevealDialog), findsNothing);
-    verifyNever(() => bloc.add(const TwinOverviewAccessCredentialConsumed(7)));
-  });
-
-  testWidgets('rotation failure stays inline and never opens a reveal dialog', (
-    tester,
-  ) async {
-    final bloc = _MockTwinOverviewBloc();
-    final launcher = _MockExternalAuthLauncher();
-    final states = StreamController<TwinOverviewState>.broadcast(sync: true);
-    addTearDown(states.close);
-    final initial = _loadedState(l5: CloudProvider.gcp);
-    whenListen(bloc, states.stream, initialState: initial);
-
-    await _pumpView(
-      tester,
-      bloc: bloc,
-      state: initial,
-      launcher: launcher,
-      stubStream: false,
-    );
-    states.add(
-      initial.copyWith(
-        layerAccess: initial.layerAccess.copyWith(
-          rotationError:
-              'Viewer credential rotation failed: '
-              'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS',
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.textContaining('GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS'),
-      findsOneWidget,
-    );
-    expect(find.byType(GcpGrafanaCredentialRevealDialog), findsNothing);
-    verifyNever(() => bloc.add(const TwinOverviewAccessCredentialConsumed(1)));
   });
 
   testWidgets('layer access does not replace downstream deployment panels', (
@@ -369,16 +262,16 @@ Map<String, dynamic> _surface(DeploymentLayer layer, CloudProvider provider) {
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_managed_grafana',
-      'Amazon Managed Grafana',
-      'aws_identity_center',
+      'aws_raw_history_reader',
+      'AWS Raw-history Reader',
+      'aws_sigv4',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.gcp) => (
-      'gcp_grafana_oss',
-      'Grafana OSS on GKE',
-      'generated_viewer',
-      'rotate',
+      'gcp_raw_history_reader',
+      'GCP Raw-history Reader',
+      'gcp_identity_token',
+      'none',
     ),
     _ => throw StateError('Unsupported test surface.'),
   };
@@ -403,15 +296,4 @@ Map<String, dynamic> _surface(DeploymentLayer layer, CloudProvider provider) {
     'capabilities': ['Inspect the deployed layer.'],
     'limitations': ['Browser sign-in remains user verified.'],
   };
-}
-
-DeploymentAccessCredential _credential() {
-  return DeploymentAccessCredential.fromJson({
-    'schema_version': 'deployment-access-credential.v1',
-    'layer': 'l5',
-    'provider': 'gcp',
-    'username': 'viewer@example.invalid',
-    'password': 'one-time-secret',
-    'issued_at': '2026-07-31T12:00:00Z',
-  });
 }

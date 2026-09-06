@@ -5,7 +5,6 @@ All deployment is now handled by TerraformDeployerStrategy.
 This module provides REST API endpoints for infrastructure operations.
 """
 
-import asyncio
 from pathlib import Path
 from typing import Annotated
 
@@ -16,7 +15,6 @@ import src.providers.deployer as core_deployer
 from logger import logger
 from src.api.dependencies import check_template_protection, validate_provider
 from src.api.models.deployment import (
-    DeploymentAccessCredentialResult,
     DeploymentOperation,
     DeploymentRequest,
     DeploymentResult,
@@ -33,57 +31,10 @@ from src.core.deployment_errors import (
 from src.core.factory import create_context
 from src.core.observability import OperationContext, operation_step
 from src.core.project_storage import get_project_storage
-from src.deployment_access import (
-    GcpViewerRotationError,
-    project_deployment_access_evidence,
-    rotate_gcp_grafana_viewer,
-)
-from src.runtime_outputs import load_terraform_outputs
+from src.deployment_access import project_deployment_access_evidence
 from src.validation.directory_validator import validate_project_directory
 
 router = APIRouter(prefix="/infrastructure")
-
-
-@router.post(
-    "/deployment-access/l5/credentials:rotate",
-    response_model=DeploymentAccessCredentialResult,
-    tags=["Infrastructure"],
-    summary="Rotate the deployed GCP Grafana Viewer credential once",
-    responses={
-        200: {"description": "One-time Viewer credential"},
-        400: {"description": "Invalid or expired operation package"},
-        502: {"description": "Bounded GKE rotation failed"},
-    },
-)
-async def rotate_deployment_access_credential(
-    operation_token: Annotated[str, Header(alias="X-Operation-Package", min_length=1)],
-    project_name: str = Query(..., description="Name of the project context"),
-):
-    operation_context = OperationContext.create(
-        operation="rotate_gcp_grafana_viewer",
-        project_name=project_name,
-        provider="gcp",
-    )
-    try:
-        with operation_project_path(project_name, operation_token) as project_path:
-            _request, context = _prepare_deployment_context(
-                project_name,
-                "gcp",
-                "rotate GCP Grafana Viewer credential in",
-                operation_context,
-                project_path,
-            )
-            outputs = load_terraform_outputs(project_name, project_path)
-            result = await asyncio.to_thread(
-                rotate_gcp_grafana_viewer,
-                context,
-                outputs,
-            )
-        return DeploymentAccessCredentialResult.model_validate(result)
-    except HTTPException:
-        raise
-    except GcpViewerRotationError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 def _prepare_deployment_context(

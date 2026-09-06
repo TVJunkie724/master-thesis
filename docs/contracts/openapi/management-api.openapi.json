@@ -3168,51 +3168,6 @@
         "title": "DeployerConfigUpdate",
         "type": "object"
       },
-      "DeploymentAccessCredential": {
-        "additionalProperties": false,
-        "properties": {
-          "issued_at": {
-            "format": "date-time",
-            "title": "Issued At",
-            "type": "string"
-          },
-          "layer": {
-            "const": "l5",
-            "default": "l5",
-            "title": "Layer",
-            "type": "string"
-          },
-          "password": {
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
-          },
-          "provider": {
-            "const": "gcp",
-            "default": "gcp",
-            "title": "Provider",
-            "type": "string"
-          },
-          "schema_version": {
-            "const": "deployment-access-credential.v1",
-            "default": "deployment-access-credential.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "username": {
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "password",
-          "issued_at"
-        ],
-        "title": "DeploymentAccessCredential",
-        "type": "object"
-      },
       "DeploymentAccessSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -3326,9 +3281,9 @@
               "aws_iot_twinmaker",
               "azure_digital_twins",
               "gcp_twin_explorer",
-              "aws_managed_grafana",
-              "azure_managed_grafana",
-              "gcp_grafana_oss"
+              "aws_raw_history_reader",
+              "azure_raw_history_reader",
+              "gcp_raw_history_reader"
             ],
             "title": "Service Id",
             "type": "string"
@@ -4688,10 +4643,7 @@
         "additionalProperties": false,
         "properties": {
           "credential_action": {
-            "enum": [
-              "none",
-              "rotate"
-            ],
+            "const": "none",
             "title": "Credential Action",
             "type": "string"
           },
@@ -4700,7 +4652,9 @@
               "aws_identity_center",
               "azure_entra",
               "gcp_iap",
-              "generated_viewer"
+              "aws_sigv4",
+              "azure_function_key",
+              "gcp_identity_token"
             ],
             "title": "Mode",
             "type": "string"
@@ -6517,11 +6471,6 @@
             "title": "Azure Mover Max Device Partitions Per Task",
             "type": "integer"
           },
-          "gcp_grafana_persistent_disk_gib": {
-            "const": 10,
-            "title": "Gcp Grafana Persistent Disk Gib",
-            "type": "integer"
-          },
           "l4_inspection_sessions_per_month": {
             "const": 12,
             "title": "L4 Inspection Sessions Per Month",
@@ -6590,8 +6539,7 @@
           "storage_object_max_uncompressed_mib",
           "storage_transfer_retry_horizon_hours",
           "storage_source_expiry_grace_hours",
-          "azure_mover_max_device_partitions_per_task",
-          "gcp_grafana_persistent_disk_gib"
+          "azure_mover_max_device_partitions_per_task"
         ],
         "title": "ResolvedDeploymentFixedDimensionsV2",
         "type": "object"
@@ -11817,105 +11765,6 @@
           }
         },
         "summary": "Get secret-free L4 and L5 access surfaces",
-        "tags": [
-          "twins"
-        ]
-      }
-    },
-    "/twins/{twin_id}/deployment-access/l5/credentials:rotate": {
-      "post": {
-        "operationId": "rotateTwinGcpGrafanaViewerCredential",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "twin_id",
-            "required": true,
-            "schema": {
-              "title": "Twin Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentAccessCredential"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "INVALID_CREDENTIALS",
-                  "fix_suggestion": "Verify your credentials in config_credentials.json or provide valid credentials in the request body",
-                  "http_status": 401,
-                  "message": "Cloud provider credentials are invalid or expired"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Unauthorized - Authentication credentials are missing or invalid"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "error_code": "RESOURCE_NOT_FOUND",
-                  "fix_suggestion": "Use GET /projects to list available projects, then use an existing project name",
-                  "http_status": 404,
-                  "message": "Project 'my-project' not found"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "409": {
-            "description": "Rotation is unavailable or already in progress"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Provider rotation failed safely"
-          },
-          "503": {
-            "description": "Deployer API unavailable"
-          }
-        },
-        "summary": "Rotate and reveal the GCP Grafana Viewer credential once",
         "tags": [
           "twins"
         ]

@@ -232,7 +232,7 @@ class DeploymentLayerOverview extends StatelessWidget {
               icon: Icons.dashboard,
               isHighlighted: true,
               constraints:
-                  '• Platform user identity\n• Selected-provider access intent\n• GCP Grafana source CIDRs when applicable',
+                  '• Platform user identity\n• Selected-provider access intent',
               exampleContent: provider?.toLowerCase() == 'azure'
                   ? Step3Examples.azureUserConfig
                   : Step3Examples.userConfig,

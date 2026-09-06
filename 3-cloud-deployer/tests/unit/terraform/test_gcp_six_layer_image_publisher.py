@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from src.providers.terraform.gcp_six_layer_image_publisher import (
+    CLOUD_BUILD_MACHINE_TYPE,
     DOCKER_BUILDER,
     GcpSixLayerImagePublisher,
     GcpSixLayerImageRequest,
@@ -38,7 +39,6 @@ def test_placeholder_refs_are_registry_scoped_and_stage_one_is_closed():
         "gcp_six_layer_platform_image",
         "gcp_six_layer_processor_extension_image",
         "gcp_six_layer_storage_mover_image",
-        "gcp_six_layer_grafana_image",
         "gcp_event_runtime_image",
         "gcp_six_layer_kubernetes_stage_enabled",
     }
@@ -161,15 +161,14 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
     images = publisher.publish(
         (
             GcpSixLayerImageRequest(
-                "grafana",
+                "storage-mover",
                 context,
-                dockerfile="grafana/Dockerfile",
-                build_args=("TARGETARCH=amd64",),
+                dockerfile="storage-mover/Dockerfile",
             ),
         )
     )
 
-    assert images["grafana"].endswith("@sha256:" + "a" * 64)
+    assert images["storage-mover"].endswith("@sha256:" + "a" * 64)
     assert blob.uploads[0][1]["if_generation_match"] == 0
     parent, body = builds.created[0]
     assert parent == "projects/phase8-project/locations/europe-west1"
@@ -179,13 +178,15 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
         "build",
         "--platform=linux/amd64",
         "-f",
-        "grafana/Dockerfile",
-        "--build-arg",
+        "storage-mover/Dockerfile",
+        "-t",
     ]
     assert body["serviceAccount"].endswith(
         "/serviceAccounts/build@phase8-project.iam.gserviceaccount.com"
     )
-    assert body["tags"] == ["twin2multicloud", "phase-8", "grafana"]
+    assert body["options"]["machineType"] == CLOUD_BUILD_MACHINE_TYPE
+    assert body["timeout"] == "1200s"
+    assert body["tags"] == ["twin2multicloud", "phase-8", "storage-mover"]
     assert publisher.evidence_path.stat().st_mode & 0o077 == 0
 
 
@@ -194,7 +195,6 @@ def test_image_tfvars_uses_dedicated_finite_storage_job_image():
     images = {
         "platform": prefix + "platform@sha256:" + "a" * 64,
         "processor-extension": prefix + "processor-extension@sha256:" + "b" * 64,
-        "grafana": prefix + "grafana@sha256:" + "c" * 64,
         "storage-mover": prefix + "storage-mover@sha256:" + "d" * 64,
     }
 
@@ -205,7 +205,6 @@ def test_image_tfvars_uses_dedicated_finite_storage_job_image():
         values["gcp_six_layer_processor_extension_image"]
         == images["processor-extension"]
     )
-    assert values["gcp_six_layer_grafana_image"] == images["grafana"]
     assert values["gcp_six_layer_kubernetes_stage_enabled"] is False
 
 

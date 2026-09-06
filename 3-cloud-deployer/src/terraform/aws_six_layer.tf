@@ -1402,8 +1402,14 @@ resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
 }
 
 # -----------------------------------------------------------------------------
-# L5 bounded raw-history reader and Managed Grafana
+# L5 bounded raw-history reader
 # -----------------------------------------------------------------------------
+
+resource "random_password" "aws_six_layer_raw_history_cursor_hmac" {
+  count   = local.aws_six_layer_l5_enabled ? 1 : 0
+  length  = 64
+  special = false
+}
 
 resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
   count                          = local.aws_six_layer_l5_enabled ? 1 : 0
@@ -1424,7 +1430,7 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
       RAW_TABLE_NAME       = aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name
       ROLLUP_TABLE_NAME    = aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name
       MAXIMUM_POINTS       = "1000"
-      READER_KEY_SHA256    = ""
+      CURSOR_HMAC_KEY      = random_password.aws_six_layer_raw_history_cursor_hmac[0].result
     }
   }
   tags = local.aws_six_layer_tags
@@ -1432,41 +1438,18 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
   depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
-# The URL is transport-public but never application-anonymous. Stage 3 creates
-# a 256-bit key, writes only its SHA-256 verifier to Lambda, and stores the key
-# only in Grafana secureJsonData. An empty verifier fails closed.
+# AWS IAM authenticates every request before Lambda executes. The caller signs
+# the HTTPS request with the already approved deployment credential; no second
+# L5 secret or dashboard account exists.
 resource "aws_lambda_function_url" "aws_aws_lambda_raw_history_reader" {
   count              = local.aws_six_layer_l5_enabled ? 1 : 0
   function_name      = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
-  authorization_type = "NONE"
-}
-
-resource "aws_iam_role" "aws_six_layer_grafana" {
-  count = local.aws_six_layer_l5_enabled ? 1 : 0
-  name  = "${local.aws_six_layer_name}-six-grafana-${local.deployment_suffix}"
-  assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
-    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { Service = "grafana.amazonaws.com" } }]
-  })
-  tags = local.aws_six_layer_tags
-}
-
-resource "aws_grafana_workspace" "aws_aws_amazon_managed_grafana_12" {
-  count                    = local.aws_six_layer_l5_enabled ? 1 : 0
-  name                     = "${local.aws_six_layer_name}-six-grafana"
-  description              = "Six-layer raw-history visualization"
-  account_access_type      = "CURRENT_ACCOUNT"
-  authentication_providers = ["AWS_SSO"]
-  permission_type          = "SERVICE_MANAGED"
-  role_arn                 = aws_iam_role.aws_six_layer_grafana[0].arn
-  grafana_version          = "12.0"
-  configuration            = jsonencode({ plugins = { pluginAdminEnabled = true } })
-  tags                     = local.aws_six_layer_tags
+  authorization_type = "AWS_IAM"
 }
 
 locals {
   aws_six_layer_layer_access_enabled = (
-    (local.aws_six_layer_l4_enabled || local.aws_six_layer_l5_enabled) &&
+    local.aws_six_layer_l4_enabled &&
     var.platform_user_email != ""
   )
 }
@@ -1544,7 +1527,7 @@ resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access
   count            = local.aws_six_layer_layer_access_enabled ? 1 : 0
   instance_arn     = local.aws_six_layer_sso_instance_arn
   name             = substr("${local.aws_six_layer_name}-TwinViewer", 0, 32)
-  description      = "Read-only TwinMaker and Grafana access for the thesis PoC"
+  description      = "Read-only TwinMaker access for the thesis PoC"
   session_duration = "PT4H"
   tags             = local.aws_six_layer_tags
   depends_on       = [terraform_data.aws_six_layer_layer_access_principal_admission]
@@ -1562,7 +1545,7 @@ resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access
       Action = [
         "iottwinmaker:GetWorkspace", "iottwinmaker:ListEntities",
         "iottwinmaker:GetEntity", "iottwinmaker:ListComponentTypes",
-        "iottwinmaker:GetComponentType", "grafana:DescribeWorkspace"
+        "iottwinmaker:GetComponentType"
       ]
       Resource = "*"
     }]
@@ -1579,13 +1562,6 @@ resource "aws_ssoadmin_account_assignment" "aws_aws_iam_identity_center_layer_ac
   target_id          = data.aws_caller_identity.current[0].account_id
   target_type        = "AWS_ACCOUNT"
   depends_on         = [aws_ssoadmin_permission_set_inline_policy.aws_six_layer_layer_access]
-}
-
-resource "aws_grafana_role_association" "aws_six_layer_layer_access" {
-  count        = local.aws_six_layer_l5_enabled && local.aws_six_layer_layer_access_enabled ? 1 : 0
-  role         = "ADMIN"
-  user_ids     = [local.aws_six_layer_layer_user_id]
-  workspace_id = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
 }
 
 # -----------------------------------------------------------------------------
@@ -1645,21 +1621,16 @@ output "aws_component_twin_state_output" {
 
 output "aws_component_visualization_output" {
   value = local.aws_six_layer_l5_enabled ? {
-    workspace_id         = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-    access_url           = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}/d/t2mc-raw-rollups/raw-rollups"
-    workspace_url        = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}"
-    reader_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
+    access_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
     reader_function_name = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
-    principal_label      = var.platform_user_email
+    principal_label      = data.aws_caller_identity.current[0].arn
+    access_role          = "AWS IAM signed read-only invocation"
     internal_evidence = {
-      resource_ref = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-      access_binding_refs = [
-        aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
-        aws_grafana_role_association.aws_six_layer_layer_access[0].id,
-      ]
-      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
-      content_revision    = "grafana-raw-rollups.v1"
-      data_probe_revision = "aws-grafana-bounded-readback.v1"
+      resource_ref        = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+      access_binding_refs = [aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url]
+      artifact_refs       = [local.aws_six_layer_runtime_package]
+      content_revision    = "raw-history-query.v1"
+      data_probe_revision = "aws-raw-history-readback.v1"
     }
   } : null
 }

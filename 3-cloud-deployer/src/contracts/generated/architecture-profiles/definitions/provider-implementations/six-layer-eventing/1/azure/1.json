@@ -255,12 +255,9 @@
         "capability.visualization"
       ],
       "service_model_refs": [
-        "service-model.azure.azure.managed-grafana-12-standard",
         "service-model.azure.azure.functions-flex-raw-history-reader",
-        "service-model.azure.azure.grafana-marcusolsson-json-datasource",
         "service-model.azure.azure.monitor",
-        "service-model.azure.azure.log-analytics-shared-workspace",
-        "service-model.azure.azure.entra-layer-access-bindings"
+        "service-model.azure.azure.log-analytics-shared-workspace"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -269,12 +266,9 @@
         "region.azure.westeurope"
       ],
       "deployment_specification_component_ids": [
-        "azure.managed-grafana-12-standard",
         "azure.functions-flex-raw-history-reader",
-        "azure.grafana-marcusolsson-json-datasource",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace",
-        "azure.entra-layer-access-bindings"
+        "azure.log-analytics-shared-workspace"
       ],
       "deployment_specification_slot_ids": [
         "l5_visualization"
@@ -573,5 +567,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+  "content_digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
 }

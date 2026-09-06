@@ -40,13 +40,11 @@ def test_plan_covers_each_matrix_direction_and_runtime_contract_once() -> None:
     assert actual == verifier.IDENTITY_EXCHANGE_BY_PAIR
 
 
-def test_plan_is_bound_to_current_candidate_pack() -> None:
+def test_plan_retains_its_immutable_candidate_binding() -> None:
     plan = verifier._load(verifier.DEFAULT_PLAN)
-    image_readiness = verifier._load(verifier.IMAGE_READINESS_PATH)
 
-    assert (
-        plan["candidate_pack_manifest_digest"]
-        == image_readiness["candidate_pack_manifest_digest"]
+    assert plan["candidate_pack_manifest_digest"] == (
+        "sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346"
     )
 
 

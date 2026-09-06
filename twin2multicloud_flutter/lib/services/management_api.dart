@@ -191,10 +191,6 @@ abstract interface class DeploymentLifecycleApi {
 
   Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId);
 
-  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
-    String twinId,
-  );
-
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,

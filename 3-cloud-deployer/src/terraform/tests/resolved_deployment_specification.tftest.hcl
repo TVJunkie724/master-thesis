@@ -242,9 +242,8 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
     gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_six_layer_grafana_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_event_runtime_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    gcp_grafana_source_cidrs                = ["203.0.113.42/32"]
+    gcp_deployment_principal_email          = "deployer@phase8-poc-project.iam.gserviceaccount.com"
     enable_gcp_logging                      = false
     resolved_component_dimensions = {
       "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"

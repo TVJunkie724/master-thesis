@@ -65,12 +65,12 @@
   "l5:aws": {
     "layer": "l5",
     "provider": "aws",
-    "service_id": "aws_managed_grafana",
-    "display_name": "Amazon Managed Grafana",
-    "url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups/raw-rollups",
+    "service_id": "aws_raw_history_reader",
+    "display_name": "AWS Raw-history Reader",
+    "url": "https://example.lambda-url.eu-central-1.on.aws/",
     "auth": {
-      "mode": "aws_identity_center",
-      "principal_label": "researcher@example.invalid",
+      "mode": "aws_sigv4",
+      "principal_label": "arn:aws:iam::111122223333:user/thesis-deployer",
       "credential_action": "none"
     },
     "readiness": {
@@ -81,17 +81,17 @@
       "browser_sign_in": "unverified"
     },
     "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-    "limitations": ["read-only-dashboard", "bounded-queries"]
+    "limitations": ["read-only-json", "bounded-queries", "programmatic-access-only"]
   },
   "l5:azure": {
     "layer": "l5",
     "provider": "azure",
-    "service_id": "azure_managed_grafana",
-    "display_name": "Azure Managed Grafana",
-    "url": "https://t2mc-example-abcd.westeurope.grafana.azure.com/d/t2mc-raw-rollups/raw-rollups",
+    "service_id": "azure_raw_history_reader",
+    "display_name": "Azure Raw-history Reader",
+    "url": "https://t2mc-example.azurewebsites.net/api/raw-history/v1",
     "auth": {
-      "mode": "azure_entra",
-      "principal_label": "researcher@example.invalid",
+      "mode": "azure_function_key",
+      "principal_label": "00000000-0000-0000-0000-000000000001",
       "credential_action": "none"
     },
     "readiness": {
@@ -102,18 +102,18 @@
       "browser_sign_in": "unverified"
     },
     "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-    "limitations": ["read-only-dashboard", "bounded-queries"]
+    "limitations": ["read-only-json", "bounded-queries", "programmatic-access-only"]
   },
   "l5:gcp": {
     "layer": "l5",
     "provider": "gcp",
-    "service_id": "gcp_grafana_oss",
-    "display_name": "Grafana OSS on GKE",
-    "url": "https://grafana.example.invalid/d/t2mc-raw-rollups/raw-rollups",
+    "service_id": "gcp_raw_history_reader",
+    "display_name": "GCP Raw-history Reader",
+    "url": "https://t2mc-raw-history-example-ew.a.run.app/raw-history/v1",
     "auth": {
-      "mode": "generated_viewer",
-      "principal_label": "researcher@example.invalid",
-      "credential_action": "rotate"
+      "mode": "gcp_identity_token",
+      "principal_label": "thesis-deployer@example.iam.gserviceaccount.com",
+      "credential_action": "none"
     },
     "readiness": {
       "resource": "ready",
@@ -123,6 +123,6 @@
       "browser_sign_in": "unverified"
     },
     "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-    "limitations": ["read-only-dashboard", "bounded-queries", "self-signed-poc-certificate"]
+    "limitations": ["read-only-json", "bounded-queries", "programmatic-access-only"]
   }
 }

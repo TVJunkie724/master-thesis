@@ -517,7 +517,6 @@ class ResolvedArchitectureService:
             isinstance(readiness, dict)
             and readiness.get("status") == "offline_contract_fixture"
             and isinstance(readiness.get("blocking_gate_ids"), list)
-            and readiness["blocking_gate_ids"]
         ):
             expected_resolution_status = "offline_contract_fixture"
         else:

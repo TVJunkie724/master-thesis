@@ -139,7 +139,7 @@ class SixLayerReadiness extends Equatable {
       maxLength: 16,
     );
     final ready = status == 'deployment_ready' && blockers.isEmpty;
-    final offline = status == 'offline_contract_fixture' && blockers.isNotEmpty;
+    final offline = status == 'offline_contract_fixture';
     if (!ready && !offline) {
       throw const FormatException(
         'Invalid API contract: Six-layer readiness is inconsistent.',
@@ -570,7 +570,6 @@ final class ResolvedDeploymentSpecificationV2
       'rollup_bucket_seconds': 3600,
       'reader_timeout_seconds': 10,
       'reader_maximum_points': 1000,
-      'gcp_grafana_persistent_disk_gib': 10,
       'storage_batch_interval_minutes': 5,
       'storage_task_max_input_mib': 512,
       'storage_object_max_uncompressed_mib': 64,

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.providers.aws.layers import layer_5_grafana as aws_layer_5_grafana
-from src.providers.azure.layers import layer_4_adt, layer_5_grafana
+from src.providers.azure.layers import layer_4_adt, layer_5_grafana, layer_5_raw_history
 from src.providers.terraform import aws_deployer, azure_deployer
 from src.providers.terraform.runtime_outcome import ProviderRuntimeError, RuntimeRun
 
@@ -83,11 +83,15 @@ def test_aws_six_layer_identity_center_user_requires_explicit_invite_intent():
     assert "terraform_data.aws_six_layer_layer_access_principal_admission" in terraform
 
 
-def test_gcp_grafana_readiness_waits_for_content_probe_marker():
+def test_gcp_l5_is_authenticated_cloud_run_without_dashboard_resources():
     terraform = (TERRAFORM_ROOT / "gcp_six_layer.tf").read_text("utf-8")
 
-    assert 'command = ["test", "-f", "/tmp/twin2multicloud-ready"]' in terraform
-    assert terraform.count('path   = "/api/health"') == 1
+    assert "invoker_iam_disabled = false" in terraform
+    assert 'role     = "roles/run.invoker"' in terraform
+    assert (
+        'member   = "serviceAccount:${var.gcp_deployment_principal_email}"' in terraform
+    )
+    assert "grafana" not in terraform.lower()
 
 
 def test_gcp_twin_explorer_readiness_waits_for_seed_readback():
@@ -252,7 +256,7 @@ def test_azure_grafana_requires_hot_reader_output():
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
+def test_active_profile_azure_l5_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     graph = SimpleNamespace(profile_ref={"id": profile[0], "version": profile[1]})
     context = SimpleNamespace(
@@ -267,31 +271,121 @@ def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
             ]
         ),
     )
-    configure = MagicMock()
-    monkeypatch.setattr(layer_5_grafana, "configure_six_layer_grafana", configure)
+    verify = MagicMock()
+    monkeypatch.setattr(layer_5_raw_history, "verify_raw_history_reader", verify)
 
     azure_deployer.configure_azure_grafana(
         context,
         {
             "azure_component_visualization_output": {
-                "workspace_name": "factory-grafana",
-                "workspace_url": "https://grafana.example/",
-                "access_url": "https://grafana.example/d/t2mc-raw-rollups/raw-rollups",
-                "reader_url": "https://reader.example/api/raw-history/v1",
+                "access_url": "https://reader.example/api/raw-history/v1",
                 "reader_function_name": "factory-history",
             }
         },
     )
 
-    configure.assert_called_once_with(
+    verify.assert_called_once_with(
         provider,
-        workspace_name="factory-grafana",
-        grafana_url="https://grafana.example",
-        hot_reader_url="https://reader.example/api/raw-history/v1",
+        endpoint="https://reader.example/api/raw-history/v1",
         function_app_name="factory-history",
         device_id="sensor-1",
         metric="temperature",
-        architecture_profile=f"{profile[0]}@{profile[1]}",
+    )
+
+
+def _azure_raw_history_provider():
+    return SimpleNamespace(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        naming=SimpleNamespace(resource_group=lambda: "rg-thesis-poc"),
+        credential=SimpleNamespace(
+            get_token=lambda _scope: SimpleNamespace(token="management-token")
+        ),
+    )
+
+
+def test_azure_raw_history_reuses_existing_function_key(monkeypatch):
+    provider = _azure_raw_history_provider()
+    post = MagicMock(
+        return_value=SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "properties": {layer_5_raw_history.KEY_NAME: "existing-evaluation-key"}
+            },
+        )
+    )
+    put = MagicMock()
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+
+    value = layer_5_raw_history._reader_key(provider, "history-reader")
+
+    assert value == "existing-evaluation-key"
+    assert (
+        "/functions/six-layer-raw-history-reader/listkeys?" in (post.call_args.args[0])
+    )
+    put.assert_not_called()
+
+
+def test_azure_raw_history_creates_one_function_scoped_key(monkeypatch):
+    provider = _azure_raw_history_provider()
+    monkeypatch.setattr(
+        layer_5_raw_history.requests,
+        "post",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status_code=200,
+            json=lambda: {"properties": {}},
+        ),
+    )
+    put = MagicMock(return_value=SimpleNamespace(status_code=201))
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+    monkeypatch.setattr(
+        layer_5_raw_history.secrets,
+        "token_urlsafe",
+        lambda _length: "generated-evaluation-key",
+    )
+
+    value = layer_5_raw_history._reader_key(provider, "history-reader")
+
+    assert value == "generated-evaluation-key"
+    assert "/functions/six-layer-raw-history-reader/keys/" in (put.call_args.args[0])
+    assert put.call_args.kwargs["json"] == {
+        "name": layer_5_raw_history.KEY_NAME,
+        "value": "generated-evaluation-key",
+    }
+
+
+def test_azure_raw_history_probe_is_authenticated_and_bounded(monkeypatch):
+    provider = _azure_raw_history_provider()
+    monkeypatch.setattr(
+        layer_5_raw_history,
+        "_reader_key",
+        lambda _provider, _app: "evaluation-key",
+    )
+    get = MagicMock(
+        return_value=SimpleNamespace(
+            status_code=200,
+            json=lambda: {"schema_version": "raw-history-query.v1"},
+        )
+    )
+    monkeypatch.setattr(layer_5_raw_history.requests, "get", get)
+
+    layer_5_raw_history.verify_raw_history_reader(
+        provider,
+        endpoint="https://reader.example/api/raw-history/v1",
+        function_app_name="history-reader",
+        device_id="sensor-1",
+        metric="temperature",
+    )
+
+    assert get.call_count == 2
+    assert [call.kwargs["params"]["bucket_seconds"] for call in get.call_args_list] == [
+        "0",
+        "3600",
+    ]
+    assert all(call.kwargs["params"]["limit"] == "1" for call in get.call_args_list)
+    assert all(
+        call.kwargs["headers"] == {"x-functions-key": "evaluation-key"}
+        for call in get.call_args_list
     )
 
 
@@ -633,7 +727,7 @@ def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypat
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile):
+def test_active_profile_aws_l5_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     config = SimpleNamespace(
         iot_devices=[
@@ -650,30 +744,24 @@ def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile
             profile_ref={"id": profile[0], "version": profile[1]}
         ),
     )
-    configure = MagicMock()
-    monkeypatch.setattr(aws_layer_5_grafana, "configure_six_layer_grafana", configure)
+    verify = MagicMock()
+    monkeypatch.setattr(aws_deployer, "_probe_aws_raw_history_reader", verify)
 
     aws_deployer.configure_aws_grafana(
         context,
         {
             "aws_component_visualization_output": {
-                "workspace_id": "g-1234567890",
-                "workspace_url": "https://grafana.example/",
-                "reader_url": "https://reader.example/",
+                "access_url": "https://reader.example/",
                 "reader_function_name": "reader",
             }
         },
     )
 
-    configure.assert_called_once_with(
-        provider,
-        workspace_id="g-1234567890",
-        grafana_url="https://grafana.example",
+    verify.assert_called_once_with(
+        provider=provider,
         reader_url="https://reader.example/",
-        reader_function_name="reader",
         device_id="sensor-1",
         metric="temperature",
-        architecture_profile=f"{profile[0]}@{profile[1]}",
     )
 
 

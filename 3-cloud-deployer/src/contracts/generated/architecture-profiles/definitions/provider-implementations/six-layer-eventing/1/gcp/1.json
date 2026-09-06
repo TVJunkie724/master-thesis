@@ -265,11 +265,7 @@
         "capability.visualization"
       ],
       "service_model_refs": [
-        "service-model.gcp.grafana.oss-12-on-gke",
-        "service-model.gcp.gcp.persistent-disk-rwo",
         "service-model.gcp.gcp.cloud-run-raw-history-reader",
-        "service-model.gcp.grafana.yesoreyeram-infinity-datasource",
-        "service-model.gcp.gcp.grafana-tls-load-balancer",
         "service-model.gcp.gcp.artifact-registry-if-container-selected",
         "service-model.gcp.gcp.cloud-logging",
         "service-model.gcp.gcp.cloud-monitoring"
@@ -281,11 +277,7 @@
         "region.gcp.europe-west1"
       ],
       "deployment_specification_component_ids": [
-        "grafana.oss-12-on-gke",
-        "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
-        "grafana.yesoreyeram-infinity-datasource",
-        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
         "gcp.cloud-monitoring"
@@ -585,5 +577,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:6cb928bca3c71f2b59b2ef319600a56b1081d51c8f9b5be6ce52d56c593f56b7"
+  "content_digest": "sha256:a13ce65dc898e74f51772a1b33b623406fe0389545e954e652f8fc1f39a2cea3"
 }

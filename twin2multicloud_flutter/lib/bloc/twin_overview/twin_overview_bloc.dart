@@ -7,7 +7,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/app_logger.dart';
 import '../../core/result.dart';
 import '../../models/cleanup_evidence.dart';
-import '../../models/cloud_connection.dart';
 import '../../models/deployment_access.dart';
 import '../../models/deployment_operations.dart';
 import '../../models/deployment_readiness.dart';
@@ -58,10 +57,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewRunDeploymentPreflight>(_onRunDeploymentPreflight);
     on<TwinOverviewPrepareDeployment>(_onPrepareDeployment);
     on<TwinOverviewRetryLayerAccess>(_onRetryLayerAccess);
-    on<TwinOverviewRotateGcpGrafanaViewerCredential>(
-      _onRotateGcpGrafanaViewerCredential,
-    );
-    on<TwinOverviewAccessCredentialConsumed>(_onLayerAccessCredentialConsumed);
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
@@ -1759,7 +1754,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         layerAccess: currentState.layerAccess.copyWith(
           phase: LayerAccessViewPhase.loading,
           clearError: true,
-          clearRotationError: true,
         ),
       ),
     );
@@ -1806,97 +1800,6 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         ),
       );
     }
-  }
-
-  Future<void> _onRotateGcpGrafanaViewerCredential(
-    TwinOverviewRotateGcpGrafanaViewerCredential event,
-    Emitter<TwinOverviewState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! TwinOverviewLoaded ||
-        currentState.twinState != 'deployed' ||
-        currentState.layerAccess.rotatingViewerCredential ||
-        currentState.layerAccess.pendingCredential != null) {
-      return;
-    }
-    final l5 = currentState.layerAccess.snapshot?.surfaceFor(
-      DeploymentLayer.l5,
-    );
-    if (!currentState.layerAccess.hasAvailableSurfaces ||
-        l5?.provider != CloudProvider.gcp ||
-        l5?.auth.credentialAction != DeploymentAccessCredentialAction.rotate) {
-      return;
-    }
-
-    final twinId = currentState.twinId;
-    final contextGeneration = _twinContextGeneration;
-    emit(
-      currentState.copyWith(
-        layerAccess: currentState.layerAccess.copyWith(
-          rotatingViewerCredential: true,
-          clearRotationError: true,
-          clearPendingCredential: true,
-        ),
-      ),
-    );
-    try {
-      final credential = await _api.rotateGcpGrafanaViewerCredential(twinId);
-      final activeState = state;
-      if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != twinId ||
-          activeState.twinState != 'deployed' ||
-          contextGeneration != _twinContextGeneration ||
-          !activeState.layerAccess.rotatingViewerCredential) {
-        return;
-      }
-      emit(
-        activeState.copyWith(
-          layerAccess: activeState.layerAccess.copyWith(
-            rotatingViewerCredential: false,
-            credentialRequestToken:
-                activeState.layerAccess.credentialRequestToken + 1,
-            pendingCredential: credential,
-            clearRotationError: true,
-          ),
-        ),
-      );
-    } catch (error) {
-      final activeState = state;
-      if (activeState is! TwinOverviewLoaded ||
-          activeState.twinId != twinId ||
-          contextGeneration != _twinContextGeneration ||
-          !activeState.layerAccess.rotatingViewerCredential) {
-        return;
-      }
-      emit(
-        activeState.copyWith(
-          layerAccess: activeState.layerAccess.copyWith(
-            rotatingViewerCredential: false,
-            rotationError:
-                'Viewer credential rotation failed: ${ApiErrorHandler.extractMessage(error)}',
-          ),
-        ),
-      );
-    }
-  }
-
-  void _onLayerAccessCredentialConsumed(
-    TwinOverviewAccessCredentialConsumed event,
-    Emitter<TwinOverviewState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is! TwinOverviewLoaded ||
-        currentState.layerAccess.pendingCredential == null ||
-        event.requestToken != currentState.layerAccess.credentialRequestToken) {
-      return;
-    }
-    emit(
-      currentState.copyWith(
-        layerAccess: currentState.layerAccess.copyWith(
-          clearPendingCredential: true,
-        ),
-      ),
-    );
   }
 
   bool _isCurrentOverviewRequest(String twinId, int generation) {

@@ -26,6 +26,7 @@ DOCKER_BUILDER = (
     "gcr.io/cloud-builders/docker@"
     "sha256:f8b08c609fdc392ee6827ff3e1725e4980f7d96bde9f76f4695086405c96c147"
 )
+CLOUD_BUILD_MACHINE_TYPE = "E2_STANDARD_2"
 _DIGEST_REF = re.compile(r"^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$")
 _ZERO_DIGEST = "sha256:" + "0" * 64
 _EVIDENCE_VERSION = "gcp-six-layer-published-images.v1"
@@ -118,7 +119,6 @@ def placeholder_image_tfvars(tfvars: Mapping[str, Any]) -> dict[str, Any]:
         "gcp_six_layer_platform_image": f"{prefix}platform@{_ZERO_DIGEST}",
         "gcp_six_layer_processor_extension_image": f"{prefix}processor-extension@{_ZERO_DIGEST}",
         "gcp_six_layer_storage_mover_image": f"{prefix}storage-mover@{_ZERO_DIGEST}",
-        "gcp_six_layer_grafana_image": f"{prefix}grafana@{_ZERO_DIGEST}",
         "gcp_event_runtime_image": f"{prefix}event-runtime@{_ZERO_DIGEST}",
         "gcp_six_layer_kubernetes_stage_enabled": False,
     }
@@ -164,15 +164,6 @@ def image_requests(
                 "storage-mover",
                 platform,
                 dockerfile="storage-mover/Dockerfile",
-            )
-        )
-    if tfvars.get("layer_5_provider") == "google":
-        requests.append(
-            GcpSixLayerImageRequest(
-                "grafana",
-                platform,
-                dockerfile="grafana/Dockerfile",
-                build_args=("TARGETARCH=amd64",),
             )
         )
     for request in requests:
@@ -335,7 +326,7 @@ class GcpSixLayerImagePublisher:
             ),
             "options": {
                 "logging": "CLOUD_LOGGING_ONLY",
-                "machineType": "E2_HIGHCPU_8",
+                "machineType": CLOUD_BUILD_MACHINE_TYPE,
             },
             "timeout": "1200s",
             "tags": ["twin2multicloud", "phase-8", request.name],
@@ -394,8 +385,6 @@ def image_tfvars(
         and tfvars.get("layer_3_archive_provider") != "google"
     ):
         result["gcp_six_layer_storage_mover_image"] = images.get("storage-mover", "")
-    if tfvars.get("layer_5_provider") == "google":
-        result["gcp_six_layer_grafana_image"] = images.get("grafana", "")
     if any(not value for key, value in result.items() if key.endswith("_image")):
         raise RuntimeError("GCP Phase 8 image publication is incomplete")
     return result

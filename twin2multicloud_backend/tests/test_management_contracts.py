@@ -42,10 +42,6 @@ def test_management_json_contracts_have_response_models():
             "get",
         ): "#/components/schemas/DeploymentAccessSnapshot",
         (
-            "/twins/{twin_id}/deployment-access/l5/credentials:rotate",
-            "post",
-        ): "#/components/schemas/DeploymentAccessCredential",
-        (
             "/twins/{twin_id}/deploy",
             "post",
         ): "#/components/schemas/OperationSessionResponse",
@@ -152,7 +148,6 @@ def test_downstream_client_contract_surface_is_explicit():
         "get_provider_capabilities",
         "inspect_deployment_requirements",
         "prepare_deployment_account",
-        "rotate_gcp_grafana_viewer_credential",
         "stage_operation_package",
         "start_log_trace",
         "stream_log_trace",

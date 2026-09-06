@@ -816,17 +816,6 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
-    String twinId,
-  ) async {
-    final twinPath = _managementPathSegment(twinId, 'Twin ID');
-    final response = await _dio.post(
-      '/twins/$twinPath/deployment-access/l5/credentials:rotate',
-    );
-    return DeploymentAccessCredential.fromJson(_responseMap(response.data));
-  }
-
-  @override
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,

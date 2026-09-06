@@ -73,7 +73,7 @@ void main() {
     final wrongAction = _snapshot(l5: CloudProvider.gcp);
     ((((wrongAction['surfaces'] as List).last as Map)['auth'])
             as Map)['credential_action'] =
-        'none';
+        'rotate';
 
     for (final document in [wrongService, wrongAuth, wrongAction]) {
       expect(() => DeploymentAccessSnapshot.fromJson(document), contractError);
@@ -97,44 +97,6 @@ void main() {
       expect(() => DeploymentAccessSnapshot.fromJson(document), contractError);
     }
   });
-
-  test(
-    'credential is validated and never exposes password through equality or text',
-    () {
-      final credential = DeploymentAccessCredential.fromJson({
-        'schema_version': 'deployment-access-credential.v1',
-        'layer': 'l5',
-        'provider': 'gcp',
-        'username': 'viewer@example.invalid',
-        'password': 'one-time-secret',
-        'issued_at': '2026-07-31T12:00:00Z',
-      });
-      final sameMetadata = DeploymentAccessCredential.fromJson({
-        'schema_version': 'deployment-access-credential.v1',
-        'layer': 'l5',
-        'provider': 'gcp',
-        'username': 'viewer@example.invalid',
-        'password': 'different-secret',
-        'issued_at': '2026-07-31T12:00:00Z',
-      });
-
-      expect(credential.password, 'one-time-secret');
-      expect(credential, sameMetadata);
-      expect(credential.toString(), isNot(contains('one-time-secret')));
-      expect(credential.props, isNot(contains('one-time-secret')));
-      expect(
-        () => DeploymentAccessCredential.fromJson({
-          'schema_version': 'deployment-access-credential.v1',
-          'layer': 'l4',
-          'provider': 'gcp',
-          'username': 'viewer@example.invalid',
-          'password': 'secret',
-          'issued_at': '2026-07-31T12:00:00Z',
-        }),
-        contractError,
-      );
-    },
-  );
 
   test('snapshot collections are immutable', () {
     final snapshot = DeploymentAccessSnapshot.fromJson(_snapshot());
@@ -183,19 +145,19 @@ Map<String, dynamic> _surface(DeploymentLayer layer, CloudProvider provider) {
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_managed_grafana',
-      'aws_identity_center',
+      'aws_raw_history_reader',
+      'aws_sigv4',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.azure) => (
-      'azure_managed_grafana',
-      'azure_entra',
+      'azure_raw_history_reader',
+      'azure_function_key',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.gcp) => (
-      'gcp_grafana_oss',
-      'generated_viewer',
-      'rotate',
+      'gcp_raw_history_reader',
+      'gcp_identity_token',
+      'none',
     ),
   };
   return {

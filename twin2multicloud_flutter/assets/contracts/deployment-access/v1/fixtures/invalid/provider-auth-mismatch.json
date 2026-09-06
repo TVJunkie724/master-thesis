@@ -20,10 +20,10 @@
     {
       "layer": "l5",
       "provider": "aws",
-      "service_id": "aws_managed_grafana",
-      "display_name": "Amazon Managed Grafana",
+      "service_id": "aws_raw_history_reader",
+      "display_name": "AWS Raw-history Reader",
       "url": "https://example.invalid/l5",
-      "auth": {"mode": "aws_identity_center", "principal_label": "researcher@example.invalid", "credential_action": "none"},
+      "auth": {"mode": "aws_sigv4", "principal_label": "arn:aws:iam::111122223333:user/thesis-deployer", "credential_action": "none"},
       "readiness": {"resource": "ready", "access_binding": "ready", "content": "ready", "data_probe": "ready", "browser_sign_in": "unverified"},
       "capabilities": ["recent-raw"],
       "limitations": []

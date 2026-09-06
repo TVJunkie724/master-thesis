@@ -44,9 +44,9 @@ SURFACE_MATRIX = {
     ("l4", "aws"): ("aws_iot_twinmaker", "aws_identity_center", "none"),
     ("l4", "azure"): ("azure_digital_twins", "azure_entra", "none"),
     ("l4", "gcp"): ("gcp_twin_explorer", "gcp_iap", "none"),
-    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
-    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
-    ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
+    ("l5", "aws"): ("aws_raw_history_reader", "aws_sigv4", "none"),
+    ("l5", "azure"): ("azure_raw_history_reader", "azure_function_key", "none"),
+    ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 EVIDENCE_PROFILES = (("six-layer-eventing", "1"),)
 
@@ -195,11 +195,9 @@ def validate_source() -> str:
         "README.md",
         "v1/deployment-access.schema.json",
         "v1/deployment-access-evidence.schema.json",
-        "v1/deployment-access-credential.schema.json",
         "v1/fixtures/valid/surface-catalog.json",
         "v1/fixtures/valid/placement-matrix.json",
         "v1/fixtures/valid/unsupported-historical.json",
-        "v1/fixtures/valid/gcp-viewer-credential.json",
         "v1/fixtures/invalid/available-missing-l5.json",
         "v1/fixtures/invalid/surface-secret-field.json",
         "v1/fixtures/invalid/provider-auth-mismatch.json",
@@ -228,10 +226,6 @@ def validate_source() -> str:
     validate_snapshot(
         _load("fixtures/valid/unsupported-historical.json"), access_validator
     )
-    validators["deployment-access-credential.schema.json"].validate(
-        _load("fixtures/valid/gcp-viewer-credential.json")
-    )
-
     for name in ("available-missing-l5.json", "surface-secret-field.json"):
         invalid = _load(f"fixtures/invalid/{name}")
         if not list(access_validator.iter_errors(invalid)):

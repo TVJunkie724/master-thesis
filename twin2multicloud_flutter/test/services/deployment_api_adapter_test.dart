@@ -56,15 +56,6 @@ void main() {
         '/twins/twin-1/deployment-access' => jsonResponse(
           deploymentAccessResponse(),
         ),
-        '/twins/twin-1/deployment-access/l5/credentials:rotate' =>
-          jsonResponse({
-            'schema_version': 'deployment-access-credential.v1',
-            'layer': 'l5',
-            'provider': 'gcp',
-            'username': 'viewer@example.invalid',
-            'password': 'one-time-secret',
-            'issued_at': '2026-07-14T08:31:00Z',
-          }),
         '/twins/twin-1/deployments' => jsonResponse({
           'schema_version': 'deployment-history.v1',
           'deployments': <Object>[],
@@ -123,10 +114,6 @@ void main() {
       'gcp',
     );
     expect(
-      (await api.rotateGcpGrafanaViewerCredential('twin-1')).password,
-      'one-time-secret',
-    );
-    expect(
       (await api.getDeploymentHistory('twin-1', limit: 7)).deployments,
       isEmpty,
     );
@@ -150,7 +137,6 @@ void main() {
       'GET /twins/twin-1/deployment-status',
       'GET /twins/twin-1/outputs',
       'GET /twins/twin-1/deployment-access',
-      'POST /twins/twin-1/deployment-access/l5/credentials:rotate',
       'GET /twins/twin-1/deployments',
       'GET /twins/twin-1/logs',
       'POST /twins/twin-1/log-trace/start',
@@ -242,50 +228,6 @@ void main() {
       }
     }
   });
-
-  test('credential rotation performs one request on a 503 failure', () async {
-    var requestCount = 0;
-    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
-    dio.httpClientAdapter = CallbackAdapter((_) {
-      requestCount += 1;
-      return jsonResponse({
-        'detail': 'Rotation temporarily unavailable',
-      }, statusCode: 503);
-    });
-
-    try {
-      await ApiService(dio: dio).rotateGcpGrafanaViewerCredential('twin-1');
-      fail('Expected rotation to fail.');
-    } on DioException catch (error) {
-      expect(AppException.fromDioError(error).code, 'HTTP_503');
-    }
-    expect(requestCount, 1);
-  });
-
-  test(
-    'credential response keeps the one-time password out of diagnostics',
-    () async {
-      const password = 'one-time-secret-must-not-log';
-      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
-      dio.httpClientAdapter = CallbackAdapter(
-        (_) => jsonResponse({
-          'schema_version': 'deployment-access-credential.v1',
-          'layer': 'l5',
-          'provider': 'gcp',
-          'username': 'viewer@example.invalid',
-          'password': password,
-          'issued_at': '2026-07-14T08:31:00Z',
-        }),
-      );
-
-      final credential = await ApiService(
-        dio: dio,
-      ).rotateGcpGrafanaViewerCredential('twin-1');
-
-      expect(credential.password, password);
-      expect(credential.toString(), isNot(contains(password)));
-    },
-  );
 
   test(
     'historical access is represented by the typed unsupported state',
@@ -544,13 +486,13 @@ Map<String, dynamic> deploymentAccessResponse() => {
     {
       'layer': 'l5',
       'provider': 'gcp',
-      'service_id': 'gcp_grafana_oss',
-      'display_name': 'Grafana OSS',
+      'service_id': 'gcp_raw_history_reader',
+      'display_name': 'GCP Raw-history Reader',
       'url': 'https://l5.example.invalid/',
       'auth': {
-        'mode': 'generated_viewer',
-        'principal_label': 'viewer@example.invalid',
-        'credential_action': 'rotate',
+        'mode': 'gcp_identity_token',
+        'principal_label': 'researcher@example.invalid',
+        'credential_action': 'none',
       },
       'readiness': {
         'resource': 'ready',
@@ -559,7 +501,7 @@ Map<String, dynamic> deploymentAccessResponse() => {
         'data_probe': 'pending',
         'browser_sign_in': 'unverified',
       },
-      'capabilities': ['dashboard'],
+      'capabilities': ['recent-raw', 'hourly-rollups'],
       'limitations': <String>[],
     },
   ],

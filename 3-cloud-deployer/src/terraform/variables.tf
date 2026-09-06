@@ -1172,6 +1172,20 @@ variable "gcp_credentials_json" {
   sensitive   = true
 }
 
+variable "gcp_deployment_principal_email" {
+  description = "Non-secret service-account email used for authenticated PoC readback"
+  type        = string
+  default     = ""
+
+  validation {
+    condition = (
+      var.gcp_deployment_principal_email == "" ||
+      can(regex("^[^@\\s]+@[^@\\s]+$", var.gcp_deployment_principal_email))
+    )
+    error_message = "gcp_deployment_principal_email must be a service-account email when provided."
+  }
+}
+
 variable "gcp_region" {
   description = "GCP region for resources"
   type        = string
@@ -1220,38 +1234,10 @@ variable "gcp_six_layer_storage_mover_image" {
   }
 }
 
-variable "gcp_six_layer_grafana_image" {
-  description = "Content-addressed GCP Six-layer Grafana image with the reviewed signed Infinity plugin"
-  type        = string
-  default     = ""
-
-  validation {
-    condition = (
-      var.gcp_six_layer_grafana_image == "" ||
-      can(regex("^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$", var.gcp_six_layer_grafana_image))
-    )
-    error_message = "gcp_six_layer_grafana_image must be an Artifact Registry image pinned by sha256 digest."
-  }
-}
-
 variable "gcp_six_layer_kubernetes_stage_enabled" {
   description = "Activate the automatic post-cluster Kubernetes apply stage for Six-layer"
   type        = bool
   default     = true
-}
-
-variable "gcp_grafana_source_cidrs" {
-  description = "Non-empty researcher CIDR allowlist for the GCP Grafana TLS LoadBalancer"
-  type        = list(string)
-  default     = []
-
-  validation {
-    condition = alltrue([
-      for cidr in var.gcp_grafana_source_cidrs :
-      can(cidrhost(cidr, 0)) && !contains(["0.0.0.0/0", "::/0"], cidr)
-    ])
-    error_message = "gcp_grafana_source_cidrs must contain valid bounded CIDRs and must not contain a wildcard route."
-  }
 }
 
 # ==============================================================================

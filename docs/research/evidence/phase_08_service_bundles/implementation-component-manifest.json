@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:30aa83481ab7d961cc92864285801ee74e51c549fd7977d04432f3c73c096d70",
+  "bundle_digest": "sha256:a6a7e981af775321891d1621df0f66ce5553419cdb7d260cfc39368ca63bcfd3",
   "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
   "profile_targets": [
     "six-layer-eventing@1"
@@ -42,13 +42,13 @@
       "source": "hashicorp/kubernetes",
       "verified_version": "2.38.0",
       "version_constraint": ">= 2.38.0, < 3.0.0",
-      "reason": "declarative BifroMQ and Grafana GKE workloads"
+      "reason": "declarative BifroMQ GKE workload"
     },
     "tls": {
       "source": "hashicorp/tls",
       "verified_version": "4.3.0",
       "version_constraint": ">= 4.3.0, < 5.0.0",
-      "reason": "deployment-generated self-signed certificate for the CIDR-scoped Grafana PoC endpoint"
+      "reason": "deployment-generated self-signed certificate for the bounded BifroMQ endpoint"
     }
   },
   "terraform_apply_stages": [
@@ -66,18 +66,18 @@
     {
       "stage": 3,
       "owner": "cloud_provider_resources",
-      "includes": "GKE cluster and all non-Kubernetes provider resources"
+      "includes": "BifroMQ GKE cluster when selected and all non-Kubernetes provider resources"
     },
     {
       "stage": 4,
       "owner": "kubernetes_resources",
-      "includes": "BifroMQ, adapter, Grafana, services, PVC and TLS bindings",
+      "includes": "BifroMQ, adapter and their Kubernetes service bindings",
       "precondition": "stage_3_cluster_endpoint_and_short_lived_credentials_available"
     },
     {
       "stage": 5,
       "owner": "bounded_post_terraform_operations",
-      "includes": "TwinMaker children and Grafana plugin/datasource provisioning"
+      "includes": "TwinMaker child entities and bounded authenticated readback verification"
     }
   ],
   "components": [
@@ -129,49 +129,6 @@
       ],
       "artifact_refs": [
         "apache-bifromq-linux-amd64"
-      ]
-    },
-    {
-      "component_id": "aws.amazon-managed-grafana-12",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "aws_grafana_workspace"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::aws.amazon-managed-grafana-12",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/aws_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/aws/aws_amazon_managed_grafana_12"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats"
       ]
     },
     {
@@ -421,49 +378,6 @@
       "capacity_dimensions": [
         "resource_count",
         "scheduled_invocations"
-      ]
-    },
-    {
-      "component_id": "aws.grafana-marcusolsson-json-datasource",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [],
-      "post_terraform_operations": [
-        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
-      ],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::aws.grafana-marcusolsson-json-datasource",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/aws_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/aws/aws_grafana_marcusolsson_json_datasource"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats"
       ]
     },
     {
@@ -1703,49 +1617,6 @@
       ]
     },
     {
-      "component_id": "azure.grafana-marcusolsson-json-datasource",
-      "provider": "azure",
-      "region": "westeurope",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [],
-      "post_terraform_operations": [
-        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
-      ],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::azure.grafana-marcusolsson-json-datasource",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/azure_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/azure/azure_grafana_marcusolsson_json_datasource"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats"
-      ]
-    },
-    {
       "component_id": "azure.iot-hub",
       "provider": "azure",
       "region": "westeurope",
@@ -1865,49 +1736,6 @@
         "resource_count",
         "workflow_executions",
         "workflow_transitions"
-      ]
-    },
-    {
-      "component_id": "azure.managed-grafana-12-standard",
-      "provider": "azure",
-      "region": "westeurope",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "azurerm_dashboard_grafana"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::azure.managed-grafana-12-standard",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/azure_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/azure/azure_managed_grafana_12_standard"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats"
       ]
     },
     {
@@ -2261,7 +2089,8 @@
         "six-layer-eventing@1"
       ],
       "terraform_resource_types": [
-        "google_cloud_run_v2_service"
+        "google_cloud_run_v2_service",
+        "google_cloud_run_v2_service_iam_member"
       ],
       "post_terraform_operations": [],
       "runtime_state": "decision_frozen_not_implemented",
@@ -2739,53 +2568,6 @@
       ]
     },
     {
-      "component_id": "gcp.grafana-tls-load-balancer",
-      "provider": "gcp",
-      "region": "europe-west1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "google_compute_address",
-        "kubernetes_service_v1",
-        "kubernetes_secret_v1"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::gcp.grafana-tls-load-balancer",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/gcp_grafana_tls_load_balancer"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats",
-        "rule_hours",
-        "processed_bytes"
-      ]
-    },
-    {
       "component_id": "gcp.ordered-mqtt-pubsub-adapter",
       "provider": "gcp",
       "region": "europe-west1",
@@ -2830,46 +2612,6 @@
         "messages",
         "node_count",
         "node_hours"
-      ]
-    },
-    {
-      "component_id": "gcp.persistent-disk-rwo",
-      "provider": "gcp",
-      "region": "europe-west1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "google_compute_disk",
-        "kubernetes_persistent_volume_v1",
-        "kubernetes_persistent_volume_claim_v1"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::gcp.persistent-disk-rwo",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/gcp_persistent_disk_rwo"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "stored_gib_month"
       ]
     },
     {
@@ -2989,102 +2731,6 @@
         "resource_count",
         "workflow_executions",
         "workflow_transitions"
-      ]
-    },
-    {
-      "component_id": "grafana.oss-12-on-gke",
-      "provider": "gcp",
-      "region": "europe-west1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "google_container_cluster",
-        "kubernetes_namespace_v1",
-        "kubernetes_deployment_v1"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::grafana.oss-12-on-gke",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "content_addressed_repository_package",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/grafana_oss_12_on_gke"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats",
-        "node_count",
-        "node_hours"
-      ],
-      "artifact_refs": [
-        "grafana-oss-multiarch"
-      ]
-    },
-    {
-      "component_id": "grafana.yesoreyeram-infinity-datasource",
-      "provider": "gcp",
-      "region": "europe-west1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [],
-      "post_terraform_operations": [
-        "content_addressed_image_build_and_datasource_provisioning"
-      ],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::grafana.yesoreyeram-infinity-datasource",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        3000,
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/gcp_six_layer.tf",
-        "3-cloud-deployer/src/runtime_packages/gcp/grafana_yesoreyeram_infinity_datasource"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "workspace_count",
-        "editor_seats",
-        "viewer_seats"
-      ],
-      "artifact_refs": [
-        "infinity-plugin-linux-amd64"
       ]
     }
   ],

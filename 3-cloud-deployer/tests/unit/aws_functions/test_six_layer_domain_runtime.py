@@ -1112,9 +1112,9 @@ def test_step_function_callback_persists_typed_workflow_outcome(monkeypatch):
     assert dynamo.puts[0]["Item"]["status"]["S"] == "SUCCEEDED"
 
 
-def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
+def test_reader_fails_closed_until_cursor_key_is_provisioned(monkeypatch):
     runtime = _module()
-    monkeypatch.setenv("READER_KEY_SHA256", "")
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "")
 
     response = runtime.raw_history_reader({"headers": {}}, None)
 
@@ -1122,15 +1122,11 @@ def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
     assert json.loads(response["body"])["code"] == "READER_NOT_PROVISIONED"
 
 
-def test_reader_exposes_only_authenticated_datasource_health(monkeypatch):
+def test_reader_exposes_health_after_function_url_iam_authentication(monkeypatch):
     runtime = _module()
-    secret = "reader-secret"
-    monkeypatch.setenv("READER_KEY_SHA256", hashlib.sha256(secret.encode()).hexdigest())
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "cursor-key-with-at-least-thirty-two-bytes")
 
-    response = runtime.raw_history_reader(
-        {"headers": {"X-Twin-Reader-Key": secret}},
-        None,
-    )
+    response = runtime.raw_history_reader({"headers": {}}, None)
 
     assert response["statusCode"] == 200
     payload = json.loads(response["body"])
@@ -1140,7 +1136,6 @@ def test_reader_exposes_only_authenticated_datasource_health(monkeypatch):
 
 def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
     runtime = _module()
-    secret = "reader-secret"
     dynamo = _Dynamo(
         query_response={
             "Items": [
@@ -1152,7 +1147,7 @@ def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
             ]
         }
     )
-    monkeypatch.setenv("READER_KEY_SHA256", hashlib.sha256(secret.encode()).hexdigest())
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "cursor-key-with-at-least-thirty-two-bytes")
     monkeypatch.setenv("RAW_TABLE_NAME", "raw")
     monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
     monkeypatch.setattr(
@@ -1161,7 +1156,7 @@ def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
 
     response = runtime.raw_history_reader(
         {
-            "headers": {"X-Twin-Reader-Key": secret},
+            "headers": {},
             "queryStringParameters": {
                 "device_id": "device-1",
                 "metric": "temperature",

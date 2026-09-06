@@ -28,7 +28,6 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.s3-standard-ia": ["aws_s3_bucket", "aws_s3_bucket_lifecycle_configuration"],
     "aws.s3-glacier-deep-archive": ["aws_s3_bucket_lifecycle_configuration"],
     "aws.iot-twinmaker-standard": ["awscc_iottwinmaker_workspace"],
-    "aws.amazon-managed-grafana-12": ["aws_grafana_workspace"],
     "aws.lambda-raw-history-reader": ["aws_lambda_function", "aws_lambda_function_url"],
     "aws.eventbridge-scheduler": ["aws_scheduler_schedule"],
     "aws.ecs-fargate-storage-mover": ["aws_ecs_cluster", "aws_ecs_task_definition"],
@@ -74,7 +73,6 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "azure.blob-cool": ["azurerm_storage_account", "azurerm_storage_container"],
     "azure.blob-archive": ["azurerm_storage_management_policy"],
     "azure.digital-twins": ["azurerm_digital_twins_instance"],
-    "azure.managed-grafana-12-standard": ["azurerm_dashboard_grafana"],
     "azure.functions-flex-raw-history-reader": [
         "azurerm_function_app_flex_consumption"
     ],
@@ -140,17 +138,10 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
         "google_cloud_run_v2_service_iam_member",
         "google_iap_web_cloud_run_service_iam_member",
     ],
-    "grafana.oss-12-on-gke": [
-        "google_container_cluster",
-        "kubernetes_namespace_v1",
-        "kubernetes_deployment_v1",
+    "gcp.cloud-run-raw-history-reader": [
+        "google_cloud_run_v2_service",
+        "google_cloud_run_v2_service_iam_member",
     ],
-    "gcp.persistent-disk-rwo": [
-        "google_compute_disk",
-        "kubernetes_persistent_volume_v1",
-        "kubernetes_persistent_volume_claim_v1",
-    ],
-    "gcp.cloud-run-raw-history-reader": ["google_cloud_run_v2_service"],
     "gcp.cloud-scheduler": ["google_cloud_scheduler_job"],
     "gcp.cloud-run-storage-job": ["google_cloud_run_v2_job"],
     "gcp.artifact-registry-if-container-selected": [
@@ -164,11 +155,6 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "gcp.cloud-logging": [],
     "gcp.cloud-monitoring": [],
     "gcp.direct-iap-layer-access": ["google_iap_web_cloud_run_service_iam_member"],
-    "gcp.grafana-tls-load-balancer": [
-        "google_compute_address",
-        "kubernetes_service_v1",
-        "kubernetes_secret_v1",
-    ],
     "gcp.pubsub-separated-embedded-topics": [
         "google_pubsub_topic",
         "google_pubsub_subscription",
@@ -180,9 +166,6 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     ],
     "gcp.cloud-run-event-service-small-medium": ["google_cloud_run_v2_service"],
     "gcp.cloud-run-worker-pool-fixed-large": ["google_cloud_run_v2_worker_pool"],
-    "aws.grafana-marcusolsson-json-datasource": [],
-    "azure.grafana-marcusolsson-json-datasource": [],
-    "grafana.yesoreyeram-infinity-datasource": [],
 }
 
 POST_TERRAFORM_OPERATIONS: dict[str, list[str]] = {
@@ -191,15 +174,6 @@ POST_TERRAFORM_OPERATIONS: dict[str, list[str]] = {
     ],
     "gcp.cloud-logging": ["provider_platform_capability_no_resource"],
     "gcp.cloud-monitoring": ["provider_platform_capability_no_resource"],
-    "aws.grafana-marcusolsson-json-datasource": [
-        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
-    ],
-    "azure.grafana-marcusolsson-json-datasource": [
-        "grafana_plugin_catalog_preflight_and_datasource_provisioning"
-    ],
-    "grafana.yesoreyeram-infinity-datasource": [
-        "content_addressed_image_build_and_datasource_provisioning"
-    ],
     "gcp.artifact-registry-if-container-selected": [
         "regional_cloud_build_publish_content_addressed_images"
     ],
@@ -245,20 +219,18 @@ TERRAFORM_PROVIDER_REQUIREMENTS = {
         "source": "hashicorp/kubernetes",
         "verified_version": "2.38.0",
         "version_constraint": ">= 2.38.0, < 3.0.0",
-        "reason": "declarative BifroMQ and Grafana GKE workloads",
+        "reason": "declarative BifroMQ GKE workload",
     },
     "tls": {
         "source": "hashicorp/tls",
         "verified_version": "4.3.0",
         "version_constraint": ">= 4.3.0, < 5.0.0",
-        "reason": "deployment-generated self-signed certificate for the CIDR-scoped Grafana PoC endpoint",
+        "reason": "deployment-generated self-signed certificate for the bounded BifroMQ endpoint",
     },
 }
 
 ARTIFACT_COMPONENTS = {
     "apache.bifromq-4.0.0-incubating-on-gke-standard": ["apache-bifromq-linux-amd64"],
-    "grafana.oss-12-on-gke": ["grafana-oss-multiarch"],
-    "grafana.yesoreyeram-infinity-datasource": ["infinity-plugin-linux-amd64"],
 }
 
 
@@ -302,7 +274,6 @@ def dimensions(component_id: str) -> list[str]:
         (("lambda",), ("requests", "gib_seconds")),
         (("function",), ("requests", "execution_seconds")),
         (("cloud-run",), ("requests", "vcpu_seconds", "memory_gib_seconds")),
-        (("grafana",), ("workspace_count", "editor_seats", "viewer_seats")),
         (("gke",), ("node_count", "node_hours")),
         (("event-hubs",), ("throughput_unit_hours", "capacity_unit_hours")),
         (
@@ -362,8 +333,6 @@ def contracts(responsibility: str) -> tuple[list[str], list[str]]:
 def network_ports(component_id: str) -> list[int]:
     if "bifromq" in component_id or "mqtt" in component_id:
         return [1883, 8883]
-    if "grafana" in component_id:
-        return [3000, 443]
     if any(token in component_id for token in ("reader", "twin-api", "twin-explorer")):
         return [443]
     return []
@@ -462,7 +431,6 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                                 token in component_id
                                 for token in (
                                     "bifromq",
-                                    "grafana.oss",
                                     "adapter",
                                     "reader",
                                     "worker",
@@ -531,18 +499,18 @@ def build_manifest(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, 
             {
                 "stage": 3,
                 "owner": "cloud_provider_resources",
-                "includes": "GKE cluster and all non-Kubernetes provider resources",
+                "includes": "BifroMQ GKE cluster when selected and all non-Kubernetes provider resources",
             },
             {
                 "stage": 4,
                 "owner": "kubernetes_resources",
-                "includes": "BifroMQ, adapter, Grafana, services, PVC and TLS bindings",
+                "includes": "BifroMQ, adapter and their Kubernetes service bindings",
                 "precondition": "stage_3_cluster_endpoint_and_short_lived_credentials_available",
             },
             {
                 "stage": 5,
                 "owner": "bounded_post_terraform_operations",
-                "includes": "TwinMaker children and Grafana plugin/datasource provisioning",
+                "includes": "TwinMaker child entities and bounded authenticated readback verification",
             },
         ],
         "components": flatten_components(bundle),

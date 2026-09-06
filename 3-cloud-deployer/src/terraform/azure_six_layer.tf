@@ -1125,7 +1125,7 @@ resource "azurerm_logic_app_action_custom" "azure_six_layer_notification_complet
 }
 
 # L4 remains independently placeable. Azure Digital Twins receives its state
-# through the canonical projection boundary; Grafana never queries ADT.
+# through the canonical projection boundary; L5 reads L3 hot directly.
 resource "azurerm_digital_twins_instance" "azure_azure_digital_twins" {
   count               = local.azure_six_layer_l4_enabled ? 1 : 0
   name                = local.azure_adt_name
@@ -1200,23 +1200,6 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
       error_message = "Azure Six-layer requires its validated content-addressed Function package."
     }
   }
-}
-
-resource "azurerm_dashboard_grafana" "azure_azure_managed_grafana_12_standard" {
-  count                         = local.azure_six_layer_l5_enabled ? 1 : 0
-  name                          = local.azure_grafana_name
-  resource_group_name           = azurerm_resource_group.main[0].name
-  location                      = azurerm_resource_group.main[0].location
-  sku                           = "Standard"
-  grafana_major_version         = "12"
-  public_network_access_enabled = true
-  zone_redundancy_enabled       = false
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  tags = local.azure_six_layer_tags
 }
 
 data "azurerm_client_config" "azure_six_layer_layer_access" {
@@ -1312,21 +1295,6 @@ locals {
         principal_type = "User"
       }
     } : {},
-    local.azure_six_layer_l5_enabled ? {
-      grafana_provisioner = {
-        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-        role           = "Grafana Admin"
-        principal_id   = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id
-        principal_type = "ServicePrincipal"
-        skip_check     = true
-      }
-      grafana_human_viewer = {
-        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-        role           = "Grafana Viewer"
-        principal_id   = var.azure_layer_access_principal_object_id
-        principal_type = "User"
-      }
-    } : {},
   )
 }
 
@@ -1369,7 +1337,6 @@ locals {
     } : {},
     local.azure_six_layer_l5_enabled ? {
       raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
-      grafana            = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
     } : {},
   )
 }
@@ -1389,8 +1356,8 @@ resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {
   }
 }
 
-# Catalog-owned, secret-free browser handoff. The Function key used by Grafana
-# is created and inserted into secureJsonData by the bounded post-apply step.
+# Catalog-owned, secret-free endpoint handoff. The Deployer creates one
+# function-scoped key and uses it only for the bounded post-apply readback.
 output "azure_component_processing_output" {
   value = local.azure_six_layer_l2_enabled ? {
     function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].name
@@ -1441,19 +1408,16 @@ output "azure_component_twin_state_output" {
 
 output "azure_component_visualization_output" {
   value = local.azure_six_layer_l5_enabled ? {
-    workspace_name       = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].name
-    access_url           = "${trimsuffix(azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint, "/")}/d/t2mc-raw-rollups/raw-rollups"
-    workspace_url        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint
-    reader_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
+    access_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
     reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
-    principal_label      = var.azure_layer_access_principal_label
-    access_role          = "Grafana Viewer"
+    principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
+    access_role          = "Function key resolved by the deployment principal"
     internal_evidence = {
-      resource_ref        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["grafana_human_viewer"].id]
-      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
-      content_revision    = "grafana-raw-rollups.v1"
-      data_probe_revision = "azure-grafana-bounded-readback.v1"
+      resource_ref        = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
+      access_binding_refs = [azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id]
+      artifact_refs       = [local.azure_six_layer_runtime_package]
+      content_revision    = "raw-history-query.v1"
+      data_probe_revision = "azure-raw-history-readback.v1"
     }
   } : null
 }

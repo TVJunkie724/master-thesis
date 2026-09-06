@@ -1104,19 +1104,13 @@
         "component.visualization"
       ],
       "decision_implementation_ids": [
-        "aws.amazon-managed-grafana-12",
         "aws.lambda-raw-history-reader",
-        "aws.grafana-marcusolsson-json-datasource",
-        "aws.cloudwatch",
-        "aws.iam-identity-center-layer-access"
+        "aws.cloudwatch"
       ],
       "service_id": "aws.visualization.v2",
       "service_ids": [
-        "aws.amazon-managed-grafana-12",
         "aws.lambda-raw-history-reader",
-        "aws.grafana-marcusolsson-json-datasource",
-        "aws.cloudwatch",
-        "aws.iam-identity-center-layer-access"
+        "aws.cloudwatch"
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
@@ -1126,11 +1120,8 @@
       "terraform_binding": {
         "resource_addresses": [
           "aws_cloudwatch_log_group.aws_aws_cloudwatch",
-          "aws_grafana_workspace.aws_aws_amazon_managed_grafana_12",
           "aws_lambda_function.aws_aws_lambda_raw_history_reader",
-          "aws_lambda_function_url.aws_aws_lambda_raw_history_reader",
-          "aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access",
-          "aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access"
+          "aws_lambda_function_url.aws_aws_lambda_raw_history_reader"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -1191,27 +1182,12 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.amazon-managed-grafana-12",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "aws.lambda-raw-history-reader",
           "slot_id": "l5_visualization"
         },
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.grafana-marcusolsson-json-datasource",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "aws.cloudwatch",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.iam-identity-center-layer-access",
           "slot_id": "l5_visualization"
         }
       ],
@@ -2342,21 +2318,15 @@
         "component.visualization"
       ],
       "decision_implementation_ids": [
-        "azure.managed-grafana-12-standard",
         "azure.functions-flex-raw-history-reader",
-        "azure.grafana-marcusolsson-json-datasource",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace",
-        "azure.entra-layer-access-bindings"
+        "azure.log-analytics-shared-workspace"
       ],
       "service_id": "azure.visualization.v2",
       "service_ids": [
-        "azure.managed-grafana-12-standard",
         "azure.functions-flex-raw-history-reader",
-        "azure.grafana-marcusolsson-json-datasource",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace",
-        "azure.entra-layer-access-bindings"
+        "azure.log-analytics-shared-workspace"
       ],
       "component_kind": "visualization_service",
       "package_artifact_ref": {
@@ -2365,11 +2335,9 @@
       },
       "terraform_binding": {
         "resource_addresses": [
-          "azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
-          "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
-          "azurerm_role_assignment.azure_azure_entra_layer_access_bindings"
+          "azurerm_monitor_diagnostic_setting.azure_azure_monitor"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -2430,17 +2398,7 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.managed-grafana-12-standard",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "azure.functions-flex-raw-history-reader",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.grafana-marcusolsson-json-datasource",
           "slot_id": "l5_visualization"
         },
         {
@@ -2451,11 +2409,6 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "azure.log-analytics-shared-workspace",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.entra-layer-access-bindings",
           "slot_id": "l5_visualization"
         }
       ],
@@ -3616,22 +3569,14 @@
         "component.visualization"
       ],
       "decision_implementation_ids": [
-        "grafana.oss-12-on-gke",
-        "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
-        "grafana.yesoreyeram-infinity-datasource",
-        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
         "gcp.cloud-monitoring"
       ],
       "service_id": "gcp.visualization.v2",
       "service_ids": [
-        "grafana.oss-12-on-gke",
-        "gcp.persistent-disk-rwo",
         "gcp.cloud-run-raw-history-reader",
-        "grafana.yesoreyeram-infinity-datasource",
-        "gcp.grafana-tls-load-balancer",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
         "gcp.cloud-monitoring"
@@ -3646,19 +3591,11 @@
           "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
           "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader",
-          "google_compute_address.gcp_gcp_grafana_tls_load_balancer",
-          "google_compute_disk.gcp_gcp_persistent_disk_rwo",
-          "google_container_cluster.gcp_grafana_oss_12_on_gke",
           "google_project_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_service_account.gcp_gcp_artifact_registry_if_container_selected",
           "google_storage_bucket.gcp_gcp_artifact_registry_if_container_selected",
           "google_storage_bucket_iam_member.gcp_gcp_artifact_registry_if_container_selected",
-          "kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke",
-          "kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke",
-          "kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo",
-          "kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo",
-          "kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer",
-          "kubernetes_service_v1.gcp_gcp_grafana_tls_load_balancer"
+          "google_cloud_run_v2_service_iam_member.gcp_six_layer_raw_history_deployment_invoker"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -3719,27 +3656,7 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "grafana.oss-12-on-gke",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.persistent-disk-rwo",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-run-raw-history-reader",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "grafana.yesoreyeram-infinity-datasource",
-          "slot_id": "l5_visualization"
-        },
-        {
-          "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "gcp.grafana-tls-load-balancer",
           "slot_id": "l5_visualization"
         },
         {
@@ -10846,14 +10763,12 @@
       "artifact_id": "artifact.platform.aws.six-layer-domain",
       "artifact_version": "1",
       "decision_implementation_ids": [
-        "aws.amazon-managed-grafana-12",
         "aws.cloudwatch",
         "aws.dynamodb-on-demand-hourly-rollup",
         "aws.dynamodb-on-demand-raw",
         "aws.ecr-if-container-selected",
         "aws.ecs-fargate-storage-mover",
         "aws.eventbridge-scheduler",
-        "aws.grafana-marcusolsson-json-datasource",
         "aws.iam-identity-center-layer-access",
         "aws.iot-commands",
         "aws.iot-core",
@@ -10871,7 +10786,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:78ef219eec5c6276d444566716cd65f20c19732275fc76daa39eee5fdd26ea0a",
+      "source_digest": "sha256:6bfca2ab6d17c21eabc5f93e624dec261cb4d7d9b2bd296b497efc09111d29c0",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -10918,11 +10833,9 @@
         "azure.functions-flex-consumption",
         "azure.functions-flex-event-adapter",
         "azure.functions-flex-raw-history-reader",
-        "azure.grafana-marcusolsson-json-datasource",
         "azure.iot-hub",
         "azure.log-analytics-shared-workspace",
         "azure.logic-apps-consumption",
-        "azure.managed-grafana-12-standard",
         "azure.monitor",
         "azure.service-bus-standard"
       ],
@@ -10982,26 +10895,17 @@
         "gcp.external-load-balancer",
         "gcp.firestore-native-standard-bounded-twin",
         "gcp.firestore-native-standard-raw-and-rollup",
-        "gcp.grafana-tls-load-balancer",
         "gcp.ordered-mqtt-pubsub-adapter",
-        "gcp.persistent-disk-rwo",
         "gcp.pubsub-separated-embedded-topics",
-        "gcp.workflows",
-        "grafana.oss-12-on-gke",
-        "grafana.yesoreyeram-infinity-datasource"
+        "gcp.workflows"
       ],
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:a2a5fb3433fb535cd1476730253a23b7df9494dc602e836b4281371849ae2469",
+      "source_digest": "sha256:a6f66914e1d073645ea36b101cf2d77d783e9e4fb1a900f6f27bcb88aa7c21e7",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
-        "grafana/Dockerfile",
-        "grafana/dashboard.json.template",
-        "grafana/entrypoint.sh",
-        "grafana/provisioning/dashboards/twin2multicloud.yaml",
-        "grafana/provisioning/datasources/twin2multicloud.yaml",
         "platform/app.py",
         "platform/constraints.txt",
         "platform/core.py",
@@ -11212,5 +11116,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:93ebae354a46d7d0600fff93add13b52651272d8b4d23ff98fe6b94995134e1e"
+  "content_digest": "sha256:ec004e42cd210f691773fba580b00ca19c7ab8f4c8328b667cc9abe848f7e4b7"
 }

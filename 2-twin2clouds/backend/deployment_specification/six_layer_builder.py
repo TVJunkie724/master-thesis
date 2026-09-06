@@ -348,7 +348,6 @@ def _dimension_value(
             Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
         ),
         "gcp.firestore-native-standard-bounded-twin": _decimal_text(twin_storage_gib),
-        "gcp.persistent-disk-rwo": str(fixed["gcp_grafana_persistent_disk_gib"]),
         "aws.s3-event-failure-store": _EVENT_FAILURE_STORE_GIB_MONTH[resolved.size],
     }.get(
         component_id,
@@ -539,9 +538,6 @@ def _dimension_value(
             if component_id == "gcp.cloud-run-event-service-small-medium"
             else str(Decimal(request_count) * Decimal("0.5"))
         ),
-        "workspace_count": 1,
-        "editor_seats": int(workload["monthlyEditorSeats"]),
-        "viewer_seats": int(workload["monthlyViewerSeats"]),
         "node_count": (
             {"small": 1, "medium": 3, "large": 12}[resolved.size]
             if "bifromq" in component_id
@@ -617,13 +613,7 @@ def _dimension_value(
             else Decimal(messages + event_attempts) * Decimal("256") / _GIB_BYTES
         ),
         "rule_hours": 730,
-        "processed_bytes": (
-            dashboard_requests
-            * int(fixed["reader_maximum_points"])
-            * _ceil(Decimal(str(derived["canonical_payload_bytes"])))
-            if component_id == "gcp.grafana-tls-load-balancer"
-            else int(Decimal(str(derived["monthly_raw_payload_bytes"])))
-        ),
+        "processed_bytes": int(Decimal(str(derived["monthly_raw_payload_bytes"]))),
         "connected_devices": int(workload["numberOfDevices"]),
         "messages": (
             command_executions if component_id == "aws.iot-commands" else messages
@@ -802,18 +792,10 @@ def _selected_groups(
                 )
             ],
         )
-        if any(
-            assignment[logical] == provider
-            for logical in ("component.twin-state", "component.visualization")
-        ):
-            owner = (
-                "component.twin-state"
-                if assignment["component.twin-state"] == provider
-                else "component.visualization"
-            )
+        if assignment["component.twin-state"] == provider:
             add(
                 provider,
-                owner,
+                "component.twin-state",
                 [
                     item
                     for item in supports
@@ -826,12 +808,6 @@ def _selected_groups(
                         )
                     )
                 ],
-            )
-        if assignment["component.visualization"] == provider:
-            add(
-                provider,
-                "component.visualization",
-                [item for item in supports if "grafana-tls-load-balancer" in item],
             )
     hot = assignment["component.hot-storage"]
     cool = assignment["component.cool-storage"]
