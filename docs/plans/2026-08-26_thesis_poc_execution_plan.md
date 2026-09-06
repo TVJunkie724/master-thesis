@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, all runtime images, federation plans, the GCP L4 bootstrap decision, and all six directed federation probes are complete | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved pending billing-semantics and exact-plan review; seven static images and the scenario-bound GCP processor image build locally without registry publication |
+| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, all runtime images, federation plans, the GCP L4 bootstrap decision, and all six directed federation probes are complete | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; provider billing review blocks approval until image-publication cost and the AWS L5 minimum are resolved; seven static images and the scenario-bound GCP processor image build locally without registry publication |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -616,9 +616,11 @@ directions are now complete without Terraform Apply or Twin deployment.
 
 Continue Phase 8 in this order:
 
-1. resolve the remaining billing-semantics review items and review the exact
-   Terraform plan for the first candidate without mutating a provider;
-2. only after those gates pass, set the matrix to
+1. resolve the repeated image-publication cost and the AWS L5 minimum without
+   weakening the common architecture contract or silently raising a cap;
+2. review the exact Terraform plan and publication steps for the first
+   candidate without mutating a provider;
+3. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
    bootstrap only after L1--L3/Event Layer pass and before L4 verification.

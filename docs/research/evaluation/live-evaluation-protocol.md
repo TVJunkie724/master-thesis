@@ -277,6 +277,42 @@ billing-semantics review items. If the exact Terraform plan or current provider
 terms reveal a non-prorated minimum or retention charge that does not fit the
 proposal, that scenario is blocked; its cap is not raised automatically.
 
+The provider-terms review on 2026-09-06 found two unresolved pre-authorization
+cost boundaries. [Amazon Managed Grafana pricing](https://aws.amazon.com/grafana/pricing/)
+requires at least one USD 9 Editor license per workspace and monthly billing
+cycle even when nobody signs in. The current USD 3 per-scenario ceiling
+therefore blocks the three candidates that place L5 on AWS; a possible free
+trial is not assumed. Separately, the current GCP deployment lifecycle would
+publish up to five content-addressed images per candidate through Cloud Build.
+[Cloud Build pricing](https://cloud.google.com/build/pricing) bills the selected
+`e2-highcpu-8` worker by build minute, while its advertised free build minutes
+apply to `e2-standard-2`. This preparation cost is absent from the Optimizer
+ledger and cannot be silently absorbed into a scenario cap.
+
+The remaining reviewed semantics do not justify treating a monthly Optimizer
+amount as an immediate bill. Azure Container Registry is priced per day and
+its Tasks per running CPU-second according to the
+[ACR pricing page](https://azure.microsoft.com/en-us/pricing/details/container-registry/).
+Azure Managed Grafana uses hourly workspace units and monthly active-user
+units; Microsoft documents that active-user charges are prorated during the
+first and last calendar month in the
+[Managed Grafana FAQ](https://learn.microsoft.com/en-us/azure/managed-grafana/faq).
+AWS S3 Standard-IA and Glacier Deep Archive and GCP Nearline and Archive apply
+minimum object-storage durations, including early-deletion charges, rather
+than charging for an empty bucket. The current provider terms document the
+respective [AWS S3](https://aws.amazon.com/s3/pricing/) and
+[Google Cloud Storage](https://cloud.google.com/storage/pricing) boundaries.
+All actual object counts and sizes must therefore come from the supervised
+test payload and Destroy evidence, not the normalized monthly capacity model.
+
+The same offline checkpoint repeated the three provider-local Terraform tests
+with mock providers. The plans passed and reported 107 AWS, 81 Azure, and 143
+GCP resources to add, with no changes or destroys. These counts verify the
+current provider graphs; they are not credentialed plans and do not authorize
+the image-foundation target Apply, image publication, full Apply, or the GCP
+post-cluster Kubernetes Apply. A reviewed image-publication strategy and a
+separate AWS L5 cost decision are required before any candidate can be enabled.
+
 These values are bounded operator-review proposals, not expected spend,
 provider-enforced hard stops, or approved caps. The checked matrix therefore
 retains nine `null` caps, `planned_not_executed`, and

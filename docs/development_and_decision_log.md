@@ -720,3 +720,16 @@ to exactly the four scenarios that place L2 on GCP. No registry publication,
 Terraform action or provider mutation occurred. This is a deployment fixture
 for the resource-integration evaluation, not a separate image feature or
 research claim.
+
+The subsequent offline pre-authorization review repeated all three
+provider-local Terraform plans with mock providers: AWS planned 107 resources,
+Azure 81, and GCP 143; all three tests passed without provider access. Current
+provider terms exposed two cost-model boundaries that the hourly proposal does
+not cover. AWS Managed Grafana requires at least one USD 9 Editor license per
+workspace and monthly billing cycle, above the checked USD 3 scenario ceiling.
+The GCP lifecycle can additionally start up to five metered Cloud Builds to
+publish deployment-local images, although image preparation is not part of the
+Optimizer ledger. The nine caps therefore remain unapproved and execution
+disabled. The next decision is deliberately narrow: remove repeated image
+publication from scenario cost and resolve the AWS L5 minimum without turning
+the PoC into a generic registry or dashboard product.
