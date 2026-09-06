@@ -1,9 +1,9 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation and four
-local directed federation probes are verified. The approved one-administrator
-Azure contract is live-revalidated without workload creation, and no Twin
-workload deployment is claimed.
+Status: planned and offline-validated; bounded account preparation and five
+directed federation probes are verified. The approved one-administrator Azure
+contract is live-revalidated without workload creation, and no Twin workload
+deployment is claimed.
 
 ## Purpose
 
@@ -67,12 +67,9 @@ caps, cleanup order, and residual-inventory rules are frozen in
 Its record digest is
 `sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754`.
 The exact plan received supervised approval for run `26083001`. GCP-to-AWS,
-GCP-to-Azure, AWS-to-Azure, and AWS-to-GCP passed with immediate cleanup and
-clean active residual inventory. The two Azure-source directions remain
-pending and retain their separate pinned-image, runtime, cost, and cleanup
-bounds. A first Azure-to-AWS attempt stopped before ACI creation on the missing
-Microsoft Graph application-management prerequisite; cleanup and active
-residual checks passed with no direct charge. Azure-to-GCP was not started.
+GCP-to-Azure, AWS-to-Azure, AWS-to-GCP, and Azure-to-AWS passed with immediate
+cleanup and clean active residual inventory. Azure-to-GCP remains pending and
+retains its separate pinned-image, runtime, cost, and cleanup bounds.
 
 On 2026-09-03 the Azure credential contract was deliberately reduced to one
 administrator for the isolated thesis subscription. The current readiness gate
@@ -98,6 +95,31 @@ equivalent ARN forms and owns the returned provider before validating it. This
 attempt contributes operational and cleanup evidence to RQ1 and a zero-cost
 boundary observation to RQ3; it does not claim the RQ2 exchange succeeded. No
 retry was started.
+
+On 2026-09-06, each newly supervised Azure-to-AWS retry was preceded and
+followed by an independent six-class inventory check. The first retry reached
+the bounded ACI runner for 57.237 seconds but its AWS exchange failed because
+the trust-policy condition omitted the trailing path separator that is part of
+the complete Azure issuer URL. Cleanup and the independent inventory were
+clean; the condition prefix now preserves the issuer host and complete path.
+The next two retries stopped before ACI: the first on HTTP 400 while the new
+audience service principal propagated, the second on HTTP 404 while its app
+role assignment propagated. The latter initially left one service principal
+visible after the normal delete; one exact object-bound delete retry removed
+it and the independent inventory then passed all six classes. The harness now
+retries only these two exact Graph mutations on HTTP 400/404 within the
+existing deadline and reissues only the cleanup-owned service-principal delete
+during reconciliation.
+
+The fourth retry passed the managed-identity token, AWS web-identity exchange,
+and AWS session-identity check in 40.320 seconds. Immediate cleanup and the
+independent AWS, Azure Resource Manager, and Microsoft Graph inventory passed
+all six classes. No Terraform Apply, Twin workload, message transfer, or full
+E2E run occurred. RQ1 gains measured Entra propagation and cleanup behavior;
+RQ2 now has standalone directed-identity evidence for five of six directions;
+RQ3 bounds the two billable retries by their unchanged USD 0.01 per-attempt
+technical caps rather than inferring an unobserved provider invoice. The only
+remaining directed prerequisite is Azure-to-GCP.
 
 The following earlier attempt records remain historical evidence and must not
 be read as validation of the current credential contract.

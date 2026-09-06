@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; four local federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator now passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and two Azure-source federation executions remain open |
+| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, images, federation plans, and the GCP L4 bootstrap decision are complete; five directed federation probes passed | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator now passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; nine candidates remain unapproved; seven static images build locally; the dynamic processor image and Azure-to-GCP federation execution remain open |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -425,13 +425,9 @@ direct technical cost cap of USD 0.00. The two exact Azure managed-identity
 source paths each use at most one no-ingress 1-vCPU/1-GiB container for five
 minutes with a USD 0.01 cap; the aggregate plan cap is USD 0.02. Prices must be
 refreshed before execution. The exact plan received supervised approval for
-run `26083001`. The four USD 0.00 local-runner probes passed with clean active
-residual inventory; only the two bounded Azure-source probes remain.
-The first Azure-to-AWS attempt stopped before the billable runner because the
-deployment application lacks the tenant-level Microsoft Graph permission to
-create the ephemeral audience application. Cleanup and active residual checks
-passed with no direct charge. Azure-to-GCP remains unexecuted behind the same
-prerequisite.
+run `26083001`. The four USD 0.00 local-runner probes and the bounded
+Azure-to-AWS probe passed with clean active residual inventory. Azure-to-GCP is
+the only remaining direction.
 
 The following paragraphs preserve the earlier split-authority checkpoint as
 historical evidence. The active single-administrator contract is recorded
@@ -581,11 +577,27 @@ and Microsoft Graph inventories are clean and direct cost was USD 0.00. The
 harness now accepts only the two equivalent trailing-slash ARN forms and owns
 the returned provider before validation. No retry was started.
 
+On 2026-09-06 the user approved repeated, individually cleaned Azure-to-AWS
+retries under the unchanged plan. One retry reached the ACI runner for 57.237
+seconds and exposed that the AWS condition key must preserve the complete
+Azure issuer path. Two subsequent pre-ACI retries exposed bounded propagation
+at audience service-principal creation and app-role assignment. They incurred
+USD 0.00 direct cost; the latter required one exact service-principal delete
+retry before an independent six-class inventory was clean. The harness now
+retries only these exact Graph 400/404 propagation responses and reissues only
+the cleanup-owned delete during reconciliation. The final retry passed the
+managed-identity token, AWS web-identity exchange, and session-identity check
+in 40.320 seconds. Immediate cleanup and a separate inventory check were clean
+across all six AWS, ARM, and Graph classes. The two billable retries each
+remained under the frozen USD 0.01 technical cap. This establishes five of six
+directed identity paths without Terraform Apply or a Twin workload; only
+Azure-to-GCP remains.
+
 Continue Phase 8 in this order:
 
-1. execute each remaining approved Azure-source federation probe separately,
+1. execute the remaining approved Azure-to-GCP federation probe separately,
    enforce its pinned-image, no-ingress, runtime, and cost bounds, then Destroy
-   and reconcile residual inventory before considering the next direction;
+   and reconcile residual inventory;
 2. freeze and locally build the scenario-bound processor extension during the
    reviewed preparation of the first affected GCP candidate;
 3. only after those gates pass, set the matrix to
