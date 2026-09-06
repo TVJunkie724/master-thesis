@@ -106,6 +106,8 @@ AZURE_SOURCE_RUNNER_IMAGE = (
 )
 AZURE_SOURCE_RUNNER_MAXIMUM_SECONDS = 300
 AZURE_SOURCE_DIRECT_COST_CAP_USD = "0.010000"
+AZURE_CONTAINER_LOG_ATTEMPTS = 12
+AZURE_CONTAINER_LOG_DELAY_SECONDS = 5
 MAXIMUM_ELAPSED_SECONDS = 10 * 60
 AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS = 15 * 60
 AWS_PROPAGATION_ATTEMPTS = 8
@@ -388,6 +390,18 @@ def _azure_to_gcp_provider_body(
             "allowedAudiences": [audience],
         },
     }
+
+
+def _azure_to_gcp_attempt_pool_id(attempt_sequence: int) -> str:
+    """Use a fresh bounded GCP namespace after an accepted soft delete."""
+
+    if not 1 <= attempt_sequence <= 99:
+        raise ProbeBlocked("ATTEMPT_SEQUENCE_INVALID")
+    base = AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
+    value = base if attempt_sequence == 1 else f"{base}-a{attempt_sequence:02d}"
+    if len(value) > 32 or not re.fullmatch(r"[a-z0-9-]+", value):
+        raise ProbeBlocked("GCP_WORKLOAD_IDENTITY_POOL_NAME_INVALID")
+    return value
 
 
 def _azure_to_gcp_principal(
@@ -1174,6 +1188,38 @@ def _azure_container_logs(
         expected_statuses=(200,),
     )
     return str(result.get("content") or "").strip()
+
+
+def _wait_for_azure_container_logs(
+    credential: ClientSecretCredential,
+    container_group_path: str,
+    container_name: str,
+    started_monotonic: float,
+) -> str:
+    """Wait briefly for the terminated container's one-line result log."""
+
+    for attempt in range(AZURE_CONTAINER_LOG_ATTEMPTS):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        try:
+            result = _azure_container_logs(
+                credential,
+                container_group_path,
+                container_name,
+            )
+            if result:
+                return result
+        except ProbeBlocked as exc:
+            if str(exc) not in {
+                "AZURE_ARM_HTTP_400",
+                "AZURE_ARM_HTTP_404",
+            }:
+                raise
+        if attempt + 1 < AZURE_CONTAINER_LOG_ATTEMPTS:
+            time.sleep(AZURE_CONTAINER_LOG_DELAY_SECONDS)
+    raise ProbeBlocked("AZURE_CONTAINER_LOGS_UNAVAILABLE")
 
 
 def _assert_no_sensitive_values(
@@ -2912,10 +2958,11 @@ def _run_azure_to_aws(
             ((containers[0].get("properties") or {}).get("instanceView") or {})
             .get("currentState", {})
         )
-        runner_result = _azure_container_logs(
+        runner_result = _wait_for_azure_container_logs(
             azure_credential,
             container_group_path,
             container_name,
+            started_monotonic,
         )
         if current_state.get("exitCode") != 0:
             blocked = re.fullmatch(
@@ -3078,6 +3125,7 @@ def _run_azure_to_gcp(
     gcp_key: dict[str, Any],
     azure: dict[str, Any],
     *,
+    attempt_sequence: int = 1,
     now: Callable[[], str] = _utc_now,
 ) -> dict[str, Any]:
     started_monotonic = time.monotonic()
@@ -3089,8 +3137,8 @@ def _run_azure_to_gcp(
     container_group_name = AZURE_TO_GCP_NAMES["azure_container_group"]
     container_name = AZURE_TO_GCP_NAMES["azure_container"]
     service_account_id = AZURE_TO_GCP_NAMES["gcp_service_account"]
-    pool_id = AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
-    provider_id = AZURE_TO_GCP_NAMES["gcp_workload_identity_provider"]
+    pool_id = _azure_to_gcp_attempt_pool_id(attempt_sequence)
+    provider_id = pool_id
     subscription_id = azure["azure_subscription_id"]
     tenant_id = azure["azure_tenant_id"]
     try:
@@ -3406,10 +3454,11 @@ def _run_azure_to_gcp(
             ((containers[0].get("properties") or {}).get("instanceView") or {})
             .get("currentState", {})
         )
-        runner_result = _azure_container_logs(
+        runner_result = _wait_for_azure_container_logs(
             azure_credential,
             container_group_path,
             container_name,
+            started_monotonic,
         )
         if current_state.get("exitCode") != 0:
             blocked = re.fullmatch(
@@ -3605,9 +3654,13 @@ def execute(
     probe_id: str,
     provider_config_path: Path,
     gcp_credentials_path: Path,
+    *,
+    attempt_sequence: int = 1,
 ) -> dict[str, Any]:
     if probe_id not in ENABLED_PROBES:
         raise ProbeBlocked("PROBE_NOT_IMPLEMENTED")
+    if probe_id != "federation-azure-to-gcp" and attempt_sequence != 1:
+        raise ProbeBlocked("ATTEMPT_SEQUENCE_NOT_SUPPORTED")
     credentials = _load_credentials(provider_config_path, gcp_credentials_path)
     aws, gcp, gcp_key, azure = credentials
     if probe_id == "federation-gcp-to-aws":
@@ -3621,7 +3674,12 @@ def execute(
     elif probe_id == "federation-azure-to-aws":
         record = _run_azure_to_aws(aws, azure)
     elif probe_id == "federation-azure-to-gcp":
-        record = _run_azure_to_gcp(gcp, gcp_key, azure)
+        record = _run_azure_to_gcp(
+            gcp,
+            gcp_key,
+            azure,
+            attempt_sequence=attempt_sequence,
+        )
     else:  # pragma: no cover - guarded above
         raise ProbeBlocked("PROBE_NOT_IMPLEMENTED")
     _assert_no_sensitive_values(record, credentials)
@@ -3636,6 +3694,7 @@ def main() -> int:
     parser.add_argument("--credentials", type=Path, required=True)
     parser.add_argument("--gcp-credentials", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--attempt-sequence", type=int, default=1)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
 
@@ -3656,6 +3715,7 @@ def main() -> int:
             args.probe,
             args.credentials.resolve(),
             args.gcp_credentials.resolve(),
+            attempt_sequence=args.attempt_sequence,
         )
     except Exception as exc:
         print(f"{args.probe}: PROBE_BLOCKED_{_safe_error_code(exc)}")

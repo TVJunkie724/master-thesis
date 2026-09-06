@@ -625,6 +625,53 @@ def test_azure_source_container_is_pinned_bounded_and_has_no_ingress() -> None:
     assert runner.AZURE_SOURCE_DIRECT_COST_CAP_USD == "0.010000"
 
 
+def test_azure_source_logs_retry_only_known_eventual_responses(monkeypatch) -> None:
+    responses = [
+        runner.ProbeBlocked("AZURE_ARM_HTTP_400"),
+        runner.ProbeBlocked("AZURE_ARM_HTTP_404"),
+        "PROBE_PASSED",
+    ]
+    sleeps: list[int] = []
+
+    def container_logs(*_args):
+        value = responses.pop(0)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(runner, "_azure_container_logs", container_logs)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    assert runner._wait_for_azure_container_logs(
+        object(),
+        "/container/group",
+        "federation-probe",
+        runner.time.monotonic(),
+    ) == "PROBE_PASSED"
+    assert sleeps == [
+        runner.AZURE_CONTAINER_LOG_DELAY_SECONDS,
+        runner.AZURE_CONTAINER_LOG_DELAY_SECONDS,
+    ]
+
+
+def test_azure_source_logs_fail_closed_on_other_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        runner,
+        "_azure_container_logs",
+        lambda *_args: (_ for _ in ()).throw(
+            runner.ProbeBlocked("AZURE_ARM_HTTP_403")
+        ),
+    )
+
+    with pytest.raises(runner.ProbeBlocked, match="AZURE_ARM_HTTP_403"):
+        runner._wait_for_azure_container_logs(
+            object(),
+            "/container/group",
+            "federation-probe",
+            runner.time.monotonic(),
+        )
+
+
 def test_azure_to_aws_runner_is_valid_and_emits_only_typed_result() -> None:
     script = runner._azure_to_aws_runner_script()
     compile(script, "<azure-to-aws-runner>", "exec")
@@ -717,6 +764,18 @@ def test_azure_to_gcp_provider_and_binding_are_exact_identity_bound() -> None:
         f"locations/global/workloadIdentityPools/{pool_id}/"
         f"subject/{principal_id}"
     )
+
+
+def test_azure_to_gcp_retry_uses_fresh_bounded_pool_namespace() -> None:
+    base = runner.AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
+
+    assert runner._azure_to_gcp_attempt_pool_id(1) == base
+    assert runner._azure_to_gcp_attempt_pool_id(2) == f"{base}-a02"
+    assert len(runner._azure_to_gcp_attempt_pool_id(99)) <= 32
+
+    for invalid in (0, 100):
+        with pytest.raises(runner.ProbeBlocked, match="ATTEMPT_SEQUENCE_INVALID"):
+            runner._azure_to_gcp_attempt_pool_id(invalid)
 
 
 def test_azure_to_gcp_runner_is_valid_and_emits_only_typed_result() -> None:
