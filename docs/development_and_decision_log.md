@@ -150,9 +150,8 @@ telemetry roundtrip. It does not manage provider dashboards.
 a Grafana administration platform.
 
 **Consequence:** Access bundles contain the provider URL, authentication kind,
-assigned identity, readiness, and only a service-local one-time Viewer secret
-where the deployed runtime actually has one. Administrator credentials are
-never returned.
+assigned identity, readiness, and bounded capabilities. Provider credentials,
+Function keys, and administrator credentials are never returned.
 
 ## D-09 — Bounded live evaluation
 
@@ -454,11 +453,34 @@ before the Deployer boundary. Existing historical live results remain valid as
 records of the authority used at that time, but they do not describe the active
 credential contract.
 
+## D-24 — Machine-readable L5 instead of dashboard infrastructure
+
+**Decision:** For the active Six-layer thesis PoC, L5 is one authenticated,
+bounded JSON readback of raw history and hourly rollups on each provider. The
+logical `component.visualization` identifier remains stable for the frozen v1
+contract, but it does not provision or administer Grafana, dashboards, plugins,
+viewer accounts, credential rotation, a GKE dashboard workload, or a separate
+monitoring plane.
+
+**Rationale:** The research questions require reproducible provisioning and a
+functionally comparable way to inspect persisted results. They do not require a
+product analytics UI. A common two-query contract provides the relevant RQ1
+operational evidence and RQ2 comparison while removing standing workspace,
+seat, cluster, disk, and load-balancer cost from RQ3.
+
+**Consequence:** AWS uses IAM-signed Lambda Function URL requests, Azure uses
+one function-scoped key created or reused during post-deployment verification,
+and GCP uses an identity token against authenticated Cloud Run. Access responses
+remain secret-free and expose no credential-rotation workflow. GCP image
+publication uses at most four essential images on `e2-standard-2`, with a
+20-minute timeout per image; current free-tier usage and the exact Terraform
+plan remain mandatory supervised pre-Apply checks.
+
 ## Current implementation checkpoint
 
 The dated paragraphs below preserve the sequence of Phase 8 observations. D-23
-governs the active Azure implementation; earlier split-authority wording is
-historical rather than current setup guidance.
+and D-24 govern the active implementation; earlier split-authority and
+dashboard wording is historical rather than current setup guidance.
 
 On 2026-09-04, the one-administrator contract was bootstrapped under a
 supervised, temporary Global Administrator user session using the already
@@ -733,3 +755,17 @@ Optimizer ledger. The nine caps therefore remain unapproved and execution
 disabled. The next decision is deliberately narrow: remove repeated image
 publication from scenario cost and resolve the AWS L5 minimum without turning
 the PoC into a generic registry or dashboard product.
+
+On 2026-09-07, D-24 resolved that narrow decision offline. The active L5
+implementation now exposes the same authenticated, bounded raw-history and
+hourly-rollup JSON contract on AWS, Azure, and GCP; all managed/self-hosted
+Grafana resources, GCP dashboard image inputs, viewer credential rotation, and
+their active readiness requirements were removed. The nine Small candidates
+materialize against the refreshed immutable pricing snapshots, and their
+offline cap proposal totals USD 20 while remaining unapproved and disabled.
+The runtime-image record now contains one public image, four pinned build
+inputs, six static custom images, and the scenario-bound GCP processor image.
+GCP publication uses at most four `e2-standard-2` builds with 20-minute
+timeouts, bounding the worker list-price exposure to USD 0.48 if no promotional
+free minutes remain. No image publication, Terraform Apply, Twin workload, or
+paid end-to-end run occurred.

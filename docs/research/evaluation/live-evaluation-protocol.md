@@ -16,7 +16,7 @@ The matrix contains three provider-local baselines and six directed
 multi-cloud focus cases. Every AWS/Azure/GCP direction is the primary focus of
 one case. The focus edges use the two contracts implemented as cross-cloud PoC
 boundaries: canonical domain events and Twin projection. Hot, cool, archive,
-and visualization form one provider-local storage/read bundle; the two storage
+and the L5 readback form one provider-local storage/read bundle; the two storage
 transitions and raw-history query remain versioned contracts but are not
 cross-cloud deployment choices. Incidental reverse or additional cross-cloud
 edges remain part of the recorded graph but do not create extra scenarios.
@@ -42,9 +42,9 @@ scenario records.
 
 The follow-up provider probe used only GET, LIST, and DESCRIBE control-plane
 operations and emitted no provider scope, resource name, credential path, or
-credential value. AWS has sufficient checked Grafana, TwinMaker, and Kinesis
+credential value. AWS has sufficient checked Lambda, TwinMaker, and Kinesis
 headroom. Azure exposes every required resource type in the configured Regions
-and Microsoft.Web usage is readable; the App, Dashboard, DocumentDB, and
+and Microsoft.Web usage is readable; the App, DocumentDB, and
 EventHub control planes expose the relevant usage only at resource scope or
 after creation and therefore remain explicitly partial. GCP exposes the
 required machine types and sufficient Small compute, disk, address, zonal GKE,
@@ -269,34 +269,31 @@ The bounded policy is checked in as
 planned matrix is `small-scenario-budget-proposal.json`. The method scales the
 complete monthly candidate estimate from 730 hours to the 60-minute window,
 multiplies that result by three, adds a one-dollar uncertainty buffer, and
-rounds upward to half-dollar increments. The resulting proposals are bounded
-to USD 2–3 per scenario and USD 21 across the nine-scenario portfolio.
+rounds upward to half-dollar increments. The refreshed proposals are bounded
+to USD 2–3 per scenario and USD 20 across the nine-scenario portfolio.
 
 Meters expressed as `count`, `seats/month`, or `GiB-month` remain mandatory
 billing-semantics review items. If the exact Terraform plan or current provider
 terms reveal a non-prorated minimum or retention charge that does not fit the
 proposal, that scenario is blocked; its cap is not raised automatically.
 
-The provider-terms review on 2026-09-06 found two unresolved pre-authorization
-cost boundaries. [Amazon Managed Grafana pricing](https://aws.amazon.com/grafana/pricing/)
-requires at least one USD 9 Editor license per workspace and monthly billing
-cycle even when nobody signs in. The current USD 3 per-scenario ceiling
-therefore blocks the three candidates that place L5 on AWS; a possible free
-trial is not assumed. Separately, the current GCP deployment lifecycle would
-publish up to five content-addressed images per candidate through Cloud Build.
-[Cloud Build pricing](https://cloud.google.com/build/pricing) bills the selected
-`e2-highcpu-8` worker by build minute, while its advertised free build minutes
-apply to `e2-standard-2`. This preparation cost is absent from the Optimizer
-ledger and cannot be silently absorbed into a scenario cap.
+The provider-terms review on 2026-09-06 originally found two unresolved
+pre-authorization boundaries. The 2026-09-07 PoC simplification removed all
+managed and self-hosted Grafana resources from the active Six-layer profile;
+L5 now reuses the provider-local raw-history runtime and therefore has no
+dashboard seat, workspace, cluster, disk, or load-balancer minimum. GCP image
+publication is reduced to at most four content-addressed images and uses the
+default-pool `e2-standard-2` worker. [Cloud Build pricing](https://cloud.google.com/build/pricing)
+currently assigns its promotional monthly free tier to that worker. If the
+free tier is exhausted, the four 20-minute build timeouts bound worker charges
+to USD 0.48 at the reviewed USD 0.006 per build-minute rate. Current usage and
+terms must still be checked before Apply; no free-tier assumption is promoted
+to observed cost.
 
 The remaining reviewed semantics do not justify treating a monthly Optimizer
 amount as an immediate bill. Azure Container Registry is priced per day and
 its Tasks per running CPU-second according to the
 [ACR pricing page](https://azure.microsoft.com/en-us/pricing/details/container-registry/).
-Azure Managed Grafana uses hourly workspace units and monthly active-user
-units; Microsoft documents that active-user charges are prorated during the
-first and last calendar month in the
-[Managed Grafana FAQ](https://learn.microsoft.com/en-us/azure/managed-grafana/faq).
 AWS S3 Standard-IA and Glacier Deep Archive and GCP Nearline and Archive apply
 minimum object-storage durations, including early-deletion charges, rather
 than charging for an empty bucket. The current provider terms document the
@@ -307,11 +304,12 @@ test payload and Destroy evidence, not the normalized monthly capacity model.
 
 The same offline checkpoint repeated the three provider-local Terraform tests
 with mock providers. The plans passed and reported 107 AWS, 81 Azure, and 143
-GCP resources to add, with no changes or destroys. These counts verify the
-current provider graphs; they are not credentialed plans and do not authorize
-the image-foundation target Apply, image publication, full Apply, or the GCP
-post-cluster Kubernetes Apply. A reviewed image-publication strategy and a
-separate AWS L5 cost decision are required before any candidate can be enabled.
+GCP resources to add, with no changes or destroys. These counts were captured
+before the L5 simplification and remain historical evidence; refreshed mock
+plans are the authority for the current graph. Mock plans do not authorize the
+image-foundation target Apply, image publication, full Apply, or the GCP
+post-cluster Kubernetes Apply. The exact current plan and Cloud Build usage
+remain mandatory pre-authorization checks.
 
 These values are bounded operator-review proposals, not expected spend,
 provider-enforced hard stops, or approved caps. The checked matrix therefore
@@ -391,14 +389,14 @@ python scripts/verify_live_evaluation_image_readiness.py
 ```
 
 The record is bound to candidate-pack manifest
-`sha256:b4bc4f55c080d13a8cee3f670a760a96a1065159254895e2458f581122b18346`
+`sha256:e5610e90570d44d9aff97537b721ff3324b1f2ad2b853b2fbe2e0e3ff3ffb476`
 and has record digest
-`sha256:30fe0808341565f501dcb90b7574220559b4a4101f06d79125fbde9be0793873`.
-Both public runtime images and all four pinned build inputs resolve at their
-declared registry digests. All seven static custom runtime images build locally
-for `linux/amd64`. No image was pushed and no provider registry was mutated, so
-local image IDs are deliberately not represented as deployable registry
-digests.
+`sha256:9ecdd560136650fd99d5287fdfa9418341a107bf4ea0deea74cd8fe6a7e793d9`.
+The public broker image and all four pinned build inputs resolve at their
+declared registry digests. All six required static custom runtime images build
+locally for `linux/amd64`. No image was pushed and no provider registry was
+mutated, so local image IDs are deliberately not represented as deployable
+registry digests.
 
 The GCP processor extension is not a static profile image. Its context is
 content-bound to the one canonical evaluation function already referenced by
@@ -419,9 +417,12 @@ For each required provider and directed route:
    probe resources;
 4. review the full Small Terraform plan and budget cap;
 5. deploy exactly one scenario;
-6. verify operation replay, access handoff, and one telemetry roundtrip;
-7. destroy immediately; and
-8. reconcile provider inventory before starting the next scenario and attach
+6. verify L1-L3 plus the Event Layer and stop on failure;
+7. verify L4 queryability;
+8. verify the authenticated, bounded L5 raw-history and hourly-rollup readback;
+9. run the simulator and one complete telemetry/command roundtrip;
+10. destroy immediately; and
+11. reconcile provider inventory before starting the next scenario and attach
    observed provider cost when the provider billing export becomes available.
 
 No scenario may be left active merely to speed up the next one. Shared account
@@ -502,11 +503,13 @@ turn this into an unqualified success.
 
 The same record vocabulary includes L4 queryability and the command/receipt
 path for later supervised probes. Those stages are not claimed by the cheap
-L1-L3 trace. L5 is intentionally a supervised access observation: the operator
-opens the returned provider URL, authenticates through the declared access
-mode, and confirms that the fixed dashboard can query the test point or show a
-typed no-data state. Twin2MultiCloud does not administer that dashboard. L4
-data-flow verification, L5 access evidence, command receipt, and provider
+L1-L3 trace. L5 is intentionally a supervised, machine-readable access
+observation. The operator opens the returned provider URL, authenticates
+through the declared provider-native mode, and executes exactly two bounded
+JSON queries: raw history and an hourly rollup. A valid typed no-data result is
+acceptable before the simulator runs. There is no dashboard, plugin
+installation, credential rotation, or separate monitoring service. L4
+data-flow verification, L5 readback evidence, command receipt, and provider
 inventory remain separate evidence sources in the live protocol.
 
 Infrastructure diagnosis stays similarly bounded: Terraform state classifies
@@ -674,7 +677,7 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Graph-derived readiness | `deployment-preflight` response and cached `deployment-readiness` response |
 | Reviewed account changes | digest-bound `deployment-preparation` request and response |
 | Apply/Destroy correlation and replay | deployment history, bounded persisted logs, and the owner-scoped SSE stream with `Last-Event-ID` |
-| L4/L5 access | secret-free `deployment-access` response plus supervised L5 open/query observation; any one-time credential value is excluded |
+| L4/L5 access | secret-free `deployment-access` response plus supervised, authenticated raw-history and hourly-rollup JSON readback; credential values are excluded |
 | Telemetry roundtrip | persisted data-flow verification record |
 | Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |

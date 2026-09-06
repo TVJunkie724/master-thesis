@@ -661,7 +661,7 @@ Two scenario families remain distinct inside the standalone Six-layer
 evaluation and are paired by size:
 
 - Core Twin scenarios determine device telemetry, storage retention, Twin and
-  semantic update bounds, and aggregate raw-history dashboard queries;
+  semantic update bounds, and bounded raw-history and hourly-rollup queries;
 - Eventing scenarios determine canonical event volume, payload, fan-out,
   delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
 
@@ -686,6 +686,15 @@ additional edges are recorded from the resolved graph but do not create
 redundant scenarios. The checked assignments live in
 `evaluation/small-scenario-matrix.json`; their safe execution order and
 evidence boundary live in `evaluation/live-evaluation-protocol.md`.
+
+For the thesis PoC, L5 is operationalized as the smallest comparable
+provider-native presentation boundary: an authenticated JSON endpoint with the
+same bounded raw-history and hourly-rollup query contract on AWS, Azure, and
+GCP. Graphical dashboards, plugins, credential rotation, and general monitoring
+are outside scope. RQ1 therefore evaluates reproducible provisioning,
+configuration, authentication, and readback; RQ2 compares the common query
+behavior; RQ3 includes only the actual reader/runtime cost. This does not claim
+production observability or a user-facing analytics product.
 
 ## Scope Decisions
 

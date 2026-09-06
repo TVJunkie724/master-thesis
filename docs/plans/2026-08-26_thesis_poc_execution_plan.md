@@ -39,7 +39,7 @@ and the
 | 4–5 | Implemented offline | bounded Twin interchange, durable operations, access and verification contracts |
 | 6 | Implemented offline | product surfaces removed; bounded readiness and repair presentation connected to the existing overview |
 | 7 | Implemented and container-verified | the 14-stage credential-free deployment-contract gate, repository hygiene, strict documentation build, and LaTeX build pass from a clean commit |
-| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, all runtime images, federation plans, the GCP L4 bootstrap decision, and all six directed federation probes are complete | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; provider billing review blocks approval until image-publication cost and the AWS L5 minimum are resolved; seven static images and the scenario-bound GCP processor image build locally without registry publication |
+| 8 | Account and read-only provider checks are complete for AWS, Azure and GCP; the one-administrator Azure contract is live-revalidated; offline candidates, budgets, runtime images, federation plans, the GCP L4 bootstrap decision, and all six directed federation probes are complete | real principals, scopes, permissions, Regions, provider APIs, quota/capacity inventories, and AWS/Azure L4/L5 prerequisites were checked without Apply; the Azure administrator passes Owner and Microsoft Graph authority checks; GCP capacity is sufficient and its no-organization L4 path has an approved but unexecuted manual IAP/OAuth bootstrap; the active L5 is an authenticated bounded JSON readback with no dashboard minimum; six static images and the scenario-bound GCP processor image build locally, while GCP publication uses at most four bounded `e2-standard-2` builds and remains unexecuted |
 | 9 | Pending supervision | nine cost-controlled Small deployments |
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
@@ -376,7 +376,7 @@ full-scenario evidence.
 The subsequent credential-free checkpoint materialized all nine exact Small
 candidates and produced the schema- and digest-bound
 `docs/research/evaluation/small-scenario-budget-proposal.json`. Its numerical
-proposals range from USD 2 to USD 3 and total USD 21 across all nine scenarios.
+proposals range from USD 2 to USD 3 and total USD 20 across all nine scenarios.
 They scale the complete monthly candidate estimate to the 60-minute window,
 apply threefold headroom, add a one-dollar uncertainty buffer, and round upward
 to half-dollar increments. Unverified non-prorated or minimum charges block the
@@ -386,18 +386,18 @@ remains disabled. The paired external timer warns at minute 45, triggers
 Destroy at minute 50, and keeps the 60-minute cleanup deadline. No provider or
 Deployer call was made for this checkpoint.
 
-The next credential-free checkpoint resolves the two public runtime images and
-four build inputs at their immutable registry digests and builds all seven
+The refreshed credential-free checkpoint resolves the public broker image and
+four build inputs at their immutable registry digests and retains all six
 static custom runtime images locally for `linux/amd64`. Its schema- and
 digest-bound record is
-`docs/research/evaluation/small-runtime-image-readiness.json`. A GCP Grafana
-context-path defect found by the build is corrected and regression-covered.
+`docs/research/evaluation/small-runtime-image-readiness.json`. The superseded
+GCP Grafana image is not part of the active PoC runtime set.
 The canonical evaluation function is now also packaged deterministically and
 its GCP processor extension is built locally for `linux/amd64` and
 contract-checked. No image was pushed and no provider registry was changed.
 
 The subsequent provider check used only control-plane GET, LIST, and DESCRIBE
-operations. AWS exposes sufficient Small headroom for the checked Grafana,
+operations. AWS exposes sufficient Small headroom for the checked Lambda,
 TwinMaker, and Kinesis requirements. Azure exposes the required resource types
 in the configured Regions and its Microsoft.Web usage endpoint is readable;
 four other Azure control planes expose relevant quota usage only after a
@@ -616,10 +616,11 @@ directions are now complete without Terraform Apply or Twin deployment.
 
 Continue Phase 8 in this order:
 
-1. resolve the repeated image-publication cost and the AWS L5 minimum without
-   weakening the common architecture contract or silently raising a cap;
-2. review the exact Terraform plan and publication steps for the first
-   candidate without mutating a provider;
+1. verify the refreshed nine-candidate pack, budget proposal, runtime-image
+   record, and provider-local mock plans;
+2. review the exact Terraform plan, current Cloud Build free-tier usage, and
+   the bounded publication steps for the first candidate without mutating a
+   provider;
 3. only after those gates pass, set the matrix to
    `approved_for_supervised_execution` and begin one supervised scenario at a
    time; during the first approved GCP run, apply the separately approved IAP
