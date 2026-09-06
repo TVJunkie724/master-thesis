@@ -411,7 +411,11 @@ def _azure_to_gcp_principal(
 ) -> str:
     if not re.fullmatch(r"\d+", project_number):
         raise ProbeBlocked("GCP_PROJECT_NUMBER_INVALID")
-    if pool_id != AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]:
+    base_pool_id = AZURE_TO_GCP_NAMES["gcp_workload_identity_pool"]
+    if pool_id != base_pool_id and not re.fullmatch(
+        rf"{re.escape(base_pool_id)}-a(?:0[2-9]|[1-9][0-9])",
+        pool_id,
+    ):
         raise ProbeBlocked("GCP_WORKLOAD_IDENTITY_POOL_NAME_INVALID")
     try:
         uuid.UUID(principal_id)

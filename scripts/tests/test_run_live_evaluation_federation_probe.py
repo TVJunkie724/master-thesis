@@ -777,6 +777,22 @@ def test_azure_to_gcp_retry_uses_fresh_bounded_pool_namespace() -> None:
         with pytest.raises(runner.ProbeBlocked, match="ATTEMPT_SEQUENCE_INVALID"):
             runner._azure_to_gcp_attempt_pool_id(invalid)
 
+    principal_id = "33333333-3333-4333-8333-333333333333"
+    assert f"/{base}-a02/" in runner._azure_to_gcp_principal(
+        "123456789012",
+        f"{base}-a02",
+        principal_id,
+    )
+    with pytest.raises(
+        runner.ProbeBlocked,
+        match="GCP_WORKLOAD_IDENTITY_POOL_NAME_INVALID",
+    ):
+        runner._azure_to_gcp_principal(
+            "123456789012",
+            f"{base}-other",
+            principal_id,
+        )
+
 
 def test_azure_to_gcp_runner_is_valid_and_emits_only_typed_result() -> None:
     script = runner._azure_to_gcp_runner_script()
