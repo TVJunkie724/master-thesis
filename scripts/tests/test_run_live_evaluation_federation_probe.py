@@ -423,6 +423,64 @@ def test_service_principal_create_fails_closed_on_non_propagation_error(
         )
 
 
+def test_retries_app_role_assignment_while_principals_propagate(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+    sleeps: list[int] = []
+
+    def graph_request(_credential, method, path, **kwargs):
+        calls.append(path)
+        assert method == "POST"
+        assert kwargs == {
+            "expected_statuses": (201,),
+            "body": {
+                "principalId": "principal-id",
+                "resourceId": "resource-id",
+                "appRoleId": "app-role-id",
+            },
+        }
+        if len(calls) == 1:
+            raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_404")
+        return {"id": "assignment-id"}
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+    monkeypatch.setattr(runner.time, "sleep", sleeps.append)
+
+    result = runner._create_graph_app_role_assignment(
+        object(),
+        "principal-id",
+        "resource-id",
+        "app-role-id",
+        runner.time.monotonic(),
+    )
+
+    assert result == {"id": "assignment-id"}
+    assert calls == [
+        "/v1.0/servicePrincipals/principal-id/appRoleAssignments",
+        "/v1.0/servicePrincipals/principal-id/appRoleAssignments",
+    ]
+    assert sleeps == [runner.AZURE_PROPAGATION_DELAY_SECONDS]
+
+
+def test_app_role_assignment_fails_closed_on_non_propagation_error(
+    monkeypatch,
+) -> None:
+    def graph_request(*_args, **_kwargs):
+        raise runner.ProbeBlocked("AZURE_GRAPH_HTTP_403")
+
+    monkeypatch.setattr(runner, "_graph_request", graph_request)
+
+    with pytest.raises(runner.ProbeBlocked, match="AZURE_GRAPH_HTTP_403"):
+        runner._create_graph_app_role_assignment(
+            object(),
+            "principal-id",
+            "resource-id",
+            "app-role-id",
+            runner.time.monotonic(),
+        )
+
+
 def test_graph_application_residual_retries_exact_object_delete(monkeypatch) -> None:
     deleted: list[str] = []
 
@@ -444,6 +502,31 @@ def test_graph_application_residual_retries_exact_object_delete(monkeypatch) -> 
         )
 
     assert deleted == ["/v1.0/applications/application-object-id"]
+
+
+def test_graph_service_principal_residual_retries_exact_object_delete(
+    monkeypatch,
+) -> None:
+    deleted: list[str] = []
+
+    def expect_absent(*_args, **_kwargs):
+        raise runner.ProbeBlocked("PREEXISTING_RESOURCE")
+
+    monkeypatch.setattr(runner, "_expect_graph_display_name_absent", expect_absent)
+    monkeypatch.setattr(
+        runner,
+        "_delete_graph_object",
+        lambda _credential, path: deleted.append(path),
+    )
+
+    with pytest.raises(runner.ProbeBlocked, match="PREEXISTING_RESOURCE"):
+        runner._expect_graph_service_principal_absent_with_delete_retry(
+            object(),
+            "probe-app",
+            "service-principal-id",
+        )
+
+    assert deleted == ["/v1.0/servicePrincipals/service-principal-id"]
 
 
 def test_load_credentials_requires_service_account_schema(tmp_path) -> None:

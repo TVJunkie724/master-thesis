@@ -972,6 +972,43 @@ def _wait_for_graph_app_role_assignment(
     raise ProbeBlocked("AZURE_APP_ROLE_ASSIGNMENT_NOT_READABLE")
 
 
+def _create_graph_app_role_assignment(
+    credential: ClientSecretCredential,
+    principal_id: str,
+    resource_id: str,
+    app_role_id: str,
+    started_monotonic: float,
+) -> dict[str, Any]:
+    """Retry the exact assignment while new Entra principals propagate."""
+
+    for attempt in range(AZURE_PROPAGATION_ATTEMPTS):
+        _assert_deadline(
+            started_monotonic,
+            AZURE_SOURCE_MAXIMUM_ELAPSED_SECONDS,
+        )
+        try:
+            return _graph_request(
+                credential,
+                "POST",
+                f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
+                expected_statuses=(201,),
+                body={
+                    "principalId": principal_id,
+                    "resourceId": resource_id,
+                    "appRoleId": app_role_id,
+                },
+            )
+        except ProbeBlocked as exc:
+            if str(exc) not in {
+                "AZURE_GRAPH_HTTP_400",
+                "AZURE_GRAPH_HTTP_404",
+            }:
+                raise
+        if attempt + 1 < AZURE_PROPAGATION_ATTEMPTS:
+            time.sleep(AZURE_PROPAGATION_DELAY_SECONDS)
+    raise ProbeBlocked("AZURE_APP_ROLE_ASSIGNMENT_NOT_CREATABLE")
+
+
 def _delete_graph_object(
     credential: ClientSecretCredential,
     path: str,
@@ -1001,6 +1038,28 @@ def _expect_graph_application_absent_with_delete_retry(
             _delete_graph_object(
                 credential,
                 f"/v1.0/applications/{application_object_id}",
+            )
+        raise
+
+
+def _expect_graph_service_principal_absent_with_delete_retry(
+    credential: ClientSecretCredential,
+    display_name: str,
+    service_principal_id: str | None,
+) -> None:
+    """Reissue the exact service-principal delete while Graph still lists it."""
+
+    try:
+        _expect_graph_display_name_absent(
+            credential,
+            "servicePrincipals",
+            display_name,
+        )
+    except Exception:
+        if service_principal_id:
+            _delete_graph_object(
+                credential,
+                f"/v1.0/servicePrincipals/{service_principal_id}",
             )
         raise
 
@@ -2748,16 +2807,12 @@ def _run_azure_to_aws(
             required_app_role_id=app_role_id,
         )
         exchange_stage = "create_entra_app_role_assignment"
-        assignment = _graph_request(
+        assignment = _create_graph_app_role_assignment(
             azure_credential,
-            "POST",
-            f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
-            expected_statuses=(201,),
-            body={
-                "principalId": principal_id,
-                "resourceId": service_principal_id,
-                "appRoleId": app_role_id,
-            },
+            principal_id,
+            service_principal_id,
+            app_role_id,
+            started_monotonic,
         )
         assignment_id = str(assignment.get("id") or "")
         if not assignment_id:
@@ -2960,10 +3015,10 @@ def _run_azure_to_aws(
                     application_name,
                     application_object_id,
                 )
-                _expect_graph_display_name_absent(
+                _expect_graph_service_principal_absent_with_delete_retry(
                     azure_credential,
-                    "servicePrincipals",
                     application_name,
+                    service_principal_id,
                 )
             except Exception as exc:
                 residual_errors.append(_safe_error_code(exc))
@@ -3227,16 +3282,12 @@ def _run_azure_to_gcp(
             required_app_role_id=app_role_id,
         )
         exchange_stage = "create_entra_app_role_assignment"
-        assignment = _graph_request(
+        assignment = _create_graph_app_role_assignment(
             azure_credential,
-            "POST",
-            f"/v1.0/servicePrincipals/{principal_id}/appRoleAssignments",
-            expected_statuses=(201,),
-            body={
-                "principalId": principal_id,
-                "resourceId": service_principal_id,
-                "appRoleId": app_role_id,
-            },
+            principal_id,
+            service_principal_id,
+            app_role_id,
+            started_monotonic,
         )
         assignment_id = str(assignment.get("id") or "")
         if not assignment_id:
@@ -3467,10 +3518,10 @@ def _run_azure_to_gcp(
                     application_name,
                     application_object_id,
                 )
-                _expect_graph_display_name_absent(
+                _expect_graph_service_principal_absent_with_delete_retry(
                     azure_credential,
-                    "servicePrincipals",
                     application_name,
+                    service_principal_id,
                 )
             except Exception as exc:
                 residual_errors.append(_safe_error_code(exc))
