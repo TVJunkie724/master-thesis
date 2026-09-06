@@ -802,6 +802,8 @@ def test_azure_to_gcp_runner_is_valid_and_emits_only_typed_result() -> None:
     assert "AZURE_MANAGED_IDENTITY_TOKEN" in script
     assert "GCP_WORKLOAD_IDENTITY_EXCHANGE" in script
     assert "GCP_SERVICE_ACCOUNT_IMPERSONATION" in script
+    assert "for attempt in range(10)" in script
+    assert "time.sleep(5)" in script
     assert "traceback" not in script.lower()
 
 

@@ -1419,15 +1419,26 @@ try:
         'scope': ['https://www.googleapis.com/auth/cloud-platform'],
         'lifetime': '300s',
     }).encode('utf-8')
-    result = json.loads(request(
-        os.environ['GCP_IMPERSONATION_URL'],
-        data=impersonation,
-        headers={
-            'Authorization': 'Bearer ' + federated_token,
-            'Content-Type': 'application/json',
-        },
-    ).decode('utf-8'))
-    if not isinstance(result.get('accessToken'), str):
+    access_token = None
+    for attempt in range(10):
+        try:
+            result = json.loads(request(
+                os.environ['GCP_IMPERSONATION_URL'],
+                data=impersonation,
+                headers={
+                    'Authorization': 'Bearer ' + federated_token,
+                    'Content-Type': 'application/json',
+                },
+            ).decode('utf-8'))
+            candidate = result.get('accessToken')
+            if isinstance(candidate, str):
+                access_token = candidate
+                break
+        except Exception:
+            pass
+        if attempt + 1 < 10:
+            time.sleep(5)
+    if access_token is None:
         raise RuntimeError('GCP service account token unavailable')
     print('PROBE_PASSED')
 except Exception:
