@@ -500,10 +500,30 @@ publication uses at most four essential images on `e2-standard-2`, with a
 20-minute timeout per image; current free-tier usage and the exact Terraform
 plan remain mandatory supervised pre-Apply checks.
 
+## D-25 — L5 visualization review stops at the cost gate
+
+**Decision (2026-09-07):** Preserve D-24's current runtime while reviewing the
+requested minimal restoration: existing AWS/Azure Managed Grafana integrations
+and one GCP Grafana VM instead of a GKE dashboard workload. One dashboard with
+two series panels is the full proposed scope, not a monitoring product.
+
+**Correction:** D-24 establishes comparable readback only; its rationale must
+not be read as proving graphical equivalence to the original Five-layer L5.
+The original offline baseline remains unchanged. No third baseline is added.
+
+**Result:** The [public-price and local-code review](research/evaluation/l5-visualization-feasibility.md)
+found an AWS workspace-license floor above the existing scenario and portfolio
+ceilings, plus incompatible legacy AWS/GCP reader authentication. Trials are
+unverified. The review therefore stops before runtime restoration and requests
+a hosting/cost decision. It does not increase caps, weaken reader authentication,
+change frozen candidate evidence or claim cloud verification. No cloud mutation
+or credential access occurred during this review.
+
 ## Current implementation checkpoint
 
 The dated paragraphs below preserve the sequence of Phase 8 observations. D-23
-and D-24 govern the active implementation; earlier split-authority and
+and D-24 govern the active implementation; D-25 qualifies its research claims
+and records the blocked visualization restoration. Earlier split-authority and
 dashboard wording is historical rather than current setup guidance.
 
 On 2026-09-04, the one-administrator contract was bootstrapped under a

@@ -23,6 +23,14 @@ edges remain part of the recorded graph but do not create extra scenarios.
 
 ## Current prerequisite checkpoint
 
+**Current L5 blocker (2026-09-07):** JSON readback does not establish graphical
+equivalence. The [minimal visualization review](l5-visualization-feasibility.md)
+finds that restoring AWS Managed Grafana exceeds the unchanged technical caps
+without verified credits; Azure billing and the GCP VM quote/integration also
+need final resolution. Earlier dashboard prerequisite checks below are
+historical and do not clear this gate. No dashboard restoration or additional
+spending is authorized by the existing reader-only budget proposal.
+
 On 2026-08-29, the supervised account-level gate completed without Terraform
 Apply or workload-resource creation. AWS identity, Region, regional STS, IAM
 Identity Center, and 108 required permissions are ready. Azure subscription,

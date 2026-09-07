@@ -284,22 +284,20 @@ and L5 surface:
 - authentication kind;
 - required login identity or user name;
 - role and readiness state;
-- expiry or rotation information where applicable;
+- expiry information where applicable;
 - certificate fingerprint or network restriction when relevant;
 - a one-time generated Viewer password or token only when the deployed service
   actually uses such a credential.
 
-Deployment administrator secrets are never returned. AWS and Azure managed
-surfaces normally redirect to IAM Identity Center, SAML, or Entra ID, so the
-access bundle contains the link and assigned login identity rather than an
-invented password. A generated resource-local credential, such as a bounded
-Grafana Viewer for the GCP-hosted surface, is revealed once and can be rotated
-through its narrow runtime operation.
-
-AWS IAM Identity Center remains a provider prerequisite for the selected
-Amazon Managed Grafana access path. Its primary Region is recorded explicitly
-and must be compatible with the workspace. AWS-to-Azure workload identity is a
-separate requirement and uses a regional STS endpoint.
+Deployment administrator secrets are never returned. The current L5 handoff
+is authenticated readback, not a deployed Grafana surface. A
+[minimal graphical replacement](../research/evaluation/l5-visualization-feasibility.md)
+is proposed but blocked at the cost/integration gate. Provider login links or
+resource-local credentials must describe only surfaces actually deployed;
+there is no runtime credential-rotation UI to restore. If AWS Managed Grafana
+is selected later, its Identity Center Region and user association must be
+validated for that workspace. AWS-to-Azure workload identity remains a separate
+requirement using regional STS.
 
 ## 11. Verification and live evaluation
 

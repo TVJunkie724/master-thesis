@@ -687,14 +687,16 @@ redundant scenarios. The checked assignments live in
 `evaluation/small-scenario-matrix.json`; their safe execution order and
 evidence boundary live in `evaluation/live-evaluation-protocol.md`.
 
-For the thesis PoC, L5 is operationalized as the smallest comparable
-provider-native presentation boundary: an authenticated JSON endpoint with the
+The current implementation exposes an authenticated JSON endpoint with the
 same bounded raw-history and hourly-rollup query contract on AWS, Azure, and
-GCP. Graphical dashboards, plugins, credential rotation, and general monitoring
-are outside scope. RQ1 therefore evaluates reproducible provisioning,
-configuration, authentication, and readback; RQ2 compares the common query
-behavior; RQ3 includes only the actual reader/runtime cost. This does not claim
-production observability or a user-facing analytics product.
+GCP. This supports RQ1 operationalization and RQ2 query comparison, but is not
+a graphical visualization-equivalence result against the original Five-layer
+responsibility. Minimal dashboard restoration is under
+[cost and integration review](evaluation/l5-visualization-feasibility.md), not
+implemented or live-verified. Until resolved, L5 graphical comparability remains
+an explicit gap. RQ3's current reader-only estimates must not be presented as
+dashboard-inclusive costs. General monitoring and a product analytics UI remain
+outside scope; the historical Five-layer baseline is not changed.
 
 ## Scope Decisions
 

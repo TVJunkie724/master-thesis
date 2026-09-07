@@ -32,6 +32,15 @@ and the
 
 ## Current phase status
 
+Current L5 exception (2026-09-07): the
+[minimal visualization feasibility review](../research/evaluation/l5-visualization-feasibility.md)
+is complete as a pre-implementation cost/integration check, not as live
+readiness. AWS Managed Grafana restoration violates the unchanged technical
+caps without verified credits. The current graph remains JSON-only; functional
+visualization equivalence, a final dashboard-inclusive budget and implementation
+are unresolved. Do not use the historical phase checkpoints below as approval
+to bypass this blocker.
+
 | Phase | Status on 2026-09-01 | Evidence boundary |
 |---|---|---|
 | 0–2 | Implemented offline | standalone contracts, cost-only path, graph-derived deployment evidence |
