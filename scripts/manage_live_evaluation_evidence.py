@@ -24,10 +24,15 @@ from jsonschema import Draft202012Validator, FormatChecker
 try:
     from scripts.manage_live_evaluation_metrics import (
         LiveMetricsError,
+        scenario_run_complete,
         validate_metrics,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from manage_live_evaluation_metrics import LiveMetricsError, validate_metrics
+    from manage_live_evaluation_metrics import (
+        LiveMetricsError,
+        scenario_run_complete,
+        validate_metrics,
+    )
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
@@ -88,7 +93,6 @@ REQUIRED_SCENARIO_ARTIFACTS = frozenset(
         "readiness",
         "terraform_plan",
         "apply_operation",
-        "replay",
         "access",
         "telemetry",
         "evaluation_metrics",
@@ -191,9 +195,8 @@ def _contains_sensitive_field(value: object) -> bool:
     if isinstance(value, dict):
         for key, nested in value.items():
             normalized = _normalized_field(str(key))
-            if (
-                normalized in SENSITIVE_FIELD_NAMES
-                or normalized.endswith(("password", "clientsecret", "privatekey"))
+            if normalized in SENSITIVE_FIELD_NAMES or normalized.endswith(
+                ("password", "clientsecret", "privatekey")
             ):
                 return True
             if _contains_sensitive_field(nested):
@@ -211,9 +214,7 @@ def _validate_secret_free_evidence(path: Path, *, label: str) -> None:
     try:
         size = path.stat().st_size
         if size > MAX_EVIDENCE_FILE_BYTES:
-            raise LiveEvidenceError(
-                f"{label} exceeds the bounded evidence-file size"
-            )
+            raise LiveEvidenceError(f"{label} exceeds the bounded evidence-file size")
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise LiveEvidenceError(f"{label} must be UTF-8 text evidence") from exc
@@ -617,6 +618,10 @@ def _validate_phase_8_claims(
 def _validate_scenario_claims(record: Mapping[str, Any]) -> None:
     for scenario in record["scenarios"]:
         kinds = [artifact["kind"] for artifact in scenario["artifacts"]]
+        if kinds.count("evaluation_metrics") > 1:
+            raise LiveEvidenceError(
+                f"{scenario['scenario_id']}: retain exactly one metrics artifact per run"
+            )
         if scenario["status"] == "not_started":
             if (
                 scenario["started_at"] is not None
@@ -656,11 +661,13 @@ def _validate_scenario_claims(record: Mapping[str, Any]) -> None:
             if scenario["blocker_code"] is None or not scenario["artifacts"]:
                 raise LiveEvidenceError("Blocked scenario requires evidence and a code")
             if "apply_operation" in kinds and not {
+                "evaluation_metrics",
                 "destroy_operation",
                 "cleanup",
             }.issubset(kinds):
                 raise LiveEvidenceError(
-                    "A blocked scenario with Apply evidence requires Destroy and cleanup"
+                    "A blocked scenario with Apply evidence requires metrics, "
+                    "Destroy and cleanup"
                 )
         if scenario["status"] in {"running", "completed", "blocked"} and (
             scenario["started_at"] is None
@@ -713,6 +720,14 @@ def _validate_state(record: Mapping[str, Any], *, plan: Mapping[str, Any]) -> No
         has_blocker = _has_phase_8_blocker(record) or "blocked" in scenario_statuses
         if (status == "completed_with_blockers") != has_blocker:
             raise LiveEvidenceError("Final status does not match recorded blockers")
+        if status == "completed" and not any(
+            artifact["kind"] == "replay"
+            for scenario in record["scenarios"]
+            for artifact in scenario["artifacts"]
+        ):
+            raise LiveEvidenceError(
+                "Completed evaluation requires one representative replay artifact"
+            )
     elif record["completed_at"] is not None:
         raise LiveEvidenceError("Non-final evidence cannot claim completion time")
 
@@ -818,8 +833,7 @@ def _validate_metrics_cost_binding(
             f"{scenario_id}: observed cost source is not the indexed cost artifact"
         )
     if scenario["status"] == "completed" and (
-        cost["observed_incremental_cost_usd"] is None
-        or len(provider_cost_paths) != 1
+        cost["observed_incremental_cost_usd"] is None or len(provider_cost_paths) != 1
     ):
         raise LiveEvidenceError(
             f"{scenario_id}: completed evidence requires one reconciled cost artifact"
@@ -924,6 +938,12 @@ def validate_record(
                 scenario_id=scenario["scenario_id"],
             )
             _validate_metrics_cost_binding(metrics_record, scenario)
+            if scenario["status"] == "completed" and not scenario_run_complete(
+                metrics_record
+            ):
+                raise LiveEvidenceError(
+                    f"{scenario['scenario_id']}: incomplete run cannot claim completion"
+                )
     _validate_state(record, plan=plan)
     return {
         "status": record["status"],

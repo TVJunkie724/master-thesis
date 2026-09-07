@@ -159,6 +159,7 @@
     },
     "scenarioArtifact": {
       "type": "object",
+      "description": "References for one run. A replay artifact belongs to its representative source scenario and is required once across a completed evaluation.",
       "additionalProperties": false,
       "required": ["kind", "path", "digest"],
       "properties": {

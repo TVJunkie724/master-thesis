@@ -369,10 +369,12 @@ python scripts/manage_live_evaluation_evidence.py validate \
 The evaluation-only schema is
 `schemas/live-evaluation-evidence.schema.json`. It fixes three provider checks,
 all six directed identity exchanges, and the nine scenario records. A completed
-scenario cannot validate without readiness, Terraform plan, Apply, replay,
-access, telemetry, Destroy, cleanup, and provider-cost artifacts. A blocker is
-valid only when it is explicit and evidence-backed; an Apply followed by a
-blocker still requires Destroy and cleanup evidence. This index references the
+scenario cannot validate without readiness, Terraform plan, Apply, access,
+telemetry, evaluation metrics, Destroy, cleanup, and provider-cost artifacts.
+The completed evaluation additionally requires one representative `replay`
+artifact attached to its source scenario. A blocker is valid only when it is
+explicit and evidence-backed; an Apply followed by a blocker still requires
+its metrics record, Destroy and cleanup evidence. This index references the
 normal application outputs and does not execute an operation itself. A
 completed scenario has exactly one artifact of every required kind. Its cleanup
 artifact must be a clean `cleanup-evidence.v1` record covering the exact
@@ -428,29 +430,24 @@ For each required provider and directed route:
 No scenario may be left active merely to speed up the next one. Shared account
 capabilities are recorded separately from Twin-owned resources.
 
-### Component probes before complete scenarios
+### One run record with staged verification
 
-Component probes and final scenarios are different measurement datasets, not
-different public deployment modes. A component record uses
-`run_kind: component_probe`; it cannot satisfy, replace, or be relabelled as
-one of the nine final scenario records. Provider-local and directed multi-cloud
-final records use `run_kind: provider_local` and
-`run_kind: directed_multicloud` and bind to the exact candidate evidence
-digest.
+Each deployment attempt has one run directory and one metrics document bound
+to its scenario and candidate digest. Use `provider_local` or
+`directed_multicloud` throughout the attempt. L1-L3/Eventing, L4, L5, simulator,
+and cleanup observations are stages of this record; no additional component
+report is required. Existing `component_probe` records remain optional
+diagnostics and cannot substitute for a final scenario.
 
-The Deployer intentionally exposes one atomic graph-bound Apply/Destroy path.
-Adding a generic layer-targeted Apply or maintaining provider-specific
-Terraform target lists would enlarge the PoC and weaken cleanup guarantees.
-The first provider-local deployment for each provider therefore supplies both
-an early component dataset and, only if it passes, the final scenario dataset;
-it does not create the infrastructure twice. The supervised order is:
+The Deployer retains one atomic graph-bound Apply/Destroy path. All layers are
+created together; the following checks are staged inside that deployment:
 
 1. provider, image, account, and regional prerequisites;
-2. Apply the approved provider-local Small candidate;
-3. immediately verify L1-L3 plus Eventing and record the component dataset;
+2. Apply the approved Small candidate;
+3. immediately verify L1-L3 plus Eventing and record that lifecycle phase;
 4. on a missing checkpoint, stop and Destroy without exercising L4/L5;
 5. otherwise verify L4 queryability, then L5 access as separate gates;
-6. only then run the complete simulator protocol and record the final dataset;
+6. only then run the complete simulator protocol and retain its samples;
 7. Destroy, reconcile inventory, and proceed to the next provider-local or
    directed scenario only when cleanup is clean.
 
@@ -460,19 +457,33 @@ in
 between steps 4 and 5. It configures IAP on the already-created Twin Explorer;
 it is not another deployment or a reusable product workflow.
 
-This ordering cannot avoid creating L4/L5 during the atomic Apply, but it
-minimizes their billable lifetime when a cheaper upstream gate fails and avoids
-three additional deployments. The later six directed scenarios reuse the same
-gate order without adding separate component records unless diagnosing a
-blocker.
+The same order applies to all nine scenarios. On an early abort, keep the
+failed phase, mark unexecuted phases `skipped` with null timing, explain the
+abort in `limitations`, and retain only samples actually observed. Never
+invent samples to fill the planned batch. The one metrics record still
+contains the Destroy and inventory attempts. The evidence index marks the
+scenario `blocked`; an incomplete run cannot satisfy the final matrix. A
+retry receives a new run directory, preserving the aborted attempt.
 
-GCP-L1 retains an additional observed-capacity gate. Its previous three-replica
-`e2-standard-8` Small broker allocation has been replaced offline by one
-non-HA `e2-standard-4` broker node plus one `e2-standard-2` adapter node. The
-early L1-L3/Eventing stage of the GCP provider-local run must validate that 1+1
-allocation before L4/L5 and the final simulator protocol continue. The
-capability decision (bidirectional MQTT through BifroMQ with Pub/Sub
-durability) remains separate from the still open observed-capacity evidence.
+GCP-L1 additionally retains its observed-capacity gate for the selected
+non-HA 1+1 Small broker/adapter allocation. The early GCP L1-L3/Eventing phase
+must establish its behavior before L4/L5 and the simulator continue. The
+existing BifroMQ/Pub/Sub capability decision remains separate from that live
+capacity evidence.
+
+### Shared application verification
+
+Observe UI reconnect and persisted operation replay once during a
+representative scenario of the evaluated application revision. Attach its
+`replay` artifact to that scenario, recording the revision, operation ID,
+resumed cursor and absence of a second Apply. The completed evaluation index
+requires at least one such artifact, not one per scenario. Repeat it only if
+the shared operation/reconnect implementation changes. A blocked evaluation
+without this observation must state the missing application evidence.
+
+Provider authentication, directed data paths, functional checks and cleanup
+remain scenario-specific. Every run retains its own Apply/Destroy operation
+references. This shared check does not replace any cloud-path evidence.
 
 ### Minimal PoC diagnostics
 
@@ -528,7 +539,7 @@ Each executed scenario must produce a secret-free evidence directory with:
 - account scopes and region labels without credential values;
 - readiness, preparation, confirmations, and operation correlation IDs;
 - Terraform plan/apply timestamps and terminal status;
-- reconnect/replay observation;
+- operation references; the representative scenario also carries replay evidence;
 - access-surface readiness and telemetry trace result;
 - one validated `live-evaluation-metrics.v1` measurement document;
 - Destroy result, provider inventory, and residual classification; and
@@ -597,7 +608,6 @@ functional phase fails.
 The result reports:
 
 - end-to-end mean, p50, p95, and maximum latency;
-- consecutive-stage mean, p50, p95, and maximum latency;
 - success, failure, timeout, retry, duplicate, ordering, and DLQ observations;
 - Terraform plan, Apply, readiness, L4/L5 readiness, Destroy, and inventory
   reconciliation durations;
@@ -605,6 +615,13 @@ The result reports:
 - approved budget, calculated monthly estimate, and later observed incremental
   provider cost; and
 - cleanup residuals and explicit limitations.
+
+Consecutive-stage latency and extra charts are optional diagnostics or
+RQ-specific analysis. Keep collected checkpoint data and automatic delivery
+counters; no additional measurement campaign is required to populate extra
+plots. A failed/skipped lifecycle phase with a documented limitation permits
+an incomplete sample batch, including zero samples after an early abort.
+Completed runs still require the declared batch and all lifecycle phases.
 
 The evidence validator accepts only bounded UTF-8 JSON, JSONL, CSV, log, or
 text artifacts (maximum 8 MiB each). Besides path and digest validation, it
@@ -625,7 +642,7 @@ python scripts/manage_live_evaluation_metrics.py validate \
   --record /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json
 ```
 
-Generate deterministic CSV tables and dependency-free SVG charts into a new,
+Generate the four core CSV tables into a new,
 non-overwriting directory:
 
 ```bash
@@ -638,14 +655,15 @@ For the final thesis comparison, pass all nine final metrics files as repeated
 `--record` arguments and add `--require-complete-matrix`. The batch gate rejects
 duplicate runs or scenarios, missing or unexpected matrix entries, and mixed
 architecture contracts, source revisions, workload/simulator digests, or
-measurement protocols. Component probes may be summarized separately and do
-not count as final matrix evidence.
+measurement protocols. Aborted runs and optional component probes do not count
+as final matrix evidence; the summary labels them `run_outcome: incomplete`.
 
-The generated `run-summary.csv`, `stage-latency.csv`, `lifecycle.csv`,
-`resources.csv`, `cost-observations.csv`, `end-to-end-latency-p95.svg`, and
-`lifecycle-duration.svg` remain derived artifacts. The digest-bound JSON
-measurement document is the primary evidence. A delayed provider-cost export
-is either recorded atomically with value, interval, and source path, or left
+The default outputs are `run-summary.csv`, `lifecycle.csv`, `resources.csv`,
+and `cost-observations.csv`. Add `--diagnostics` to derive `stage-latency.csv`,
+`end-to-end-latency-p95.svg`, and `lifecycle-duration.svg` from the same data
+when a finding needs them. These remain derived artifacts; the digest-bound
+JSON measurement document is the primary evidence. A delayed provider-cost
+export is either recorded atomically with value, interval, and source path, or left
 entirely pending; it never delays Destroy or cleanup.
 
 Assemble the primary metrics document from one reviewed metadata template, one
@@ -665,6 +683,12 @@ records, and validates direction, provider scope, clocks, stage/layer mappings,
 and run-time bounds before writing. It does not query a cloud or start a
 simulator.
 
+For an abort before the first sample, the sample-plan file contains
+`{"schema_version": "live-evaluation-sample-plan.v1", "samples": []}` and
+`--checkpoint-log` may be omitted. The template must still contain the failed
+or skipped lifecycle phases, the abort explanation and terminal cleanup.
+An otherwise completed run with missing samples is rejected.
+
 ### Existing evidence sources
 
 The supervised operator collects the evidence from the normal owner-scoped
@@ -676,10 +700,10 @@ Twin workflow; there is no second product-like evaluation orchestrator:
 | Account scopes | secret-free CloudConnection metadata; never the imported credential payload |
 | Graph-derived readiness | `deployment-preflight` response and cached `deployment-readiness` response |
 | Reviewed account changes | digest-bound `deployment-preparation` request and response |
-| Apply/Destroy correlation and replay | deployment history, bounded persisted logs, and the owner-scoped SSE stream with `Last-Event-ID` |
+| Apply/Destroy correlation; one shared replay observation | deployment history and persisted logs per run; representative owner-scoped SSE reconnect with `Last-Event-ID` |
 | L4/L5 access | secret-free `deployment-access` response plus supervised, authenticated raw-history and hourly-rollup JSON readback; credential values are excluded |
 | Telemetry roundtrip | persisted data-flow verification record |
-| Timing, reliability, resources and measurement protocol | one schema- and semantics-validated `live-evaluation-metrics.v1` document; component and final runs remain distinct |
+| Timing, reliability, resources and measurement protocol | one `live-evaluation-metrics.v1` document per attempt, including early verification and cleanup; incomplete attempts remain explicit |
 | Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
 | Observed cost | one indexed provider billing export whose path is bound from the metrics document after Destroy; provider-dependent delay does not postpone cleanup or keep a scenario active |
 

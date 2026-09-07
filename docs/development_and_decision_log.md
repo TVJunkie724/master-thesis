@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-06"
-version: "2.4"
+lastUpdated: "2026-09-07"
+version: "2.5"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -256,9 +256,9 @@ final scenarios produce provider evidence.
 
 **Decision:** Keep one graph-bound Apply/Destroy lifecycle and stage functional
 verification inside it: L1-L3/Eventing first, then L4, then L5, and finally the
-complete simulator protocol. The first provider-local run per provider may
-produce a separate component metrics document from the same deployment, but it
-does not introduce a partial-deployment API.
+complete simulator protocol. One metrics document per attempt records these
+stages and cleanup; no separate component report or partial-deployment API is
+required.
 
 **Rationale:** Provider-specific Terraform target lists or a second reduced
 architecture would add another executable topology, weaken cleanup guarantees,
@@ -266,11 +266,35 @@ and repeat expensive infrastructure. Early checkpoints still permit immediate
 Destroy when an upstream layer fails, limiting L4/L5 lifetime without claiming
 that they were absent from the atomic Apply.
 
-**Consequence:** Component measurements never replace one of the nine final
-scenario records. GCP's early stage additionally validates the selected Small
+**Consequence:** An aborted attempt remains incomplete and never replaces a
+complete scenario record. GCP's early stage additionally validates the selected Small
 1+1 broker/adapter allocation. Every final comparison is accepted only when
 the exact matrix, revision, workload, simulator, protocol, candidate placement,
 cost export, and terminal cleanup evidence remain bound and comparable.
+
+### 2026-09-07 — Freeze implementation and reduce evaluation overhead
+
+The agreed reduction keeps the nine scenarios and functional checks while
+removing duplicate component reports and repeated shared UI-reconnect tests.
+One representative replay observation covers the evaluated application
+revision; provider paths and cleanup remain per-scenario evidence. The default
+summary produces four core CSV tables. Stage analysis and SVG plots are opt-in
+derivations from retained measurements.
+
+An early failure uses the same metrics format, records failed/skipped phases,
+explains incomplete sampling and preserves cleanup. Validators reject using
+that attempt as a completed scenario. Existing Import, Export and Duplicate
+features are frozen, with further work limited to evaluation blockers. No
+additional normalized Five-layer implementation or visualization client is
+introduced. This decision leaves the outstanding L5 comparison question open.
+
+Scope is owned by the target concept, operating rules by the live protocol,
+progress by the execution plan and scientific interpretation by the research
+design. Other documents link to those rules instead of duplicating checklists.
+
+Verification: 58 focused evaluation/plan tests and 24 subtests passed offline;
+the changed Python passed static checks, and all six edited Markdown documents
+rendered with valid relative file links. No provider operation was executed.
 
 ## D-16 — Identity-only directed federation probes
 

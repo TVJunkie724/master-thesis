@@ -499,24 +499,24 @@ rather than a misleading numeric optimum.
 
 ### Supervised Live-Evidence Mapping
 
-The live evaluation is bounded to three provider-local Small baselines and six
-directed multi-cloud Small focus cases. It is not an exhaustive permutation
-test. All final records must share one architecture contract, source revision,
-workload digest, simulator digest, and measurement protocol. The first
-provider-local run per provider verifies L1-L3/Eventing before L4, L5, and the
-complete simulator protocol inside the same atomic deployment; a failed early
-gate triggers immediate Destroy rather than a second partial-deployment mode.
+The live evaluation uses three provider-local Small baselines and six directed
+multi-cloud Small cases under the same contract, revision, workload and
+measurement protocol. One record per deployment attempt holds staged checks,
+measurements and cleanup. Early-aborted attempts remain incomplete evidence.
 
 | Research question | Named supervised evidence |
 |---|---|
-| RQ1 | graph-bound readiness/preparation, Plan/Apply/replay, staged verification, deployment duration, Destroy, and exact provider inventory |
+| RQ1 | per-run readiness/preparation, Plan/Apply, staged verification, deployment duration, Destroy and inventory; one representative shared application reconnect/replay observation |
 | RQ2 | candidate-to-provider placement binding, required path checkpoints, functional result, and explicitly classified provider deviations |
 | RQ3 / RQ3.1 | three single-cloud and six directed estimated totals, transfer attribution, reviewed run cap, and separately reconciled observed incremental cost |
 | RQ3.2 | Event-Layer durability checkpoint, directed identity/bridge evidence, command/outcome behavior, topology delta, and Eventing cost ownership |
 
-Component metrics remain supporting diagnostic evidence and cannot replace any
-of the nine final records. The complete operational protocol and schemas are
-maintained in `evaluation/live-evaluation-protocol.md`. The six directed
+Internal stage-latency breakdowns and additional plots are optional diagnosis
+or analysis, not additional mandatory experiments. Required results retain
+lifecycle and message timing, functional outcomes, resources, cost and cleanup.
+The operational rules and schemas are maintained only in
+[the live-evaluation protocol](evaluation/live-evaluation-protocol.md).
+The six directed
 identity prerequisites are frozen separately in
 `evaluation/directed-federation-probe-plan.json`: their setup/exchange/cleanup
 timings support RQ1, their exact directed contract result supports RQ2, and

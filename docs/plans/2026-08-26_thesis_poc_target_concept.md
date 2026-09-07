@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-08-27"
-version: "1.2"
+lastUpdated: "2026-09-07"
+version: "1.3"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -307,47 +307,37 @@ Deterministic tests prove contracts, formulas, admissibility, state behavior,
 redaction, graph resolution, package selection, and offline provider logic.
 They are not live-cloud evidence.
 
-Before cost-incurring deployments, the evaluation runs low-cost or read-only
-provider gates:
+The live scope is fixed to three provider-local and six directed multi-cloud
+Small scenarios. One attempt supplies one record with staged functional
+checks and terminal cleanup. The operational authority is the
+[live-evaluation protocol](../research/evaluation/live-evaluation-protocol.md);
+the exact assignments are in its linked scenario matrix. Prerequisites,
+sampling, shared application checks, budget/timer rules and artifact
+requirements are maintained there, not repeated in this concept.
 
-- credential identity and target scope;
-- required API/resource-provider state;
-- exact graph-required permissions, including Azure Microsoft Graph rights;
-- separate Azure deployment-resource, conditional-RBAC, and Microsoft Graph
-  authority checks;
-- quota and regional capacity reads where available;
-- all six directed workload-identity exchanges with minimal messages;
-- image-build and service availability checks without full Twin load.
+### Implementation freeze
 
-The final supervised evaluation targets nine Small scenarios:
-
-- three provider-local deployments;
-- six multi-cloud deployments covering every directed AWS/Azure/GCP provider
-  pair at least once on the required cross-cloud Eventing or Twin-projection
-  boundary.
-
-Before execution, a generated coverage matrix must prove that the nine
-scenarios cover the required provider directions and graph edge classes. A
-scenario is not added merely to enumerate redundant layer assignments.
-
-The checked scenario set and execution safeguards are defined by
-`docs/research/evaluation/small-scenario-matrix.json` and
-`docs/research/evaluation/live-evaluation-protocol.md`. They are plans, not
-live-result evidence.
-
-Every live run uses cost guardrails: reviewed Small inputs, no Large/preview
-capacity, an explicit maximum duration, immediate verification, guaranteed
-Destroy attempt, post-destroy inventory, and recorded residual-resource check.
+Existing Import, Export, Duplicate and other working convenience functions are
+frozen. Remaining implementation is limited to defects blocking the agreed
+evaluation, evidence correctness or cleanup. No additional UI redesign,
+visualization client, normalized Five-layer implementation, generic repair
+framework, or extra live workload size is added. The original Five-layer
+reproduction remains the historical reference. The outstanding L5 comparison
+decision is separate; this workflow reduction does not settle or modify it.
 
 ## 12. Documentation boundary
 
-The active repository retains:
+Document responsibilities are fixed:
 
-- this target concept;
-- one research-driven execution plan;
+- this concept owns scope and the implementation freeze;
+- the execution plan owns current status and remaining work;
+- the live-evaluation protocol owns the operating procedure and evidence rules;
+- the research design owns RQ reasoning and comparison limitations; and
+- the decision log owns the rationale for material choices.
+
+Other retained references provide:
+
 - focused architecture and security concepts;
-- research method and evidence documentation;
-- one development and decision log explaining important design rationale;
 - one architecture-evolution trace separating inherited, reasoned,
   offline-verified, and live-validated changes;
 - one provider-service evolution register for material service, tier, hosting,

@@ -158,13 +158,13 @@ separately authorized and executed.
 
 ## Measurement-driven validation
 
-The live evaluation uses one versioned metrics document per run. Component
-probes and final scenarios remain different datasets and carry different
-`run_kind` values. A functional verification message proves reachability; a
-small controlled measurement batch supports descriptive latency statistics.
+The live evaluation uses one versioned metrics document per deployment
+attempt, including early component checks and cleanup. Aborted attempts remain
+explicitly incomplete. Optional standalone component diagnostics cannot replace
+the final scenario evidence. A functional verification message proves
+reachability; a small controlled batch supports descriptive latency statistics.
 
-The default protocol is five warm-up messages followed by 50 measured messages
-per required direction. Any deviation is recorded in the metrics document.
+Sampling follows the live protocol; deviations are recorded in the metrics document.
 Each trace uses one correlation identifier and provider/application timestamps
 for the relevant stops:
 
@@ -179,10 +179,12 @@ provider delivery outcome:
 command request -> delivery accepted/failed -> durable Event Layer -> L3/L4
 ```
 
-The evaluation reports end-to-end and consecutive-stage latency, success,
-timeouts, duplicates, ordering, retries, DLQ observations, deployment/readiness
-time, Destroy/cleanup time, resources, and cost. Latency is an evaluation
-metric, not an Optimizer objective.
+The required evaluation reports end-to-end latency, functional outcomes,
+deployment/readiness and Destroy/cleanup time, resources and cost. Recorded
+delivery counters remain available; consecutive-stage analysis and plots are
+optional. The operating rules are maintained in the
+[live-evaluation protocol](evaluation/live-evaluation-protocol.md).
+Latency remains an evaluation metric, not an Optimizer objective.
 
 ## Thesis placement
 

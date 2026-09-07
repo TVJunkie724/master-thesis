@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-05"
-version: "1.7"
+lastUpdated: "2026-09-07"
+version: "1.8"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -670,40 +670,20 @@ Redundant permutations are not added without a specific RQ
 or risk justification. The matrix remains non-executable until every numerical
 budget cap and candidate trace has been reviewed.
 
-### Cost guardrails
+### Execution and evidence
 
-- Small inputs only;
-- one scenario active at a time by default;
-- reviewed plan and maximum expected cost before Apply;
-- maximum runtime and automatic alert/timer outside the deployment;
-- in the first provider-local run per provider, immediate L1-L3/Eventing
-  verification before L4, L5, and the complete simulator protocol; a failed
-  upstream gate triggers immediate Destroy;
-- no generic partial-Apply mode or provider-specific Terraform target lists;
-  the early component and final datasets reuse one atomic graph deployment;
-- GCP's early component gate additionally validates the selected non-HA 1+1
-  Small broker/adapter allocation before the final GCP dataset continues;
-- successful final telemetry verification followed by Destroy;
-- post-Destroy provider inventory and residual-cost check, with observed billing
-  attached later when the provider export is available; and
-- a stop condition after any unexplained residual resource, quota surprise, or
-  cost deviation.
+Follow the [live-evaluation protocol](../research/evaluation/live-evaluation-protocol.md)
+for prerequisites, confirmation, budget/timer, staged checks, cleanup and
+evidence validation. It is the sole operational checklist. Each attempt has
+one metrics record; separate component reports are not required. Shared
+application reconnect/replay is demonstrated once for the evaluated revision.
+The four core summary tables are sufficient; extra diagnostics are optional.
 
-### Evidence per scenario
-
-- input and calculation digest;
-- provider allocation and cost trace;
-- readiness and preparation record;
-- Terraform plan/apply identifiers and timestamps;
-- operation reconnect/replay evidence;
-- for each first provider-local run, a separate component metrics document that
-  cannot substitute for final scenario evidence;
-- L4/L5 access and telemetry roundtrip result;
-- one digest-bound `live-evaluation-metrics.v1` document containing the
-  declared path, warm-up and measured simulator samples, stage timestamps,
-  lifecycle duration, resources, reliability observations, and cost fields;
-- Destroy and residual-resource result; and
-- observed cost, functional deviation, and classified limitation.
+Apply the [target concept's implementation freeze](2026-08-26_thesis_poc_target_concept.md#implementation-freeze):
+fix evaluation blockers, preserve working convenience features, and add no
+further product capabilities. Resolve the outstanding L5/original-comparison
+decision before claiming a final functional scope. This protocol reduction
+does not change L5, provider assignments, budget approval or Cloud Apply authority.
 
 ### Exit criteria
 
