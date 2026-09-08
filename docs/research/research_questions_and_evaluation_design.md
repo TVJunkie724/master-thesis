@@ -643,6 +643,19 @@ person-hour result. Do not infer a development-cost saving or universal
 impossibility of automation. Infracost was a documentation-level alternative
 assessment, not a completed integration or comparative tool experiment.
 
+**Authoring note for later revision (2026-09-08; not final thesis wording):**
+Explicitly acknowledge existing tools such as Infracost resource pricing as a
+possible alternative to custom price acquisition and resource-to-price mapping.
+Their integration was deliberately left outside the remaining thesis scope:
+coverage of the selected services, billing semantics, and compatibility with
+the Optimizer's required unit prices and tier structures would need additional
+validation. This is a scope assessment, not a measured integration-effort result
+or a claim that the tools are unsuitable or automation is impossible. Retain
+the distinction between the implemented own-fetcher attempt and the
+documentation-only third-party assessment. Starting points for later citation:
+[Infracost resource pricing](https://www.infracost.io/docs/features/cli_commands/#price)
+and [supported resources](https://www.infracost.io/docs/supported_resources/).
+
 ### Chapter responsibilities
 
 | Thesis section | Research-question role |
