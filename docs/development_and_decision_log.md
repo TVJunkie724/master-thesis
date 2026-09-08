@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-07"
-version: "2.5"
+lastUpdated: "2026-09-09"
+version: "2.6"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -96,6 +96,30 @@ The Infracost alternative was investigated through documentation on 2026-09-08,
 but was not integrated or experimentally validated against the full Optimizer
 JSON. No migration or new fetching subsystem is planned. The account of this
 decision is carried into the research design and the thesis Discussion chapter.
+
+### 2026-09-09 — Remove unused fetching remnants without changing prices
+
+Removed the unreferenced raw-catalog candidate extractor, pricing-refresh SSE
+helper, and unused fetcher URL/credential/path constants. Corrected the baseline
+README and runtime messages to describe pinned evidence rather than a refresh
+workflow. Historical snapshots, source manifests, offline reconstruction tools,
+and the five-layer currency input remain for scientific traceability. No price,
+snapshot identity, formula, or deployment behavior was changed.
+
+Offline verification covers the three pinned provider snapshots and digests,
+deterministic Six-layer rate-card reconstruction, registered meter coverage,
+frozen-price calculations, all 243 Eventing topology/scenario allocations, and
+read-only API resolution. Management selection remains fail-closed when pinned
+evidence cannot be verified. This establishes input compatibility and internal
+consistency, not current market-price accuracy or an account billing guarantee.
+
+Verification used isolated Python 3.12 environments with each service's locked
+dependencies because Docker was unavailable: 428 Optimizer pricing,
+architecture, calculation, and catalog API tests passed; five existing tests
+for the removed five-layer adapter remained skipped. Eleven Management run and
+pricing-context tests passed, as did supplemental API/import/currency tests,
+read-only rate-card reconstruction, and lint checks. No cloud resources were
+created and no provider pricing requests were made.
 
 ## D-04 — One resolved deployment graph
 

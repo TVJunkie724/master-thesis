@@ -897,7 +897,7 @@ def _expected_publication() -> tuple[
 
 
 def _archive_current_manifest(current: bytes) -> None:
-    """Retain the exact predecessor required by safe runtime migration."""
+    """Retain the exact predecessor for offline reconstruction and provenance."""
 
     payload = _read(BASELINE_PATH)
     PricingCatalogBaselineManifest.model_validate(payload)

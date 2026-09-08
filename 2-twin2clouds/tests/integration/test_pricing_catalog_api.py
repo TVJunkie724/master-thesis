@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.pricing_catalog_repository import get_pricing_catalog_repository
@@ -6,16 +7,20 @@ from rest_api import app
 client = TestClient(app)
 
 
-def test_catalog_api_exposes_reference_then_exact_snapshot():
-    baseline_response = client.get("/pricing/catalogs/baseline/azure")
+@pytest.mark.parametrize(
+    ("provider", "region"),
+    (("aws", "eu-central-1"), ("azure", "westeurope"), ("gcp", "europe-west1")),
+)
+def test_catalog_api_exposes_reference_then_exact_snapshot(provider, region):
+    baseline_response = client.get(f"/pricing/catalogs/baseline/{provider}")
 
     assert baseline_response.status_code == 200
     reference = baseline_response.json()
-    assert reference["provider"] == "azure"
-    assert reference["pricingRegion"] == "westeurope"
+    assert reference["provider"] == provider
+    assert reference["pricingRegion"] == region
 
     reference_response = client.get(
-        "/pricing/catalogs/azure/westeurope/snapshots/"
+        f"/pricing/catalogs/{provider}/{region}/snapshots/"
         f"{reference['snapshotId']}/reference"
     )
     assert reference_response.status_code == 200
@@ -23,12 +28,15 @@ def test_catalog_api_exposes_reference_then_exact_snapshot():
     assert reference_response.json()["isFresh"] is True
 
     snapshot_response = client.get(
-        "/pricing/catalogs/azure/westeurope/snapshots/"
+        f"/pricing/catalogs/{provider}/{region}/snapshots/"
         f"{reference['snapshotId']}"
     )
     assert snapshot_response.status_code == 200
     assert snapshot_response.json()["reference"] == reference
-    assert "azureDigitalTwins" in snapshot_response.json()["pricing"]
+    assert snapshot_response.json()["pricing"] == (
+        get_pricing_catalog_repository().resolve_baseline(provider).pricing
+    )
+    assert snapshot_response.json()["pricing"]["sixLayer"]["componentRates"]
 
 
 def test_catalog_api_rejects_implicit_global_export():

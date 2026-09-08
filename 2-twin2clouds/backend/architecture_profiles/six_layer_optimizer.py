@@ -158,7 +158,7 @@ def optimize_six_layer_eventing_v1(
         raise ArchitectureResolutionError(
             "ARCH_PRICING_EVIDENCE_MISSING",
             "pricing",
-            "Supply exactly one live catalog or explicit test-ledger resolver",
+            "Supply exactly one frozen catalog or explicit test-ledger resolver",
         )
     ledger_resolver = cost_ledger_resolver or (
         build_six_layer_catalog_cost_ledger_resolver(pricing_by_provider or {})

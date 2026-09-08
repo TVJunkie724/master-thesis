@@ -1,4 +1,4 @@
-"""Versioned live-catalog pricing adapter for Six-layer.
+"""Versioned frozen-catalog pricing adapter for Six-layer.
 
 The adapter contains formulas, never provider prices. Every rate is supplied by
 the exact immutable provider pricing snapshots selected for a calculation.
