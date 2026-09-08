@@ -596,6 +596,55 @@ rule/action declarations determine whether a particular event invokes them.
 
 ## Thesis Chapter Mapping
 
+### Pricing acquisition and normalization as an engineering finding
+
+The thesis must distinguish the attempted automated acquisition of prices from
+the semantic work required to make those prices calculable. Automatic fetching
+was implemented and investigated for AWS, Azure, and GCP, including
+provider-specific matching, extraction of price candidates, and regression
+checks. It was subsequently removed from the active workflow in favor of
+dated, cited, immutable pricing snapshots. This was not simply a choice to
+avoid API calls: general, reliably maintained acquisition and integration of
+the different tariff models would have exceeded the scope of this thesis PoC.
+
+The provider models are not directly interchangeable. Their service editions,
+regional identifiers, billing meters, and aggregation scopes differ. Raw
+prices must be related to a common workload while retaining provider-specific
+semantics: requests versus payload-based operations, decimal GB versus binary
+GiB, capacity-hour versus consumption pricing, price tiers and shared free
+allowances, and minimum-duration or monthly charges. An API response or a
+common JSON shape does not resolve these differences. Nor does a shared
+currency or unit prove that two service bundles provide equivalent functions.
+
+Consequently, the curated approach still required substantial engineering
+effort to select, interpret, normalize, validate, and attribute the prices.
+That effort is part of the operationalization result, not an incidental data
+import task. RQ1 reports this implementation burden; RQ2 explains the functional
+and workload assumptions that make bundles comparable; RQ3 depends on the
+resulting unit, tier, formula, and cost-ownership correctness. Frozen inputs
+improve reproducibility but do not establish that prices remain current or
+that all modeling assumptions are correct.
+
+The following repository checkpoints provide an auditable development trace:
+
+| Checkpoint | Evidence of the investigated work |
+|---|---|
+| `8f980bde` | AWS/Azure/GCP fetcher match evidence and associated tests |
+| `4bf4a10d` | Azure Digital Twins billing, units, price mappings, and formula corrections |
+| `48458db1` | Provider-specific transfer-route pricing evidence |
+| `b10df896` | Explicit retirement of fetching/refresh and restriction to pinned price snapshots |
+
+The [pricing evidence model](pricing_evidence_dataflow.md) and
+[D-03](../development_and_decision_log.md#d-03--frozen-pricing-evidence) preserve
+the interpretation and scope decision. The thesis Discussion chapter records
+the finding under `sec:pricing-acquisition-scope`. The substantial effort is a
+qualitative observation supported by the development trace, not a measured
+person-hour result. Do not infer a development-cost saving or universal
+impossibility of automation. Infracost was a documentation-level alternative
+assessment, not a completed integration or comparative tool experiment.
+
+### Chapter responsibilities
+
 | Thesis section | Research-question role |
 |---|---|
 | Introduction | Problem, objective, final RQ wording, contributions |

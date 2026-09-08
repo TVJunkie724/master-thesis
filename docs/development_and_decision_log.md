@@ -68,6 +68,35 @@ and calculation. There is no pricing refresh, review center, approval state,
 pricing credential, or public pricing administration workflow. Staleness and
 provider-plan limitations are reported as evaluation limitations.
 
+### 2026-09-08 — Record the attempted automation and retained modeling effort
+
+Automatic pricing acquisition was implemented and iteratively investigated,
+not merely proposed. The repository history retains the three provider
+fetchers, candidate extraction, matching evidence, normalization, and regression
+tests. Representative checkpoints are `8f980bde` (fetcher matching evidence),
+`4bf4a10d` (Azure Digital Twins billing corrections), `48458db1` (exact transfer
+route evidence), and `b10df896` (removal of the live catalog/refresh boundary).
+
+The decision to freeze pricing was also a scope decision: reliable, general
+automatic acquisition and semantic integration of heterogeneous cloud tariffs
+would have exceeded the bounded thesis PoC. API access alone did not establish
+the correct service edition, region, meter, unit, tier, allowance, billing
+scope, or minimum charge. This is an engineering finding for the investigated
+implementation, not proof that automated cloud pricing is impossible.
+
+Removing fetching does not remove the substantial effort already invested in
+making provider prices comparable and calculable. Curated inputs still require
+explicit workload-to-meter mappings, unit conversions, tier handling,
+functional service-bundle comparison, and prevention of omitted or duplicated
+costs. These belong to RQ1 operationalization, RQ2 comparability, and RQ3 cost
+validity. Effort is reported qualitatively through implementation history; no
+person-hour measurement or development-cost total is inferred.
+
+The Infracost alternative was investigated through documentation on 2026-09-08,
+but was not integrated or experimentally validated against the full Optimizer
+JSON. No migration or new fetching subsystem is planned. The account of this
+decision is carried into the research design and the thesis Discussion chapter.
+
 ## D-04 — One resolved deployment graph
 
 **Decision:** The immutable Six-layer resolution is the source of truth for

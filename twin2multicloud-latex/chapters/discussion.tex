@@ -103,6 +103,65 @@ not strengthen the research answers and were removed from the runtime path.
 
 \section{Simplifications and Limitations}
 
+\subsection{Attempted Automatic Price Acquisition and Scope Boundary}
+\label{sec:pricing-acquisition-scope}
+
+Automatic price acquisition was implemented and investigated during the
+development of the PoC. The approach included provider-specific fetchers for
+AWS, Azure, and GCP, extraction and matching of pricing candidates, and
+regression checks. It was therefore more than a proposed future capability.
+The development history records repeated refinements to matching evidence,
+Azure Digital Twins billing semantics, and cross-cloud transfer pricing before
+the automatic refresh path was deliberately removed in favor of frozen,
+source-attributed pricing snapshots.\footnote{Repository checkpoints:
+\texttt{8f980bde} (fetcher matching evidence), \texttt{4bf4a10d} (Azure Digital
+Twins billing), \texttt{48458db1} (transfer pricing), and \texttt{b10df896}
+(retirement of the live pricing-catalog boundary).}
+
+The difficulty was not limited to obtaining current numbers through an API.
+The providers expose heterogeneous service editions, regional identifiers,
+billing meters, and tariff structures that are not directly interchangeable.
+Selecting a price required interpreting which resource and operation it
+represented and how the modeled workload consumed it. Reliable, general
+automation of both acquisition and semantic integration, including its ongoing
+validation and maintenance, would have expanded the implementation beyond the
+scope of this master's thesis. Freezing the inputs was consequently a
+deliberate research-scope decision, not evidence that cloud-price automation
+is technically impossible. A later documentation-level assessment of
+Infracost did not constitute an implemented replacement or a comparative
+tool-validation experiment.
+
+\subsection{Normalization Effort Remains Without Automatic Fetching}
+
+Abandoning automatic fetching did not eliminate the substantial engineering
+effort required to make cloud prices comparable and calculable. Curated price
+inputs still required the following work:
+
+\begin{itemize}
+    \item mapping a shared workload to provider-specific operations, payload
+    increments, storage quantities, and provisioned capacity;
+    \item preserving distinctions such as decimal GB versus binary GiB,
+    per-request versus volume-based charges, and capacity-hour versus
+    consumption-based pricing;
+    \item representing price tiers, account-wide allowances, aggregation
+    scopes, and minimum-duration or monthly billing rules; and
+    \item attributing storage transitions, transfer, adapters, and shared
+    resources without omitting or double-counting their costs.
+\end{itemize}
+
+These tasks required semantic modeling and validation, not merely conversion
+into a common JSON structure. A shared currency or billing unit alone also
+does not establish functional equivalence between provider service bundles.
+This work contributes to RQ1 as an operationalization burden, to RQ2 through
+explicit comparability assumptions, and to RQ3 through defensible cost
+formulas and attribution. The effort is reported qualitatively through the
+implementation trace; no measured person-hour total or monetary development
+cost is inferred. Frozen snapshots make the calculations reproducible, but
+do not remove pricing drift, interpretation errors, or limitations of the
+chosen workload and service mappings.
+
+\subsection{Remaining PoC Limitations}
+
 The principal limitations are:
 
 \begin{itemize}
