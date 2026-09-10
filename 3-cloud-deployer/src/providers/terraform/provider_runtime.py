@@ -12,12 +12,12 @@ from src.deployment_access.runtime_evidence import (
 )
 
 from src.providers.terraform.aws_deployer import (
-    configure_aws_grafana,
+    configure_aws_visualization,
     create_twinmaker_entities,
     register_aws_iot_devices,
 )
 from src.providers.terraform.azure_deployer import (
-    configure_azure_grafana,
+    configure_azure_visualization,
     register_azure_iot_devices,
     upload_dtdl_models,
 )
@@ -136,13 +136,13 @@ def run_post_deployment(
     if providers_config["layer_1_provider"] == "azure":
         register_azure_iot_devices(context, project_path)
     if providers_config["layer_5_provider"] == "azure":
-        configure_azure_grafana(context, terraform_outputs)
+        configure_azure_visualization(context, terraform_outputs)
 
     if providers_config["layer_4_provider"] == "aws":
         create_twinmaker_entities(context, project_path, terraform_outputs)
     if providers_config["layer_1_provider"] == "aws":
         register_aws_iot_devices(context, project_path)
     if providers_config["layer_5_provider"] == "aws":
-        configure_aws_grafana(context, terraform_outputs)
+        configure_aws_visualization(context, terraform_outputs)
 
     return collect_deployment_access_runtime_evidence(context, terraform_outputs)

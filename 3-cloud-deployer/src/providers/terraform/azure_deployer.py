@@ -64,7 +64,7 @@ def register_azure_iot_devices(
     logger.info("  Azure IoT devices registered")
 
 
-def configure_azure_grafana(
+def configure_azure_visualization(
     context: "DeploymentContext", terraform_outputs: dict
 ) -> None:
     """Verify active-profile L5 or configure the historical Grafana path."""

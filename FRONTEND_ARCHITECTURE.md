@@ -104,6 +104,11 @@ Management API. The bottom navigation shows at most one filled primary action.
 
 ## Canonical architecture UI
 
+The calculation form renders only the frozen Six-layer scenarios and their
+existing read-only sections. Missing or unsupported profile pins block input
+emission rather than exposing an old five-layer form. Historical DTO decoding
+remains for non-destructive reads; it does not enable a legacy calculation UI.
+
 The client loads `GET /architecture-contract` and the current Twin's immutable
 pin. It checks ID, version and digest before calculation/review. There is no
 catalog, selector, change preview, inheritance, registration, or arbitrary

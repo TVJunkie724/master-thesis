@@ -4,126 +4,104 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/widgets/calc_form/calc_form.dart';
 
 void main() {
-  testWidgets('device traffic shows only its focused field group', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CalcForm(
-              section: CalcFormSection.deviceTraffic,
+  for (final profile in [null, 'five-layer', 'unknown']) {
+    testWidgets('missing or retired profile $profile cannot emit a workload', (
+      tester,
+    ) async {
+      CalcParams? changed;
+      bool? valid;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CalcForm(
+              profileId: profile,
+              profileVersion: '1',
               initialParams: CalcParams.defaultParams(),
+              onChanged: (value) => changed = value,
+              onValidChanged: (value) => valid = value,
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('Number of IoT Devices'), findsOneWidget);
-    expect(find.text('Hot Storage Duration'), findsNothing);
-    expect(find.text('Enable Event Checking'), findsNothing);
-    expect(find.text('Currency:'), findsNothing);
-  });
-
-  testWidgets('twin capabilities combines 3D and dashboard intent', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CalcForm(
-              section: CalcFormSection.twinCapabilities,
-              initialParams: CalcParams.defaultParams(),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('Is a 3D Model Necessary?'), findsOneWidget);
-    expect(find.text('Dashboard Refreshes per Hour'), findsOneWidget);
-    expect(find.text('Number of IoT Devices'), findsNothing);
-  });
-
-  testWidgets('ADT billing assumptions stay collapsed and emit valid values', (
-    tester,
-  ) async {
-    CalcParams? changed;
-    await tester.binding.setSurfaceSize(const Size(1000, 1000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CalcForm(
-              section: CalcFormSection.twinCapabilities,
-              initialParams: CalcParams.defaultParams(),
-              onChanged: (params) => changed = params,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('Azure Digital Twins assumptions'), findsOneWidget);
-    expect(find.text('Query Units per Query'), findsNothing);
-
-    await tester.tap(find.text('Azure Digital Twins assumptions'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-units-input')),
-      '2.5',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-response-size-input')),
-      '1.25',
-    );
-    await tester.pump();
-
-    expect(changed?.averageDigitalTwinQueryUnitsPerQuery, 2.5);
-    expect(changed?.averageDigitalTwinQueryResponseSizeInKb, 1.25);
-
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-units-input')),
-      '0',
-    );
-    await tester.pump();
-
-    expect(find.text('Must be greater than 0.0'), findsOneWidget);
-    expect(changed?.averageDigitalTwinQueryUnitsPerQuery, 2.5);
-  });
+      );
+      await tester.pump();
+      expect(changed, isNull);
+      expect(valid, isFalse);
+      expect(
+        find.textContaining('verified Six-layer architecture'),
+        findsOneWidget,
+      );
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.byType(Switch), findsNothing);
+    });
+  }
 
   testWidgets(
-    'processing exposes legacy unsupported topology without coercion',
+    'profile arrival restores saved scenario and removal blocks output',
     (tester) async {
-      bool? isValid;
+      final saved = CalcParams.sixLayer(
+        scenario: SixLayerWorkloadScenario.medium,
+        currency: 'EUR',
+      );
+      final changes = <CalcParams>[];
+      bool? valid;
+      Widget form(String? profile, String? version) => MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: profile,
+              profileVersion: version,
+              initialParams: saved,
+              section: CalcFormSection.processing,
+              onChanged: changes.add,
+              onValidChanged: (value) => valid = value,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(form(null, null));
+      await tester.pump();
+      expect(changes, isEmpty);
+      await tester.pumpWidget(form('six-layer-eventing', '1'));
+      await tester.pump();
+      expect(changes.last.scenario, SixLayerWorkloadScenario.medium);
+      expect(changes.last.currency, 'EUR');
+      expect(valid, isTrue);
+      final count = changes.length;
+      await tester.pumpWidget(form('six-layer-eventing', '2'));
+      await tester.pump();
+      expect(changes.length, count);
+      expect(valid, isFalse);
+    },
+  );
+
+  testWidgets(
+    'historical input stays readable but cannot restore legacy controls',
+    (tester) async {
+      final historical = CalcParams.defaultParams();
+      final original = historical.toJson();
+      CalcParams? changed;
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SingleChildScrollView(
               child: CalcForm(
-                section: CalcFormSection.processing,
-                initialParams: CalcParams.fromJson({
-                  ...CalcParams.defaultParams().toJson(),
-                  'integrateErrorHandling': true,
-                }),
-                onValidChanged: (value) => isValid = value,
+                profileId: 'six-layer-eventing',
+                profileVersion: '1',
+                initialParams: historical,
+                section: CalcFormSection.deviceTraffic,
+                onChanged: (value) => changed = value,
               ),
             ),
           ),
         ),
       );
       await tester.pump();
-      await tester.pump();
-
-      expect(find.text('Legacy, not deployable'), findsOneWidget);
-      expect(tester.widget<Switch>(find.byType(Switch).last).value, isTrue);
-      expect(isValid, isFalse);
+      expect(historical.toJson(), original);
+      expect(changed?.scenario, SixLayerWorkloadScenario.small);
+      expect(changed?.numberOfDevices, 100);
+      expect(find.text('Devices'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('Currency:'), findsNothing);
     },
   );
 

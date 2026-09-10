@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-07"
-version: "1.8"
+lastUpdated: "2026-09-10"
+version: "1.9"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -552,8 +552,18 @@ experiments, Configuration Workspace and Twin lifecycle now share app-bar
 utilities, top-aligned bounded content, one dominant next outcome, secondary
 management actions and responsive 640-pixel behavior. The audit corrected the
 remaining wide-screen vertical centering in Cloud access and verified all four
-surfaces in the deterministic Desktop/Web demo. The dormant login remains
-excluded. No provider call or Terraform action is part of this audit.
+surfaces in the deterministic Desktop/Web demo. The unused login screen was
+subsequently removed. No provider call or Terraform action is part of this audit.
+
+On 2026-09-10, bounded maintenance removed 21 unreachable Flutter libraries
+and their exclusive tests, removed the inactive five-layer calculation form
+while preserving historical DTO reads, and removed two unused Management test
+simulation helpers. Missing or unsupported profile pins now block workload
+emission. Simulator packages include all per-device runtime mounts and explicit
+configuration arguments, exclude credentials from image builds, and stop rather
+than restart after the supervised session. Provider wire contracts, frozen
+prices, Terraform resources, migration/cleanup paths and live authorization
+remain unchanged. Verification is recorded in decision D-26.
 
 The approved Azure PoC simplification is implemented across
 Management, Deployer, Terraform, the federation runner and Flutter. One Azure

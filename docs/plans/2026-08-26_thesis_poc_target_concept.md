@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-07"
-version: "1.3"
+lastUpdated: "2026-09-10"
+version: "1.4"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -90,9 +90,9 @@ The PoC retains one local owner profile so Twins and encrypted
 CloudConnections have an explicit user boundary. Startup binds a configured
 static local bearer to that profile; it does not expose interactive application
 login. Google OAuth, Microsoft login, university SAML, JWT issuance, roles, and
-multi-tenant session management are outside the runtime. The existing login
-screen remains dormant and unrouted as a possible adapter boundary, not as a
-supported capability. Provider-owned Entra, IAM Identity Center, IAP, OIDC, or
+multi-tenant session management are outside the runtime. The unused login
+screen is removed; only the local profile bootstrap remains. Provider-owned
+Entra, IAM Identity Center, IAP, OIDC, or
 SAML mechanisms used by deployed cloud resources are separate from application
 authentication and remain where the Six-layer graph requires them.
 

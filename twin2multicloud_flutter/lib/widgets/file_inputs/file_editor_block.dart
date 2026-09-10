@@ -32,7 +32,7 @@ class FileEditorBlock extends StatefulWidget {
   final String? validationLabel;
   final bool autoValidateOnUpload;
 
-  /// When false, hides the validate button and result (for FunctionPackageBlock which manages its own)
+  /// When false, hides the validate button and result for parent-owned validation.
   final bool showValidateButton;
 
   /// When false, skips header row and outer container (for use with CollapsibleBlockWrapper)

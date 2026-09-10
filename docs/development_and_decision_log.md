@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-09"
-version: "2.6"
+lastUpdated: "2026-09-10"
+version: "2.7"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -246,8 +246,8 @@ research questions. Ownership of encrypted provider credentials still requires
 an explicit profile boundary.
 
 **Consequence:** External application-login implementations and dependencies
-are removed. The login page remains compiled but dormant and unrouted so a
-future authentication adapter can reuse the presentation boundary. Cloud
+are removed. The previously dormant login page was removed during the
+2026-09-10 cleanup; the local profile bootstrap remains the boundary. Cloud
 workload identity and provider-owned access login remain separate Six-layer
 deployment concerns.
 
@@ -466,8 +466,8 @@ verification and cleanup-evidence contracts remain unchanged.
 **Decision:** The supported Flutter presentation consists of four focused
 surfaces: Cloud access, Twin experiments, Configuration Workspace and Twin
 lifecycle. They share app-bar utilities, top-aligned bounded content,
-responsive behavior and one dominant next outcome. The dormant login and the
-local profile bootstrap gate are not product screens.
+responsive behavior and one dominant next outcome. The local profile bootstrap
+gate is not a product screen; no dormant login screen is retained.
 
 **Rationale:** These four surfaces map directly to provider preparation,
 experiment selection, immutable configuration and safe execution evidence.
@@ -571,6 +571,37 @@ unverified. The review therefore stops before runtime restoration and requests
 a hosting/cost decision. It does not increase caps, weaken reader authentication,
 change frozen candidate evidence or claim cloud verification. No cloud mutation
 or credential access occurred during this review.
+
+## D-26 — Remove inactive surfaces and repair standalone simulator packaging
+
+**Decision (2026-09-10):** Remove the 21 Flutter libraries unreachable from
+the application entrypoint, their five exclusive test files, the inactive
+five-layer calculation form, and two uncalled Management test-simulation
+helpers. Preserve historical DTO decoding, migrations, cleanup/state recovery,
+provider runtime contracts and scientific evidence. No live L5 or pricing
+decision is changed. L5 post-deployment wrapper names now describe visualization
+instead of implying that the active JSON readback deploys Grafana; referenced
+historical helpers remain isolated rather than being blindly deleted.
+
+**Rationale:** Speculative UI and duplicated historical controls add maintenance
+without improving RQ1--RQ3. The supported scenario/currency form is retained;
+missing or unsupported architecture pins cannot emit calculation input. The
+shared skill guardrails now describe the actual Riverpod/BLoC ownership,
+Management-only transport, local bearer and feature-branch rules in one place.
+
+**Simulator correction:** Generated packages use explicit configuration paths,
+an explicit Python package, read-only mounts for every device, and no automatic
+restart. Device credentials are excluded from both image contents and build
+context. The corrected GCP quick start and second-device lookup are exercised
+against a real generated package with synthetic inputs, without sending data.
+
+**Evidence:** 767 Flutter unit/widget tests passed, including scenario restore,
+profile loss, historical input isolation and responsive boundaries. Flutter
+analysis, architecture checks, Web and macOS release builds passed. The
+network-disabled Deployer checks passed 31 simulator-focused tests and 212
+core/post-deployment/package tests (overlapping selections); 27 Management
+quarantine/simulator tests passed with synthetic credentials. This is offline
+regression evidence, not a provider runtime or paid evaluation result.
 
 ## Current implementation checkpoint
 

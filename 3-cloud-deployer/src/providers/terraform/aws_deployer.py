@@ -739,7 +739,7 @@ def _generate_aws_simulator_config(
     )
 
 
-def configure_aws_grafana(
+def configure_aws_visualization(
     context: "DeploymentContext",
     terraform_outputs: dict,
 ) -> None:

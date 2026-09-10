@@ -242,14 +242,14 @@ def test_aws_grafana_requires_every_terraform_output():
     context, _provider = _aws_context()
 
     with pytest.raises(RuntimeError, match="Missing AWS Grafana outputs"):
-        aws_deployer.configure_aws_grafana(context, {})
+        aws_deployer.configure_aws_visualization(context, {})
 
 
 def test_azure_grafana_requires_hot_reader_output():
     context = SimpleNamespace(providers={"azure": object()})
 
     with pytest.raises(RuntimeError, match="azure_l3_hot_reader_url"):
-        azure_deployer.configure_azure_grafana(context, {})
+        azure_deployer.configure_azure_visualization(context, {})
 
 
 @pytest.mark.parametrize(
@@ -274,7 +274,7 @@ def test_active_profile_azure_l5_uses_bounded_raw_history_probe(monkeypatch, pro
     verify = MagicMock()
     monkeypatch.setattr(layer_5_raw_history, "verify_raw_history_reader", verify)
 
-    azure_deployer.configure_azure_grafana(
+    azure_deployer.configure_azure_visualization(
         context,
         {
             "azure_component_visualization_output": {
@@ -747,7 +747,7 @@ def test_active_profile_aws_l5_uses_bounded_raw_history_probe(monkeypatch, profi
     verify = MagicMock()
     monkeypatch.setattr(aws_deployer, "_probe_aws_raw_history_reader", verify)
 
-    aws_deployer.configure_aws_grafana(
+    aws_deployer.configure_aws_visualization(
         context,
         {
             "aws_component_visualization_output": {
