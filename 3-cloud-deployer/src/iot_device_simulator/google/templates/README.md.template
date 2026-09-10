@@ -29,14 +29,13 @@ Each payload uses the configured device ID for routing.
 
 ### Docker (Recommended)
 ```bash
-docker compose up -d
-docker attach gcp-iot-simulator-{{device_id}}
+docker compose run --build --rm gcp-iot-simulator
 ```
 
 ### Python
 ```bash
 pip install -r requirements.txt
-python -m src.main
+python -m src.main --config config.json
 ```
 
 ## Commands
@@ -48,7 +47,7 @@ python -m src.main
 
 ## File Structure
 ```
-├── config.json           # Default device config (backward compat)
+├── config.json           # Initial device config; other devices use configs/
 ├── configs/              # Per-device configurations
 │   ├── device-1/
 │   │   └── config.json
@@ -64,3 +63,9 @@ python -m src.main
 ⚠️ **IMPORTANT:** The config files contain a deployment-scoped MQTT password.
 - Never commit to version control
 - Keep secure and rotate regularly
+
+Run from the extracted package directory. Docker mounts `config.json`,
+`configs/`, payloads and the public server certificate read-only. Device
+credentials are excluded from the image build context. The simulator does not
+restart automatically; `exit` ends the supervised session. Sending or listening
+uses the deployed cloud resources and belongs to the approved evaluation run.
