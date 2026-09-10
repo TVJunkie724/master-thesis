@@ -100,4 +100,4 @@ A second app-bar row under the back button with prototype-only actions:
 - **Material `Icons`** only
 - **Hardcoded values OK** — prototypes are explicitly outside the design-token discipline IF you put them in `_prototypes/`. If a value is worth keeping, it belongs in `lib/theme/` first.
 - **No tests for prototypes** — prototypes are themselves the visual test
-- **Never commit a prototype to `master`** — they live on `ai/dev` until promoted or removed
+- **Never commit a prototype to `master`** — keep it on the current feature branch until promoted or removed

@@ -27,7 +27,7 @@ coordinates the Optimizer (5003) and Deployer (5004).
 
 | Order | Document | Purpose |
 |-------|----------|---------|
-| 1 | `FRONTEND_ARCHITECTURE.md` | Architecture overview, SSE choice, SQLite rationale, OAuth design, screen wireframes (Login, Dashboard, Twin Detail, Wizard), twin-state machine |
+| 1 | `FRONTEND_ARCHITECTURE.md` | Current four-surface workflow, local bearer profile, Riverpod/BLoC ownership, SSE and Twin lifecycle |
 | 2 | `integration_vision.md` | Six-layer architecture and why Flutter must go through Management API |
 | 3 | `twin2multicloud_flutter/README.md` | Project-local conventions and run instructions |
 | 4 | Active thesis target, evaluation and execution documents | Current scope and exit criteria |
@@ -37,7 +37,7 @@ coordinates the Optimizer (5003) and Deployer (5004).
 
 - Why **SSE** (not WebSocket, not polling) is used for deployment log streaming
 - Why **SQLite** is the source of truth (relational + zero-config + ACID for file versioning)
-- The **OAuth provider plugin** design (Google first, Microsoft / university later)
+- The local PoC bearer/profile boundary, separate from provider-owned cloud login
 - The **twin-state machine**: `draft → configured → deployed ⇄ destroyed / error → inactive`
 - Why the **Wizard** brings a twin to `configured`, while the **Dashboard / Detail** view triggers `configured → deployed`
 
@@ -53,23 +53,22 @@ twin2multicloud_flutter/
 │   │   └── twin_overview/       → TwinOverviewBloc and friends
 │   ├── screens/                 ← PRESENTATION LAYER (top-level screens)
 │   │   ├── dashboard_screen.dart
-│   │   ├── login_screen.dart
+│   │   ├── profile_bootstrap_screen.dart
 │   │   ├── settings_screen.dart
 │   │   ├── twin_overview/       → Twin Detail screens
 │   │   └── wizard/              → Wizard step screens
 │   ├── widgets/                 ← PRESENTATION (reusable UI parts)
-│   │   ├── architecture/        → ArchitectureGraph, ArchitectureLayerBuilder
+│   │   ├── architecture/        → Server-owned architecture presentation
 │   │   ├── calc_form/           → Cost calculation form widgets
-│   │   ├── credentials/         → Credential entry widgets
+│   │   ├── cloud_connections/   → Named CloudConnection entry/import
 │   │   ├── dashboard/           → Dashboard cards
-│   │   ├── file_inputs/         → ConfigForm, FileEditor, ZipUpload blocks
-│   │   ├── form_inputs/         → Generic inputs (text, dropdown, etc.)
+│   │   ├── file_inputs/         → Typed configuration and bounded source editors
 │   │   ├── results/             → Optimizer result displays
 │   │   ├── step3/               → Wizard Step 3 widgets
 │   │   ├── wizard/              → Wizard scaffold widgets
 │   │   ├── branded_app_bar.dart, code_viewer_dialog.dart, …
 │   ├── services/                ← SERVICES LAYER (HTTP / SSE)
-│   ├── providers/               ← App-level providers (auth, theme)
+│   ├── providers/               ← Riverpod composition (profile, theme, adapters)
 │   ├── models/                  ← Plain Dart DTOs
 │   ├── core/                    ← Shared utilities
 │   ├── theme/                   ← colors.dart, spacing.dart (design tokens)
@@ -128,7 +127,7 @@ twin2multicloud_flutter/lib/widgets/
 twin2multicloud_flutter/lib/widgets/<feature>/
 ```
 
-If a widget already covers your case (`StatCard`, `BrandedAppBar`, `DeploymentTerminal`, `TwinListItem`, `CodeViewerDialog`, …), reuse or extend it. **Never duplicate.**
+If a widget already covers your case (`BrandedAppBar`, `DeploymentTerminal`, `CodeViewerDialog`, …), reuse or extend it. **Never duplicate.**
 
 ## Step 7: Verify the Toolchain
 
@@ -149,19 +148,19 @@ Before integration work, confirm the local stack is up:
 
 ```bash
 docker ps
-# Expect: optimizer @ 5003, deployer @ 5004, management api @ 5005 (when implemented)
+# Expect: optimizer @ 5003, deployer @ 5004, management api @ 5005
 
 curl -s http://localhost:5003/health
 curl -s http://localhost:5004/health
 curl -s http://localhost:5005/health
 ```
 
-If the Management API is not yet implemented for the feature you're touching, raise it as a Feature Request before designing UI that depends on it (see `concept` for the FR convention).
+If a required Management API contract is missing, report the dependency. Do not bypass it with direct downstream calls or expand the PoC implicitly.
 
 ## Pre-Implementation Checklist
 
 1. Read `FRONTEND_ARCHITECTURE.md` and `integration_vision.md` end to end.
-2. Read `_shared/references/flutter-guardrails.md`.
+2. Read `references/flutter-guardrails.md`.
 3. Read the SKILL.md of the agent role you're playing (`architect`, `builder`, …).
 4. Inspect the `lib/` folder map above — locate where your work lives.
 5. Search `lib/widgets/` for reusable components.
