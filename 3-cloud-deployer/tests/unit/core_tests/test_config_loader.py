@@ -227,6 +227,7 @@ def test_load_project_config_normalizes_google_provider(sample_project_dir):
     assert config.hierarchy == []
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_project_config_loader_loads_bundle_through_project_storage(tmp_path):
     specification = load_specification()
     providers = provider_config_for_specification(specification)

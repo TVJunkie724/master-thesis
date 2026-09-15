@@ -78,6 +78,45 @@ def test_valid_v2_contract_fixtures_are_accepted_by_runtime(fixture_path):
     assert validated.digest == specification["digest"]
 
 
+def test_pending_l5_fixture_is_not_an_executable_manifest():
+    from src.deployment_specification import (
+        DeploymentSpecificationError,
+        validate_deployment_manifest,
+    )
+    from tests.utils.deployment_specification import deployment_manifest
+
+    manifest = deployment_manifest()
+    assert (
+        "gate.implementation.l5-visualization-pending"
+        in (
+            manifest["resolved_deployment_specification"]["readiness"][
+                "blocking_gate_ids"
+            ]
+        )
+    )
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_deployment_manifest(manifest, manifest["providers"])
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
+
+
+def test_relabelling_pending_l5_cannot_bypass_real_admission():
+    from src.architecture_profiles.contracts import calculate_digest
+    from src.deployment_specification import (
+        DeploymentSpecificationError,
+        validate_deployment_manifest,
+    )
+    from tests.utils.deployment_specification import deployment_manifest
+
+    manifest = deployment_manifest()
+    architecture = manifest["resolved_twin_architecture"]
+    architecture["resolution_status"] = "publishable"
+    architecture["content_digest"] = calculate_digest(architecture)
+    manifest["resolved_twin_architecture_digest"] = architecture["content_digest"]
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_deployment_manifest(manifest, manifest["providers"])
+    assert raised.value.code == "DEPLOYMENT_ARCHITECTURE_INVALID"
+
+
 @pytest.mark.parametrize(
     "mutation, expected_code",
     (

@@ -37,7 +37,7 @@
     "layer_5_provider": "azure"
   },
   "calculation_run_id": "d6934ac4-76eb-5ad6-8dae-9a599e3c34e4",
-  "resolved_twin_architecture_digest": "sha256:9dcc79dbb307db659ba3854190d78373258eb5b5ca4d0cff2ae41b02c848f32b",
+  "resolved_twin_architecture_digest": "sha256:8e36dd71bc0384ec2db914c6a1f5b786150ff39bb6f83ac447eff282d986fc47",
   "resolved_twin_architecture": {
     "architecture_profile_ref": {
       "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804",
@@ -69,9 +69,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -101,9 +101,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -164,9 +164,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -180,12 +180,13 @@
         ],
         "cost_contribution": {
           "currency": "USD",
-          "monthly_amount": "46.377856"
+          "monthly_amount": "46.379368"
         },
         "deployment_component_id": "deployment.azure.hot-storage.v2",
         "deployment_component_version": "1",
         "deployment_specification_component_ids": [
           "azure.cosmos-db-nosql-raw-and-rollup",
+          "azure.functions-flex-raw-history-reader",
           "azure.container-apps-scheduled-storage-job",
           "azure.acr-basic-if-container-selected"
         ],
@@ -198,9 +199,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -237,9 +238,9 @@
         ],
         "provider": "aws",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d2de43f5041ef0446607675e16470a5903beda1a41177c54bd3a334d3a48831f",
           "id": "provider-profile.aws.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:8913b5dc872e87bbe442ddd069bf8a6af6dad779cf6879762fc5189a0cb340eb"
+          "version": "1"
         },
         "region": "eu-central-1",
         "required": true,
@@ -272,9 +273,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -305,9 +306,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -321,13 +322,11 @@
         ],
         "cost_contribution": {
           "currency": "USD",
-          "monthly_amount": "0.001512"
+          "monthly_amount": "0"
         },
         "deployment_component_id": "deployment.azure.visualization.v2",
         "deployment_component_version": "1",
-        "deployment_specification_component_ids": [
-          "azure.functions-flex-raw-history-reader"
-        ],
+        "deployment_specification_component_ids": [],
         "formula_refs": [
           "formula.phase-08-complete-service-bundles"
         ],
@@ -337,9 +336,9 @@
         ],
         "provider": "azure",
         "provider_implementation_profile_ref": {
+          "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
           "id": "provider-profile.azure.six-layer-eventing-v1",
-          "version": "1",
-          "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+          "version": "1"
         },
         "region": "westeurope",
         "required": true,
@@ -347,7 +346,7 @@
         "service_id": "azure.visualization.v2"
       }
     ],
-    "content_digest": "sha256:9dcc79dbb307db659ba3854190d78373258eb5b5ca4d0cff2ae41b02c848f32b",
+    "content_digest": "sha256:8e36dd71bc0384ec2db914c6a1f5b786150ff39bb6f83ac447eff282d986fc47",
     "cost_summary": {
       "component_totals": [
         {
@@ -364,7 +363,7 @@
         },
         {
           "item_id": "component.hot-storage",
-          "monthly_amount": "46.377856"
+          "monthly_amount": "46.379368"
         },
         {
           "item_id": "component.ingestion",
@@ -380,7 +379,7 @@
         },
         {
           "item_id": "component.visualization",
-          "monthly_amount": "0.001512"
+          "monthly_amount": "0"
         }
       ],
       "currency": "USD",
@@ -434,7 +433,7 @@
         },
         {
           "item_id": "responsibility.storage",
-          "monthly_amount": "46.406856"
+          "monthly_amount": "46.408368"
         },
         {
           "item_id": "responsibility.twin-state",
@@ -442,7 +441,7 @@
         },
         {
           "item_id": "responsibility.visualization",
-          "monthly_amount": "0.001512"
+          "monthly_amount": "0"
         },
         {
           "item_id": "responsibility.eventing",
@@ -452,7 +451,7 @@
     },
     "deployment_specification_ref": {
       "calculation_run_id": "d6934ac4-76eb-5ad6-8dae-9a599e3c34e4",
-      "digest": "sha256:0fcf7d8b6d7ed9448e455e7f4d05b6c31514d8d984309defe128fd6a94ca0173",
+      "digest": "sha256:d9e1aa035f463bba8ddef7bfccd91f319e7dc5ee4b3be3237dbfab43844f5844",
       "schema_version": "resolved-deployment-specification.v2"
     },
     "extension_bindings": [
@@ -524,7 +523,7 @@
         "capability.visualization"
       ],
       "status": "complete",
-      "validation_digest": "sha256:01a96245aae064e6a9b55eb3ad9337971ad489ae2ae2b204fba0a576b2bdeb7d",
+      "validation_digest": "sha256:8b203760b31e712ad730b1976f04787e97d9954f3da0d0ca4bb5c53d8c77b01a",
       "validator_version": "2"
     },
     "optimization_bundle_ref": {
@@ -556,19 +555,19 @@
     ],
     "provider_profile_refs": [
       {
+        "digest": "sha256:d2de43f5041ef0446607675e16470a5903beda1a41177c54bd3a334d3a48831f",
         "id": "provider-profile.aws.six-layer-eventing-v1",
-        "version": "1",
-        "digest": "sha256:8913b5dc872e87bbe442ddd069bf8a6af6dad779cf6879762fc5189a0cb340eb",
-        "provider": "aws"
+        "provider": "aws",
+        "version": "1"
       },
       {
+        "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170",
         "id": "provider-profile.azure.six-layer-eventing-v1",
-        "version": "1",
-        "digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600",
-        "provider": "azure"
+        "provider": "azure",
+        "version": "1"
       }
     ],
-    "resolution_id": "099a406a-436f-529e-b1ef-b1b6dc697083",
+    "resolution_id": "241ac362-c7fa-5966-9ae9-57c858982a43",
     "resolution_status": "offline_contract_fixture",
     "resolved_edges": [
       {
@@ -977,7 +976,7 @@
       "version": "1"
     }
   },
-  "resolved_deployment_specification_digest": "sha256:0fcf7d8b6d7ed9448e455e7f4d05b6c31514d8d984309defe128fd6a94ca0173",
+  "resolved_deployment_specification_digest": "sha256:d9e1aa035f463bba8ddef7bfccd91f319e7dc5ee4b3be3237dbfab43844f5844",
   "resolved_deployment_specification": {
     "architecture_profile_ref": {
       "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804",
@@ -1190,6 +1189,42 @@
         "value_type": "integer"
       },
       {
+        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.resource_count",
+        "compatibility_version": "1",
+        "destination_input_id": "input.capacity.resource_count",
+        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
+        "resolution_stage": "preplan",
+        "sensitivity": "internal",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.resource_count",
+        "validator_id": "validator.non-negative-integer.v1",
+        "value_type": "integer"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.requests",
+        "compatibility_version": "1",
+        "destination_input_id": "input.usage.requests",
+        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
+        "resolution_stage": "preplan",
+        "sensitivity": "internal",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.requests",
+        "validator_id": "validator.non-negative-integer.v1",
+        "value_type": "integer"
+      },
+      {
+        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.execution_seconds",
+        "compatibility_version": "1",
+        "destination_input_id": "input.usage.execution_seconds",
+        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
+        "resolution_stage": "preplan",
+        "sensitivity": "internal",
+        "source_kind": "deployment_dimension",
+        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.execution_seconds",
+        "validator_id": "validator.non-negative-integer.v1",
+        "value_type": "integer"
+      },
+      {
         "binding_id": "binding.azure.azure.blob-cool.resource_count",
         "compatibility_version": "1",
         "destination_input_id": "input.capacity.resource_count",
@@ -1270,42 +1305,6 @@
         "sensitivity": "internal",
         "source_kind": "deployment_dimension",
         "source_ref": "dimension.azure.azure.digital-twins.twin_operations",
-        "validator_id": "validator.non-negative-integer.v1",
-        "value_type": "integer"
-      },
-      {
-        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.resource_count",
-        "compatibility_version": "1",
-        "destination_input_id": "input.capacity.resource_count",
-        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
-        "resolution_stage": "preplan",
-        "sensitivity": "internal",
-        "source_kind": "deployment_dimension",
-        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.resource_count",
-        "validator_id": "validator.non-negative-integer.v1",
-        "value_type": "integer"
-      },
-      {
-        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.requests",
-        "compatibility_version": "1",
-        "destination_input_id": "input.usage.requests",
-        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
-        "resolution_stage": "preplan",
-        "sensitivity": "internal",
-        "source_kind": "deployment_dimension",
-        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.requests",
-        "validator_id": "validator.non-negative-integer.v1",
-        "value_type": "integer"
-      },
-      {
-        "binding_id": "binding.azure.azure.functions-flex-raw-history-reader.execution_seconds",
-        "compatibility_version": "1",
-        "destination_input_id": "input.usage.execution_seconds",
-        "destination_selection_id": "selection.azure.azure.functions-flex-raw-history-reader",
-        "resolution_stage": "preplan",
-        "sensitivity": "internal",
-        "source_kind": "deployment_dimension",
-        "source_ref": "dimension.azure.azure.functions-flex-raw-history-reader.execution_seconds",
         "validator_id": "validator.non-negative-integer.v1",
         "value_type": "integer"
       },
@@ -1808,7 +1807,7 @@
             "value": 2160000
           }
         ],
-        "implementation_component_digest": "sha256:3830204dcae431e5950ab453f7b547b9d395bb0b4abe5fb1ab0ac486fee51798",
+        "implementation_component_digest": "sha256:a36c8ab44d936221964415f9b79ee02115c155f5913cc70817976385f22ae380",
         "implementation_component_id": "aws.iot-core",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -1844,7 +1843,7 @@
             "value": 250
           }
         ],
-        "implementation_component_digest": "sha256:e3cf8ac53625522d5fb070deb0a0eb4a1b39fac51773244d14b122771050f70b",
+        "implementation_component_digest": "sha256:ef74cdcc5331ecff59ce283fd9cceccfba1dc032b8966e34af393d635f4ea3da",
         "implementation_component_id": "aws.iot-commands",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -1880,7 +1879,7 @@
             "value": 2160000
           }
         ],
-        "implementation_component_digest": "sha256:8c6919d24d79deee270f6d785f6b42a08565ce894b2f3ee85d9f44b16b7ab632",
+        "implementation_component_digest": "sha256:c31156ed42c8e2bc6e12ffd4c1486e32aa281542f145ddc9e0c3240742c2dfbc",
         "implementation_component_id": "azure.functions-flex-consumption",
         "logical_component_id": "component.processing",
         "provider": "azure",
@@ -1916,7 +1915,7 @@
             "value": 750
           }
         ],
-        "implementation_component_digest": "sha256:42eac9875f9db4209cfd05089d8a91d4c34e73a3ac456d0f752d87541c031d97",
+        "implementation_component_digest": "sha256:79d141a2013b2b78f4064c1c00263d15c59582afbd8b6b371fa12b2003798f0d",
         "implementation_component_id": "azure.logic-apps-consumption",
         "logical_component_id": "component.processing",
         "provider": "azure",
@@ -1968,13 +1967,49 @@
             "value": 0
           }
         ],
-        "implementation_component_digest": "sha256:8c0f8eaf8742371b23b8d8f6a3de2a01ae5b442e93db426d92ecb3a5d783fd29",
+        "implementation_component_digest": "sha256:6baef1f583ca905674862cc1cf96c97ccde744f9d168c4b4bafe0367d52f47a5",
         "implementation_component_id": "azure.cosmos-db-nosql-raw-and-rollup",
         "logical_component_id": "component.hot-storage",
         "provider": "azure",
         "region": "westeurope",
         "required": true,
         "selection_id": "selection.azure.azure.cosmos-db-nosql-raw-and-rollup"
+      },
+      {
+        "architecture_assignment_id": "assignment.hot-storage",
+        "dimensions": [
+          {
+            "classification": "capacity",
+            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.resource_count",
+            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "unit": "count",
+            "value": 1
+          },
+          {
+            "classification": "usage",
+            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.requests",
+            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "unit": "requests/month",
+            "value": 360
+          },
+          {
+            "classification": "usage",
+            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.execution_seconds",
+            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+            "formula_reference": "formula.phase-08-complete-service-bundles",
+            "unit": "seconds/month",
+            "value": 360
+          }
+        ],
+        "implementation_component_digest": "sha256:6ba2697ec28689fdc542446b2bb401487e62d2af3934f6fd59b7cb8ef832bc80",
+        "implementation_component_id": "azure.functions-flex-raw-history-reader",
+        "logical_component_id": "component.hot-storage",
+        "provider": "azure",
+        "region": "westeurope",
+        "required": true,
+        "selection_id": "selection.azure.azure.functions-flex-raw-history-reader"
       },
       {
         "architecture_assignment_id": "assignment.cool-storage",
@@ -1996,7 +2031,7 @@
             "value": "1.029968261719"
           }
         ],
-        "implementation_component_digest": "sha256:72fbe21e7c0b97c3b7ecd24673f8f2d6d05df30c0d9e9b60056b620635df13af",
+        "implementation_component_digest": "sha256:f9472ca6af3432a955e1c43eae80e5bbeab8d3943e4bf6ff4e797baf41c92944",
         "implementation_component_id": "azure.blob-cool",
         "logical_component_id": "component.cool-storage",
         "provider": "azure",
@@ -2024,7 +2059,7 @@
             "value": "4.634857177734"
           }
         ],
-        "implementation_component_digest": "sha256:19f80fe193b9f8e2875d04db75ffcb3814030518c328ba4c44e561e8a235ad8a",
+        "implementation_component_digest": "sha256:fed7f90d406fe7aa8ca2ddbcf4cc3ce0968413ace99491bfdb80b304485c4e26",
         "implementation_component_id": "azure.blob-archive",
         "logical_component_id": "component.archive-storage",
         "provider": "azure",
@@ -2060,49 +2095,13 @@
             "value": 285360
           }
         ],
-        "implementation_component_digest": "sha256:97df946429ae9ff9cdcbc0f7f1f9383c4a1752458a261061cce391164ad77a57",
+        "implementation_component_digest": "sha256:f0b75ab08f164cf44ff0b4b267ea4b9b9088af53cb011cf8101d6c594bd4aa14",
         "implementation_component_id": "azure.digital-twins",
         "logical_component_id": "component.twin-state",
         "provider": "azure",
         "region": "westeurope",
         "required": true,
         "selection_id": "selection.azure.azure.digital-twins"
-      },
-      {
-        "architecture_assignment_id": "assignment.visualization",
-        "dimensions": [
-          {
-            "classification": "capacity",
-            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.resource_count",
-            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-            "formula_reference": "formula.phase-08-complete-service-bundles",
-            "unit": "count",
-            "value": 1
-          },
-          {
-            "classification": "usage",
-            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.requests",
-            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-            "formula_reference": "formula.phase-08-complete-service-bundles",
-            "unit": "requests/month",
-            "value": 360
-          },
-          {
-            "classification": "usage",
-            "dimension_id": "dimension.azure.azure.functions-flex-raw-history-reader.execution_seconds",
-            "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-            "formula_reference": "formula.phase-08-complete-service-bundles",
-            "unit": "seconds/month",
-            "value": 360
-          }
-        ],
-        "implementation_component_digest": "sha256:c98c91dc2576733d17f790058d7ff9327392e46c6eb8422efd7e53361641bae5",
-        "implementation_component_id": "azure.functions-flex-raw-history-reader",
-        "logical_component_id": "component.visualization",
-        "provider": "azure",
-        "region": "westeurope",
-        "required": true,
-        "selection_id": "selection.azure.azure.functions-flex-raw-history-reader"
       },
       {
         "architecture_assignment_id": "assignment.eventing",
@@ -2132,7 +2131,7 @@
             "value": 0
           }
         ],
-        "implementation_component_digest": "sha256:9c761e9c9c81dd5338f7367146894c96f602be6cc9347dc7665236e6e5e265bf",
+        "implementation_component_digest": "sha256:dcbdc4dfb49f99ad74484401b77dc3c58ebab731f832d58505bad40dfa8ec8a6",
         "implementation_component_id": "azure.event-hubs-standard-small-medium",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2168,7 +2167,7 @@
             "value": 12018
           }
         ],
-        "implementation_component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
+        "implementation_component_digest": "sha256:3473b2926ec600d154db32b5f63360f777f045dde9c94866c6fa086bb3f62b4b",
         "implementation_component_id": "azure.service-bus-standard",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2204,7 +2203,7 @@
             "value": 403406
           }
         ],
-        "implementation_component_digest": "sha256:bd12df5b937fbb6d2e9a2be2add928ebba1c733e3d33e1e3c62add24b88140b8",
+        "implementation_component_digest": "sha256:36ac435697cf7a8e60afa8753b81e61411a0f9540fa685cfe9626a3278d984bb",
         "implementation_component_id": "azure.functions-flex-event-worker",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2240,7 +2239,7 @@
             "value": "0.005199432373046875"
           }
         ],
-        "implementation_component_digest": "sha256:f02006dac8de448637f57b0469287c42a11b238acb59226cad1eab28fc47da90",
+        "implementation_component_digest": "sha256:360b9aa6b540a562e92b72a93e023cb7d9d5e38c68a6a7c0984aa33dcbba28bf",
         "implementation_component_id": "azure.monitor",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2276,7 +2275,7 @@
             "value": "0.005199432373046875"
           }
         ],
-        "implementation_component_digest": "sha256:2241615a2bcd75c0262d1a2ee3230c2756c931e0c7048609a4851279b14eeca6",
+        "implementation_component_digest": "sha256:d7ae9a0130e6c6a63de5171737e13abb12520b605a9671ce87c1dc1c4bd393d9",
         "implementation_component_id": "azure.log-analytics-shared-workspace",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2312,7 +2311,7 @@
             "value": 100100
           }
         ],
-        "implementation_component_digest": "sha256:caddf9bb4c1be63db9354cdfb89a81fca1f92a96a1e66069db71aa521efa2dea",
+        "implementation_component_digest": "sha256:8f40e697ec7967dc534e37dea430ad36856781f2b9ec2f76942f75aeb98b0afc",
         "implementation_component_id": "azure.functions-flex-event-adapter",
         "logical_component_id": "component.eventing",
         "provider": "azure",
@@ -2340,7 +2339,7 @@
             "value": 100100
           }
         ],
-        "implementation_component_digest": "sha256:d85e4aff802be615f989cb734d65366551393cc16874808cbd1a445a6d824a83",
+        "implementation_component_digest": "sha256:4cf1d934b81cf557505847590fc035a8abeba31046f3056007cc5b46b5b501b3",
         "implementation_component_id": "aws.sqs-fifo",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -2376,7 +2375,7 @@
             "value": "12512.500"
           }
         ],
-        "implementation_component_digest": "sha256:8d1468980b8b63cb61e00ee9d6dd8a9f01ae13172c6e4d5a417254c4371fd5f7",
+        "implementation_component_digest": "sha256:6bc0e82965c2f7d4b93eda5203fb58ffe4717bf86b95447c2121a348762c0a57",
         "implementation_component_id": "aws.lambda-event-adapter",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -2428,7 +2427,7 @@
             "value": 100100
           }
         ],
-        "implementation_component_digest": "sha256:df8682f7743d475f40b0741b05afaf611ba2fca8096092f52ee545ee4d73bce5",
+        "implementation_component_digest": "sha256:0c804a16071fcce72497188b065b5ca5049d854d302e73c6e10350086a6abef6",
         "implementation_component_id": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -2464,7 +2463,7 @@
             "value": 1230028800
           }
         ],
-        "implementation_component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
+        "implementation_component_digest": "sha256:0195f4d7b04f3fcc5e0faa156b476df8c09c6171db83fcdce82765697b055b82",
         "implementation_component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -2500,7 +2499,7 @@
             "value": "0.53884983062744140625"
           }
         ],
-        "implementation_component_digest": "sha256:05972cb9d2e00ab4891d8a21856f4e4ea8732e60cd4e72b357eef67e60d83f37",
+        "implementation_component_digest": "sha256:8e54885cb4df2fee7923053b225ee0235ff096ac37c760f5c5559df8f05f6c1a",
         "implementation_component_id": "aws.cloudwatch",
         "logical_component_id": "component.ingestion",
         "provider": "aws",
@@ -2520,7 +2519,7 @@
             "value": 1
           }
         ],
-        "implementation_component_digest": "sha256:7ffcc833e480d183f5d8d6646628fbbb2e1d0c2c665b75971dfe67173c67667a",
+        "implementation_component_digest": "sha256:a5dadf848003f5bfdd38f06e5e4711c141e4e27e36de9233037ea82db0ba6f5f",
         "implementation_component_id": "azure.entra-layer-access-bindings",
         "logical_component_id": "component.twin-state",
         "provider": "azure",
@@ -2556,7 +2555,7 @@
             "value": 1
           }
         ],
-        "implementation_component_digest": "sha256:eb210affef7b9d6343626c1c66a6292968daef26cb907add764ba26c4ab7b6df",
+        "implementation_component_digest": "sha256:87adc3ec4bfb79310cc1506c1adbe312172103d8df603922faedbd5dd181c23e",
         "implementation_component_id": "azure.container-apps-scheduled-storage-job",
         "logical_component_id": "component.hot-storage",
         "provider": "azure",
@@ -2576,7 +2575,7 @@
             "value": 1
           }
         ],
-        "implementation_component_digest": "sha256:f4b4f4899c355509660701faec6dc94488030dde47bc50842016b782cae076a1",
+        "implementation_component_digest": "sha256:de2b613643cee8eeee828504db6516c9c89bcc30beed8b691fcacfa3388e5e1e",
         "implementation_component_id": "azure.acr-basic-if-container-selected",
         "logical_component_id": "component.hot-storage",
         "provider": "azure",
@@ -2586,7 +2585,7 @@
       }
     ],
     "currency": "USD",
-    "digest": "sha256:0fcf7d8b6d7ed9448e455e7f4d05b6c31514d8d984309defe128fd6a94ca0173",
+    "digest": "sha256:d9e1aa035f463bba8ddef7bfccd91f319e7dc5ee4b3be3237dbfab43844f5844",
     "fixed_dimensions": {
       "azure_mover_max_device_partitions_per_task": 1000,
       "l4_inspection_sessions_per_month": 12,
@@ -2603,7 +2602,7 @@
     },
     "optimization_context": {
       "component_catalog_ref": {
-        "digest": "sha256:ec004e42cd210f691773fba580b00ca19c7ab8f4c8328b667cc9abe848f7e4b7",
+        "digest": "sha256:bdce61b68eba29fd5ce81548d0aefac7896ec12dbb8447e811c037a474bb59a2",
         "id": "six-layer-eventing-component-catalog",
         "version": "1"
       },
@@ -2613,7 +2612,7 @@
         "version": "1"
       },
       "formula_set_ref": {
-        "digest": "sha256:9ca64e504c9b20f7ca175b2a121ac8294867d5869418bd097d38ae96c5d2fe76",
+        "digest": "sha256:fb6db62c9bb61cfb928f25ac88de1a862ab83bc4fb18b1fbc8ed87a2b5132dc7",
         "id": "phase-08-complete-service-bundles",
         "version": "1"
       },
@@ -2628,7 +2627,7 @@
         }
       ],
       "service_decision_ref": {
-        "digest": "sha256:0a91453fe04da4e3aad6e322e810b4252b8a0499713cafdae059a5e3e067e5c6",
+        "digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab",
         "id": "phase-08-complete-service-bundles",
         "version": "1"
       },
@@ -2639,7 +2638,9 @@
       }
     },
     "readiness": {
-      "blocking_gate_ids": [],
+      "blocking_gate_ids": [
+        "gate.implementation.l5-visualization-pending"
+      ],
       "status": "offline_contract_fixture"
     },
     "schema_version": "resolved-deployment-specification.v2"
@@ -2659,7 +2660,7 @@
     "component_catalog_ref": {
       "id": "six-layer-eventing-component-catalog",
       "version": "1",
-      "digest": "sha256:ec004e42cd210f691773fba580b00ca19c7ab8f4c8328b667cc9abe848f7e4b7"
+      "digest": "sha256:bdce61b68eba29fd5ce81548d0aefac7896ec12dbb8447e811c037a474bb59a2"
     },
     "graph_resolver_version": "resolved-deployment-graph.v1",
     "package_builder_version": "graph-package-builder.v1",

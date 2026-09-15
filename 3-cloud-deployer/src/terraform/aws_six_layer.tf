@@ -155,7 +155,7 @@ resource "terraform_data" "aws_six_layer_processor_extension_guard" {
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "aws_aws_cloudwatch" {
-  count             = local.aws_six_layer_event_enabled || local.aws_six_layer_storage_mover_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count             = local.aws_six_layer_event_enabled || local.aws_six_layer_storage_mover_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name              = "/twin2multicloud/${local.aws_six_layer_name}/six-layer"
   retention_in_days = var.log_retention_days
   tags              = local.aws_six_layer_tags
@@ -177,7 +177,7 @@ locals {
     local.aws_six_layer_domain_consumer_enabled ? {
       "DOMAIN-consumer" = "${local.aws_six_layer_name}-six-domain-consumer"
     } : {},
-    local.aws_six_layer_l5_enabled ? {
+    local.aws_six_layer_hot_enabled ? {
       "L5-raw-history-reader" = "${local.aws_six_layer_name}-six-layer-raw-history-reader"
     } : {},
   )
@@ -281,7 +281,7 @@ resource "aws_sns_topic" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge
 }
 
 resource "aws_iam_role" "aws_six_layer_lambda" {
-  count = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name  = "${local.aws_six_layer_name}-six-lambda-${local.deployment_suffix}"
 
   assume_role_policy = jsonencode({
@@ -296,13 +296,13 @@ resource "aws_iam_role" "aws_six_layer_lambda" {
 }
 
 resource "aws_iam_role_policy_attachment" "aws_six_layer_lambda_logs" {
-  count      = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count      = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   role       = aws_iam_role.aws_six_layer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "aws_six_layer_lambda_data" {
-  count = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name  = "${local.aws_six_layer_name}-six-runtime-data"
   role  = aws_iam_role.aws_six_layer_lambda[0].id
 
@@ -1402,17 +1402,17 @@ resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
 }
 
 # -----------------------------------------------------------------------------
-# L5 bounded raw-history reader
+# L3 bounded raw-history reader
 # -----------------------------------------------------------------------------
 
 resource "random_password" "aws_six_layer_raw_history_cursor_hmac" {
-  count   = local.aws_six_layer_l5_enabled ? 1 : 0
+  count   = local.aws_six_layer_hot_enabled ? 1 : 0
   length  = 64
   special = false
 }
 
 resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
-  count                          = local.aws_six_layer_l5_enabled ? 1 : 0
+  count                          = local.aws_six_layer_hot_enabled ? 1 : 0
   function_name                  = "${local.aws_six_layer_name}-six-layer-raw-history-reader"
   role                           = aws_iam_role.aws_six_layer_lambda[0].arn
   handler                        = "handler.raw_history_reader"
@@ -1442,7 +1442,7 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
 # the HTTPS request with the already approved deployment credential; no second
 # L5 secret or dashboard account exists.
 resource "aws_lambda_function_url" "aws_aws_lambda_raw_history_reader" {
-  count              = local.aws_six_layer_l5_enabled ? 1 : 0
+  count              = local.aws_six_layer_hot_enabled ? 1 : 0
   function_name      = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
   authorization_type = "AWS_IAM"
 }
@@ -1619,8 +1619,8 @@ output "aws_component_twin_state_output" {
   } : null
 }
 
-output "aws_component_visualization_output" {
-  value = local.aws_six_layer_l5_enabled ? {
+locals {
+  aws_six_layer_storage_read_access = local.aws_six_layer_hot_enabled ? {
     access_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
     reader_function_name = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
     principal_label      = data.aws_caller_identity.current[0].arn
@@ -1633,4 +1633,14 @@ output "aws_component_visualization_output" {
       data_probe_revision = "aws-raw-history-readback.v1"
     }
   } : null
+}
+
+output "aws_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.aws_six_layer_storage_read_access
+}
+
+output "aws_component_visualization_output" {
+  description = "Deprecated readback compatibility alias; does not prove graphical L5"
+  value       = local.aws_six_layer_l5_enabled ? local.aws_six_layer_storage_read_access : null
 }

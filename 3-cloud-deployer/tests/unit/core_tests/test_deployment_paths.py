@@ -93,6 +93,7 @@ def test_create_context_uses_project_context_resolver_for_template(tmp_path, mon
     assert context.config.digital_twin_name == "template-twin"
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_create_context_loads_deployment_manifest(tmp_path, monkeypatch):
     manifest = deployment_manifest(resource_name="factory")
     providers = provider_config_for_specification(
@@ -144,6 +145,7 @@ def test_create_context_carries_request_metadata(tmp_path, monkeypatch):
     assert context.requested_provider == "aws"
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_create_context_rejects_manifest_project_name_drift(tmp_path, monkeypatch):
     manifest = deployment_manifest(resource_name="other")
     providers = provider_config_for_specification(

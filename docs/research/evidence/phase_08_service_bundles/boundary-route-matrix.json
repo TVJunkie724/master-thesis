@@ -23,58 +23,40 @@
   ],
   "online_placements": [
     {
-      "placement_id": "aws-l3l5-aws-l4",
-      "l3_hot_l5_provider": "aws",
+      "placement_id": "aws-l3-aws-l4",
       "l4_provider": "aws",
-      "projection_route": "aws->aws"
+      "projection_route": "aws->aws",
+      "l3_hot_provider": "aws"
     },
     {
-      "placement_id": "aws-l3l5-azure-l4",
-      "l3_hot_l5_provider": "aws",
+      "placement_id": "aws-l3-azure-l4",
       "l4_provider": "azure",
-      "projection_route": "aws->azure"
+      "projection_route": "aws->azure",
+      "l3_hot_provider": "aws"
     },
     {
-      "placement_id": "aws-l3l5-gcp-l4",
-      "l3_hot_l5_provider": "aws",
-      "l4_provider": "gcp",
-      "projection_route": "aws->gcp"
-    },
-    {
-      "placement_id": "azure-l3l5-aws-l4",
-      "l3_hot_l5_provider": "azure",
+      "placement_id": "azure-l3-aws-l4",
       "l4_provider": "aws",
-      "projection_route": "azure->aws"
+      "projection_route": "azure->aws",
+      "l3_hot_provider": "azure"
     },
     {
-      "placement_id": "azure-l3l5-azure-l4",
-      "l3_hot_l5_provider": "azure",
+      "placement_id": "azure-l3-azure-l4",
       "l4_provider": "azure",
-      "projection_route": "azure->azure"
+      "projection_route": "azure->azure",
+      "l3_hot_provider": "azure"
     },
     {
-      "placement_id": "azure-l3l5-gcp-l4",
-      "l3_hot_l5_provider": "azure",
-      "l4_provider": "gcp",
-      "projection_route": "azure->gcp"
-    },
-    {
-      "placement_id": "gcp-l3l5-aws-l4",
-      "l3_hot_l5_provider": "gcp",
+      "placement_id": "gcp-l3-aws-l4",
       "l4_provider": "aws",
-      "projection_route": "gcp->aws"
+      "projection_route": "gcp->aws",
+      "l3_hot_provider": "gcp"
     },
     {
-      "placement_id": "gcp-l3l5-azure-l4",
-      "l3_hot_l5_provider": "gcp",
+      "placement_id": "gcp-l3-azure-l4",
       "l4_provider": "azure",
-      "projection_route": "gcp->azure"
-    },
-    {
-      "placement_id": "gcp-l3l5-gcp-l4",
-      "l3_hot_l5_provider": "gcp",
-      "l4_provider": "gcp",
-      "projection_route": "gcp->gcp"
+      "projection_route": "gcp->azure",
+      "l3_hot_provider": "gcp"
     }
   ],
   "route_classes": [

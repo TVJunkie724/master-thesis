@@ -93,7 +93,7 @@ def _candidate_pack(tmp_path: Path, plan: dict) -> tuple[Path, Path]:
         "schema_version": "six-layer-evaluation-candidate-pack.v1",
         "evidence_status": "offline_planned_candidates",
         "plan_digest": plan_digest,
-        "scenario_count": 9,
+        "scenario_count": 8,
         "candidates": entries,
     }
     manifest["manifest_digest"] = evidence._document_digest(manifest)
@@ -367,7 +367,7 @@ def test_planned_template_binds_exact_matrix_and_pack(tmp_path: Path) -> None:
         "status": "planned_not_executed",
         "provider_check_count": 3,
         "identity_exchange_count": 6,
-        "scenario_count": 9,
+        "scenario_count": 8,
     }
 
 

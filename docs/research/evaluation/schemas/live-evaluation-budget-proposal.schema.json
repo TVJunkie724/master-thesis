@@ -94,12 +94,12 @@
       "$ref": "#/$defs/decimal"
     },
     "scenario_count": {
-      "const": 9
+      "const": 8
     },
     "scenarios": {
       "type": "array",
-      "minItems": 9,
-      "maxItems": 9,
+      "minItems": 8,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,

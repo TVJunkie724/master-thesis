@@ -3,8 +3,8 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:a6a7e981af775321891d1621df0f66ce5553419cdb7d260cfc39368ca63bcfd3",
-  "route_digest": "sha256:e08ae2b6c2a1933adae54c5fed04b949b269b856f535b96787170e8820d32fee",
+  "bundle_digest": "sha256:dc9bcb8d2b10d100ea192b993f0cc5dde28bc8fdc8a4638b9759fd192603b0f9",
+  "route_digest": "sha256:b396600c19084e66f1614cf8f5ab444bf9d5a8f9b4dc4114ca64b567c56257c1",
   "profile_targets": [
     "six-layer-eventing@1"
   ],
@@ -744,7 +744,7 @@
       "provider": "aws",
       "region": "eu-central-1",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "profile_refs": [
         "six-layer-eventing@1"
@@ -761,7 +761,7 @@
         "raw_history_query.v1"
       ],
       "output_contracts": [
-        "deployment-access.v1"
+        "raw_history_query.v1"
       ],
       "runtime_package": "content_addressed_repository_package",
       "network_ports": [
@@ -1580,7 +1580,7 @@
       "provider": "azure",
       "region": "westeurope",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "profile_refs": [
         "six-layer-eventing@1"
@@ -1596,7 +1596,7 @@
         "raw_history_query.v1"
       ],
       "output_contracts": [
-        "deployment-access.v1"
+        "raw_history_query.v1"
       ],
       "runtime_package": "content_addressed_repository_package",
       "network_ports": [
@@ -2083,7 +2083,7 @@
       "provider": "gcp",
       "region": "europe-west1",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "profile_refs": [
         "six-layer-eventing@1"
@@ -2100,7 +2100,7 @@
         "raw_history_query.v1"
       ],
       "output_contracts": [
-        "deployment-access.v1"
+        "raw_history_query.v1"
       ],
       "runtime_package": "content_addressed_repository_package",
       "network_ports": [

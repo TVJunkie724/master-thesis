@@ -3,10 +3,10 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:0a91453fe04da4e3aad6e322e810b4252b8a0499713cafdae059a5e3e067e5c6"
+    "digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab"
   },
   "capacity_evidence_digest": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-  "pricing_ownership_digest": "sha256:9ca64e504c9b20f7ca175b2a121ac8294867d5869418bd097d38ae96c5d2fe76",
+  "pricing_ownership_digest": "sha256:fb6db62c9bb61cfb928f25ac88de1a862ab83bc4fb18b1fbc8ed87a2b5132dc7",
   "price_value_policy": "live_versioned_optimizer_catalog_only_no_static_fallback",
   "same_provider_rule": {
     "bridge_component_count": 0,
@@ -34,7 +34,8 @@
         ],
         "l3_hot": [
           "aws.dynamodb-on-demand-raw",
-          "aws.dynamodb-on-demand-hourly-rollup"
+          "aws.dynamodb-on-demand-hourly-rollup",
+          "aws.lambda-raw-history-reader"
         ],
         "l3_cool": [
           "aws.s3-standard-ia"
@@ -45,9 +46,7 @@
         "l4_twin": [
           "aws.iot-twinmaker-standard"
         ],
-        "l5_visualization": [
-          "aws.lambda-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "aws.eventbridge-scheduler",
@@ -88,7 +87,8 @@
           "azure.logic-apps-consumption"
         ],
         "l3_hot": [
-          "azure.cosmos-db-nosql-raw-and-rollup"
+          "azure.cosmos-db-nosql-raw-and-rollup",
+          "azure.functions-flex-raw-history-reader"
         ],
         "l3_cool": [
           "azure.blob-cool"
@@ -99,9 +99,7 @@
         "l4_twin": [
           "azure.digital-twins"
         ],
-        "l5_visualization": [
-          "azure.functions-flex-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "azure.container-apps-scheduled-storage-job",
@@ -146,7 +144,8 @@
           "gcp.workflows"
         ],
         "l3_hot": [
-          "gcp.firestore-native-standard-raw-and-rollup"
+          "gcp.firestore-native-standard-raw-and-rollup",
+          "gcp.cloud-run-raw-history-reader"
         ],
         "l3_cool": [
           "gcp.cloud-storage-nearline"
@@ -160,9 +159,7 @@
           "gcp.cloud-run-iap-twin-explorer",
           "gcp.direct-iap-layer-access"
         ],
-        "l5_visualization": [
-          "gcp.cloud-run-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "gcp.cloud-scheduler",
@@ -379,7 +376,7 @@
   "components": [
     {
       "component_id": "apache.bifromq-4.0.0-incubating-on-gke-standard",
-      "component_digest": "sha256:1f314a655aa01f6df935e29a027865c3816e7e1685bb48a3a5e1df27ce0f33fa",
+      "component_digest": "sha256:6c5a207876cf46a6a0b1c2d0b7f0a40b5567d61b65ae116f8ca33a8cf5341bfb",
       "provider": "gcp",
       "responsibilities": [
         "l1_acquisition"
@@ -397,7 +394,7 @@
     },
     {
       "component_id": "aws.cloudwatch",
-      "component_digest": "sha256:05972cb9d2e00ab4891d8a21856f4e4ea8732e60cd4e72b357eef67e60d83f37",
+      "component_digest": "sha256:8e54885cb4df2fee7923053b225ee0235ff096ac37c760f5c5559df8f05f6c1a",
       "provider": "aws",
       "responsibilities": [
         "event_layer",
@@ -414,7 +411,7 @@
     },
     {
       "component_id": "aws.dynamodb-on-demand-hourly-rollup",
-      "component_digest": "sha256:96ce314d581ddd279d82833ea93c68dbeb9dc8494f23f63504910dfe95d5127f",
+      "component_digest": "sha256:9642a1d10d4a524d5c058a9611266de4bfc5657f6f5c8a92acb92b94b6b454f0",
       "provider": "aws",
       "responsibilities": [
         "l3_hot"
@@ -431,7 +428,7 @@
     },
     {
       "component_id": "aws.dynamodb-on-demand-raw",
-      "component_digest": "sha256:f0df5070f0a6eb1939374a660aefcce91a101127a21c1d99b0d4d4105bb30c57",
+      "component_digest": "sha256:a58a0ad0ea96d9015db205fd74c9796e01a829d08a496e3dc3e5072094323017",
       "provider": "aws",
       "responsibilities": [
         "l3_hot"
@@ -448,7 +445,7 @@
     },
     {
       "component_id": "aws.ecr-if-container-selected",
-      "component_digest": "sha256:7ea6e0b1359b9a63a49fed6ba678cd828f6b178899aba08f532f183b0a2d3179",
+      "component_digest": "sha256:d04fcb7b0f3e12e22b33f35d7096762dba0050ed8a5f7bc06efc56c7ce0c722e",
       "provider": "aws",
       "responsibilities": [
         "support"
@@ -462,7 +459,7 @@
     },
     {
       "component_id": "aws.ecs-fargate-storage-mover",
-      "component_digest": "sha256:707ab195b6150644e229e5428ef0b4288fe82780a278eda01180495839188ea6",
+      "component_digest": "sha256:e810cb3bf60aabdc752eeedab91480864b8b8276a879c78c237a0ae6e429d769",
       "provider": "aws",
       "responsibilities": [
         "support"
@@ -478,7 +475,7 @@
     },
     {
       "component_id": "aws.eventbridge-scheduler",
-      "component_digest": "sha256:2e7efd4f05372746d7440936344019052f3f6343d41924f00db71f3a458740d4",
+      "component_digest": "sha256:94c0aeb14a5ccdd1959b96c3837d9c8c6f3f2d6bafb88e59c20acbb062cbe575",
       "provider": "aws",
       "responsibilities": [
         "support"
@@ -493,7 +490,7 @@
     },
     {
       "component_id": "aws.iam-identity-center-layer-access",
-      "component_digest": "sha256:3babbd828189d0e725763a47bd5b878a0698ae7b748c635b804a5f6fe0820c87",
+      "component_digest": "sha256:8b9b59e2cd35a7fd5aea24d2affc0f8f20a7d02eeebb251678da8c3957be60ea",
       "provider": "aws",
       "responsibilities": [
         "support"
@@ -507,7 +504,7 @@
     },
     {
       "component_id": "aws.iot-commands",
-      "component_digest": "sha256:e3cf8ac53625522d5fb070deb0a0eb4a1b39fac51773244d14b122771050f70b",
+      "component_digest": "sha256:ef74cdcc5331ecff59ce283fd9cceccfba1dc032b8966e34af393d635f4ea3da",
       "provider": "aws",
       "responsibilities": [
         "l1_acquisition"
@@ -523,7 +520,7 @@
     },
     {
       "component_id": "aws.iot-core",
-      "component_digest": "sha256:3830204dcae431e5950ab453f7b547b9d395bb0b4abe5fb1ab0ac486fee51798",
+      "component_digest": "sha256:a36c8ab44d936221964415f9b79ee02115c155f5913cc70817976385f22ae380",
       "provider": "aws",
       "responsibilities": [
         "l1_acquisition"
@@ -539,7 +536,7 @@
     },
     {
       "component_id": "aws.iot-twinmaker-standard",
-      "component_digest": "sha256:2c0563d78039141aafa0f73049afe748f29d92efad8391e7183ab67baf469ee3",
+      "component_digest": "sha256:6a09230293ad7a3422070eed39bff821647e998cc3505d1c2e1fb229ae8d38e9",
       "provider": "aws",
       "responsibilities": [
         "l4_twin"
@@ -557,7 +554,7 @@
     },
     {
       "component_id": "aws.kinesis-data-streams",
-      "component_digest": "sha256:e67606d28eff29a461d7a17beef9ef147406637829de7660701524044fd47953",
+      "component_digest": "sha256:090f8c8ab201443a377f77042069f14146e75ea00facb13f3f21fb85ff05e854",
       "provider": "aws",
       "responsibilities": [
         "event_layer"
@@ -575,7 +572,7 @@
     },
     {
       "component_id": "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
-      "component_digest": "sha256:df8682f7743d475f40b0741b05afaf611ba2fca8096092f52ee545ee4d73bce5",
+      "component_digest": "sha256:0c804a16071fcce72497188b065b5ca5049d854d302e73c6e10350086a6abef6",
       "provider": "aws",
       "responsibilities": [
         "embedded_event"
@@ -593,7 +590,7 @@
     },
     {
       "component_id": "aws.lambda",
-      "component_digest": "sha256:eec6ce553efa90e04126f935b823e681ae31eab5bccb45070c18a2974b6942d9",
+      "component_digest": "sha256:29f971722d092ecaa13cade5d682229d414040eafe758fcd729c8577dcfc9500",
       "provider": "aws",
       "responsibilities": [
         "l2_processing"
@@ -609,7 +606,7 @@
     },
     {
       "component_id": "aws.lambda-event-adapter",
-      "component_digest": "sha256:8d1468980b8b63cb61e00ee9d6dd8a9f01ae13172c6e4d5a417254c4371fd5f7",
+      "component_digest": "sha256:6bc0e82965c2f7d4b93eda5203fb58ffe4717bf86b95447c2121a348762c0a57",
       "provider": "aws",
       "responsibilities": [
         "embedded_event"
@@ -625,7 +622,7 @@
     },
     {
       "component_id": "aws.lambda-event-worker",
-      "component_digest": "sha256:68bc70a98dd671ca5a26916199f70eaef117b379f4781081cbefd84b668db8e2",
+      "component_digest": "sha256:18de984684aee9e1f83be74aca08e6a0c9e72ffac93bb5fab542626b60c6ab0c",
       "provider": "aws",
       "responsibilities": [
         "event_layer"
@@ -641,10 +638,10 @@
     },
     {
       "component_id": "aws.lambda-raw-history-reader",
-      "component_digest": "sha256:7632e551beb9fbc103bcbd9ffc753d8dc8cfe12e1b13f1463c11f25be05e6f52",
+      "component_digest": "sha256:0f007beb209049b49c170bb8cfaac3613bc535a1966bda60d1f36169afbe9930",
       "provider": "aws",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "capacity_dimensions": [
         "resource_count",
@@ -657,7 +654,7 @@
     },
     {
       "component_id": "aws.s3-event-failure-store",
-      "component_digest": "sha256:1e6c9b46e1c2372e45f736bfabb0da21601a4e1257448a2c0c017afd972fb2fc",
+      "component_digest": "sha256:d2b94a2ab955427a8bced25c0e8f31efea8eaaf41b7b68ec3c19f487fa6d954f",
       "provider": "aws",
       "responsibilities": [
         "event_layer"
@@ -672,7 +669,7 @@
     },
     {
       "component_id": "aws.s3-glacier-deep-archive",
-      "component_digest": "sha256:f6a2a97ad2458ae4c62c8b0a1a6a05ac2e04dba1511ac931c4159d3e8c3d0b86",
+      "component_digest": "sha256:2f8c474377756f31ffebc6edb2fbd293518e33d2c32e82e9adba2f5bbfeedac9",
       "provider": "aws",
       "responsibilities": [
         "l3_archive"
@@ -687,7 +684,7 @@
     },
     {
       "component_id": "aws.s3-standard-ia",
-      "component_digest": "sha256:1c2c68d9864e02d59b27ad532b9c0cd82c8e7329a360a6f7302b6c22e4df6ba8",
+      "component_digest": "sha256:eb585c96d21a2457eeac05ca11050b433140c966e863fa006f18ebb8538c0ba0",
       "provider": "aws",
       "responsibilities": [
         "l3_cool"
@@ -702,7 +699,7 @@
     },
     {
       "component_id": "aws.sns-fifo",
-      "component_digest": "sha256:84cf1b0cc4ec3bee84f37b724563263517bf3a850562ba18203b2b889963ff6d",
+      "component_digest": "sha256:9cba8e5a728bcd5f42965a8faa4e988d243a7f6db54e0d9ddbdf1ee4c003cde1",
       "provider": "aws",
       "responsibilities": [
         "event_layer"
@@ -718,7 +715,7 @@
     },
     {
       "component_id": "aws.sns-fifo-only-for-reviewed-remote-control-edge",
-      "component_digest": "sha256:a63b0dfb5c9db82f8eeea5ef82cd567d206e8e883920d81ba048ab7b2f9f168e",
+      "component_digest": "sha256:0195f4d7b04f3fcc5e0faa156b476df8c09c6171db83fcdce82765697b055b82",
       "provider": "aws",
       "responsibilities": [
         "embedded_event"
@@ -734,7 +731,7 @@
     },
     {
       "component_id": "aws.sqs-fifo",
-      "component_digest": "sha256:d85e4aff802be615f989cb734d65366551393cc16874808cbd1a445a6d824a83",
+      "component_digest": "sha256:4cf1d934b81cf557505847590fc035a8abeba31046f3056007cc5b46b5b501b3",
       "provider": "aws",
       "responsibilities": [
         "embedded_event",
@@ -750,7 +747,7 @@
     },
     {
       "component_id": "aws.step-functions-standard",
-      "component_digest": "sha256:c6f8c3c870cda218f7564354d5770cbf99ac2bacce7d93aab77c88a80e0bb2d9",
+      "component_digest": "sha256:ab3a1af324e7c7b93907ae5d913998f0be332fdc2f653a43c9b2e0e0da3bfb22",
       "provider": "aws",
       "responsibilities": [
         "l2_processing"
@@ -768,7 +765,7 @@
     },
     {
       "component_id": "azure.acr-basic-if-container-selected",
-      "component_digest": "sha256:f4b4f4899c355509660701faec6dc94488030dde47bc50842016b782cae076a1",
+      "component_digest": "sha256:de2b613643cee8eeee828504db6516c9c89bcc30beed8b691fcacfa3388e5e1e",
       "provider": "azure",
       "responsibilities": [
         "support"
@@ -782,7 +779,7 @@
     },
     {
       "component_id": "azure.blob-archive",
-      "component_digest": "sha256:19f80fe193b9f8e2875d04db75ffcb3814030518c328ba4c44e561e8a235ad8a",
+      "component_digest": "sha256:fed7f90d406fe7aa8ca2ddbcf4cc3ce0968413ace99491bfdb80b304485c4e26",
       "provider": "azure",
       "responsibilities": [
         "l3_archive"
@@ -797,7 +794,7 @@
     },
     {
       "component_id": "azure.blob-cool",
-      "component_digest": "sha256:72fbe21e7c0b97c3b7ecd24673f8f2d6d05df30c0d9e9b60056b620635df13af",
+      "component_digest": "sha256:f9472ca6af3432a955e1c43eae80e5bbeab8d3943e4bf6ff4e797baf41c92944",
       "provider": "azure",
       "responsibilities": [
         "l3_cool"
@@ -812,7 +809,7 @@
     },
     {
       "component_id": "azure.container-apps-scheduled-storage-job",
-      "component_digest": "sha256:eb210affef7b9d6343626c1c66a6292968daef26cb907add764ba26c4ab7b6df",
+      "component_digest": "sha256:87adc3ec4bfb79310cc1506c1adbe312172103d8df603922faedbd5dd181c23e",
       "provider": "azure",
       "responsibilities": [
         "support"
@@ -828,7 +825,7 @@
     },
     {
       "component_id": "azure.cosmos-db-nosql-raw-and-rollup",
-      "component_digest": "sha256:8c0f8eaf8742371b23b8d8f6a3de2a01ae5b442e93db426d92ecb3a5d783fd29",
+      "component_digest": "sha256:6baef1f583ca905674862cc1cf96c97ccde744f9d168c4b4bafe0367d52f47a5",
       "provider": "azure",
       "responsibilities": [
         "l3_hot"
@@ -846,7 +843,7 @@
     },
     {
       "component_id": "azure.digital-twins",
-      "component_digest": "sha256:97df946429ae9ff9cdcbc0f7f1f9383c4a1752458a261061cce391164ad77a57",
+      "component_digest": "sha256:f0b75ab08f164cf44ff0b4b267ea4b9b9088af53cb011cf8101d6c594bd4aa14",
       "provider": "azure",
       "responsibilities": [
         "l4_twin"
@@ -862,7 +859,7 @@
     },
     {
       "component_id": "azure.entra-layer-access-bindings",
-      "component_digest": "sha256:7ffcc833e480d183f5d8d6646628fbbb2e1d0c2c665b75971dfe67173c67667a",
+      "component_digest": "sha256:a5dadf848003f5bfdd38f06e5e4711c141e4e27e36de9233037ea82db0ba6f5f",
       "provider": "azure",
       "responsibilities": [
         "support"
@@ -876,7 +873,7 @@
     },
     {
       "component_id": "azure.event-hubs-dedicated-large",
-      "component_digest": "sha256:e41d9d4eae477fa2e8e76429d16acb3a476f7abbbf00304526cf79439aa1e346",
+      "component_digest": "sha256:92167b12908a7c7414716e8f43f79518f81a2cc7a52a24e5a68379737018c7e8",
       "provider": "azure",
       "responsibilities": [
         "event_layer"
@@ -892,7 +889,7 @@
     },
     {
       "component_id": "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
-      "component_digest": "sha256:b6c57083062f2763eb52946acc282e81a4b72a62f9320f8a5338606c2e3b8a04",
+      "component_digest": "sha256:dea9f77a2097d06a4423dc9e8bf18fd5330bb3b454386503986f50ba1de0bc14",
       "provider": "azure",
       "responsibilities": [
         "embedded_event"
@@ -908,7 +905,7 @@
     },
     {
       "component_id": "azure.event-hubs-standard-small-medium",
-      "component_digest": "sha256:9c761e9c9c81dd5338f7367146894c96f602be6cc9347dc7665236e6e5e265bf",
+      "component_digest": "sha256:dcbdc4dfb49f99ad74484401b77dc3c58ebab731f832d58505bad40dfa8ec8a6",
       "provider": "azure",
       "responsibilities": [
         "event_layer"
@@ -924,7 +921,7 @@
     },
     {
       "component_id": "azure.functions-flex-consumption",
-      "component_digest": "sha256:8c6919d24d79deee270f6d785f6b42a08565ce894b2f3ee85d9f44b16b7ab632",
+      "component_digest": "sha256:c31156ed42c8e2bc6e12ffd4c1486e32aa281542f145ddc9e0c3240742c2dfbc",
       "provider": "azure",
       "responsibilities": [
         "l2_processing"
@@ -940,7 +937,7 @@
     },
     {
       "component_id": "azure.functions-flex-event-adapter",
-      "component_digest": "sha256:caddf9bb4c1be63db9354cdfb89a81fca1f92a96a1e66069db71aa521efa2dea",
+      "component_digest": "sha256:8f40e697ec7967dc534e37dea430ad36856781f2b9ec2f76942f75aeb98b0afc",
       "provider": "azure",
       "responsibilities": [
         "embedded_event"
@@ -956,7 +953,7 @@
     },
     {
       "component_id": "azure.functions-flex-event-worker",
-      "component_digest": "sha256:bd12df5b937fbb6d2e9a2be2add928ebba1c733e3d33e1e3c62add24b88140b8",
+      "component_digest": "sha256:36ac435697cf7a8e60afa8753b81e61411a0f9540fa685cfe9626a3278d984bb",
       "provider": "azure",
       "responsibilities": [
         "event_layer"
@@ -972,10 +969,10 @@
     },
     {
       "component_id": "azure.functions-flex-raw-history-reader",
-      "component_digest": "sha256:c98c91dc2576733d17f790058d7ff9327392e46c6eb8422efd7e53361641bae5",
+      "component_digest": "sha256:6ba2697ec28689fdc542446b2bb401487e62d2af3934f6fd59b7cb8ef832bc80",
       "provider": "azure",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "capacity_dimensions": [
         "resource_count",
@@ -988,7 +985,7 @@
     },
     {
       "component_id": "azure.iot-hub",
-      "component_digest": "sha256:552207ade576c93bdd28c161bd5283b1ff5ef7fd257990a08bad937195bc32d7",
+      "component_digest": "sha256:9b68aa2639e8fac423d02e52beaae6a3ebec746ccad0beb854f27087825c2f87",
       "provider": "azure",
       "responsibilities": [
         "l1_acquisition"
@@ -1004,7 +1001,7 @@
     },
     {
       "component_id": "azure.log-analytics-shared-workspace",
-      "component_digest": "sha256:2241615a2bcd75c0262d1a2ee3230c2756c931e0c7048609a4851279b14eeca6",
+      "component_digest": "sha256:d7ae9a0130e6c6a63de5171737e13abb12520b605a9671ce87c1dc1c4bd393d9",
       "provider": "azure",
       "responsibilities": [
         "event_layer",
@@ -1021,7 +1018,7 @@
     },
     {
       "component_id": "azure.logic-apps-consumption",
-      "component_digest": "sha256:42eac9875f9db4209cfd05089d8a91d4c34e73a3ac456d0f752d87541c031d97",
+      "component_digest": "sha256:79d141a2013b2b78f4064c1c00263d15c59582afbd8b6b371fa12b2003798f0d",
       "provider": "azure",
       "responsibilities": [
         "l2_processing"
@@ -1037,7 +1034,7 @@
     },
     {
       "component_id": "azure.monitor",
-      "component_digest": "sha256:f02006dac8de448637f57b0469287c42a11b238acb59226cad1eab28fc47da90",
+      "component_digest": "sha256:360b9aa6b540a562e92b72a93e023cb7d9d5e38c68a6a7c0984aa33dcbba28bf",
       "provider": "azure",
       "responsibilities": [
         "event_layer",
@@ -1054,7 +1051,7 @@
     },
     {
       "component_id": "azure.service-bus-standard",
-      "component_digest": "sha256:77a498536d0acbeb389bd53e81620ea3e8615eb034a7a49149ba2269dfb03562",
+      "component_digest": "sha256:3473b2926ec600d154db32b5f63360f777f045dde9c94866c6fa086bb3f62b4b",
       "provider": "azure",
       "responsibilities": [
         "embedded_event",
@@ -1071,7 +1068,7 @@
     },
     {
       "component_id": "gcp.artifact-registry-if-container-selected",
-      "component_digest": "sha256:12a3f6e7a1f717755f591d41de5406e852aa49d921ed8fecc34a49ecf413a2aa",
+      "component_digest": "sha256:d72253d8c57cfe8cbb5cce3d64e9b36f614dde0b978548a0588e2e54633a7841",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1085,7 +1082,7 @@
     },
     {
       "component_id": "gcp.cloud-logging",
-      "component_digest": "sha256:18a3d4d5c3a59aab4a691ab4162fd27d119227d7b268b65ef92061d54b48d812",
+      "component_digest": "sha256:74c254c09e85e0bbeb5e10be09af29b58b5ee2007da932811d8d6db97881c88c",
       "provider": "gcp",
       "responsibilities": [
         "event_layer",
@@ -1102,7 +1099,7 @@
     },
     {
       "component_id": "gcp.cloud-monitoring",
-      "component_digest": "sha256:31496276f73d09c352cc6f17546d8f62c5b2dfd05d52999fa123f5072fcff67a",
+      "component_digest": "sha256:c34b8adecf7d9c3a61eb219cd1ed83951aa0f955bde596c4675f0442b0d43627",
       "provider": "gcp",
       "responsibilities": [
         "event_layer",
@@ -1119,7 +1116,7 @@
     },
     {
       "component_id": "gcp.cloud-run-event-adapter",
-      "component_digest": "sha256:f661159c7ffd7c7226b95171d86aba3a6a7d317dcb204fa1dc9eac0600f396a7",
+      "component_digest": "sha256:dd790662c411232f7fb6186e16a3e630bfdc5015d6f62a67e4364050af77de44",
       "provider": "gcp",
       "responsibilities": [
         "embedded_event"
@@ -1136,7 +1133,7 @@
     },
     {
       "component_id": "gcp.cloud-run-event-service-small-medium",
-      "component_digest": "sha256:cd263adb0a0245d8cc494f54ceb2c262ceba956e389b2e6aaf38a16812ce7322",
+      "component_digest": "sha256:06f872029edb4ed29eeaf0c3001281abb62ea9cc1699db449e82d0692cf9c157",
       "provider": "gcp",
       "responsibilities": [
         "event_layer"
@@ -1153,7 +1150,7 @@
     },
     {
       "component_id": "gcp.cloud-run-iap-twin-explorer",
-      "component_digest": "sha256:c3b5ffe4c20dd249a154a611e786b66ca826d3aedc23579cd0130a2cd5f80937",
+      "component_digest": "sha256:5f8aacd7e2d01fd7885b4d0f3b7dbaccf9ac52f30f472d74595131744f90f048",
       "provider": "gcp",
       "responsibilities": [
         "l4_twin"
@@ -1172,10 +1169,10 @@
     },
     {
       "component_id": "gcp.cloud-run-raw-history-reader",
-      "component_digest": "sha256:daed0920d6de6451149faa7f8da846fc1eab986bb5a5dd8e6fa9dfb578954a05",
+      "component_digest": "sha256:1c69617da8314c61c0e3d1052acf5eea6e6981a29a80b27b63d472409a48960a",
       "provider": "gcp",
       "responsibilities": [
-        "l5_visualization"
+        "l3_hot"
       ],
       "capacity_dimensions": [
         "resource_count",
@@ -1189,7 +1186,7 @@
     },
     {
       "component_id": "gcp.cloud-run-service",
-      "component_digest": "sha256:533fec9abc15888b0edf2d0c0c44eb9d9d28e51dbca57cd8235037a5895df29b",
+      "component_digest": "sha256:fabc4730a4412b5574e9ee4d48e2fbd7d592d1ab5edd07a008865cb648981c5c",
       "provider": "gcp",
       "responsibilities": [
         "l2_processing"
@@ -1206,7 +1203,7 @@
     },
     {
       "component_id": "gcp.cloud-run-storage-job",
-      "component_digest": "sha256:0cb4069fc4a636adae39e34a49c72d5488d206aa189df3fd66a091df7f9ca1c1",
+      "component_digest": "sha256:30078e4769c11e42277f627af4c4b69d7929802e6c2f1a958d3d38356ee74678",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1225,7 +1222,7 @@
     },
     {
       "component_id": "gcp.cloud-run-twin-api-materializer",
-      "component_digest": "sha256:0ef0dc98cc2a99c02351db4de987209153874d344cf03fcf3ef59cc4bc644cb8",
+      "component_digest": "sha256:49dd21515e0292a74d2156f5cefbee0d27e6fd03e94639fc64b1bd883802655a",
       "provider": "gcp",
       "responsibilities": [
         "l4_twin"
@@ -1244,7 +1241,7 @@
     },
     {
       "component_id": "gcp.cloud-run-worker-pool-fixed-large",
-      "component_digest": "sha256:d205410807c1baf89ee920e920a9672d1fd6ae1e9bcad8a3cb7f50b5bd3c417a",
+      "component_digest": "sha256:961a06fbb10d261fc719eb40d4e025113b098beb05d111ec175076c074307001",
       "provider": "gcp",
       "responsibilities": [
         "event_layer"
@@ -1261,7 +1258,7 @@
     },
     {
       "component_id": "gcp.cloud-scheduler",
-      "component_digest": "sha256:f14ecb70fe712157edc0bbdf29d143d1a0c9876112657b463ef5acec1663d6a1",
+      "component_digest": "sha256:3cfd9c2d7692512ec25d4c92b3fbcb356d9d6d9e7e19ea3324842e1cc92d986e",
       "provider": "gcp",
       "responsibilities": [
         "support"
@@ -1276,7 +1273,7 @@
     },
     {
       "component_id": "gcp.cloud-storage-archive",
-      "component_digest": "sha256:4094f3c6110df53385971608ad0b3b5c978dca569d2874086640a80c4e4aad9f",
+      "component_digest": "sha256:50d448ce70099d13834ff2bbe2678359a7745eb80956f0579254cdfccffd2f0d",
       "provider": "gcp",
       "responsibilities": [
         "l3_archive"
@@ -1291,7 +1288,7 @@
     },
     {
       "component_id": "gcp.cloud-storage-nearline",
-      "component_digest": "sha256:9285307adc1671d4b8631ef459dac192620c6faab99a504b8f8c70fd113a733f",
+      "component_digest": "sha256:c8f9a09dc91805a1cb451b9ffc5f84791235814d88333c58ec86fc84dd5b8432",
       "provider": "gcp",
       "responsibilities": [
         "l3_cool"
@@ -1306,7 +1303,7 @@
     },
     {
       "component_id": "gcp.direct-iap-layer-access",
-      "component_digest": "sha256:b48ca5250a800ec0dc03d6120bdfcbea90b5a3aaf2d468f229744700d6361f14",
+      "component_digest": "sha256:9c59cbd4ecf16ab3b0a54593ed3c385bad67f76507d2c9a61bd222a5457947ec",
       "provider": "gcp",
       "responsibilities": [
         "l4_twin"
@@ -1320,7 +1317,7 @@
     },
     {
       "component_id": "gcp.external-load-balancer",
-      "component_digest": "sha256:c3b72677a85b91fd4e932a50b43119207ea329ea0738102360f22cb37e6805c1",
+      "component_digest": "sha256:39ecd65da4666e457f8cf51e649acbeba526c1c14825c5272f608a231144b96c",
       "provider": "gcp",
       "responsibilities": [
         "l1_acquisition"
@@ -1336,7 +1333,7 @@
     },
     {
       "component_id": "gcp.firestore-native-standard-bounded-twin",
-      "component_digest": "sha256:827348cc660e0331a99e36ed4c33cb62ba21776e8bac29dfe3f253a545ea180b",
+      "component_digest": "sha256:1f6a415e8f8089735bc8cfc70eaba71edb1edcbeb44c00dd58f6945cb3f47533",
       "provider": "gcp",
       "responsibilities": [
         "l4_twin"
@@ -1357,7 +1354,7 @@
     },
     {
       "component_id": "gcp.firestore-native-standard-raw-and-rollup",
-      "component_digest": "sha256:98027aabd943736d98072f67870fb8b988c2580542b37403edd345da42a5eb6d",
+      "component_digest": "sha256:2f0259862fa05be00f62e69bf30c1491fb91aac319bb39a35e228d07a9e01eff",
       "provider": "gcp",
       "responsibilities": [
         "l3_hot"
@@ -1376,7 +1373,7 @@
     },
     {
       "component_id": "gcp.ordered-mqtt-pubsub-adapter",
-      "component_digest": "sha256:9b6e86a8c1eef60800c5ea5a32d55f7ada658081369fffab6e7a149095fe9d87",
+      "component_digest": "sha256:2c3eaf3ab1b4e6b22e562d60ba7002381f293a769206943774bc3525843017b5",
       "provider": "gcp",
       "responsibilities": [
         "l1_acquisition"
@@ -1396,7 +1393,7 @@
     },
     {
       "component_id": "gcp.pubsub-separated-embedded-topics",
-      "component_digest": "sha256:778ea3f91335f7f6deeea97cc43f270921eef334bfb6ac457db07f43139f174a",
+      "component_digest": "sha256:0ee660a33988573931cf09c919565224a0a7e79897a7f7406ed1966f7c6d790d",
       "provider": "gcp",
       "responsibilities": [
         "embedded_event"
@@ -1412,7 +1409,7 @@
     },
     {
       "component_id": "gcp.pubsub-separated-event-layer-topics",
-      "component_digest": "sha256:31c1185c4ae1444a3a46773bb1ddd4e9b56fb6f4476b6a0f52afa0c053652e4c",
+      "component_digest": "sha256:1c3217e595e82e29f063b21532d0008841a6dd5ac67ec68e27b118fa5bcf623b",
       "provider": "gcp",
       "responsibilities": [
         "event_layer"
@@ -1428,7 +1425,7 @@
     },
     {
       "component_id": "gcp.workflows",
-      "component_digest": "sha256:7007821904555445cb14ec8bb84d8981ca527c5d75ee777c1c5ffc6b30bd9b5f",
+      "component_digest": "sha256:8a9b195e784400bfe565534187ee20f2dc1cf1e90d2668a434358941e0e872e2",
       "provider": "gcp",
       "responsibilities": [
         "l2_processing"
@@ -1757,5 +1754,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:95b924c165c9490b3f0448c388d7620b2c89e338e440069163c9b500188c8588"
+  "content_digest": "sha256:844af2cde4f954cbf79bb3760c520d3b37a2ebadf52e339671921bdab01fcc9b"
 }

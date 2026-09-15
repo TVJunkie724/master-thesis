@@ -13,6 +13,12 @@
     "scope_change": true,
     "activated_or_deployed_before_refreeze": false
   },
+  "scope_revision": {
+    "date": "2026-09-16",
+    "reason": "assign raw-history reader resources and costs to L3; graphical L5 remains unimplemented",
+    "cloud_execution_authorized": false,
+    "historical_reviews_do_not_verify_current_graphical_l5": true
+  },
   "regions": {
     "aws": "eu-central-1",
     "azure": "westeurope",
@@ -25,12 +31,12 @@
     }
   ],
   "artifact_byte_digests": {
-    "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:5f040b94df9f1d002eb1a39c40f8798b9865d072d7cb5be5ca7cb198e55fdf23",
+    "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:e89b43bb77ddaafeaa54463420b2c6292e2c29fd288b67a122884d7e8ca4ba86",
     "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-    "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:113c76ef298b20391cf07e9f033514189248fbf8043d30baf262246274ab62d6",
-    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:c7ba88c359f7ef2ae67e4ff154029a7022865acef377e45636357e5b8eef16cb",
-    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:8e6a2658b83e3a429400fd65ea966b28f94b855e8958a2b8ffc1e23a1b70c287",
-    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:9ca64e504c9b20f7ca175b2a121ac8294867d5869418bd097d38ae96c5d2fe76",
+    "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:90147e4b992de47533ebe4b91a9634201a1cbd503b957d79631256b4f65c6019",
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:6484a02fb7e60d76291e849b98b33e26c03076a7dc31ddaf02fc0c769665adba",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:41efd9528cafa2dc9aaf4fe05e972c176a7a6fddfae09cc5590950de3185620e",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:fb6db62c9bb61cfb928f25ac88de1a862ab83bc4fb18b1fbc8ed87a2b5132dc7",
     "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
     "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:b7fba186a5dea6517fcacf8b68827d15a687d4ae5d725d822b84ae61550d6e6a"
   },
@@ -38,7 +44,7 @@
     "docs/research/evidence/phase_08_eventing/decision.json": "sha256:3f74c8325b85581f119cb7f66acd3d2187c1d6ef96f2d442863c08d3f05dabc7",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:0a91453fe04da4e3aad6e322e810b4252b8a0499713cafdae059a5e3e067e5c6",
+  "package_digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab",
   "reviews": [
     {
       "review_id": "six-layer-architecture",

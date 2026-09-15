@@ -258,8 +258,8 @@ def _scenario_ids(plan: Mapping[str, Any]) -> list[str]:
     if not isinstance(scenarios, list):
         raise LiveEvidenceError("Evaluation plan scenarios are unavailable")
     result = [item.get("scenario_id") for item in scenarios]
-    if any(not isinstance(value, str) for value in result) or len(set(result)) != 9:
-        raise LiveEvidenceError("Evaluation plan must contain nine unique scenarios")
+    if any(not isinstance(value, str) for value in result) or len(set(result)) != 8:
+        raise LiveEvidenceError("Evaluation plan must contain eight unique scenarios")
     return result
 
 
@@ -294,8 +294,8 @@ def load_candidate_pack(
         raise LiveEvidenceError("Unsupported candidate-pack manifest version")
     if manifest.get("evidence_status") != "offline_planned_candidates":
         raise LiveEvidenceError("Candidate pack must remain explicitly offline")
-    if manifest.get("scenario_count") != 9:
-        raise LiveEvidenceError("Candidate pack must contain exactly nine scenarios")
+    if manifest.get("scenario_count") != 8:
+        raise LiveEvidenceError("Candidate pack must contain exactly eight scenarios")
     if manifest.get("plan_digest") != _document_digest(plan):
         raise LiveEvidenceError("Candidate pack does not match the checked plan")
     if manifest.get("manifest_digest") != _document_digest(
@@ -304,7 +304,7 @@ def load_candidate_pack(
         raise LiveEvidenceError("Candidate-pack manifest digest is invalid")
 
     entries = manifest.get("candidates")
-    if not isinstance(entries, list) or len(entries) != 9:
+    if not isinstance(entries, list) or len(entries) != 8:
         raise LiveEvidenceError("Candidate-pack manifest entries are incomplete")
     expected_ids = _scenario_ids(plan)
     plan_scenarios = {item["scenario_id"]: item for item in plan["scenarios"]}
@@ -588,7 +588,7 @@ def _require_ready_plan(plan: Mapping[str, Any]) -> None:
         or item["budget_cap_usd"] <= 0
         for item in plan["scenarios"]
     ):
-        raise LiveEvidenceError("Live evidence requires nine positive budget caps")
+        raise LiveEvidenceError("Live evidence requires eight positive budget caps")
 
 
 def _validate_phase_8_claims(
@@ -697,7 +697,7 @@ def _validate_state(record: Mapping[str, Any], *, plan: Mapping[str, Any]) -> No
         scenario["budget_cap_usd"] is None or not scenario["budget_reviewed"]
         for scenario in record["scenarios"]
     ):
-        raise LiveEvidenceError("Live evaluation requires nine reviewed budget caps")
+        raise LiveEvidenceError("Live evaluation requires eight reviewed budget caps")
 
     terminal = status in {"completed", "completed_with_blockers"}
     _validate_phase_8_claims(
@@ -714,7 +714,7 @@ def _validate_state(record: Mapping[str, Any], *, plan: Mapping[str, Any]) -> No
         raise LiveEvidenceError("At most one live scenario may be running")
     if terminal:
         if any(value not in {"completed", "blocked"} for value in scenario_statuses):
-            raise LiveEvidenceError("Final evidence requires nine terminal scenarios")
+            raise LiveEvidenceError("Final evidence requires eight terminal scenarios")
         if record["completed_at"] is None:
             raise LiveEvidenceError("Final evidence requires a completion timestamp")
         has_blocker = _has_phase_8_blocker(record) or "blocked" in scenario_statuses

@@ -25,7 +25,8 @@
         ],
         "l3_hot": [
           "aws.dynamodb-on-demand-raw",
-          "aws.dynamodb-on-demand-hourly-rollup"
+          "aws.dynamodb-on-demand-hourly-rollup",
+          "aws.lambda-raw-history-reader"
         ],
         "l3_cool": [
           "aws.s3-standard-ia"
@@ -36,9 +37,7 @@
         "l4_twin": [
           "aws.iot-twinmaker-standard"
         ],
-        "l5_visualization": [
-          "aws.lambda-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "aws.eventbridge-scheduler",
@@ -79,7 +78,8 @@
           "azure.logic-apps-consumption"
         ],
         "l3_hot": [
-          "azure.cosmos-db-nosql-raw-and-rollup"
+          "azure.cosmos-db-nosql-raw-and-rollup",
+          "azure.functions-flex-raw-history-reader"
         ],
         "l3_cool": [
           "azure.blob-cool"
@@ -90,9 +90,7 @@
         "l4_twin": [
           "azure.digital-twins"
         ],
-        "l5_visualization": [
-          "azure.functions-flex-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "azure.container-apps-scheduled-storage-job",
@@ -137,7 +135,8 @@
           "gcp.workflows"
         ],
         "l3_hot": [
-          "gcp.firestore-native-standard-raw-and-rollup"
+          "gcp.firestore-native-standard-raw-and-rollup",
+          "gcp.cloud-run-raw-history-reader"
         ],
         "l3_cool": [
           "gcp.cloud-storage-nearline"
@@ -151,9 +150,7 @@
           "gcp.cloud-run-iap-twin-explorer",
           "gcp.direct-iap-layer-access"
         ],
-        "l5_visualization": [
-          "gcp.cloud-run-raw-history-reader"
-        ]
+        "l5_visualization": []
       },
       "support_components": [
         "gcp.cloud-scheduler",

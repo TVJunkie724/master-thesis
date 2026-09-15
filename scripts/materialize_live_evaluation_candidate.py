@@ -23,20 +23,20 @@ OPTIMIZER_ROOT = ROOT / "2-twin2clouds"
 if str(OPTIMIZER_ROOT) not in sys.path:
     sys.path.insert(0, str(OPTIMIZER_ROOT))
 
-from backend.architecture_profiles.candidate_factory import (
+from backend.architecture_profiles.candidate_factory import (  # noqa: E402
     SIX_LAYER_COMPONENTS,
 )
-from backend.architecture_profiles.registry import (
+from backend.architecture_profiles.registry import (  # noqa: E402
     ArchitectureProfileRegistry,
 )
-from backend.architecture_profiles.six_layer_optimizer import (
+from backend.architecture_profiles.six_layer_optimizer import (  # noqa: E402
     optimize_six_layer_eventing_v1,
 )
-from backend.pricing_catalog_models import PricingCatalogContext
-from backend.pricing_catalog_repository import (
+from backend.pricing_catalog_models import PricingCatalogContext  # noqa: E402
+from backend.pricing_catalog_repository import (  # noqa: E402
     get_pricing_catalog_repository,
 )
-from backend.pricing_catalog_resolver import PricingCatalogResolver
+from backend.pricing_catalog_resolver import PricingCatalogResolver  # noqa: E402
 
 PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
 ARTIFACT_PATH = (
@@ -306,7 +306,7 @@ def main() -> int:
         "--all",
         action="store_true",
         dest="all_scenarios",
-        help="Materialize all nine checked scenarios into a new directory.",
+        help="Materialize all checked scenarios into a new directory.",
     )
     parser.add_argument(
         "--output",

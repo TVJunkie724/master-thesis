@@ -64,6 +64,12 @@ def provider_config_for_specification(
         provider = selection.get("provider")
         if key is not None and isinstance(provider, str):
             providers.setdefault(key, provider)
+    # The offline pending L5 consumer has no atomic resource. Its placement
+    # comes from the canonical architecture, never from the storage owner.
+    if "layer_5_provider" not in providers:
+        providers["layer_5_provider"] = _canonical_manifest()["providers"][
+            "layer_5_provider"
+        ]
     return providers
 
 
@@ -76,14 +82,11 @@ def deployment_manifest(
 ) -> dict[str, Any]:
     manifest = deepcopy(_canonical_manifest())
     architecture = manifest["resolved_twin_architecture"]
-    architecture["resolution_status"] = "publishable"
     selected_specification = deepcopy(
         specification or manifest["resolved_deployment_specification"]
     )
-    selected_specification["readiness"] = {
-        "status": "deployment_ready",
-        "blocking_gate_ids": [],
-    }
+    # Preserve actual offline readiness. Unit tests of downstream mechanics
+    # explicitly isolate admission; fixtures must not invent graphical L5.
     selected_specification["digest"] = specification_digest(selected_specification)
     architecture["deployment_specification_ref"]["digest"] = selected_specification[
         "digest"

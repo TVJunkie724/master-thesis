@@ -17,7 +17,7 @@ locals {
     local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l2_enabled ||
     local.gcp_six_layer_hot_enabled || local.gcp_six_layer_cool_enabled ||
     local.gcp_six_layer_archive_enabled || local.gcp_six_layer_l4_enabled ||
-    local.gcp_six_layer_l5_enabled || local.gcp_six_layer_event_layer_local
+    local.gcp_six_layer_hot_enabled || local.gcp_six_layer_event_layer_local
   )
 
   gcp_six_layer_event_enabled = (
@@ -35,7 +35,7 @@ locals {
   gcp_six_layer_platform_container_enabled = (
     local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l2_enabled ||
     local.gcp_six_layer_hot_enabled || local.gcp_six_layer_cool_enabled ||
-    local.gcp_six_layer_l4_enabled || local.gcp_six_layer_l5_enabled ||
+    local.gcp_six_layer_l4_enabled || local.gcp_six_layer_hot_enabled ||
     local.gcp_six_layer_remote_landing_enabled ||
     length(local.gcp_six_layer_outbound_event_routes) > 0
   )
@@ -283,8 +283,8 @@ resource "terraform_data" "gcp_six_layer_foundation_guard" {
       error_message = "GCP Six-layer container components require a content-addressed platform image."
     }
     precondition {
-      condition     = !local.gcp_six_layer_l5_enabled || var.gcp_deployment_principal_email != ""
-      error_message = "GCP Six-layer L5 requires the deployment service-account email for authenticated readback."
+      condition     = !local.gcp_six_layer_hot_enabled || var.gcp_deployment_principal_email != ""
+      error_message = "GCP Six-layer L3 read access requires the deployment service-account email for authenticated readback."
     }
     precondition {
       condition = (
@@ -589,7 +589,7 @@ resource "google_service_account" "gcp_six_layer_runtime" {
       twin     = "twin"
       explorer = "explorer"
     } : {},
-    local.gcp_six_layer_l5_enabled ? { reader = "reader" } : {},
+    local.gcp_six_layer_hot_enabled ? { reader = "reader" } : {},
     local.gcp_six_layer_storage_mover_enabled ? {
       storage   = "storage"
       scheduler = "scheduler"
@@ -1101,13 +1101,13 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
 }
 
 resource "random_password" "gcp_six_layer_raw_history_cursor_hmac" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count   = local.gcp_six_layer_hot_enabled ? 1 : 0
   length  = 64
   special = false
 }
 
 resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
-  count                = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count                = local.gcp_six_layer_hot_enabled ? 1 : 0
   project              = local.gcp_project_id
   location             = var.gcp_region
   name                 = "${local.gcp_six_layer_name}-six-raw-history"
@@ -1249,7 +1249,7 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_twin_push_invok
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_raw_history_deployment_invoker" {
-  count    = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count    = local.gcp_six_layer_hot_enabled ? 1 : 0
   project  = local.gcp_project_id
   location = var.gcp_region
   name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].name
@@ -1430,7 +1430,7 @@ resource "google_project_iam_member" "gcp_six_layer_explorer_firestore_reader" {
 }
 
 resource "google_project_iam_member" "gcp_six_layer_reader_firestore_reader" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count   = local.gcp_six_layer_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/datastore.viewer"
   member  = "serviceAccount:${google_service_account.gcp_six_layer_runtime["reader"].email}"
@@ -2001,9 +2001,8 @@ output "gcp_component_hot_storage_output" {
   } : null
 }
 
-output "gcp_component_visualization_output" {
-  description = "Safe Six-layer GCP L5 read-only query coordinates"
-  value = local.gcp_six_layer_l5_enabled ? {
+locals {
+  gcp_six_layer_storage_read_access = local.gcp_six_layer_hot_enabled ? {
     service           = "Cloud Run bounded raw-history reader"
     access_url        = "${google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].uri}/raw-history/v1"
     principal_label   = var.gcp_deployment_principal_email
@@ -2018,4 +2017,14 @@ output "gcp_component_visualization_output" {
       data_probe_revision = "gcp-raw-history-readback.v1"
     }
   } : null
+}
+
+output "gcp_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.gcp_six_layer_storage_read_access
+}
+
+output "gcp_component_visualization_output" {
+  description = "Deprecated readback compatibility alias; does not prove graphical L5"
+  value       = local.gcp_six_layer_l5_enabled ? local.gcp_six_layer_storage_read_access : null
 }

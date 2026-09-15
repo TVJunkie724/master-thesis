@@ -1192,7 +1192,7 @@
   "shared_support_rules": [
     "one_registry_per_selected_provider_with_platform_owned_containers",
     "one_firestore_database_per_deployment_when_gcp_l3_or_l4_is_selected",
-    "one_gcp_gke_cluster_control_plane_when_l1_and_l5_are_both_gcp",
+    "one_gcp_gke_cluster_control_plane_when_l1_is_gcp",
     "one_azure_log_analytics_workspace_per_selected_azure_bundle"
   ]
 }

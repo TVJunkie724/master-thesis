@@ -100,7 +100,8 @@
         "service-model.aws.aws.eventbridge-scheduler",
         "service-model.aws.aws.ecs-fargate-storage-mover",
         "service-model.aws.aws.ecr-if-container-selected",
-        "service-model.aws.aws.cloudwatch"
+        "service-model.aws.aws.cloudwatch",
+        "service-model.aws.aws.lambda-raw-history-reader"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -118,7 +119,8 @@
         "aws.eventbridge-scheduler",
         "aws.ecs-fargate-storage-mover",
         "aws.ecr-if-container-selected",
-        "aws.cloudwatch"
+        "aws.cloudwatch",
+        "aws.lambda-raw-history-reader"
       ],
       "deployment_specification_slot_ids": [
         "l3_hot_storage"
@@ -571,5 +573,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:8913b5dc872e87bbe442ddd069bf8a6af6dad779cf6879762fc5189a0cb340eb"
+  "content_digest": "sha256:d2de43f5041ef0446607675e16470a5903beda1a41177c54bd3a334d3a48831f"
 }

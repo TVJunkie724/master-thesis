@@ -229,7 +229,7 @@ def _placement_rds(
     return assignment, specification
 
 
-def test_six_layer_strategy_enumerates_only_colocated_l3_storage_l5_candidates():
+def test_six_layer_strategy_colocates_l3_tiers_but_not_visualization():
     registry = _registry()
     context = build_resolution_context(
         registry=registry,
@@ -244,17 +244,21 @@ def test_six_layer_strategy_enumerates_only_colocated_l3_storage_l5_candidates()
     strategy = SixLayerEventingV1CandidateStrategy(context.profile)
     candidates = strategy.enumerate_candidates(context)
 
-    assert len(candidates) == 32
+    assert len(candidates) == 64
     assert all(
         len(
             {
                 candidate.component("component.hot-storage").provider,
                 candidate.component("component.cool-storage").provider,
                 candidate.component("component.archive-storage").provider,
-                candidate.component("component.visualization").provider,
             }
         )
         == 1
+        for candidate in candidates
+    )
+    assert any(
+        candidate.component("component.hot-storage").provider
+        != candidate.component("component.visualization").provider
         for candidate in candidates
     )
     assert {
@@ -312,15 +316,12 @@ def test_gcp_event_edge_dimensions_match_the_selected_runtime_profile(
     specification = _rds("gcp", size)
     selections = specification["component_selections"]
     broker = next(
-        item
-        for item in selections
-        if "bifromq" in item["implementation_component_id"]
+        item for item in selections if "bifromq" in item["implementation_component_id"]
     )
     adapter = next(
         item
         for item in selections
-        if item["implementation_component_id"]
-        == "gcp.ordered-mqtt-pubsub-adapter"
+        if item["implementation_component_id"] == "gcp.ordered-mqtt-pubsub-adapter"
     )
 
     def dimensions(selection):
@@ -339,7 +340,7 @@ def test_gcp_event_edge_dimensions_match_the_selected_runtime_profile(
     assert adapter_dimensions["node_hours"] == adapter_nodes * 730
 
 
-@pytest.mark.parametrize("provider", ("aws", "azure", "gcp"))
+@pytest.mark.parametrize("provider", ("aws", "azure"))
 def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     pricing, evidence = _pricing()
     registry = _registry()
@@ -357,6 +358,18 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     assert result.enumerated_candidate_count == 1
     assert result.costed_candidate_count == 1
     assert result.cost_evaluation.monthly_total > 0
+    readers = [
+        item
+        for item in result.deployment_specification["component_selections"]
+        if item["implementation_component_id"].endswith("raw-history-reader")
+    ]
+    assert len(readers) == 1
+    assert readers[0]["logical_component_id"] == "component.hot-storage"
+    assert result.cost_evaluation.component_totals["component.visualization"] == 0
+    assert (
+        "gate.implementation.l5-visualization-pending"
+        in (result.deployment_specification["readiness"]["blocking_gate_ids"])
+    )
     assert result.cost_ledger["route_costs"] == []
     assert len(result.resolved_architecture["component_assignments"]) == 8
     event_edges = [
@@ -371,27 +384,37 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     }
 
 
-def test_small_is_publishable_while_medium_live_capacity_remains_fail_closed():
+def test_gcp_reader_remains_storage_owned_but_full_gcp_profile_is_excluded():
+    specification = _rds("gcp", "small")
+    reader = next(
+        item
+        for item in specification["component_selections"]
+        if item["implementation_component_id"] == "gcp.cloud-run-raw-history-reader"
+    )
+    assert reader["logical_component_id"] == "component.hot-storage"
+    assert (
+        "gate.scope.gcp-l4-l5-excluded"
+        in specification["readiness"]["blocking_gate_ids"]
+    )
     pricing, evidence = _pricing()
     registry = _registry()
-    small = optimize_six_layer_eventing_v1(
-        calculation_run_id=RUN_ID,
-        architecture_profile=_profile_ref(registry),
-        extension_bindings=_extension_bindings(),
-        workload=_workload("small"),
-        pricing_evidence_refs={"aws": evidence["aws"]},
-        pricing_by_provider={"aws": pricing["aws"]},
-        providers=("aws",),
-        registry=registry,
-        resolution_status="publishable",
-    )
+    with pytest.raises(ArchitectureResolutionError, match="No supported provider"):
+        optimize_six_layer_eventing_v1(
+            calculation_run_id=RUN_ID,
+            architecture_profile=_profile_ref(registry),
+            extension_bindings=_extension_bindings(),
+            workload=_workload("small"),
+            pricing_evidence_refs={"gcp": evidence["gcp"]},
+            pricing_by_provider={"gcp": pricing["gcp"]},
+            providers=("gcp",),
+            registry=registry,
+        )
 
-    assert small.resolved_architecture["resolution_status"] == "publishable"
-    assert small.deployment_specification["readiness"] == {
-        "status": "deployment_ready",
-        "blocking_gate_ids": [],
-    }
 
+@pytest.mark.parametrize("size", ("small", "medium"))
+def test_graphical_l5_pending_blocks_publication_even_with_acknowledged_gate(size):
+    pricing, evidence = _pricing()
+    registry = _registry()
     with pytest.raises(
         ArchitectureResolutionError,
         match="No fully costed Six-layer candidate",
@@ -400,12 +423,15 @@ def test_small_is_publishable_while_medium_live_capacity_remains_fail_closed():
             calculation_run_id=RUN_ID,
             architecture_profile=_profile_ref(registry),
             extension_bindings=_extension_bindings(),
-            workload=_workload("medium"),
+            workload=_workload(size),
             pricing_evidence_refs={"aws": evidence["aws"]},
             pricing_by_provider={"aws": pricing["aws"]},
             providers=("aws",),
             registry=registry,
             resolution_status="publishable",
+            satisfied_live_gate_ids=frozenset(
+                {"gate.implementation.l5-visualization-pending"}
+            ),
         )
 
 
@@ -447,7 +473,7 @@ def test_optimizer_rejects_cheapest_candidate_when_resolution_is_not_materializa
 
     assert result.winning_candidate_id != "aws|aws|aws|azure|azure|azure|aws|gcp"
     assert result.costed_candidate_count < result.enumerated_candidate_count
-    assert dict(result.rejected_by_error_code)["ARCH_RESOLUTION_BUILD_FAILED"] > 0
+    assert dict(result.rejected_by_error_code)["ARCH_EDGE_IMPLEMENTATION_MISSING"] > 0
 
 
 def test_evaluation_hook_materializes_an_admissible_costed_candidate_without_calling_it_winner():
@@ -463,17 +489,19 @@ def test_evaluation_hook_materializes_an_admissible_costed_candidate_without_cal
         pricing_evidence_refs=evidence,
         pricing_by_provider=pricing,
         registry=registry,
-        resolution_status="publishable",
+        resolution_status="offline_contract_fixture",
         evaluation_candidate_id=candidate_id,
     )
 
     assert result.selection_kind == "evaluation_candidate"
     assert result.selected_candidate_id == candidate_id
     assert result.cost_evaluation.monthly_total > 0
-    assert result.resolved_architecture["resolution_status"] == "publishable"
+    assert (
+        result.resolved_architecture["resolution_status"] == "offline_contract_fixture"
+    )
     assert result.deployment_specification["readiness"] == {
-        "status": "deployment_ready",
-        "blocking_gate_ids": [],
+        "status": "offline_contract_fixture",
+        "blocking_gate_ids": ["gate.implementation.l5-visualization-pending"],
     }
     with pytest.raises(RuntimeError, match="not the cost winner"):
         _ = result.winning_candidate_id

@@ -153,16 +153,16 @@ def validate_routes(routes: dict[str, Any], errors: list[str]) -> None:
         errors.append("same_provider_pairs must contain all three exact pairs")
 
     placements = routes["online_placements"]
-    expected_placements = {(l3_l5, l4) for l3_l5 in PROVIDERS for l4 in PROVIDERS}
+    expected_placements = {(l3, l4) for l3 in PROVIDERS for l4 in ("aws", "azure")}
     actual_placements = {
-        (item["l3_hot_l5_provider"], item["l4_provider"]) for item in placements
+        (item["l3_hot_provider"], item["l4_provider"]) for item in placements
     }
-    if actual_placements != expected_placements or len(placements) != 9:
+    if actual_placements != expected_placements or len(placements) != 6:
         errors.append(
-            "online_placements must contain the exact nine L3-hot/L5 plus L4 combinations"
+            "online_placements must contain the six L3-hot plus AWS/Azure L4 combinations"
         )
     for item in placements:
-        expected_route = f"{item['l3_hot_l5_provider']}->{item['l4_provider']}"
+        expected_route = f"{item['l3_hot_provider']}->{item['l4_provider']}"
         if item["projection_route"] != expected_route:
             errors.append(
                 f"{item['placement_id']}: projection route does not match placement"
@@ -212,7 +212,7 @@ def validate_contracts(contract: dict[str, Any], errors: list[str]) -> None:
         )
 
     raw = definitions.get("raw_history_query.v1", {})
-    if raw.get("transport", {}).get("provider_placement") != "l3_hot_l5_provider_only":
+    if raw.get("transport", {}).get("provider_placement") != "l3_hot_provider_only":
         errors.append("raw-history transport must remain provider-local")
     if raw.get("request", {}).get("rules", {}).get("limit_max") != 1000:
         errors.append("raw-history query must preserve the 1000-point bound")
@@ -511,7 +511,7 @@ def validate_immutable_inputs(decision: dict[str, Any], errors: list[str]) -> No
 
 def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
     if bundle["plugin_decisions"]:
-        errors.append("L5 raw-history readback must not require dashboard plugins")
+        errors.append("L3 raw-history readback must not require dashboard plugins")
 
 
 def validate() -> list[str]:

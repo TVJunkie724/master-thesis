@@ -50,6 +50,13 @@
     "supported": {
       "type": "boolean"
     },
+    "excluded_component_ids": {
+      "description": "Explicit PoC exclusions; support applies only to the remaining mappings.",
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["component.twin-state", "component.visualization"]}
+    },
     "component_mappings": {
       "type": "array",
       "minItems": 1,

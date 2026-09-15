@@ -5,6 +5,11 @@ This is a resource proposal and feasibility result, not an executable Terraform
 plan, spending approval, or live readiness evidence. No cloud resources were
 created and no account credentials were read during this review.
 
+Scope update (2026-09-16): the GCP L4/L5 replacement proposal below is
+superseded. No GCP visualization VM or custom Twin replacement will be built
+for this PoC. Readers are now owned by L3; graphical L5 remains pending for
+AWS/Azure. See [the separation plan](../../plans/2026-09-16_poc_l3_read_access_separation.md).
+
 ## Smallest useful result
 
 One provider-hosted dashboard, one device and metric, and two panels: recent

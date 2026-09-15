@@ -18,13 +18,12 @@ def test_candidate_ids_match_the_checked_evaluation_matrix() -> None:
     assert actual == {
         "small-local-aws": "aws|aws|aws|aws|aws|aws|aws|aws",
         "small-local-azure": ("azure|azure|azure|azure|azure|azure|azure|azure"),
-        "small-local-gcp": "gcp|gcp|gcp|gcp|gcp|gcp|gcp|gcp",
         "small-focus-aws-to-azure": ("aws|azure|azure|azure|azure|azure|azure|azure"),
-        "small-focus-azure-to-aws": ("azure|aws|aws|aws|aws|aws|aws|azure"),
-        "small-focus-aws-to-gcp": "aws|aws|aws|aws|aws|gcp|aws|aws",
-        "small-focus-gcp-to-aws": "gcp|gcp|gcp|gcp|gcp|gcp|gcp|aws",
-        "small-focus-azure-to-gcp": ("azure|gcp|gcp|gcp|gcp|gcp|gcp|gcp"),
-        "small-focus-gcp-to-azure": ("gcp|gcp|gcp|gcp|gcp|azure|gcp|gcp"),
+        "small-focus-azure-to-aws": ("azure|azure|azure|azure|azure|aws|azure|azure"),
+        "small-focus-aws-to-gcp": "aws|aws|aws|aws|aws|aws|aws|gcp",
+        "small-focus-gcp-to-aws": "gcp|gcp|aws|aws|aws|aws|aws|aws",
+        "small-focus-azure-to-gcp": ("azure|azure|azure|azure|azure|azure|azure|gcp"),
+        "small-focus-gcp-to-azure": ("gcp|azure|azure|azure|azure|azure|azure|azure"),
     }
 
 
@@ -40,7 +39,7 @@ def test_complete_plan_materializes_as_digest_bound_pack(tmp_path) -> None:
 
     manifest = materializer.materialize_plan(output_dir)
 
-    assert manifest["scenario_count"] == 9
+    assert manifest["scenario_count"] == 8
     assert manifest["manifest_digest"] == materializer._digest(
         {key: value for key, value in manifest.items() if key != "manifest_digest"}
     )
@@ -48,7 +47,6 @@ def test_complete_plan_materializes_as_digest_bound_pack(tmp_path) -> None:
     assert [item["scenario_id"] for item in manifest["candidates"]] == [
         "small-local-aws",
         "small-local-azure",
-        "small-local-gcp",
         "small-focus-aws-to-azure",
         "small-focus-azure-to-aws",
         "small-focus-aws-to-gcp",

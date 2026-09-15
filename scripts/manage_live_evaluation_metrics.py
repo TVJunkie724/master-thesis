@@ -787,7 +787,7 @@ def validate_metric_collection(
             if unexpected:
                 detail.append("unexpected=" + ",".join(unexpected))
             raise LiveMetricsError(
-                "Final metric collection does not cover the exact nine-scenario "
+                "Final metric collection does not cover the exact eight-scenario "
                 "matrix (" + "; ".join(detail) + ")"
             )
 

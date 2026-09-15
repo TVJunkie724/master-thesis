@@ -12,22 +12,37 @@ deployment set. It is a cross-stack thesis protocol, not a Deployer component
 test suite. The canonical scenario input is
 `small-scenario-matrix.json`.
 
-The matrix contains three provider-local baselines and six directed
+The revised matrix contains two complete provider-local baselines (AWS/Azure) and six directed
 multi-cloud focus cases. Every AWS/Azure/GCP direction is the primary focus of
 one case. The focus edges use the two contracts implemented as cross-cloud PoC
-boundaries: canonical domain events and Twin projection. Hot, cool, archive,
-and the L5 readback form one provider-local storage/read bundle; the two storage
-transitions and raw-history query remain versioned contracts but are not
-cross-cloud deployment choices. Incidental reverse or additional cross-cloud
+boundaries: canonical domain events and Twin projection. Hot, cool and archive
+remain co-located. The authenticated raw-history reader belongs to L3, not L5.
+Visualization is an independent consumer; remote reader authentication is not
+implemented and such consumers remain blocked. Incidental reverse or additional cross-cloud
 edges remain part of the recorded graph but do not create extra scenarios.
 
 ## Current prerequisite checkpoint
 
+**Scope correction (2026-09-16):** GCP L4/L5 are excluded, without replacement
+VMs or a custom Twin platform. GCP L1–L3 and Eventing remain in scope. The
+eight complete-graph planning candidates do not replace the still-pending GCP
+storage/core-only run. True core-only deployment requires separate preparation;
+delaying L4/L5 verification inside a complete Apply does not avoid their costs.
+Research questions remain unchanged; this is an implementation finding and a
+limit on the available functional comparison, not a measured negative result.
+
+Graphical L5 is currently unimplemented for the active profile. All newly
+materialized candidates therefore retain a non-overridable implementation
+gate. Their L5 atomic cost subtotal is empty, **not a zero-cost visualization**;
+the offline budget proposal cannot authorize a dashboard or a complete E2E run.
+Reader outputs retained under old L5 names are compatibility aliases only.
+Old candidate, image and budget digests cannot approve the revised graphs.
+
 **Current L5 blocker (2026-09-07):** JSON readback does not establish graphical
 equivalence. The [minimal visualization review](l5-visualization-feasibility.md)
 finds that restoring AWS Managed Grafana exceeds the unchanged technical caps
-without verified credits; Azure billing and the GCP VM quote/integration also
-need final resolution. Earlier dashboard prerequisite checks below are
+without verified credits; Azure billing still needs resolution. The earlier
+GCP VM proposal is superseded by the GCP L4/L5 exclusion. Earlier dashboard prerequisite checks below are
 historical and do not clear this gate. No dashboard restoration or additional
 spending is authorized by the existing reader-only budget proposal.
 

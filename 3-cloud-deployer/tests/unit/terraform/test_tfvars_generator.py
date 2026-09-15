@@ -328,6 +328,7 @@ class TestGenerateTfvars:
         with pytest.raises(ValueError, match="project_path is required"):
             generate_tfvars(None, "/tmp/output.json")
 
+    @pytest.mark.usefixtures("offline_graph_mechanics")
     def test_generates_tfvars_file(self, complete_project, tmp_path, monkeypatch):
         """Should generate tfvars.json file."""
         output_path = tmp_path / "terraform" / "generated.tfvars.json"

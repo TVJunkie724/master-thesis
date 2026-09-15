@@ -734,13 +734,15 @@ values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
 The Eventing bridge and provider-local storage-transition job are separate
-evaluated components. The supervised Small set contains three provider-local
-baselines and six multi-cloud cases, one for every directed AWS/Azure/GCP
+evaluated components. Following the 2026-09-16 scope finding, the supervised
+Small planning set contains two complete provider-local baselines (AWS/Azure)
+and six multi-cloud cases, one for every directed AWS/Azure/GCP
 provider pair. The six focus edges jointly exercise the cross-cloud-capable
-`canonical-domain-event.v1` and `twin_projection.v1` contracts. The three
-provider-local baselines exercise `storage_transition.v1` and
-`raw_history_query.v1`; splitting L3 hot, cool, archive, or L5 across providers
-remains an explicit negative offline candidate. This bounded choice avoids
+`canonical-domain-event.v1` and `twin_projection.v1` contracts. The
+provider-local paths exercise `storage_transition.v1` and
+`raw_history_query.v1`. L3 hot/cool/archive remain co-located; the bounded
+reader belongs to L3. L5 is an independent consumer, but remote reader
+authentication is not implemented and remains blocked. This bounded choice avoids
 claiming a cross-cloud migration path that cannot be observed within the
 short-lived PoC evaluation window. The cases do not enumerate every valid
 assignment. Incidental
@@ -748,6 +750,14 @@ additional edges are recorded from the resolved graph but do not create
 redundant scenarios. The checked assignments live in
 `evaluation/small-scenario-matrix.json`; their safe execution order and
 evidence boundary live in `evaluation/live-evaluation-protocol.md`.
+
+GCP L4/L5 are excluded without custom replacement infrastructure. GCP
+L1–L3/Eventing remain within the study, but the separate core-only deployment
+path and GCP storage run remain pending. This is a scope limitation discovered
+during RQ1 operationalization, not a change to RQ1–RQ3 or proof of a negative
+functional result. RQ2 must distinguish unimplemented visualization from a
+verified storage query; RQ3 must assign reader charges once to L3 and must not
+interpret the empty graphical-L5 subtotal as a free equivalent service.
 
 The current implementation exposes an authenticated JSON endpoint with the
 same bounded raw-history and hourly-rollup query contract on AWS, Azure, and

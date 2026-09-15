@@ -51,6 +51,13 @@ class DeploymentAccessRuntimeEvidence:
     surfaces: tuple[SurfaceRuntimeEvidence, SurfaceRuntimeEvidence]
 
     def __post_init__(self) -> None:
+        if any(
+            item.layer == "l5" and item.content_revision == "raw-history-query.v1"
+            for item in self.surfaces
+        ):
+            raise DeploymentAccessRuntimeEvidenceError(
+                "L3 raw-history readback is not graphical L5 evidence"
+            )
         coordinates = [(item.layer, item.provider) for item in self.surfaces]
         if len(coordinates) != 2 or {layer for layer, _provider in coordinates} != {
             "l4",

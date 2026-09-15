@@ -100,7 +100,8 @@
         "service-model.azure.azure.container-apps-scheduled-storage-job",
         "service-model.azure.azure.acr-basic-if-container-selected",
         "service-model.azure.azure.monitor",
-        "service-model.azure.azure.log-analytics-shared-workspace"
+        "service-model.azure.azure.log-analytics-shared-workspace",
+        "service-model.azure.azure.functions-flex-raw-history-reader"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -116,7 +117,8 @@
         "azure.container-apps-scheduled-storage-job",
         "azure.acr-basic-if-container-selected",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace"
+        "azure.log-analytics-shared-workspace",
+        "azure.functions-flex-raw-history-reader"
       ],
       "deployment_specification_slot_ids": [
         "l3_hot_storage"
@@ -567,5 +569,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:74a68c8c0b138728154d57d47a25dc262f420977c41de43bdb3ce28e32e25600"
+  "content_digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170"
 }

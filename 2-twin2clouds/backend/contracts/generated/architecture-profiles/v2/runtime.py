@@ -824,16 +824,33 @@ def _check_provider_profile(
             "Architecture profile reference digest differs from linked profile",
         )
     component_ids = {item["component_id"] for item in matching_profile["components"]}
-    edge_ids = {item["edge_id"] for item in matching_profile["edges"]}
+    excluded = set(document.get("excluded_component_ids", []))
+    if excluded and (
+        document["provider"] != "gcp"
+        or matching_profile["profile_id"] != "six-layer-eventing"
+        or excluded != {"component.twin-state", "component.visualization"}
+    ):
+        _fail(
+            "ARCH_COMPONENT_UNAVAILABLE",
+            "excluded_component_ids",
+            "Only the reviewed GCP L4/L5 PoC exclusion is supported",
+        )
+    supported_component_ids = component_ids - excluded
+    edge_ids = {
+        item["edge_id"]
+        for item in matching_profile["edges"]
+        if item["source_component_id"] not in excluded
+        and item["destination_component_id"] not in excluded
+    }
     mapped_components = {
         item["component_id"] for item in document["component_mappings"]
     }
     mapped_edges = {item["edge_id"] for item in document["edge_mappings"]}
-    if document["supported"] and component_ids != mapped_components:
+    if document["supported"] and supported_component_ids != mapped_components:
         _fail(
             "ARCH_COMPONENT_UNAVAILABLE",
             "component_mappings",
-            "Provider mappings do not cover every logical component",
+            "Provider mappings do not cover exactly the supported logical components",
         )
     if not mapped_components.issubset(component_ids):
         _fail(
@@ -856,6 +873,7 @@ def _check_provider_profile(
     required_capabilities = {
         capability
         for component in matching_profile["components"]
+        if component["component_id"] not in excluded
         for capability in component["required_capability_ids"]
     }
     provided = set(document["capability_claims"]["provided_capability_ids"])
@@ -1217,16 +1235,16 @@ def _check_resolved(
             "component.hot-storage",
             "component.cool-storage",
             "component.archive-storage",
-            "component.visualization",
         )
     ]
-    if all(storage_bundle) and len(
-        {assignment["provider"] for assignment in storage_bundle}
-    ) != 1:
+    if (
+        all(storage_bundle)
+        and len({assignment["provider"] for assignment in storage_bundle}) != 1
+    ):
         _fail(
             "ARCH_BUNDLE_INCOMPATIBLE",
             "component_assignments",
-            "Six-layer PoC requires provider-local L3 storage and L5",
+            "Six-layer PoC requires provider-local L3 storage tiers",
         )
     expected_components = {item["component_id"] for item in profile["components"]}
     if set(by_component) != expected_components:
@@ -1238,6 +1256,16 @@ def _check_resolved(
     profile_components = _by_id(profile["components"], "component_id")
     used_provider_refs: set[tuple[str, str]] = set()
     for index, assignment in enumerate(document["component_assignments"]):
+        if not assignment["deployment_specification_component_ids"] and not (
+            document["resolution_status"] == "offline_contract_fixture"
+            and profile_ref["id"] == "six-layer-eventing"
+            and assignment["logical_component_id"] == "component.visualization"
+        ):
+            _fail(
+                "ARCH_DEPLOYMENT_MAPPING_MISSING",
+                f"component_assignments[{index}].deployment_specification_component_ids",
+                "Only offline pending visualization may lack atomic resources",
+            )
         logical = profile_components[assignment["logical_component_id"]]
         if assignment["responsibility_id"] != logical["responsibility_id"]:
             _fail(

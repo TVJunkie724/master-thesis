@@ -50,7 +50,9 @@ from src.schemas.pricing_catalog import (  # noqa: E402
 )
 from src.services.cost_calculation_run_service import (  # noqa: E402
     CostCalculationRunService,
+    validate_persisted_run_deployment_specification,
 )
+from src.services.errors import CostCalculationRunSelectionError  # noqa: E402
 from src.services.architecture_profile_service import (  # noqa: E402
     ArchitectureProfileService,
 )
@@ -178,7 +180,7 @@ def _optimize_cross_eventing(
         cost_ledger_resolver=force_cross_eventing,
         providers=providers,
         registry=registry,
-        resolution_status="publishable",
+        resolution_status="offline_contract_fixture",
     )
     return optimized, workload, registry
 
@@ -226,8 +228,7 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             f"{bundle['calculation_strategy_version']}"
         )
         pricing_registry_version = (
-            f"{bundle['pricing_registry_id']}@"
-            f"{bundle['pricing_registry_versions'][0]}"
+            f"{bundle['pricing_registry_id']}@{bundle['pricing_registry_versions'][0]}"
         )
         assignment = {
             item["logical_component_id"]: item["provider"]
@@ -262,9 +263,7 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
                 "calculation_model_ids": [calculation_model],
                 "pricing_registry_version": pricing_registry_version,
             },
-            "evidenceReferences": {
-                "pricing_registry": pricing_registry_version
-            },
+            "evidenceReferences": {"pricing_registry": pricing_registry_version},
             "costLedger": dict(optimized.cost_ledger),
             "resolvedTwinArchitecture": architecture,
             "resolvedDeploymentSpecification": specification,
@@ -310,6 +309,12 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             or {edge.mechanism for edge in event_edges} != {"cross_provider_adapter"}
         ):
             raise RuntimeError("Persisted Six-layer graph is incomplete")
+        try:
+            validate_persisted_run_deployment_specification(persisted)
+        except CostCalculationRunSelectionError:
+            pass
+        else:
+            raise RuntimeError("Pending graphical L5 was incorrectly admitted")
         return {
             "profile": "six-layer-eventing@1",
             "components": len(persisted.resolved_architecture.components),
@@ -317,6 +322,7 @@ def _persist(optimized, workload: dict, registry, context: PricingCatalogContext
             "event_bridges": len(event_edges),
             "result_items": len(persisted.result_items),
             "resolution_digest": persisted.resolved_architecture_digest,
+            "deployment_admission": "blocked_pending_graphical_l5",
         }
     finally:
         session.close()

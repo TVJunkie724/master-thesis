@@ -28,6 +28,34 @@ maintained in `docs/research/architecture_evolution.md`.
    runtime choices.
 5. Git history is the archive for superseded implementation plans.
 
+## D-27 — Storage read access is not visualization
+
+**Decision (2026-09-16):** Assign the existing authenticated raw-history readers,
+their runtime lifecycle and their exact-once costs to L3 hot storage. L5 is a
+consumer; a JSON response does not establish graphical equivalence. Preserve
+resource identities, packages, authentication and bounds. Retain old L5 output
+names only as explicit compatibility aliases. No new service or dashboard is
+introduced. Full-profile publication stays blocked while graphical L5 is
+unimplemented; remote L5-to-L3 integration is a separate explicit blocker.
+
+**Scope finding:** Exclude GCP L4/L5 rather than maintaining a custom Twin or
+visualization platform. Preserve GCP L1–L3/Eventing. The matrix contains two
+complete local planning cases plus six directions; GCP core/storage evaluation
+and a genuine core-only deployment path remain pending. Research questions
+and the original Five-layer baseline remain unchanged. Earlier IAP/Grafana
+bootstrap proposals do not authorize work outside this reduced scope.
+
+**Bounded audit:** L2 domain behavior versus Event Layer transport remains
+separate despite shared packages. Source-owned storage movers, co-located L3
+tiers, logging and registry sharing are intentional PoC restrictions, not
+reasons to introduce further abstractions. One missing GCP Event-Layer-only
+registry binding was corrected in the existing catalog.
+
+**Evidence boundary:** New offline candidates and revised digests supersede
+prior graph approvals. They do not prove deployment, graphical comparison or
+cost-free L5. Verification and remaining prerequisites are tracked in the
+[separation plan](plans/2026-09-16_poc_l3_read_access_separation.md).
+
 ## D-01 — Six-layer Eventing architecture
 
 **Decision:** `six-layer-eventing@1` is the only deployable architecture.

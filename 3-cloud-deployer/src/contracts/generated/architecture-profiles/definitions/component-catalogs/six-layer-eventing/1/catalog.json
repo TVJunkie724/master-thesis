@@ -386,29 +386,31 @@
         "component.hot-storage"
       ],
       "decision_implementation_ids": [
-        "aws.dynamodb-on-demand-raw",
+        "aws.cloudwatch",
         "aws.dynamodb-on-demand-hourly-rollup",
-        "aws.sqs-fifo",
-        "aws.lambda-event-adapter",
-        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
-        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
-        "aws.eventbridge-scheduler",
-        "aws.ecs-fargate-storage-mover",
+        "aws.dynamodb-on-demand-raw",
         "aws.ecr-if-container-selected",
-        "aws.cloudwatch"
+        "aws.ecs-fargate-storage-mover",
+        "aws.eventbridge-scheduler",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.lambda-event-adapter",
+        "aws.lambda-raw-history-reader",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "aws.sqs-fifo"
       ],
       "service_id": "aws.hot-storage.v2",
       "service_ids": [
-        "aws.dynamodb-on-demand-raw",
+        "aws.cloudwatch",
         "aws.dynamodb-on-demand-hourly-rollup",
-        "aws.sqs-fifo",
-        "aws.lambda-event-adapter",
-        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
-        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
-        "aws.eventbridge-scheduler",
-        "aws.ecs-fargate-storage-mover",
+        "aws.dynamodb-on-demand-raw",
         "aws.ecr-if-container-selected",
-        "aws.cloudwatch"
+        "aws.ecs-fargate-storage-mover",
+        "aws.eventbridge-scheduler",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.lambda-event-adapter",
+        "aws.lambda-raw-history-reader",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge",
+        "aws.sqs-fifo"
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
@@ -428,6 +430,8 @@
           "aws_iam_role_policy.aws_aws_ecr_if_container_selected",
           "aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge",
           "aws_lambda_function.aws_aws_lambda_event_adapter",
+          "aws_lambda_function.aws_aws_lambda_raw_history_reader",
+          "aws_lambda_function_url.aws_aws_lambda_raw_history_reader",
           "aws_s3_bucket.aws_aws_ecr_if_container_selected",
           "aws_s3_bucket_lifecycle_configuration.aws_aws_ecr_if_container_selected",
           "aws_s3_bucket_public_access_block.aws_aws_ecr_if_container_selected",
@@ -444,6 +448,11 @@
           {
             "output_id": "output.aws.hot-storage.v2",
             "terraform_output": "aws_component_hot_storage_output",
+            "sensitive": false
+          },
+          {
+            "output_id": "output.aws.storage-read-access.v1",
+            "terraform_output": "aws_component_storage_read_access_output",
             "sensitive": false
           }
         ],
@@ -594,6 +603,11 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "aws.cloudwatch",
+          "slot_id": "l3_hot_storage"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "aws.lambda-raw-history-reader",
           "slot_id": "l3_hot_storage"
         }
       ],
@@ -1610,25 +1624,27 @@
         "component.hot-storage"
       ],
       "decision_implementation_ids": [
-        "azure.cosmos-db-nosql-raw-and-rollup",
-        "azure.service-bus-standard",
-        "azure.functions-flex-event-adapter",
-        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
-        "azure.container-apps-scheduled-storage-job",
         "azure.acr-basic-if-container-selected",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.functions-flex-event-adapter",
+        "azure.functions-flex-raw-history-reader",
+        "azure.log-analytics-shared-workspace",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace"
+        "azure.service-bus-standard"
       ],
       "service_id": "azure.hot-storage.v2",
       "service_ids": [
-        "azure.cosmos-db-nosql-raw-and-rollup",
-        "azure.service-bus-standard",
-        "azure.functions-flex-event-adapter",
-        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
-        "azure.container-apps-scheduled-storage-job",
         "azure.acr-basic-if-container-selected",
+        "azure.container-apps-scheduled-storage-job",
+        "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge",
+        "azure.functions-flex-event-adapter",
+        "azure.functions-flex-raw-history-reader",
+        "azure.log-analytics-shared-workspace",
         "azure.monitor",
-        "azure.log-analytics-shared-workspace"
+        "azure.service-bus-standard"
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
@@ -1649,6 +1665,7 @@
           "azurerm_eventhub_cluster.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge",
           "azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter",
+          "azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader",
           "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace",
           "azurerm_monitor_diagnostic_setting.azure_azure_monitor",
           "azurerm_servicebus_namespace.azure_azure_service_bus_standard",
@@ -1663,6 +1680,11 @@
           {
             "output_id": "output.azure.hot-storage.v2",
             "terraform_output": "azure_component_hot_storage_output",
+            "sensitive": false
+          },
+          {
+            "output_id": "output.azure.storage-read-access.v1",
+            "terraform_output": "azure_component_storage_read_access_output",
             "sensitive": false
           }
         ],
@@ -1803,6 +1825,11 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "azure.log-analytics-shared-workspace",
+          "slot_id": "l3_hot_storage"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "azure.functions-flex-raw-history-reader",
           "slot_id": "l3_hot_storage"
         }
       ],
@@ -2842,25 +2869,27 @@
         "component.hot-storage"
       ],
       "decision_implementation_ids": [
-        "gcp.firestore-native-standard-raw-and-rollup",
-        "gcp.pubsub-separated-embedded-topics",
-        "gcp.cloud-run-event-adapter",
-        "gcp.cloud-scheduler",
-        "gcp.cloud-run-storage-job",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring"
+        "gcp.cloud-monitoring",
+        "gcp.cloud-run-event-adapter",
+        "gcp.cloud-run-raw-history-reader",
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-scheduler",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.pubsub-separated-embedded-topics"
       ],
       "service_id": "gcp.hot-storage.v2",
       "service_ids": [
-        "gcp.firestore-native-standard-raw-and-rollup",
-        "gcp.pubsub-separated-embedded-topics",
-        "gcp.cloud-run-event-adapter",
-        "gcp.cloud-scheduler",
-        "gcp.cloud-run-storage-job",
         "gcp.artifact-registry-if-container-selected",
         "gcp.cloud-logging",
-        "gcp.cloud-monitoring"
+        "gcp.cloud-monitoring",
+        "gcp.cloud-run-event-adapter",
+        "gcp.cloud-run-raw-history-reader",
+        "gcp.cloud-run-storage-job",
+        "gcp.cloud-scheduler",
+        "gcp.firestore-native-standard-raw-and-rollup",
+        "gcp.pubsub-separated-embedded-topics"
       ],
       "component_kind": "storage_service",
       "package_artifact_ref": {
@@ -2873,6 +2902,7 @@
           "google_artifact_registry_repository_iam_member.gcp_gcp_artifact_registry_if_container_selected",
           "google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job",
           "google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter",
+          "google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader",
           "google_cloud_scheduler_job.gcp_gcp_cloud_scheduler",
           "google_firestore_database.gcp_gcp_firestore_native_standard_raw_and_rollup",
           "google_firestore_field.gcp_gcp_firestore_native_standard_raw_and_rollup",
@@ -2891,6 +2921,11 @@
           {
             "output_id": "output.gcp.hot-storage.v2",
             "terraform_output": "gcp_component_hot_storage_output",
+            "sensitive": false
+          },
+          {
+            "output_id": "output.gcp.storage-read-access.v1",
+            "terraform_output": "gcp_component_storage_read_access_output",
             "sensitive": false
           }
         ],
@@ -3031,6 +3066,11 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-monitoring",
+          "slot_id": "l3_hot_storage"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.cloud-run-raw-history-reader",
           "slot_id": "l3_hot_storage"
         }
       ],
@@ -4370,14 +4410,16 @@
         "gcp.pubsub",
         "gcp.cloud_run_v2_service",
         "gcp.cloud_run_v2_worker_pool",
-        "gcp.cloud_logging"
+        "gcp.cloud_logging",
+        "gcp.artifact-registry-if-container-selected"
       ],
       "service_id": "gcp.eventing.v1",
       "service_ids": [
         "gcp.cloud_logging",
         "gcp.cloud_run_v2_service",
         "gcp.cloud_run_v2_worker_pool",
-        "gcp.pubsub"
+        "gcp.pubsub",
+        "gcp.artifact-registry-if-container-selected"
       ],
       "component_kind": "managed_service",
       "package_artifact_ref": {
@@ -4583,6 +4625,11 @@
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
           "component_id": "gcp.cloud-run-event-adapter",
+          "slot_id": "eventing"
+        },
+        {
+          "specification_schema_version": "resolved-deployment-specification.v2",
+          "component_id": "gcp.artifact-registry-if-container-selected",
           "slot_id": "eventing"
         }
       ],
@@ -11116,5 +11163,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:ec004e42cd210f691773fba580b00ca19c7ab8f4c8328b667cc9abe848f7e4b7"
+  "content_digest": "sha256:bdce61b68eba29fd5ce81548d0aefac7896ec12dbb8447e811c037a474bb59a2"
 }

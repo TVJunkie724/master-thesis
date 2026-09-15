@@ -1,6 +1,6 @@
 # PoC: separate storage read access from visualization
 
-Status: implementation plan; offline only. Research questions and the original
+Status: bounded separation implemented and verified offline. Research questions and the original
 Five-layer baseline remain unchanged. No cloud execution, dashboard replacement,
 general partial-deployment framework, or UI redesign is authorized by this plan.
 
@@ -46,3 +46,36 @@ resources and access handoff, not every implementation in the repository.
 - No new VM, Grafana service, generic proxy, framework or product feature is
   introduced. AWS/Azure graphical implementation and its budget remain an
   explicit prerequisite, not a fabricated result of this refactor.
+
+## Implementation and verification — 2026-09-16
+
+- Reader selections, Terraform activation, SDK verification and cost ownership
+  now follow L3 hot storage. Existing Terraform resource addresses are retained;
+  canonical storage-access outputs coexist with explicitly deprecated L5 aliases.
+- Candidate enumeration no longer co-locates L5 by architectural rule. The
+  unimplemented remote-consumer edge still fails closed. Graphical L5 has no
+  invented resource, charge or ready evidence; its missing implementation blocks
+  publication even if a caller acknowledges every live-readiness gate.
+- GCP's provider profile explicitly excludes L4/L5 while retaining lower-layer
+  mappings. Eight revised complete-graph planning candidates materialize offline.
+  GCP-only storage/core evaluation is not replaced by these mixed graphs.
+- Storage-read-only replies cannot become ready graphical access evidence.
+  Management can persist the offline graph but cannot select it for deployment.
+- Unit tests for downstream package/path mechanics explicitly mock admission
+  while retaining offline fixtures. Separate unmocked negative tests prove that
+  execution admission rejects pending or relabelled L5. This is not a production
+  partial-deployment feature or an E2E success claim.
+
+Verification: 1,722 Deployer unit tests; five Terraform mock-plan tests;
+33 Optimizer/contract tests; 20 Management contract/persistence tests; 68 root
+scenario, budget, evidence and contract tests passed. The real offline
+Optimizer-to-Management persistence check, contract synchronization, deterministic
+service-bundle validation, changed-Python lint and strict documentation build
+also passed. Terraform downloaded pinned provider packages for its mocked plans;
+no cloud credentials, workload API, Apply or paid execution was used. The full
+14-stage release gate and Flutter test suite were not rerun in this change.
+
+Remaining work is deliberately outside this refactor: true core-only execution,
+AWS/Azure graphical L5 and its cost decision, and authenticated remote L5-to-L3
+consumption. Existing identity probe results remain historical, not new graph
+authorization. RQ wording and the Five-layer baseline are unchanged.

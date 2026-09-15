@@ -32,6 +32,16 @@ and the
 
 ## Current phase status
 
+Scope revision (2026-09-16): the [bounded separation plan](2026-09-16_poc_l3_read_access_separation.md)
+assigns authenticated history readers, lifecycle and charges to L3. L5 is an
+independent consumer, with graphical implementation still pending. No remote
+L5-to-L3 authentication adapter is claimed. GCP L4/L5 are excluded without
+replacement infrastructure; GCP L1–L3/Eventing remain in scope. The active
+matrix now has two complete local baselines and six directed cases, not a
+complete GCP-local run. A genuine core-only deployment path remains pending.
+The dated checkpoints below are historical and do not clear the new graph's
+implementation gate or authorize reusing old candidate/budget/image approvals.
+
 Current L5 exception (2026-09-07): the
 [minimal visualization feasibility review](../research/evaluation/l5-visualization-feasibility.md)
 is complete as a pre-implementation cost/integration check, not as live

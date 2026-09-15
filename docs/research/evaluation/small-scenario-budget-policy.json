@@ -27,7 +27,7 @@
   "interpretation": [
     "The monthly Optimizer total is an RQ3 estimate and is not treated as a one-hour provider bill.",
     "The complete monthly candidate total is scaled from 730 hours to the 60-minute run window, multiplied by three, supplemented by a one-dollar uncertainty buffer, and rounded upward to half-dollar increments.",
-    "No individual scenario proposal may exceed three dollars and the nine-scenario cap portfolio may not exceed twenty-five dollars.",
+    "No individual scenario proposal may exceed three dollars and the eight-scenario cap portfolio may not exceed twenty-five dollars.",
     "A billed count, seat-month, or GiB-month meter is a mandatory billing-semantics review item; an unverified non-prorated or minimum charge blocks the scenario instead of increasing its cap.",
     "Current exchange rates and already committed or delayed provider charges must be reconciled before every mutation.",
     "The proposed caps remain pending human approval until the exact Terraform plan and provider billing semantics are reviewed.",
@@ -42,7 +42,7 @@
       "RQ3.2"
     ],
     "scenario_size": "Small",
-    "scenario_count": 9,
+    "scenario_count": 8,
     "product_capability": false,
     "cloud_execution_authorized": false
   }

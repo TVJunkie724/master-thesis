@@ -303,7 +303,7 @@ def test_metric_collection_rejects_incomparable_final_runs() -> None:
 
 
 def test_complete_matrix_gate_reports_missing_scenarios() -> None:
-    with pytest.raises(metrics.LiveMetricsError, match="nine-scenario matrix"):
+    with pytest.raises(metrics.LiveMetricsError, match="eight-scenario matrix"):
         metrics.validate_metric_collection([_record()], require_complete_matrix=True)
 
 
@@ -361,7 +361,7 @@ def test_early_abort_uses_same_record_without_claiming_final_coverage(
 
     metrics.validate_metrics(record)
     assert not metrics.scenario_run_complete(record)
-    with pytest.raises(metrics.LiveMetricsError, match="nine-scenario matrix"):
+    with pytest.raises(metrics.LiveMetricsError, match="eight-scenario matrix"):
         metrics.validate_metric_collection([record], require_complete_matrix=True)
     metrics.summarize_metrics([record], tmp_path / "summary")
     with (tmp_path / "summary/run-summary.csv").open(encoding="utf-8") as stream:

@@ -248,6 +248,7 @@ def test_stage_rejects_invalid_contract_before_creating_package_root(
     assert not store.root.exists()
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
     monkeypatch,
     tmp_path,
@@ -273,6 +274,7 @@ def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
     assert metadata["graph_evidence"] == staged.graph_evidence
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_requirement_inspection_is_secret_free_and_leaves_no_workspace(
     monkeypatch,
     tmp_path,
@@ -315,6 +317,7 @@ def test_requirement_inspection_is_secret_free_and_leaves_no_workspace(
     assert not created.exists()
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_six_layer_operation_package_drives_real_graph_packages_and_tfvars(
     monkeypatch,
     tmp_path,

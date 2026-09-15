@@ -161,6 +161,7 @@ def test_delete_missing_workspace_rejected(temp_project_path):
         file_manager.delete_project("missing", project_path=temp_project_path)
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_manifest_resource_name_must_match_workspace(temp_project_path):
     file_manager.create_project_from_zip(
         "matching",
@@ -176,6 +177,7 @@ def test_manifest_resource_name_must_match_workspace(temp_project_path):
         )
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_update_manifest_mismatch_preserves_workspace(temp_project_path):
     name = "matching"
     file_manager.create_project_from_zip(

@@ -17,6 +17,7 @@ from src.deployment_access import (
     collect_deployment_access_runtime_evidence,
     project_deployment_access_evidence,
 )
+from src.deployment_access.runtime_evidence import DeploymentAccessRuntimeEvidenceError
 
 
 FIXED_TIME = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
@@ -196,27 +197,13 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
     ("profile_id", "version"),
     [("six-layer-eventing", "1")],
 )
-def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
+def test_raw_history_readback_cannot_mark_any_placement_graphically_ready(
     l4: str, l5: str, profile_id: str, version: str
 ) -> None:
     context = _context(l4, l5, profile_id=profile_id, version=version)
     outputs = _outputs()
-    context.deployment_access_runtime_evidence = (
+    with pytest.raises(DeploymentAccessRuntimeEvidenceError, match="not graphical L5"):
         collect_deployment_access_runtime_evidence(context, outputs)
-    )
-
-    evidence = project_deployment_access_evidence(
-        context,
-        outputs,
-        generated_at=FIXED_TIME,
-    )
-
-    assert evidence is not None
-    assert all(
-        surface["readiness"]["content"] == "ready"
-        and surface["readiness"]["data_probe"] == "ready"
-        for surface in evidence["surfaces"]
-    )
 
 
 def test_unknown_profile_has_no_deployer_access_evidence() -> None:
@@ -254,6 +241,11 @@ def test_gcp_surface_does_not_project_unrelated_internal_fields() -> None:
 def test_projection_rejects_stale_runtime_evidence() -> None:
     context = _context("aws", "azure")
     outputs = _outputs()
+    # Synthetic graphical proof tests stale-reference protection, not a live
+    # reader or an implemented dashboard.
+    for key, value in outputs.items():
+        if key.endswith("component_visualization_output"):
+            value["internal_evidence"]["content_revision"] = "test-graphical-surface.v1"
     context.deployment_access_runtime_evidence = (
         collect_deployment_access_runtime_evidence(context, outputs)
     )

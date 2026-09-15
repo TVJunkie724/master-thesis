@@ -665,13 +665,18 @@ def _selected_groups(
         assignment["component.hot-storage"],
         assignment["component.cool-storage"],
         assignment["component.archive-storage"],
-        assignment["component.visualization"],
     }
     if len(storage_bundle) != 1:
         raise ArchitectureResolutionError(
             "ARCH_FUNCTIONAL_INCOMPLETE",
             "assignment",
-            "Six-layer PoC requires provider-local L3 storage and L5",
+            "Six-layer PoC requires provider-local L3 storage tiers",
+        )
+    if assignment["component.hot-storage"] != assignment["component.visualization"]:
+        raise ArchitectureResolutionError(
+            "ARCH_FUNCTIONAL_INCOMPLETE",
+            "edge.hot-storage-to-visualization",
+            "Cross-provider visualization reader integration is not implemented",
         )
     bundle_index = {item["provider"]: item for item in registry["provider_bundles"]}
     selected: list[tuple[str, str, str]] = []
@@ -1100,6 +1105,14 @@ def _build_deployment_specification(
     if missing_azure_large_measurement:
         live_blockers.append("gate.live-capacity.azure.cosmos-autoscale-ru")
     blockers = sorted(set(live_blockers) - set(satisfied_live_gate_ids))
+    # Storage readback is not a graphical L5 implementation. This is an
+    # implementation gap, not an operator-acknowledgeable capacity gate.
+    blockers.append("gate.implementation.l5-visualization-pending")
+    if (
+        assignment["component.twin-state"] == "gcp"
+        or assignment["component.visualization"] == "gcp"
+    ):
+        blockers.append("gate.scope.gcp-l4-l5-excluded")
     if missing_azure_large_measurement:
         blockers = sorted({*blockers, "gate.live-capacity.azure.cosmos-autoscale-ru"})
     required_definition_keys = {
@@ -1119,7 +1132,7 @@ def _build_deployment_specification(
         raise ArchitectureResolutionError(
             "ARCH_NO_ADMISSIBLE_CANDIDATE",
             "capacity",
-            "Architecture candidate has unresolved activation or live-capacity gates",
+            "Architecture candidate has unresolved scope, implementation or readiness gates",
         )
     if resolution_status not in {"offline_contract_fixture", "deployment_ready"}:
         raise ArchitectureResolutionError(

@@ -29,6 +29,7 @@ def _inspection(monkeypatch, tmp_path: Path):
     )
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_plan_is_deterministic_bounded_and_explains_persistent_scope(
     monkeypatch,
     tmp_path,
@@ -56,6 +57,7 @@ def test_plan_is_deterministic_bounded_and_explains_persistent_scope(
     )
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_execution_is_digest_bound_and_returns_honest_partial_evidence(
     monkeypatch,
     tmp_path,
@@ -91,6 +93,7 @@ def test_execution_is_digest_bound_and_returns_honest_partial_evidence(
     assert "operation-secret" not in str(result)
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_execution_rejects_missing_confirmation_and_stale_digest(
     monkeypatch,
     tmp_path,

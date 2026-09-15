@@ -313,7 +313,11 @@ def dimensions(component_id: str) -> list[str]:
     return values
 
 
-def contracts(responsibility: str) -> tuple[list[str], list[str]]:
+def contracts(responsibility: str, component_id: str = "") -> tuple[list[str], list[str]]:
+    if component_id.endswith("raw-history-reader"):
+        # The reader serves a storage query; it neither ingests telemetry nor
+        # implements graphical visualization.
+        return (["raw_history_query.v1"], ["raw_history_query.v1"])
     if responsibility == "l3_hot":
         return (
             ["canonical-telemetry.v1"],
@@ -457,7 +461,7 @@ def flatten_components(bundle: dict[str, Any]) -> list[dict[str, Any]]:
                     set(record["responsibilities"] + [responsibility])
                 )
                 record["profile_refs"] = sorted(set(record["profile_refs"] + profiles))
-                inputs, outputs = contracts(responsibility)
+                inputs, outputs = contracts(responsibility, component_id)
                 record["input_contracts"] = sorted(
                     set(record["input_contracts"] + inputs)
                 )
@@ -587,7 +591,7 @@ def build_pricing(bundle: dict[str, Any], routes: dict[str, Any]) -> dict[str, A
         "shared_support_rules": [
             "one_registry_per_selected_provider_with_platform_owned_containers",
             "one_firestore_database_per_deployment_when_gcp_l3_or_l4_is_selected",
-            "one_gcp_gke_cluster_control_plane_when_l1_and_l5_are_both_gcp",
+            "one_gcp_gke_cluster_control_plane_when_l1_is_gcp",
             "one_azure_log_analytics_workspace_per_selected_azure_bundle",
         ],
     }

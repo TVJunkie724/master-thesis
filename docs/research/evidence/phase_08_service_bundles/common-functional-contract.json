@@ -42,7 +42,7 @@
         "method": "GET",
         "path": "/raw-history/v1",
         "authentication": "deployment_scoped_read_credential",
-        "provider_placement": "l3_hot_l5_provider_only"
+        "provider_placement": "l3_hot_provider_only"
       },
       "request": {
         "required_fields": ["device_id", "metric", "from", "to"],
@@ -219,7 +219,7 @@
       "edge_id": "l3-hot-to-l5-raw-history",
       "contract": "raw_history_query.v1",
       "placement": "provider_local",
-      "owner": "l3_hot_l5_bundle"
+      "owner": "l3_hot_storage"
     },
     {
       "edge_id": "l3-hot-to-l4-twin-projection",

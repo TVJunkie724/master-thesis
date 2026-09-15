@@ -117,9 +117,9 @@ class SixLayerResolutionBuilder:
                         option.catalog_component["pricing_model_refs"]
                     ),
                     "formula_refs": list(option.catalog_component["formula_refs"]),
-                    "deployment_specification_component_ids": selections_by_assignment[
-                        assignment_id
-                    ],
+                    "deployment_specification_component_ids": selections_by_assignment.get(
+                        assignment_id, []
+                    ),
                     "cost_contribution": {
                         "currency": cost_evaluation.currency,
                         "monthly_amount": _decimal_text(
@@ -296,6 +296,16 @@ class SixLayerResolutionBuilder:
             item["architecture_assignment_id"]
             for item in specification["component_selections"]
         }
+        readiness = specification.get("readiness", {})
+        if (
+            context.resolution_status == "offline_contract_fixture"
+            and readiness.get("status") == "offline_contract_fixture"
+            and "gate.implementation.l5-visualization-pending"
+            in readiness.get("blocking_gate_ids", [])
+        ):
+            # Model the outstanding consumer without inventing an atomic
+            # resource or charging the L3 reader a second time to L5.
+            assignment_ids.discard("assignment.visualization")
         if assignment_ids != selected_assignment_ids:
             raise ArchitectureResolutionError(
                 "ARCH_RESOLUTION_BUILD_FAILED",

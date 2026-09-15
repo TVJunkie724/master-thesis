@@ -64,42 +64,53 @@ def register_azure_iot_devices(
     logger.info("  Azure IoT devices registered")
 
 
+def verify_azure_storage_read_access(
+    context: "DeploymentContext",
+    terraform_outputs: dict,
+) -> None:
+    """Verify the L3-owned reader; this is not graphical L5 evidence."""
+    provider = _require_azure_provider(context)
+    from src.providers.azure.layers.layer_5_raw_history import (
+        verify_raw_history_reader,
+    )
+
+    bundle = terraform_outputs.get("azure_component_storage_read_access_output")
+    if not isinstance(bundle, dict):
+        raise RuntimeError(
+            "Terraform output azure_component_storage_read_access_output is required"
+        )
+    required = {
+        "access_url",
+        "reader_function_name",
+    }
+    missing = sorted(key for key in required if not bundle.get(key))
+    if missing:
+        raise RuntimeError(
+            "Azure storage-read output is missing: " + ", ".join(missing)
+        )
+    device_id, metric = _default_v2_dashboard_series(context.config)
+    verify_raw_history_reader(
+        provider,
+        endpoint=str(bundle["access_url"]),
+        function_app_name=str(bundle["reader_function_name"]),
+        device_id=device_id,
+        metric=metric,
+    )
+    logger.info(
+        "  Azure %s raw-history surface is ready", _active_phase8_profile(context)
+    )
+    return
+
+
 def configure_azure_visualization(
     context: "DeploymentContext", terraform_outputs: dict
 ) -> None:
     """Verify active-profile L5 or configure the historical Grafana path."""
     provider = _require_azure_provider(context)
     if _is_active_phase8_profile(context):
-        from src.providers.azure.layers.layer_5_raw_history import (
-            verify_raw_history_reader,
+        raise RuntimeError(
+            "Graphical L5 implementation is pending; L3 readback is not L5"
         )
-
-        bundle = terraform_outputs.get("azure_component_visualization_output")
-        if not isinstance(bundle, dict):
-            raise RuntimeError(
-                "Terraform output azure_component_visualization_output is required"
-            )
-        required = {
-            "access_url",
-            "reader_function_name",
-        }
-        missing = sorted(key for key in required if not bundle.get(key))
-        if missing:
-            raise RuntimeError(
-                "Azure visualization output is missing: " + ", ".join(missing)
-            )
-        device_id, metric = _default_v2_dashboard_series(context.config)
-        verify_raw_history_reader(
-            provider,
-            endpoint=str(bundle["access_url"]),
-            function_app_name=str(bundle["reader_function_name"]),
-            device_id=device_id,
-            metric=metric,
-        )
-        logger.info(
-            "  Azure %s raw-history surface is ready", _active_phase8_profile(context)
-        )
-        return
     logger.info("  Configuring Azure Grafana...")
     from src.providers.azure.layers.layer_5_grafana import configure_grafana_datasource
 

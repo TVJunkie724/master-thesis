@@ -83,7 +83,7 @@ def test_aws_six_layer_identity_center_user_requires_explicit_invite_intent():
     assert "terraform_data.aws_six_layer_layer_access_principal_admission" in terraform
 
 
-def test_gcp_l5_is_authenticated_cloud_run_without_dashboard_resources():
+def test_gcp_l3_reader_is_authenticated_cloud_run_without_dashboard_resources():
     terraform = (TERRAFORM_ROOT / "gcp_six_layer.tf").read_text("utf-8")
 
     assert "invoker_iam_disabled = false" in terraform
@@ -92,6 +92,33 @@ def test_gcp_l5_is_authenticated_cloud_run_without_dashboard_resources():
         'member   = "serviceAccount:${var.gcp_deployment_principal_email}"' in terraform
     )
     assert "grafana" not in terraform.lower()
+
+
+@pytest.mark.parametrize("provider", ("aws", "azure", "gcp"))
+def test_reader_lifecycle_is_l3_owned_with_only_a_deprecated_l5_output_alias(provider):
+    terraform = (TERRAFORM_ROOT / f"{provider}_six_layer.tf").read_text("utf-8")
+    assert f'output "{provider}_component_storage_read_access_output"' in terraform
+    # L5 may select only the deprecated output alias, never reader resources.
+    lines = [
+        line.strip()
+        for line in terraform.splitlines()
+        if f"local.{provider}_six_layer_l5_enabled" in line
+    ]
+    assert len(lines) == 1
+    assert lines[0].startswith("value =") or lines[0].startswith("value  ")
+
+
+@pytest.mark.parametrize("provider", ("aws", "azure"))
+def test_raw_history_verification_cannot_complete_graphical_l5(provider):
+    context = SimpleNamespace(
+        providers={provider: object()},
+        resolved_deployment_graph=SimpleNamespace(
+            profile_ref={"id": "six-layer-eventing", "version": "1"}
+        ),
+    )
+    module = aws_deployer if provider == "aws" else azure_deployer
+    with pytest.raises(RuntimeError, match="Graphical L5 implementation is pending"):
+        getattr(module, f"configure_{provider}_visualization")(context, {})
 
 
 def test_gcp_twin_explorer_readiness_waits_for_seed_readback():
@@ -256,7 +283,7 @@ def test_azure_grafana_requires_hot_reader_output():
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_azure_l5_uses_bounded_raw_history_probe(monkeypatch, profile):
+def test_active_profile_azure_l3_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     graph = SimpleNamespace(profile_ref={"id": profile[0], "version": profile[1]})
     context = SimpleNamespace(
@@ -274,10 +301,10 @@ def test_active_profile_azure_l5_uses_bounded_raw_history_probe(monkeypatch, pro
     verify = MagicMock()
     monkeypatch.setattr(layer_5_raw_history, "verify_raw_history_reader", verify)
 
-    azure_deployer.configure_azure_visualization(
+    azure_deployer.verify_azure_storage_read_access(
         context,
         {
-            "azure_component_visualization_output": {
+            "azure_component_storage_read_access_output": {
                 "access_url": "https://reader.example/api/raw-history/v1",
                 "reader_function_name": "factory-history",
             }
@@ -727,7 +754,7 @@ def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypat
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_aws_l5_uses_bounded_raw_history_probe(monkeypatch, profile):
+def test_active_profile_aws_l3_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     config = SimpleNamespace(
         iot_devices=[
@@ -747,10 +774,10 @@ def test_active_profile_aws_l5_uses_bounded_raw_history_probe(monkeypatch, profi
     verify = MagicMock()
     monkeypatch.setattr(aws_deployer, "_probe_aws_raw_history_reader", verify)
 
-    aws_deployer.configure_aws_visualization(
+    aws_deployer.verify_aws_storage_read_access(
         context,
         {
-            "aws_component_visualization_output": {
+            "aws_component_storage_read_access_output": {
                 "access_url": "https://reader.example/",
                 "reader_function_name": "reader",
             }

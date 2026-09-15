@@ -15,11 +15,13 @@ from src.providers.terraform.aws_deployer import (
     configure_aws_visualization,
     create_twinmaker_entities,
     register_aws_iot_devices,
+    verify_aws_storage_read_access,
 )
 from src.providers.terraform.azure_deployer import (
     configure_azure_visualization,
     register_azure_iot_devices,
     upload_dtdl_models,
+    verify_azure_storage_read_access,
 )
 from src.providers.terraform.cross_cloud_identity import (
     aws_outbound_identity_destinations,
@@ -32,7 +34,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SDK_LAYER_KEYS = ("layer_1_provider", "layer_4_provider", "layer_5_provider")
+_SDK_LAYER_KEYS = (
+    "layer_1_provider",
+    "layer_3_hot_provider",
+    "layer_4_provider",
+    "layer_5_provider",
+)
 _SDK_POST_DEPLOYMENT_PROVIDERS = frozenset({"aws", "azure"})
 
 
@@ -130,6 +137,16 @@ def run_post_deployment(
         raise ValueError(
             "Missing required provider config: " + ", ".join(sorted(missing))
         )
+
+    graph = getattr(context, "resolved_deployment_graph", None)
+    if getattr(graph, "profile_ref", {}).get("id") == "six-layer-eventing":
+        storage_provider = providers_config.get("layer_3_hot_provider")
+        if storage_provider == "aws":
+            verify_aws_storage_read_access(context, terraform_outputs)
+        elif storage_provider == "azure":
+            verify_azure_storage_read_access(context, terraform_outputs)
+        elif storage_provider != "gcp":
+            raise ValueError("Missing or invalid L3 hot-storage provider")
 
     if providers_config["layer_4_provider"] == "azure":
         upload_dtdl_models(context, project_path)

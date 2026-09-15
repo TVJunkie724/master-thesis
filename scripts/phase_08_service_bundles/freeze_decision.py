@@ -82,6 +82,12 @@ def build() -> dict[str, Any]:
             "scope_change": True,
             "activated_or_deployed_before_refreeze": False,
         },
+        "scope_revision": {
+            "date": "2026-09-16",
+            "reason": "assign raw-history reader resources and costs to L3; graphical L5 remains unimplemented",
+            "cloud_execution_authorized": False,
+            "historical_reviews_do_not_verify_current_graphical_l5": True,
+        },
         "regions": {
             "aws": "eu-central-1",
             "azure": "westeurope",

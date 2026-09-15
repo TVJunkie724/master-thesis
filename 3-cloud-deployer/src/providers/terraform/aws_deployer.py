@@ -739,35 +739,44 @@ def _generate_aws_simulator_config(
     )
 
 
+def verify_aws_storage_read_access(
+    context: "DeploymentContext",
+    terraform_outputs: dict,
+) -> None:
+    """Verify the L3-owned reader; this is not graphical L5 evidence."""
+    provider = _require_aws_provider(context)
+    bundle = terraform_outputs.get("aws_component_storage_read_access_output")
+    if not isinstance(bundle, dict):
+        raise RuntimeError(
+            "Terraform output aws_component_storage_read_access_output is required"
+        )
+    required = {"access_url", "reader_function_name"}
+    missing = sorted(key for key in required if not bundle.get(key))
+    if missing:
+        raise RuntimeError("AWS storage-read output is missing: " + ", ".join(missing))
+    device_id, metric = _default_v2_dashboard_series(context.config)
+    _probe_aws_raw_history_reader(
+        provider=provider,
+        reader_url=str(bundle["access_url"]),
+        device_id=device_id,
+        metric=metric,
+    )
+    logger.info(
+        "  AWS %s raw-history surface is ready", _active_phase8_profile(context)
+    )
+    return
+
+
 def configure_aws_visualization(
     context: "DeploymentContext",
     terraform_outputs: dict,
 ) -> None:
     """Verify active-profile L5 or configure the historical Grafana path."""
-    provider = _require_aws_provider(context)
+    _require_aws_provider(context)
     if _is_active_phase8_profile(context):
-        bundle = terraform_outputs.get("aws_component_visualization_output")
-        if not isinstance(bundle, dict):
-            raise RuntimeError(
-                "Terraform output aws_component_visualization_output is required"
-            )
-        required = {"access_url", "reader_function_name"}
-        missing = sorted(key for key in required if not bundle.get(key))
-        if missing:
-            raise RuntimeError(
-                "AWS visualization output is missing: " + ", ".join(missing)
-            )
-        device_id, metric = _default_v2_dashboard_series(context.config)
-        _probe_aws_raw_history_reader(
-            provider=provider,
-            reader_url=str(bundle["access_url"]),
-            device_id=device_id,
-            metric=metric,
+        raise RuntimeError(
+            "Graphical L5 implementation is pending; L3 readback is not L5"
         )
-        logger.info(
-            "  AWS %s raw-history surface is ready", _active_phase8_profile(context)
-        )
-        return
 
     import requests
 
@@ -805,7 +814,7 @@ def _probe_aws_raw_history_reader(
     device_id: str,
     metric: str,
 ) -> None:
-    """Exercise both bounded L5 query modes through the IAM-protected URL."""
+    """Exercise both bounded L3 query modes through the IAM-protected URL."""
 
     import requests
     from botocore.auth import SigV4Auth

@@ -26,7 +26,7 @@ locals {
     local.azure_six_layer_remote_control_inbound
   )
   azure_six_layer_function_infrastructure_enabled = (
-    local.azure_six_layer_event_enabled || local.azure_six_layer_l5_enabled || local.azure_event_enabled
+    local.azure_six_layer_event_enabled || local.azure_six_layer_hot_enabled || local.azure_event_enabled
   )
   azure_six_layer_outbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
@@ -350,7 +350,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "azure_azure_cosmos_db_nosql_raw
         role_id      = "00000000-0000-0000-0000-000000000002"
       }
     },
-    local.azure_six_layer_l5_enabled ? {
+    local.azure_six_layer_hot_enabled ? {
       raw_history_reader = {
         principal_id = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].identity[0].principal_id
         role_id      = "00000000-0000-0000-0000-000000000001"
@@ -1139,17 +1139,17 @@ resource "azurerm_digital_twins_instance" "azure_azure_digital_twins" {
   tags = local.azure_six_layer_tags
 }
 
-# L5 reads only provider-local L3 hot data through this narrow HTTP contract.
+# L3 exposes its own data through this narrow authenticated HTTP contract.
 # The cursor key protects continuation-token integrity and never leaves the
 # Function app settings or Terraform state.
 resource "random_password" "azure_six_layer_raw_history_cursor_hmac" {
-  count   = local.azure_six_layer_l5_enabled ? 1 : 0
+  count   = local.azure_six_layer_hot_enabled ? 1 : 0
   length  = 64
   special = false
 }
 
 resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw_history_reader" {
-  count               = local.azure_six_layer_l5_enabled ? 1 : 0
+  count               = local.azure_six_layer_hot_enabled ? 1 : 0
   name                = "${local.azure_six_layer_name}-six-history-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -1203,7 +1203,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
 }
 
 data "azurerm_client_config" "azure_six_layer_layer_access" {
-  count = local.azure_six_layer_l4_enabled || local.azure_six_layer_l5_enabled ? 1 : 0
+  count = local.azure_six_layer_l4_enabled || local.azure_six_layer_hot_enabled ? 1 : 0
 }
 
 locals {
@@ -1335,7 +1335,7 @@ locals {
     local.azure_six_layer_l4_enabled ? {
       digital_twins = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
     } : {},
-    local.azure_six_layer_l5_enabled ? {
+    local.azure_six_layer_hot_enabled ? {
       raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
     } : {},
   )
@@ -1406,8 +1406,8 @@ output "azure_component_twin_state_output" {
   } : null
 }
 
-output "azure_component_visualization_output" {
-  value = local.azure_six_layer_l5_enabled ? {
+locals {
+  azure_six_layer_storage_read_access = local.azure_six_layer_hot_enabled ? {
     access_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
     reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
     principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
@@ -1420,4 +1420,14 @@ output "azure_component_visualization_output" {
       data_probe_revision = "azure-raw-history-readback.v1"
     }
   } : null
+}
+
+output "azure_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.azure_six_layer_storage_read_access
+}
+
+output "azure_component_visualization_output" {
+  description = "Deprecated readback compatibility alias; does not prove graphical L5"
+  value       = local.azure_six_layer_l5_enabled ? local.azure_six_layer_storage_read_access : null
 }
