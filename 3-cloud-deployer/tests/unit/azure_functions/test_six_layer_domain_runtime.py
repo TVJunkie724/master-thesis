@@ -50,6 +50,18 @@ def _load_runtime(module_name: str):
 runtime = _load_runtime("azure_six_layer_domain")
 
 
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Core must not construct or publish a Twin projection")
+
+    monkeypatch.setattr(runtime, "build_twin_projection", forbidden)
+    monkeypatch.setattr(runtime, "_publish_control", forbidden)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", forbidden)
+    runtime._project_twin({"payload": {"projection_candidate": True}})
+
+
 def test_runtime_has_six_layer_profile_identity():
     core_spec = importlib.util.spec_from_file_location(
         "azure_six_layer_domain_profile_core",

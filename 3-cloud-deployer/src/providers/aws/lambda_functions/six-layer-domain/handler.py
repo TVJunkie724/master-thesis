@@ -951,6 +951,8 @@ def _persist_and_project(event: Mapping[str, Any]) -> None:
 
 
 def _project_twin(event: Mapping[str, Any]) -> None:
+    if os.environ.get("SIX_LAYER_EVALUATION_SCOPE") == "core":
+        return
     body = dict(_event_body(event))
     if body.get("projection_candidate") is not True:
         return

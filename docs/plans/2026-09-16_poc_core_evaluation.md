@@ -44,7 +44,51 @@ probes remain historical identity evidence; changed routes/bindings require
 current preflight and runtime checks. Affected offline tests/mock plans are
 rerun now. The first scoped workload run still needs explicit approval.
 
+## Reproduction and handoff
+
+Run the following from the repository root in the existing Deployer development
+environment (Python with the repository's dependencies):
+
+```sh
+python scripts/prepare_core_evaluation.py --output-dir /tmp/thesis-core-inputs
+```
+
+The directory must not exist. Omitting `--scenario` prepares all nine cases;
+`--scenario core-small-local-aws` prepares only that baseline. Each case contains
+a digest-bound research description and a separate non-secret Terraform input
+file. No generated image digest is invented. The preparer does not read account
+credentials, create a full deployment manifest, call Terraform or publish images.
+
+The current scope is a standalone research preparation/infrastructure path, not
+a new Management deployment option. Before live execution: build the changed
+runtime packages/images, bind reviewed immutable images and account inputs,
+derive the exact plan and cost/time/cleanup limits, then obtain explicit approval.
+Use a separate state/project for each scoped run; do not switch an existing full
+deployment to Core (that could plan deletion of its access-layer resources).
+Destroy and residual inventory remain mandatory immediately after every run.
+Local/mock validation does not prove cloud capacity, actual data transfer or
+successful cleanup. GCP Core still includes its existing L1 GKE broker; omitting
+L4/L5 does not make Core free.
+
 ## Status
 
-Planned; implementation and offline verification in progress. No live deployment
-or paid evaluation is authorized by this document.
+Implemented and offline verified:
+
+- 1,725 Deployer unit tests passed, including suppression of Twin publication
+  in the AWS, Azure and GCP runtimes.
+- Native Terraform mock plans passed for all nine Core scenarios, the eight
+  existing full-configuration regressions and four negative cases (21 plans).
+  They verify retained ingestion, processing and L3 readback, absent access
+  resources/consumers/outputs, and rejection of wrong scope, larger capacity
+  or incomplete return routes. The enclosing five-test suite passed.
+- 33 Optimizer/contract tests and 45 research-script/contract/gate tests passed
+  (the latter include 24 additional subtests). Full-profile readiness remains
+  blocked; no Core description is promoted to an RTA/RDS deployment manifest.
+- 20 Management contract/persistence tests passed against the refreshed fixtures.
+- Updated runtime source digests and generated contract copies are synchronized.
+  Changed-Python lint, Terraform formatting and strict documentation build pass.
+
+Mock plans use synthetic image references only inside tests. Pinned Terraform
+providers were downloaded, but no cloud credentials or workload APIs were used.
+The complete 14-stage release gate, Flutter suite and live E2E were not run.
+No live deployment or paid evaluation is authorized by this document.

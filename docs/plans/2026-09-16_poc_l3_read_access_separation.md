@@ -75,7 +75,11 @@ also passed. Terraform downloaded pinned provider packages for its mocked plans;
 no cloud credentials, workload API, Apply or paid execution was used. The full
 14-stage release gate and Flutter test suite were not rerun in this change.
 
-Remaining work is deliberately outside this refactor: true core-only execution,
+Remaining work is deliberately outside this refactor: supervised core-only execution,
 AWS/Azure graphical L5 and its cost decision, and authenticated remote L5-to-L3
 consumption. Existing identity probe results remain historical, not new graph
 authorization. RQ wording and the Five-layer baseline are unchanged.
+
+Follow-up: the [Core evaluation plan](2026-09-16_poc_core_evaluation.md) implements
+the fixed infrastructure/runtime cut and nine offline inputs. It does not claim
+a live run or remove the full-profile L5 gate.

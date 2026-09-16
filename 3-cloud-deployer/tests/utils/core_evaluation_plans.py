@@ -1,0 +1,179 @@
+"""Generate native mock plans from the actual offline Core preparer."""
+
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+
+
+def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
+    root = Path(__file__).resolve().parents[3]
+    path = root / "scripts/prepare_core_evaluation.py"
+    if not path.is_file():
+        path = Path("/workspace/scripts/prepare_core_evaluation.py")
+    if not path.is_file():
+        raise RuntimeError(
+            "Core mock plans require the repository root mounted at /workspace"
+        )
+    spec = importlib.util.spec_from_file_location("prepare_core_evaluation", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    header = (
+        (terraform_dir / "tests/gcp_eventing.tftest.hcl").read_text().split('run "')[0]
+    )
+    overrides = """
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn = "arn:aws:iam::123456789012:user/mock"
+      user_id = "mock"
+    }
+  }
+  override_resource {
+    target = azurerm_container_registry.azure_azure_acr_basic_if_container_selected
+    values = { login_server = "coremock.azurecr.io" }
+  }
+"""
+    assertions = """
+  assert {
+    condition = (
+      length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
+      length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&
+      length(aws_iam_role.aws_six_layer_twinmaker) == 0 &&
+      length(aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access) == 0 &&
+      length(azurerm_digital_twins_instance.azure_azure_digital_twins) == 0 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_twin_api_materializer) == 0 &&
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_iap_twin_explorer) == 0 &&
+      length(google_pubsub_topic_iam_member.gcp_six_layer_persistence_domain_publisher) == 0 &&
+      length(google_firestore_index.gcp_gcp_firestore_native_standard_bounded_twin) == 0
+    )
+    error_message = "Core must create no L4 resources or Twin-only access bindings."
+  }
+  assert {
+    condition = (
+      !contains(keys(aws_lambda_function.event_runtime), "twin-state-update") &&
+      !contains(keys(azurerm_eventhub_consumer_group.domain_standard), "twin-state-update") &&
+      !contains(keys(azurerm_eventhub_consumer_group.domain_dedicated), "twin-state-update") &&
+      !contains(keys(google_pubsub_subscription.domain_events), "twin-state-update") &&
+      output.evaluation_scope.includes_all_layers == false &&
+      output.aws_component_visualization_output == null &&
+      output.azure_component_visualization_output == null &&
+      output.gcp_component_visualization_output == null
+    )
+    error_message = "Core must omit Twin consumers and must not claim L5/full-profile evidence."
+  }
+  assert {
+    condition = (
+      length(aws_iot_topic_rule.aws_aws_iot_core) +
+      length(azurerm_iothub.azure_azure_iot_hub) +
+      length(google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard) == 1 &&
+      length(aws_lambda_function.aws_aws_lambda) +
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption) +
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_service) == 1
+    )
+    error_message = "Core must retain exactly one ingestion and one processing implementation."
+  }
+  assert {
+    condition = (
+      length(aws_lambda_function.aws_aws_lambda_raw_history_reader) +
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) +
+      length(google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader) == 1
+    )
+    error_message = "Exactly one L3 storage reader must survive the Core cut."
+  }
+"""
+    runs = []
+    for name in module.SCENARIOS:
+        values = module.materialize(name)["tfvars"]
+        # Synthetic references exist only in tests; never exported as real images.
+        values.update(
+            {
+                "digital_twin_name": "drift-test",
+                "project_path": str(project_path),
+                "gcp_project_id": "phase8-poc-project",
+                "gcp_deployment_principal_email": "deployer@phase8-poc-project.iam.gserviceaccount.com",
+                "aws_six_layer_storage_mover_image": "123456789012.dkr.ecr.eu-central-1.amazonaws.com/mock@sha256:"
+                + "a" * 64,
+                "aws_six_layer_bridge_image": "123456789012.dkr.ecr.eu-central-1.amazonaws.com/mock@sha256:"
+                + "b" * 64,
+                "azure_six_layer_storage_mover_image": "coremock.azurecr.io/storage-mover@sha256:"
+                + "c" * 64,
+                "aws_outbound_identity_required": True,
+                "aws_outbound_identity_destinations": ["azure"],
+                "aws_outbound_identity_issuer": "https://issuer.example.test",
+                "enable_aws_logging": False,
+                "enable_azure_logging": False,
+                "enable_gcp_logging": False,
+            }
+        )
+        for key in (
+            "gcp_six_layer_platform_image",
+            "gcp_six_layer_processor_extension_image",
+            "gcp_six_layer_storage_mover_image",
+            "gcp_event_runtime_image",
+        ):
+            values[key] = (
+                "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/mock@sha256:"
+                + "d" * 64
+            )
+        target = module.SCENARIOS[name][1]
+        package = (
+            project_path
+            / ".build"
+            / ("aws" if target == "aws" else "azure")
+            / "six-layer-domain.zip"
+        )
+        values["validated_extension_packages"] = [
+            {
+                "slot_id": "processor.telemetry",
+                "slot_version": "1",
+                "artifact_id": "44444444-4444-4444-8444-444444444444",
+                "artifact_digest": "sha256:" + "4" * 64,
+                "package_path": str(package),
+                "package_digest": "sha256:"
+                + hashlib.sha256(package.read_bytes()).hexdigest(),
+                "adapter_id": f"adapter.{target}.python311",
+                "adapter_version": "1",
+            }
+        ]
+        block = "\n".join(
+            f"    {key} = {json.dumps(value)}" for key, value in values.items()
+        )
+        runs.append(
+            f'run "{name.replace("-", "_")}" {{\n command = plan\n{overrides}\n variables {{\n{block}\n }}\n{assertions}\n}}'
+        )
+        if name == "core-small-local-aws":
+            for label, changes in {
+                "full_cannot_omit_access_layers": {
+                    "evaluation_scope": "full",
+                    "platform_user_email": "test@example.test",
+                },
+                "core_cannot_include_l5": {"layer_5_provider": "aws"},
+                "core_cannot_select_larger_capacity": {"aws_event_kinesis_shards": 6},
+            }.items():
+                negative = {**values, **changes}
+                negative_block = "\n".join(
+                    f"    {key} = {json.dumps(value)}"
+                    for key, value in negative.items()
+                )
+                runs.append(
+                    f'run "{label}" {{\n command = plan\n{overrides}\n variables {{\n{negative_block}\n }}\n expect_failures = [terraform_data.evaluation_scope_guard]\n}}'
+                )
+        if name == "core-small-aws-to-gcp":
+            missing_return = dict(
+                values,
+                resolved_cross_cloud_routes=values["resolved_cross_cloud_routes"][:1],
+            )
+            negative_block = "\n".join(
+                f"    {key} = {json.dumps(value)}"
+                for key, value in missing_return.items()
+            )
+            runs.append(
+                f'run "core_requires_all_return_routes" {{\n command = plan\n{overrides}\n variables {{\n{negative_block}\n }}\n expect_failures = [terraform_data.evaluation_scope_guard]\n}}'
+            )
+    for index, run in enumerate(runs):
+        (terraform_dir / f"tests/core_evaluation_{index:02}.tftest.hcl").write_text(
+            header + run
+        )
+    return len(runs)

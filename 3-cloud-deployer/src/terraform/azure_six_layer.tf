@@ -794,6 +794,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     SIX_LAYER_L1_PROVIDER                                   = var.layer_1_provider
     SIX_LAYER_HOT_PROVIDER                                  = var.layer_3_hot_provider
     SIX_LAYER_TWIN_PROVIDER                                 = var.layer_4_provider
+    SIX_LAYER_EVALUATION_SCOPE                              = var.evaluation_scope
     SIX_LAYER_ADT_ENDPOINT                                  = local.azure_six_layer_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
     SIX_LAYER_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
     SIX_LAYER_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
@@ -889,6 +890,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     SIX_LAYER_L1_PROVIDER                                   = var.layer_1_provider
     SIX_LAYER_HOT_PROVIDER                                  = var.layer_3_hot_provider
     SIX_LAYER_TWIN_PROVIDER                                 = var.layer_4_provider
+    SIX_LAYER_EVALUATION_SCOPE                              = var.evaluation_scope
     SIX_LAYER_ADT_ENDPOINT                                  = local.azure_six_layer_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
     SIX_LAYER_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
     SIX_LAYER_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")

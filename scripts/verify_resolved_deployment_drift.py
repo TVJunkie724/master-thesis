@@ -311,6 +311,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 environment=(
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",
                 ),
+                root_mount=True,
             ),
         ),
     )

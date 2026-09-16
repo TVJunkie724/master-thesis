@@ -219,9 +219,11 @@ resource "terraform_data" "six_layer_retention_guard" {
     }
     precondition {
       condition = (
-        var.platform_user_email != "" &&
-        var.platform_user_first_name != "" &&
-        var.platform_user_last_name != ""
+        local.core_evaluation || (
+          var.platform_user_email != "" &&
+          var.platform_user_first_name != "" &&
+          var.platform_user_last_name != ""
+        )
       )
       error_message = "Six-layer requires the platform user identity used to provision usable L4/L5 access."
     }

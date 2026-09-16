@@ -48,6 +48,16 @@ def test_six_layer_runtime_has_its_own_profile_identity():
     assert _six_layer_module().PROFILE == "six-layer-eventing@1"
 
 
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    runtime = _six_layer_module()
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+    publish = Mock(side_effect=AssertionError("Core published a Twin projection"))
+    monkeypatch.setattr(runtime, "_publish_control", publish)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", publish)
+    runtime._project_twin({"payload": {"projection_candidate": True}})
+    publish.assert_not_called()
+
+
 def test_diagnostic_checkpoint_accepts_trace_id_from_ingress_payload(capsys):
     runtime = _six_layer_module()
     event = {

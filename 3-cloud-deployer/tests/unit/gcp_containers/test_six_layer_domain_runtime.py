@@ -25,6 +25,19 @@ SOURCE_ROOT = (
 SIX_LAYER_SOURCE_ROOT = SOURCE_ROOT.parents[1] / "six-layer-domain" / "platform"
 
 
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    runtime = _load("app")
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Core must not construct or publish a Twin projection")
+
+    monkeypatch.setattr(runtime.core, "build_twin_projection", forbidden)
+    monkeypatch.setattr(runtime, "_publish", forbidden)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", forbidden)
+    assert runtime._project_processed({"payload": {"projection_candidate": True}}) is None
+
+
 def _load_from_path(module_name: str, path: Path):
     spec = importlib.util.spec_from_file_location(module_name, path)
     assert spec is not None and spec.loader is not None

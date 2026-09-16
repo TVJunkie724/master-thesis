@@ -10,6 +10,8 @@ import subprocess
 
 import pytest
 
+from tests.utils.core_evaluation_plans import write_core_mock_plans
+
 from src.providers.terraform.package_builders.aws_six_layer import (
     build_aws_six_layer_domain_app,
 )
@@ -118,6 +120,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         project_path,
         ("six-layer-domain", "six-layer-eventing"),
     )
+    core_plan_count = write_core_mock_plans(terraform_dir, project_path)
 
     _run_terraform(
         terraform_dir,
@@ -138,7 +141,7 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "Success! 8 passed, 0 failed." in result.stdout
+    assert f"Success! {8 + core_plan_count} passed, 0 failed." in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
 

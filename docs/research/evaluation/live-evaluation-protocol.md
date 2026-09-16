@@ -9,8 +9,9 @@ deployment is claimed.
 
 The live evaluation answers the research questions with the smallest useful
 deployment set. It is a cross-stack thesis protocol, not a Deployer component
-test suite. The canonical scenario input is
-`small-scenario-matrix.json`.
+test suite. The complete-profile planning input is
+`small-scenario-matrix.json`. The earlier, separately scoped Core evaluation uses
+the nine deterministic inputs from `scripts/prepare_core_evaluation.py`.
 
 The revised matrix contains two complete provider-local baselines (AWS/Azure) and six directed
 multi-cloud focus cases. Every AWS/Azure/GCP direction is the primary focus of
@@ -26,8 +27,10 @@ edges remain part of the recorded graph but do not create extra scenarios.
 **Scope correction (2026-09-16):** GCP L4/L5 are excluded, without replacement
 VMs or a custom Twin platform. GCP L1–L3 and Eventing remain in scope. The
 eight complete-graph planning candidates do not replace the still-pending GCP
-storage/core-only run. True core-only deployment requires separate preparation;
-delaying L4/L5 verification inside a complete Apply does not avoid their costs.
+storage/core-only live run. The [Core evaluation implementation](../../plans/2026-09-16_poc_core_evaluation.md)
+adds a fixed Terraform `core` scope and offline preparation for all three local
+and six directed cases. L4/L5, their Twin projection consumer and related routes
+are absent, not merely checked later inside a complete Apply.
 Research questions remain unchanged; this is an implementation finding and a
 limit on the available functional comparison, not a measured negative result.
 
@@ -37,6 +40,13 @@ gate. Their L5 atomic cost subtotal is empty, **not a zero-cost visualization**;
 the offline budget proposal cannot authorize a dashboard or a complete E2E run.
 Reader outputs retained under old L5 names are compatibility aliases only.
 Old candidate, image and budget digests cannot approve the revised graphs.
+
+Core inputs are a bounded research lane, not deployment-ready Management
+manifests. Directed Core cases put ingestion at the source and Event Layer,
+processing and storage at the destination. The command return path requires
+both directed identity bindings. Their coverage and costs must be recorded
+separately from the different full-profile focus cases. Retained delivery sizing
+is conservative; no new cost quote or live readiness follows from mock plans.
 
 **Current L5 blocker (2026-09-07):** JSON readback does not establish graphical
 equivalence. The [minimal visualization review](l5-visualization-feasibility.md)

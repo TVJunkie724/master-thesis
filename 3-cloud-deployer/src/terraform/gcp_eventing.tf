@@ -34,8 +34,8 @@ locals {
   gcp_event_local_processed_roles = concat(
     local.gcp_event_hot_local ? [
       "historical-persistence",
-      "twin-state-update",
     ] : [],
+    local.gcp_event_hot_local && !local.core_evaluation ? ["twin-state-update"] : [],
     local.gcp_event_l2_local ? ["rule-evaluator"] : [],
     local.gcp_event_large ? ["audit", "realtime-visualization"] : [],
   )
@@ -90,7 +90,9 @@ locals {
     } : {},
     local.gcp_event_hot_local ? {
       historical-persistence = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
-      twin-state-update      = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
+    } : {},
+    local.gcp_event_hot_local && !local.core_evaluation ? {
+      twin-state-update = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
     } : {},
     length(local.gcp_event_local_control_event_types) > 0 ? {
       control-router = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri

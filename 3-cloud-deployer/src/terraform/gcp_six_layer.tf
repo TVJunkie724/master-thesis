@@ -738,6 +738,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
         value = var.layer_4_provider
       }
       env {
+        name  = "SIX_LAYER_EVALUATION_SCOPE"
+        value = var.evaluation_scope
+      }
+      env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
         value = tostring(local.gcp_six_layer_event_layer_local)
       }
@@ -1327,7 +1331,7 @@ resource "google_pubsub_topic_iam_member" "gcp_six_layer_processor_publishers" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_six_layer_persistence_domain_publisher" {
-  count = local.gcp_six_layer_hot_enabled && (
+  count = local.gcp_six_layer_hot_enabled && !local.core_evaluation && (
     !local.gcp_six_layer_event_layer_local ||
     (local.six_layer_eventing_enabled && var.layer_4_provider != "google")
   ) ? 1 : 0

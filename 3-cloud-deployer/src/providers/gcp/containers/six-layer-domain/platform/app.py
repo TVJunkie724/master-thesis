@@ -559,6 +559,8 @@ def _persistence(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _project_processed(processed: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    if os.environ.get("SIX_LAYER_EVALUATION_SCOPE") == "core":
+        return None
     projection = core.build_twin_projection(processed)
     if projection is None:
         return None

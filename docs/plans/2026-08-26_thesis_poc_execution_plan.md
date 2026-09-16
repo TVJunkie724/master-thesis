@@ -38,7 +38,10 @@ independent consumer, with graphical implementation still pending. No remote
 L5-to-L3 authentication adapter is claimed. GCP L4/L5 are excluded without
 replacement infrastructure; GCP L1–L3/Eventing remain in scope. The active
 matrix now has two complete local baselines and six directed cases, not a
-complete GCP-local run. A genuine core-only deployment path remains pending.
+complete GCP-local run. A separate [fixed Core evaluation scope](2026-09-16_poc_core_evaluation.md)
+now omits L4/L5 at infrastructure and runtime level and prepares nine Small
+research input sets offline. Exact live-plan admission and execution remain
+pending; this does not make a complete-profile Management deployment ready.
 The dated checkpoints below are historical and do not clear the new graph's
 implementation gate or authorize reusing old candidate/budget/image approvals.
 

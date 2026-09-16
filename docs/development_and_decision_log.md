@@ -28,6 +28,28 @@ maintained in `docs/research/architecture_evolution.md`.
    runtime choices.
 5. Git history is the archive for superseded implementation plans.
 
+## D-28 — Fixed Core evaluation before access-layer evaluation
+
+**Decision (2026-09-16):** Implement one research-only `core` Terraform scope
+for L1–L3 and Event Layer. L4/L5 placement, Twin projection delivery and access
+resources are absent. Keep L3 readback and the existing full-profile admission
+gates. No new architecture profile, UI, arbitrary partial-deployment framework
+or Terraform targeting is introduced.
+
+**Coverage:** Three local Core cases and six directed cases use the same Small
+workload. In directed Core cases ingestion is at the source; Event Layer,
+processing and storage are at the destination, with a reverse command path.
+These are not renamed full-profile candidates or inherited cost approvals.
+GCP Core is retained while its L4/L5 exclusion remains unchanged.
+
+**Evidence boundary:** Offline preparation and mock resource plans are not live
+E2E evidence. Prior federation probes remain historical identity evidence; no
+complete workload E2E has yet run. Recheck changed bindings and images before
+the first authorized Core workload. RQ1 records scoped provisioning/cleanup,
+RQ2 comparable Core functions, RQ3 actual scoped eventing and costs. Research
+questions and Five-layer reference remain unchanged. Implementation results and
+the live approval boundary are in the [Core plan](plans/2026-09-16_poc_core_evaluation.md).
+
 ## D-27 — Storage read access is not visualization
 
 **Decision (2026-09-16):** Assign the existing authenticated raw-history readers,
@@ -41,7 +63,8 @@ unimplemented; remote L5-to-L3 integration is a separate explicit blocker.
 **Scope finding:** Exclude GCP L4/L5 rather than maintaining a custom Twin or
 visualization platform. Preserve GCP L1–L3/Eventing. The matrix contains two
 complete local planning cases plus six directions; GCP core/storage evaluation
-and a genuine core-only deployment path remain pending. Research questions
+remain pending live; D-28 adds offline Core preparation and infrastructure
+separation. Research questions
 and the original Five-layer baseline remain unchanged. Earlier IAP/Grafana
 bootstrap proposals do not authorize work outside this reduced scope.
 

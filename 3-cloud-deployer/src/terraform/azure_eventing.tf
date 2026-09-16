@@ -68,8 +68,8 @@ locals {
   azure_event_local_processed_roles = concat(
     local.azure_event_hot_local ? [
       "historical-persistence",
-      "twin-state-update",
     ] : [],
+    local.azure_event_hot_local && !local.core_evaluation ? ["twin-state-update"] : [],
     local.azure_event_l2_local ? ["rule-evaluator"] : [],
     local.azure_event_dedicated ? ["audit", "realtime-visualization"] : [],
   )

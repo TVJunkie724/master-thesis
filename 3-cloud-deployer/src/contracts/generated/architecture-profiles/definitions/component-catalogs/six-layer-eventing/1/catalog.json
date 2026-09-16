@@ -10833,7 +10833,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:6bfca2ab6d17c21eabc5f93e624dec261cb4d7d9b2bd296b497efc09111d29c0",
+      "source_digest": "sha256:a278c3f6ccc854a57cf18b84dd9c462d046aef257fd4d50e611a4c1e50a13890",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -10889,7 +10889,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:8864731b36bfd5cd63ddc0a25aff704e413cf30c8ccd5804e1ca6fc3c2f087c7",
+      "source_digest": "sha256:343311c88c0dfcec8ec1e4ca143df3aa2bca63dd32d144699842c2a84400f574",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -10949,7 +10949,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:a6f66914e1d073645ea36b101cf2d77d783e9e4fb1a900f6f27bcb88aa7c21e7",
+      "source_digest": "sha256:ee77321bc062a10a32c79f2462d21c739cd35906e714d5ac957842a533c9dd0c",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
@@ -11163,5 +11163,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:bdce61b68eba29fd5ce81548d0aefac7896ec12dbb8447e811c037a474bb59a2"
+  "content_digest": "sha256:3da47af2d0beca29775bc5fc70e76e47ec6aa9dd576e8f34ba137af4db8529b9"
 }

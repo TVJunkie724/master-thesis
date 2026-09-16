@@ -647,12 +647,19 @@ def _selected_groups(
     *,
     profile_id: str,
     workload_size: str,
+    core_only: bool = False,
 ) -> list[tuple[str, str, str]]:
     logical_components = (
         SIX_LAYER_LOGICAL_COMPONENTS
         if profile_id == "six-layer-eventing"
         else LOGICAL_COMPONENTS
     )
+    if core_only:
+        logical_components = tuple(
+            item
+            for item in logical_components
+            if item not in {"component.twin-state", "component.visualization"}
+        )
     if set(assignment) != set(logical_components) or any(
         provider not in PROVIDERS for provider in assignment.values()
     ):
@@ -672,7 +679,10 @@ def _selected_groups(
             "assignment",
             "Six-layer PoC requires provider-local L3 storage tiers",
         )
-    if assignment["component.hot-storage"] != assignment["component.visualization"]:
+    if (
+        not core_only
+        and assignment["component.hot-storage"] != assignment["component.visualization"]
+    ):
         raise ArchitectureResolutionError(
             "ARCH_FUNCTIONAL_INCOMPLETE",
             "edge.hot-storage-to-visualization",
@@ -690,6 +700,8 @@ def _selected_groups(
                 selected.append((provider, logical, component_id))
 
     for logical in LOGICAL_COMPONENTS:
+        if logical not in logical_components:
+            continue
         provider = assignment[logical]
         add(
             provider,
@@ -797,7 +809,7 @@ def _selected_groups(
                 )
             ],
         )
-        if assignment["component.twin-state"] == provider:
+        if assignment.get("component.twin-state") == provider:
             add(
                 provider,
                 "component.twin-state",
@@ -868,6 +880,49 @@ def _selected_groups(
             ],
         )
     return selected
+
+
+def small_core_evaluation_dimensions(
+    assignment: Mapping[str, str],
+    resolved_workload: ResolvedSixLayerWorkload,
+) -> dict[str, str]:
+    """Reuse pinned Small sizing for research tfvars, not a deployable RDS.
+
+    Only the fixed ingestion-to-local-core topology is admitted. Delivery sizing
+    remains conservatively inherited; these dimensions are not a scoped quote.
+    Full-profile builders and their non-overridable readiness gates are unchanged.
+    """
+    if resolved_workload.size != "small" or any(
+        provider != assignment.get("component.eventing")
+        for logical, provider in assignment.items()
+        if logical != "component.ingestion"
+    ):
+        raise ValueError("Core evaluation supports only Small ingestion-to-local-core")
+    _, registry, fixed = _contract()
+    groups = _selected_groups(
+        assignment,
+        registry,
+        profile_id="six-layer-eventing",
+        workload_size="small",
+        core_only=True,
+    )
+    components = {item["component_id"]: item for item in registry["components"]}
+    return {
+        f"dimension.{provider}.{component_id}.{dimension_id}": str(
+            _dimension_value(
+                component_id,
+                logical,
+                dimension_id,
+                resolved_workload,
+                registry,
+                fixed,
+                azure_large_autoscale_ru_per_second=None,
+                gcp_event_worker_count=0,
+            )[0]
+        )
+        for provider, logical, component_id in groups
+        for dimension_id in components[component_id]["capacity_dimensions"]
+    }
 
 
 def build_six_layer_eventing_v1_deployment_specification(

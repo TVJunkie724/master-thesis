@@ -406,6 +406,7 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
       LOCAL_PROCESSING             = tostring(local.aws_six_layer_l2_enabled && !local.six_layer_eventing_enabled)
       HOT_PROVIDER                 = var.layer_3_hot_provider
       TWIN_PROVIDER                = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE   = var.evaluation_scope
       RAW_TABLE_NAME               = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS            = tostring(var.layer_3_hot_to_cold_interval_days)
@@ -503,6 +504,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE        = var.evaluation_scope
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS         = "48"
@@ -659,6 +661,7 @@ resource "aws_lambda_function" "aws_six_layer_domain_consumer" {
       L2_PROVIDER                       = var.layer_2_provider
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE        = var.evaluation_scope
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)

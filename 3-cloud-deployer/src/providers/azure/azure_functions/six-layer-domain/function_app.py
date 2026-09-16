@@ -445,6 +445,8 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
 
 
 def _project_twin(processed: Mapping[str, Any]) -> None:
+    if os.getenv("SIX_LAYER_EVALUATION_SCOPE") == "core":
+        return
     projection = build_twin_projection(processed)
     if projection is None:
         return
