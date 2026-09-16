@@ -615,9 +615,11 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
                     },
                     {"Put": rollup_put},
                 ],
-                ClientRequestToken=hashlib.sha256(event_id.encode("utf-8")).hexdigest()[
-                    :36
-                ],
+                # The raw-row condition is the event-level idempotency guard.
+                # A retry can change the rollup version and storage timestamp;
+                # reusing an event-only token for different transaction content
+                # causes IdempotentParameterMismatch instead of a valid retry.
+                # Let the SDK generate a token for this concrete transaction.
             )
             return
         except ClientError as exc:

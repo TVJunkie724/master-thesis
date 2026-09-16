@@ -30,6 +30,13 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Live execution note (2026-09-17):** The three local Core smoke tests are now
+explicitly authorized and supervised. Preserve the distinction between
+functional verification, successful Destroy and independent physical absence.
+AWS IoT Command deletion can leave an inactive provider-managed tombstone for
+12 hours; this is recorded, not silently counted as an empty inventory.
+Execution status and bounded-run limitations are maintained in the Core plan.
+
 **Decision (2026-09-16):** Implement one research-only `core` Terraform scope
 for L1–L3 and Event Layer. L4/L5 placement, Twin projection delivery and access
 resources are absent. Keep L3 readback and the existing full-profile admission

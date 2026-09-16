@@ -461,6 +461,9 @@ resource "awscc_iot_command" "aws_aws_iot_commands" {
     message  = "$${aws:iot:commandexecution::parameter:message}"
     trace_id = "$${aws:iot:commandexecution::parameter:trace_id}"
   })
+  preprocessor = {
+    aws_json_substitution = { output_format = "JSON" }
+  }
   mandatory_parameters = [
     {
       name = "message"
@@ -1060,12 +1063,28 @@ resource "aws_iam_role_policy" "aws_aws_ecr_if_container_selected" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "aws_six_layer_core_build" {
+  count             = local.core_evaluation && local.aws_six_layer_image_foundation_enabled ? 1 : 0
+  name              = "/aws/codebuild/${local.aws_six_layer_name}-six-images"
+  retention_in_days = 1
+  tags              = local.aws_six_layer_tags
+}
+
 resource "aws_codebuild_project" "aws_aws_ecr_if_container_selected" {
   count         = local.aws_six_layer_image_foundation_enabled ? 1 : 0
   name          = "${local.aws_six_layer_name}-six-images"
   description   = "Bounded Six-layer container publication"
   service_role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].arn
   build_timeout = local.core_evaluation ? 5 : 20
+
+  dynamic "logs_config" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      cloudwatch_logs {
+        group_name = aws_cloudwatch_log_group.aws_six_layer_core_build[0].name
+      }
+    }
+  }
 
   artifacts { type = "NO_ARTIFACTS" }
   environment {

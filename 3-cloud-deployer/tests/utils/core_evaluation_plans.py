@@ -41,6 +41,9 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
       alltrue([for schedule in aws_scheduler_schedule.aws_aws_eventbridge_scheduler :
         schedule.state == "DISABLED" && schedule.target[0].retry_policy[0].maximum_retry_attempts == 0]) &&
       alltrue([for project in aws_codebuild_project.aws_aws_ecr_if_container_selected : project.build_timeout == 5]) &&
+      alltrue([for command in awscc_iot_command.aws_aws_iot_commands :
+        command.preprocessor.aws_json_substitution.output_format == "JSON"]) &&
+      alltrue([for logs in aws_cloudwatch_log_group.aws_six_layer_core_build : logs.retention_in_days == 1]) &&
       alltrue([for job in azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job :
         length(job.schedule_trigger_config) == 0 && length(job.manual_trigger_config) == 1 &&
         job.replica_timeout_in_seconds == 300 && job.replica_retry_limit == 0]) &&

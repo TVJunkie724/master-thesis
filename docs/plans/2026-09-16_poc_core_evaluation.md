@@ -7,6 +7,46 @@ Implement the approved separation as one fixed research-only Terraform scope,
 resources, Twin projection consumer or Twin-directed federation route. It retains
 L3 storage readback. No Terraform `-target`, generic partial-deployment framework,
 new architecture profile, UI or relaxation of full-profile admission is needed.
+The existing provider image-foundation targets remain part of image publication;
+they are not used to implement the Core layer cut.
+
+## Supervised live execution (2026-09-17, in progress)
+
+The user authorized the three local Core smoke tests. This does not authorize
+directed multi-cloud or L4/L5/full-profile execution. The sections below retain
+the earlier pre-approval reviews; they are historical preparation evidence.
+
+`scripts/run_core_evaluation.py` runs one provider with real runtime packages,
+an empty-prefix inventory, a create-only account-bound plan, the existing image
+publisher, full Core Apply, ten ingress messages, authenticated L3 readback,
+Destroy and an independent inventory. Credentials/raw diagnostics/state stay
+private. Cumulative allowance inputs are supplied externally; they are not
+cloud billing measurements or a provider-enforced spending cap. The functional
+deadline includes image publication and provisioning. Cleanup is attempted on
+failure/interruption; host failure or forced process termination still requires
+operator recovery from the retained state. No unattended execution is claimed.
+
+Core keeps recurring movers disabled. Azure Flex and GCP Cloud Run scale-out
+is limited to one instance per scaling group/revision for this tiny smoke test;
+full-profile values remain unchanged. This is not throughput evidence.
+
+Initial AWS live attempts exposed and reproduced two lifecycle problems:
+dynamic IoT Commands require a JSON-substitution preprocessor, and SNS FIFO
+archives must be disabled before topic deletion. The first failed Apply was
+fully cleaned after the SNS recovery. The next Apply succeeded and both event
+streams contained all ten correlation IDs with accepted processor results,
+but authenticated readback returned only nine rows: **not a passed E2E**.
+The persistence retry path reused an event-only DynamoDB transaction token
+across changing rollup writes; its correction has a regression test and is
+being retested live. Do not treat this diagnosis as completed verification.
+
+AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
+Report inactive `pendingDeletion` definitions separately from active resources;
+an accepted Delete/empty Terraform state is not proof of physical absence.
+Overall `green` remains false until the independent inventory is empty, even
+if `functional_passed` is true. This distinction informs RQ1 cleanup latency;
+RQ2 still requires all ten values, and RQ3 must distinguish allowance estimates
+from subsequently available billing. No research question changes.
 
 The standalone offline preparer materializes three local and six directed Small
 Core scenarios using existing sizing and transport definitions. Directed scenarios

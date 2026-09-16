@@ -737,7 +737,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   runtime_version = "3.12"
   zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
@@ -850,7 +850,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   runtime_version = "3.12"
   zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
@@ -937,7 +937,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   runtime_version = "3.11"
   zip_deploy_file = each.value.package_path
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
@@ -993,7 +993,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   runtime_version = "3.12"
   zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
@@ -1177,7 +1177,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   runtime_version = "3.12"
   zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 20
+  maximum_instance_count                         = local.core_evaluation ? 1 : 20
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true

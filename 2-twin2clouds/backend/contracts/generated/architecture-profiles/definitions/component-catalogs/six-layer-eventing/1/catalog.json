@@ -10833,7 +10833,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain",
       "platform_handler": "handler.aws.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:a278c3f6ccc854a57cf18b84dd9c462d046aef257fd4d50e611a4c1e50a13890",
+      "source_digest": "sha256:871e5deeec37ece97cc54987f2c61bb1a1206118f72955ad32f8fd48cf7b92dd",
       "included_paths": [
         "bridge/Dockerfile",
         "bridge/constraints.txt",
@@ -11163,5 +11163,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:3da47af2d0beca29775bc5fc70e76e47ec6aa9dd576e8f34ba137af4db8529b9"
+  "content_digest": "sha256:7d5f4664f9f6f4d117ed198e91943d29483c8592756b10483c24827838cad7ca"
 }

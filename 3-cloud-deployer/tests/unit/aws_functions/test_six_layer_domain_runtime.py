@@ -661,6 +661,32 @@ def test_processed_event_retry_is_idempotent_across_new_storage_timestamp(monkey
     assert dynamo.get_calls == 1
 
 
+def test_rollup_conflict_does_not_reuse_event_only_transaction_token(monkeypatch):
+    runtime = _module()
+    class ConflictingDynamo(_Dynamo):
+        transactions = []
+        def get_item(self, **kwargs):
+            if "event_id" in kwargs["Key"] or not self.transactions:
+                return {}
+            return {"Item": {"version": {"N": "1"}, "count": {"N": "1"},
+                             "sum": {"N": "2"}, "min": {"N": "2"}, "max": {"N": "2"}}}
+        def transact_write_items(self, **kwargs):
+            self.transactions.append(kwargs)
+            if len(self.transactions) == 1:
+                raise runtime.ClientError({"Error": {"Code": "TransactionCanceledException"}}, "TransactWriteItems")
+            return {}
+    dynamo = ConflictingDynamo()
+    monkeypatch.setenv("RAW_TABLE_NAME", "raw")
+    monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
+    monkeypatch.setattr(runtime, "_client", lambda _: dynamo)
+    runtime._write_raw_and_rollup({"event_id": "event-1", "source_id": "device-1", "payload": {
+        "device_id": "device-1", "metric": "temperature", "value": 1,
+        "event_time": "2026-08-05T00:00:00Z"}})
+    assert len(dynamo.transactions) == 2
+    assert dynamo.transactions[0]["TransactItems"] != dynamo.transactions[1]["TransactItems"]
+    assert all("ClientRequestToken" not in transaction for transaction in dynamo.transactions)
+
+
 def test_projection_candidate_updates_local_twin_with_observation_time(monkeypatch):
     runtime = _module()
     dynamo = _Dynamo()

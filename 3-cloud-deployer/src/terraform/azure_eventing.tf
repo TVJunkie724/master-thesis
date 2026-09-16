@@ -367,7 +367,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   runtime_version = "3.12"
   zip_deploy_file = local.azure_event_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = var.azure_event_runtime_memory_mib
   https_only                                     = true
   public_network_access_enabled                  = true

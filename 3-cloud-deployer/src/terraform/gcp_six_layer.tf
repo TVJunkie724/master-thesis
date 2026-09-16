@@ -652,7 +652,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -788,7 +788,7 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_processor_extension" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -843,7 +843,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -931,7 +931,7 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_action_sink" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 20
+      max_instance_count = local.core_evaluation ? 1 : 20
     }
 
     containers {
@@ -976,7 +976,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_twin_api_materializer"
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -1138,7 +1138,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {

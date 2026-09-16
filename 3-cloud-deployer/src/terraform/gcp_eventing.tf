@@ -209,7 +209,7 @@ resource "google_cloud_run_v2_service" "event_runtime" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
