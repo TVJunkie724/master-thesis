@@ -189,6 +189,8 @@ def smoke(values, outputs):
             streams = stream_evidence(values)
             assert streams == {"received": 10, "processed": 10}
             return {"sent": 10, "read_back": 10, "event_streams": streams,
+                    "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
+                        datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points],
                     "delivery_seconds": time.monotonic() - sent_at}
         time.sleep(3)
     raise RuntimeError("CORE_READBACK_TIMEOUT")

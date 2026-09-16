@@ -166,6 +166,8 @@ def smoke(values, outputs):
             points = response.json().get("points", [])
             if len(points) == 10:
                 assert sorted(float(p["value"]) for p in points) == list(range(10))
-                return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started}
+                return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started,
+                        "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
+                            datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points]}
         time.sleep(3)
     raise RuntimeError("CORE_READBACK_TIMEOUT")

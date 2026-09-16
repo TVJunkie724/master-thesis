@@ -58,6 +58,27 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
   }
   assert {
     condition = (
+      alltrue([for app in concat(
+        azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter,
+        azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption,
+        values(azurerm_function_app_flex_consumption.azure_six_layer_processor_extension),
+        azurerm_function_app_flex_consumption.azure_six_layer_extension_action,
+        azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader,
+        azurerm_function_app_flex_consumption.event_runtime) : app.maximum_instance_count == 1]) &&
+      alltrue([for service in concat(
+        values(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter),
+        google_cloud_run_v2_service.gcp_six_layer_processor_extension,
+        google_cloud_run_v2_service.gcp_gcp_cloud_run_service,
+        google_cloud_run_v2_service.gcp_six_layer_action_sink,
+        google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader,
+        google_cloud_run_v2_service.event_runtime) :
+        service.template[0].scaling[0].min_instance_count == 0 &&
+        service.template[0].scaling[0].max_instance_count == 1])
+    )
+    error_message = "Tiny Core smoke runtimes must scale to zero and cap scale-out at one instance per group/revision."
+  }
+  assert {
+    condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&
       length(aws_iam_role.aws_six_layer_twinmaker) == 0 &&

@@ -37,8 +37,12 @@ fully cleaned after the SNS recovery. The next Apply succeeded and both event
 streams contained all ten correlation IDs with accepted processor results,
 but authenticated readback returned only nine rows: **not a passed E2E**.
 The persistence retry path reused an event-only DynamoDB transaction token
-across changing rollup writes; its correction has a regression test and is
-being retested live. Do not treat this diagnosis as completed verification.
+across changing rollup writes. After correction, the third workload attempt
+passed: ten messages in each event stream, accepted processor quality and ten
+correct values through authenticated L3 readback. Foundation provisioning took
+62.6 s, image publication 54.8 s, Core Apply 98.8 s, verification 56.0 s and
+Destroy 71.8 s. Independent inventory found no active run resources, but one
+IoT Command definition pending physical deletion. Azure/GCP remain in progress.
 
 AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
 Report inactive `pendingDeletion` definitions separately from active resources;
