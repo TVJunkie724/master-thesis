@@ -38,6 +38,23 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     assertions = """
   assert {
     condition = (
+      alltrue([for schedule in aws_scheduler_schedule.aws_aws_eventbridge_scheduler :
+        schedule.state == "DISABLED" && schedule.target[0].retry_policy[0].maximum_retry_attempts == 0]) &&
+      alltrue([for project in aws_codebuild_project.aws_aws_ecr_if_container_selected : project.build_timeout == 5]) &&
+      alltrue([for job in azurerm_container_app_job.azure_azure_container_apps_scheduled_storage_job :
+        length(job.schedule_trigger_config) == 0 && length(job.manual_trigger_config) == 1 &&
+        job.replica_timeout_in_seconds == 300 && job.replica_retry_limit == 0]) &&
+      alltrue([for schedule in google_cloud_scheduler_job.gcp_gcp_cloud_scheduler :
+        schedule.paused && schedule.retry_config[0].retry_count == 0]) &&
+      alltrue([for job in google_cloud_run_v2_job.gcp_gcp_cloud_run_storage_job :
+        job.template[0].template[0].timeout == "300s" && job.template[0].template[0].max_retries == 0]) &&
+      alltrue([for bucket in google_storage_bucket.gcp_six_layer_cloud_build_sources :
+        bucket.soft_delete_policy[0].retention_duration_seconds == 0])
+    )
+    error_message = "Core must not start recurring storage work and must bound builds/jobs without retained build objects."
+  }
+  assert {
+    condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&
       length(aws_iam_role.aws_six_layer_twinmaker) == 0 &&

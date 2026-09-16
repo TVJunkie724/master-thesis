@@ -188,6 +188,7 @@ class GcpSixLayerImagePublisher:
         storage_client: Any | None = None,
         build_service: Any | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        core_evaluation: bool = False,
     ) -> None:
         self.project_path = Path(project_path)
         self.project_id = project_id
@@ -207,6 +208,7 @@ class GcpSixLayerImagePublisher:
             cache_discovery=False,
         )
         self.sleep = sleep
+        self.build_timeout_seconds = 300 if core_evaluation else 1200
         self.evidence_path = (
             self.project_path / ".build" / "gcp" / "published-images.json"
         )
@@ -242,6 +244,7 @@ class GcpSixLayerImagePublisher:
             project_id=str(tfvars["gcp_project_id"]),
             region=str(tfvars["gcp_region"]),
             credentials=credentials,
+            core_evaluation=tfvars.get("evaluation_scope") == "core",
             **required,
         )
 
@@ -328,7 +331,7 @@ class GcpSixLayerImagePublisher:
                 "logging": "CLOUD_LOGGING_ONLY",
                 "machineType": CLOUD_BUILD_MACHINE_TYPE,
             },
-            "timeout": "1200s",
+            "timeout": f"{self.build_timeout_seconds}s",
             "tags": ["twin2multicloud", "phase-8", request.name],
         }
         operation = (

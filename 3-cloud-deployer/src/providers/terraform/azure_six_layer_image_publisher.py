@@ -77,6 +77,7 @@ class AzureSixLayerImagePublisher:
         credential: Any,
         transport: Any | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        core_evaluation: bool = False,
     ) -> None:
         self.project_path = Path(project_path)
         self.subscription_id = subscription_id
@@ -87,6 +88,7 @@ class AzureSixLayerImagePublisher:
         self.credential = credential
         self.transport = transport or requests.Session()
         self.sleep = sleep
+        self.build_timeout_seconds = 300 if core_evaluation else 1200
         self.registry_root = (
             "https://management.azure.com/subscriptions/"
             f"{quote(subscription_id, safe='')}/resourceGroups/"
@@ -133,6 +135,7 @@ class AzureSixLayerImagePublisher:
             project_path=project_path,
             subscription_id=str(credential_values["subscription_id"]),
             credential=credential,
+            core_evaluation=tfvars.get("evaluation_scope") == "core",
             **required,
         )
 
@@ -370,7 +373,7 @@ class AzureSixLayerImagePublisher:
                     "noCache": False,
                     "platform": {"os": "Linux", "architecture": "amd64"},
                     "agentConfiguration": {"cpu": 2},
-                    "timeout": 1200,
+                    "timeout": self.build_timeout_seconds,
                 },
             },
         }

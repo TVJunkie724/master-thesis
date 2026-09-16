@@ -400,6 +400,15 @@ resource "google_storage_bucket" "gcp_six_layer_cloud_build_sources" {
   public_access_prevention    = "enforced"
   labels                      = local.gcp_six_layer_labels
 
+  # Disposable Core build inputs must not survive deletion as billable objects.
+  # Leave the full-profile policy unchanged.
+  dynamic "soft_delete_policy" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      retention_duration_seconds = 0
+    }
+  }
+
   lifecycle_rule {
     condition { age = 1 }
     action { type = "Delete" }
@@ -1805,8 +1814,8 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
 
     template {
       service_account = google_service_account.gcp_six_layer_runtime["storage"].email
-      max_retries     = 1
-      timeout         = "900s"
+      max_retries     = local.core_evaluation ? 0 : 1
+      timeout         = local.core_evaluation ? "300s" : "900s"
 
       containers {
         image = var.gcp_six_layer_storage_mover_image
@@ -1893,11 +1902,12 @@ resource "google_cloud_scheduler_job" "gcp_gcp_cloud_scheduler" {
   name             = substr("${local.gcp_six_layer_name}-six-${each.key}", 0, 49)
   description      = "Run the finite Six-layer ${each.key} storage window"
   schedule         = each.value.schedule
+  paused           = local.core_evaluation
   time_zone        = "Etc/UTC"
   attempt_deadline = "900s"
 
   retry_config {
-    retry_count          = 1
+    retry_count          = local.core_evaluation ? 0 : 1
     min_backoff_duration = "30s"
     max_backoff_duration = "300s"
     max_doublings        = 1

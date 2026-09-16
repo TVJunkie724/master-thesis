@@ -1065,7 +1065,7 @@ resource "aws_codebuild_project" "aws_aws_ecr_if_container_selected" {
   name          = "${local.aws_six_layer_name}-six-images"
   description   = "Bounded Six-layer container publication"
   service_role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].arn
-  build_timeout = 20
+  build_timeout = local.core_evaluation ? 5 : 20
 
   artifacts { type = "NO_ARTIFACTS" }
   environment {
@@ -1315,7 +1315,7 @@ resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
   for_each            = local.aws_six_layer_storage_schedule_tasks
   name                = "${local.aws_six_layer_name}-six-${each.key}"
   schedule_expression = each.value.schedule
-  state               = "ENABLED"
+  state               = local.core_evaluation ? "DISABLED" : "ENABLED"
 
   flexible_time_window { mode = "OFF" }
   target {
@@ -1344,8 +1344,8 @@ resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
       }]
     })
     retry_policy {
-      maximum_event_age_in_seconds = 86400
-      maximum_retry_attempts       = 6
+      maximum_event_age_in_seconds = local.core_evaluation ? 60 : 86400
+      maximum_retry_attempts       = local.core_evaluation ? 0 : 6
     }
   }
 }

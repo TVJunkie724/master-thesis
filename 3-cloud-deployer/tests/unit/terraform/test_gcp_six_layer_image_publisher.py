@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src.providers.terraform.gcp_six_layer_image_publisher import (
     CLOUD_BUILD_MACHINE_TYPE,
     DOCKER_BUILDER,
@@ -138,7 +140,10 @@ class _BuildService:
         )
 
 
-def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path):
+@pytest.mark.parametrize("core_evaluation, timeout", [(False, "1200s"), (True, "300s")])
+def test_publisher_uploads_generation_bound_context_and_returns_digest(
+    tmp_path, core_evaluation, timeout
+):
     context = tmp_path / "context.tar.gz"
     context.write_bytes(b"deterministic context")
     blob = _Blob()
@@ -156,6 +161,7 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
         storage_client=_Storage(blob),
         build_service=builds,
         sleep=lambda _seconds: None,
+        core_evaluation=core_evaluation,
     )
 
     images = publisher.publish(
@@ -185,7 +191,7 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
         "/serviceAccounts/build@phase8-project.iam.gserviceaccount.com"
     )
     assert body["options"]["machineType"] == CLOUD_BUILD_MACHINE_TYPE
-    assert body["timeout"] == "1200s"
+    assert body["timeout"] == timeout
     assert body["tags"] == ["twin2multicloud", "phase-8", "storage-mover"]
     assert publisher.evidence_path.stat().st_mode & 0o077 == 0
 

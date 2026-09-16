@@ -444,13 +444,24 @@ resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_stora
   resource_group_name          = azurerm_resource_group.main[0].name
   location                     = azurerm_resource_group.main[0].location
   container_app_environment_id = azurerm_container_app_environment.azure_azure_container_apps_scheduled_storage_job[0].id
-  replica_timeout_in_seconds   = 1800
-  replica_retry_limit          = 3
+  replica_timeout_in_seconds   = local.core_evaluation ? 300 : 1800
+  replica_retry_limit          = local.core_evaluation ? 0 : 3
 
-  schedule_trigger_config {
-    cron_expression          = each.value.schedule
-    parallelism              = 1
-    replica_completion_count = 1
+  dynamic "schedule_trigger_config" {
+    for_each = local.core_evaluation ? [] : [1]
+    content {
+      cron_expression          = each.value.schedule
+      parallelism              = 1
+      replica_completion_count = 1
+    }
+  }
+
+  dynamic "manual_trigger_config" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      parallelism              = 1
+      replica_completion_count = 1
+    }
   }
 
   identity {
