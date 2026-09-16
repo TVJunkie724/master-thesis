@@ -72,6 +72,64 @@ L4/L5 does not make Core free.
 
 ## Status
 
+### Supervised Core preparation checkpoint
+
+The three local Core tests have operator authorization subject to the approved
+execution budget, including repeated attempts. Authorization does not turn incomplete inputs into executable
+plans or permit unbounded retries. No workload Apply has run at this checkpoint.
+
+Implemented for `core` only; the complete-profile defaults remain unchanged:
+
+- AWS storage scheduling disabled, delivery retries zero, CodeBuild timeout five minutes.
+- Azure storage job manual-only, replica timeout five minutes, no retries;
+  ACR publication timeout five minutes per image.
+- GCP storage scheduling paused, scheduler/task retries zero, task timeout five
+  minutes; Cloud Build timeout five minutes per image; disposable build-source
+  bucket soft delete explicitly disabled.
+
+These are provider-side bounds, **not a total spending cap or an implemented
+experiment watchdog**. The AWS mover must not be manually started without a
+supervised stop procedure. The first ten-message smoke test starts no mover.
+
+`python -m scripts.prepare_core_runtime PROVIDER --output-dir NEW_DIRECTORY`
+now prepares real runtime packages and the same validated processor example for
+each local baseline. It does not register a device, publish an image, execute
+Terraform or produce a full-profile manifest. Short resource prefixes are
+separate from scenario IDs: the first account-bound Azure plan exposed that
+`core-small-local-azure` exceeds Terraform's 21-character limit. The preparer
+now emits `core-SOURCE-TARGET`; regression tests cover all nine names.
+
+Read-only provider identity/permission checks passed for AWS, Azure and GCP.
+Checked GCP Small quotas passed; resource-scoped permissions and Azure quotas
+that require created resources are still Apply-time observations. Six custom
+Linux/amd64 images built locally, and the pinned public BifroMQ image was pulled.
+Local Docker image IDs are not registry manifest digests or image-pull evidence
+from a deployed cloud resource. Registry publication remains pending.
+
+Account-bound, non-mutating plans with real processor packages passed after the
+name correction: AWS 93 create entries, Azure 72, GCP 110 before its Kubernetes
+stage. The mock fixtures additionally include one synthetic AWS outbound-identity
+guard; the complete GCP mock includes nine Kubernetes objects. These plans still
+use explicitly unpublished image placeholders and **must not be applied**. No
+workload resource or provider build was created. The external watchdog and
+complete residual inventory remain the live-execution blockers, not credential
+authority. In particular, the existing AWS fallback inventory does not cover
+all retained Core services (including Kinesis, ECR/CodeBuild, ECS and Scheduler);
+an empty Terraform state alone would not close that gap.
+
+Verification: 434 Terraform-related unit tests plus the native five-test suite
+(21 Terraform mock plans), and 15 Core input/runtime-preparation tests passed.
+The publisher tests cover both unchanged full-profile and shortened Core build
+timeouts. These are not three successful live E2E runs.
+
+The provider reviews below describe the **pre-bound inventory/behavior**. Their
+recurring-job and long-build findings are addressed above; the external
+deadline, whole-run cost accounting, guaranteed cleanup attempt and complete
+residual check still have to be connected to the live Core procedure. Existing
+full-profile admission must not be bypassed to run this research slice.
+
+### Earlier implementation checks
+
 Implemented and offline verified:
 
 - 1,725 Deployer unit tests passed, including suppression of Twin publication

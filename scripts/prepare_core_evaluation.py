@@ -56,7 +56,9 @@ def materialize(scenario_id: str) -> dict:
         return "google" if value == "gcp" else value
 
     values = {
-        "digital_twin_name": scenario_id,
+        # Scenario IDs are evidence labels, not provider resource-name prefixes.
+        # In particular core-small-local-azure exceeds Terraform's 21-char limit.
+        "digital_twin_name": f"core-{source}-{target}",
         "architecture_profile_id": "six-layer-eventing",
         "architecture_profile_version": "1",
         "evaluation_scope": "core",

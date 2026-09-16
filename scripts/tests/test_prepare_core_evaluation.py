@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 
 import pytest
 
@@ -29,6 +30,7 @@ def test_core_inputs_are_deterministic_incomplete_and_access_free(scenario):
         "twin-state" in key or "visualization" in key for key in result["assignments"]
     )
     values = result["tfvars"]
+    assert re.fullmatch(r"[a-z][a-z0-9-]{1,20}", values["digital_twin_name"])
     assert values["evaluation_scope"] == "core"
     assert values["layer_4_provider"] == values["layer_5_provider"] == ""
     assert not any(
