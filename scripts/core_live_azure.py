@@ -67,6 +67,25 @@ def sas(resource, key, name=None):
     return result + ("&skn=" + name if name else "")
 
 
+def poll_points(read, key, query, attempts=60, pause_seconds=3):
+    for _ in range(attempts):
+        try:
+            response = requests.get(
+                read["access_url"],
+                headers={"x-functions-key": key},
+                params=query,
+                timeout=30,
+            )
+        except requests.Timeout:
+            response = None
+        if response is not None and response.status_code == 200:
+            points = response.json().get("points", [])
+            if len(points) == 10:
+                return points
+        time.sleep(pause_seconds)
+    raise RuntimeError("CORE_READBACK_TIMEOUT")
+
+
 def smoke(values, outputs):
     group = outputs["azure_six_layer_resource_group_name"]
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
@@ -108,17 +127,11 @@ def smoke(values, outputs):
             raise RuntimeError("CORE_AZURE_SEND_HTTP_" + str(sent.status_code))
     query = {"device_id": device, "metric": "temperature", "bucket_seconds": "0", "limit": "100",
              "from": (now - timedelta(minutes=1)).isoformat(), "to": (now + timedelta(minutes=10)).isoformat()}
-    for _ in range(60):
-        response = requests.get(read["access_url"], headers={"x-functions-key": key}, params=query, timeout=30)
-        if response.status_code == 200:
-            points = response.json().get("points", [])
-            if len(points) == 10:
-                assert sorted(float(p["value"]) for p in points) == list(range(10))
-                return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started,
-                        "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
-                            datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points]}
-        time.sleep(3)
-    raise RuntimeError("CORE_READBACK_TIMEOUT")
+    points = poll_points(read, key, query)
+    assert sorted(float(p["value"]) for p in points) == list(range(10))
+    return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started,
+            "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
+                datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points]}
 
 
 def diagnostics(values, outputs):

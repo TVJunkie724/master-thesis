@@ -10,7 +10,7 @@ new architecture profile, UI or relaxation of full-profile admission is needed.
 The existing provider image-foundation targets remain part of image publication;
 they are not used to implement the Core layer cut.
 
-## Supervised live execution (2026-09-17, in progress)
+## Supervised live execution (2026-09-17, concluded)
 
 The user authorized the three local Core smoke tests. This does not authorize
 directed multi-cloud or L4/L5/full-profile execution. The sections below retain
@@ -27,8 +27,9 @@ failure/interruption; host failure or forced process termination still requires
 operator recovery from the retained state. No unattended execution is claimed.
 
 Core keeps recurring movers disabled. Azure Flex and GCP Cloud Run scale-out
-is limited to one instance per scaling group/revision for this tiny smoke test;
-full-profile values remain unchanged. This is not throughput evidence.
+is limited to one instance per scaling group/revision for this tiny smoke test.
+The supervised Azure smoke used IoT Hub F1 for ten messages; the resolved full
+profile remains unchanged. This is not throughput evidence.
 
 Initial AWS live attempts exposed and reproduced two lifecycle problems:
 dynamic IoT Commands require a JSON-substitution preprocessor, and SNS FIFO
@@ -41,16 +42,37 @@ across changing rollup writes. After correction, the third workload attempt
 passed: ten messages in each event stream, accepted processor quality and ten
 correct values through authenticated L3 readback. Foundation provisioning took
 62.6 s, image publication 54.8 s, Core Apply 98.8 s, verification 56.0 s and
-Destroy 71.8 s. Independent inventory found no active run resources, but one
-IoT Command definition pending physical deletion. Azure/GCP remain in progress.
+Destroy 71.8 s. Independent inventory found no active run resources. Two IoT
+Command definitions from the final attempts remain inactive and pending
+provider-side physical deletion.
+
+Azure completed image publication and the full Core Apply in 627.7 s. All ten
+messages were submitted through IoT Hub, but the first authenticated L3 reader
+request hit a Flex cold start and timed out after 30 s. No successful readback
+was recorded, so the run is not a functional pass. Destroy completed in 773.3 s
+and the independent resource-group inventory returned zero. The reader polling
+path now treats request timeouts as retryable within the existing bounded loop;
+this correction is offline-tested but was not re-run live.
+
+GCP completed image publication and the full Google-resource Apply in 805.8 s.
+The second stage created the namespace, service account, two internal services,
+configuration and secret, but the BifroMQ deployment did not become Ready before
+the whole-run deadline. No MQTT messages were sent and no L3 readback is claimed.
+Kubernetes removal took 39.4 s, Terraform Destroy 557.9 s, and all 14 independent
+inventory categories returned zero. No speculative runtime change was made
+without pod-level evidence.
 
 AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
 Report inactive `pendingDeletion` definitions separately from active resources;
 an accepted Delete/empty Terraform state is not proof of physical absence.
 Overall `green` remains false until the independent inventory is empty, even
-if `functional_passed` is true. This distinction informs RQ1 cleanup latency;
-RQ2 still requires all ten values, and RQ3 must distinguish allowance estimates
-from subsequently available billing. No research question changes.
+if `functional_passed` is true. For RQ1, the runs establish repeatable AWS
+deployment plus cleanup behavior and expose Azure cold-start and GCP rollout
+latency as operational boundaries. For RQ2, only AWS currently proves the full
+ten-message Core contract; Azure and GCP remain incomplete rather than being
+treated as negative functional results. For RQ3, external run allowances are
+not billing evidence and omitted retries are not zero-cost implementations.
+No research question changes.
 
 The standalone offline preparer materializes three local and six directed Small
 Core scenarios using existing sizing and transport definitions. Directed scenarios
@@ -116,11 +138,12 @@ L4/L5 does not make Core free.
 
 ## Status
 
-### Supervised Core preparation checkpoint
+### Historical supervised Core preparation checkpoint
 
-The three local Core tests have operator authorization subject to the approved
-execution budget, including repeated attempts. Authorization does not turn incomplete inputs into executable
-plans or permit unbounded retries. No workload Apply has run at this checkpoint.
+This subsection preserves the pre-execution checkpoint. The subsequent live
+outcomes are recorded at the top of this document. Authorization did not turn
+incomplete inputs into executable plans or permit unbounded retries; at this
+historical checkpoint no workload Apply had run.
 
 Implemented for `core` only; the complete-profile defaults remain unchanged:
 
@@ -280,12 +303,12 @@ counts or an account-bound Apply plan. Region: `westeurope`.
 
 | Responsibility | Current concrete Azure resources |
 |---|---|
-| L1 | One IoT Hub S1, one unit; the test device must also be registered through the existing device setup path |
+| L1 | Resolved profile: one IoT Hub S1, one unit. The supervised ten-message Core smoke uses F1/one unit without changing the full profile. |
 | Event Layer | One Standard Event Hubs namespace, one throughput unit, three hubs and three consumer groups; one Standard Service Bus namespace, one topic/subscription and filter |
-| L2 and adapters | Six Flex Consumption Function Apps in total: processing, event adapter, processor extension, action extension, Event runtime and L3 reader; one FC1 plan; one Consumption Logic App with its trigger/actions |
+| L2 and adapters | Six Flex Consumption Function Apps in total: processing, event adapter, processor extension, action extension, Event runtime and L3 reader; six FC1 plans because Flex permits one app per plan; one Consumption Logic App with its trigger/actions |
 | L3 | One serverless Cosmos DB account/database/container; one storage account with three containers for history and runtime packages; archive/expiry lifecycle; authenticated Function readback |
 | L3 transfer and publication | One scheduled Container Apps job (1 vCPU, 2 GiB, one replica), one environment and one Basic ACR |
-| Supporting configuration | Two Log Analytics workspaces, ten diagnostic settings, two user-assigned identities and scoped role assignments in one deployment resource group |
+| Supporting configuration | Two Log Analytics workspaces, nine supported diagnostic settings, two user-assigned identities and scoped role assignments in one deployment resource group |
 
 The Functions use ZIP packages. **Only the storage mover needs a custom Azure
 container image.** Its current publisher uses an ACR build task with a

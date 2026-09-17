@@ -5,7 +5,7 @@ import time
 import pytest
 
 from scripts.run_core_evaluation import Terraform, apply_smoke_bounds, deadline, reserve
-from scripts import core_live_aws
+from scripts import core_live_aws, core_live_azure
 
 
 def test_allowance_is_cumulative_and_rejected_without_overwriting(tmp_path):
@@ -68,3 +68,28 @@ def test_sns_archive_cleanup_only_touches_owned_state(monkeypatch):
     with pytest.raises(RuntimeError, match="OWNERSHIP_MISMATCH"):
         core_live_aws.before_destroy({"digital_twin_name": "unrelated"}, state)
     assert len(changes) == 1
+
+
+def test_azure_readback_poll_tolerates_flex_cold_start(monkeypatch):
+    points = [{"value": number} for number in range(10)]
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"points": points}
+
+    responses = iter((core_live_azure.requests.ReadTimeout(), Response()))
+
+    def get(*_args, **_kwargs):
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(core_live_azure.requests, "get", get)
+    monkeypatch.setattr(core_live_azure.time, "sleep", lambda _seconds: None)
+
+    assert core_live_azure.poll_points(
+        {"access_url": "https://example.test"}, "key", {}, attempts=2, pause_seconds=0
+    ) == points

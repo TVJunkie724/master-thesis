@@ -668,6 +668,25 @@ and D-24 govern the active implementation; D-25 qualifies its research claims
 and records the blocked visualization restoration. Earlier split-authority and
 dashboard wording is historical rather than current setup guidance.
 
+On 2026-09-17 the bounded provider-local Core evaluation concluded without
+expanding into L4/L5, directed federation or the full profile. AWS passed the
+ten-message Event/L2/L3 contract and authenticated readback; only two inactive
+IoT Command deletion tombstones remain. Azure completed deployment and sent ten
+messages, but the first Flex reader request timed out before readback; all
+resources were destroyed and the cold-start polling path was corrected offline.
+GCP completed image publication and Google-resource provisioning, then reached
+the Kubernetes stage, where BifroMQ did not become Ready before the whole-run
+deadline; no messages were sent. Kubernetes removal, Terraform Destroy and all
+14 independent GCP inventory categories completed cleanly. These outcomes add
+RQ1 lifecycle evidence, establish RQ2 only for AWS, and do not substitute run
+allowances for RQ3 billing data. The research questions remain unchanged.
+
+During local diagnostics, secret-bearing output was exposed inside the private
+tool transcript. The affected Azure and AWS administrator credentials were
+rotated, the replacement credentials were verified, and every prior credential
+was revoked. The ignored credential file remains mode `0600`; no credential or
+private evidence file entered Git.
+
 On 2026-09-04, the one-administrator contract was bootstrapped under a
 supervised, temporary Global Administrator user session using the already
 pinned Azure CLI image. The existing PoC service principal received
