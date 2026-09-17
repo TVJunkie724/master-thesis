@@ -221,3 +221,29 @@ def test_azure_six_layer_storage_mover_uses_digest_and_explicit_exact_task_jobs(
         in terraform_source
     )
     assert ":latest" not in terraform_source
+
+
+def test_azure_six_layer_flex_uses_one_plan_per_app_and_onedeploy():
+    six_layer = (TERRAFORM_SOURCE / "azure_six_layer.tf").read_text(
+        encoding="utf-8"
+    )
+    eventing = (TERRAFORM_SOURCE / "azure_eventing.tf").read_text(
+        encoding="utf-8"
+    )
+    packages = (TERRAFORM_SOURCE / "azure_flex_packages.tf").read_text(
+        encoding="utf-8"
+    )
+    publisher = (
+        TERRAFORM_SOURCE / "modules/azure_flex_package/main.tf"
+    ).read_text(encoding="utf-8")
+
+    assert 'for_each = toset(compact([' in six_layer
+    for plan in ("ingress", "processing", "extension", "action", "reader"):
+        assert f'azure_six_layer_flex["{plan}"]' in six_layer
+    assert 'azure_six_layer_flex["eventing"]' in eventing
+    assert "zip_deploy_file" not in six_layer
+    assert "zip_deploy_file" not in eventing
+    assert packages.count('source                    = "./modules/azure_flex_package"') == 6
+    assert 'type       = "Microsoft.Web/sites/extensions"' in publisher
+    assert 'name       = "${var.app_name}/onedeploy"' in publisher
+    assert "remoteBuild = true" in publisher

@@ -113,7 +113,7 @@ def placeholder_image_tfvars(tfvars: Mapping[str, Any]) -> dict[str, Any]:
         return {}
     prefix = (
         f"{tfvars['gcp_region']}-docker.pkg.dev/{tfvars['gcp_project_id']}/"
-        f"{_normalized_name(str(tfvars['digital_twin_name']))}-six-layer/"
+        f"{_normalized_name(str(tfvars['digital_twin_name']))}-v2/"
     )
     return {
         "gcp_six_layer_platform_image": f"{prefix}platform@{_ZERO_DIGEST}",
@@ -344,21 +344,25 @@ class GcpSixLayerImagePublisher:
             )
             .execute()
         )
-        operation_name = operation.get("name")
-        if not isinstance(operation_name, str) or not operation_name:
-            raise RuntimeError("Cloud Build did not return an operation")
-        while not operation.get("done"):
+        build = operation.get("metadata", {}).get("build", {})
+        build_id = build.get("id") if isinstance(build, dict) else None
+        if not isinstance(build_id, str) or not build_id:
+            raise RuntimeError("Cloud Build did not return a build identifier")
+        build_name = (
+            f"projects/{self.project_id}/locations/{self.region}/builds/{build_id}"
+        )
+        while build.get("status") in (None, "STATUS_UNKNOWN", "QUEUED", "WORKING"):
             self.sleep(2)
-            operation = (
+            build = (
                 self.build_service.projects()
                 .locations()
-                .operations()
-                .get(name=operation_name)
+                .builds()
+                .get(name=build_name)
                 .execute()
             )
-        if operation.get("error"):
+        if build.get("status") != "SUCCESS":
             raise RuntimeError(f"Cloud Build failed for {request.name}")
-        built = operation.get("response", {}).get("results", {}).get("images", [])
+        built = build.get("results", {}).get("images", [])
         match = next((item for item in built if item.get("name") == tag), None)
         digest = match.get("digest") if isinstance(match, dict) else None
         result = f"{tag.rsplit(':', 1)[0]}@{digest}"

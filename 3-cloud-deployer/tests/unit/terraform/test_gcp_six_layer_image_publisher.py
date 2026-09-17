@@ -46,7 +46,7 @@ def test_placeholder_refs_are_registry_scoped_and_stage_one_is_closed():
     }
     assert all(
         value.startswith(
-            "europe-west1-docker.pkg.dev/phase8-project/factory-twin-six-layer/"
+            "europe-west1-docker.pkg.dev/phase8-project/factory-twin-v2/"
         )
         and value.endswith("@sha256:" + "0" * 64)
         for key, value in values.items()
@@ -101,9 +101,7 @@ class _Request:
 class _BuildService:
     def __init__(self):
         self.created = []
-        self.operation_name = (
-            "projects/phase8-project/locations/europe-west1/operations/1"
-        )
+        self.build_name = "projects/phase8-project/locations/europe-west1/builds/1"
         self.image_name = None
 
     def projects(self):
@@ -121,20 +119,21 @@ class _BuildService:
     def create(self, *, parent, body):
         self.created.append((parent, body))
         self.image_name = body["images"][0]
-        return _Request({"name": self.operation_name, "done": False})
+        return _Request({
+            "name": "operations/build/phase8-project/opaque",
+            "metadata": {"build": {"id": "1", "status": "QUEUED"}},
+        })
 
     def get(self, *, name):
-        assert name == self.operation_name
+        assert name == self.build_name
         return _Request(
             {
-                "name": name,
-                "done": True,
-                "response": {
-                    "results": {
-                        "images": [
-                            {"name": self.image_name, "digest": "sha256:" + "a" * 64}
-                        ]
-                    }
+                "id": "1",
+                "status": "SUCCESS",
+                "results": {
+                    "images": [
+                        {"name": self.image_name, "digest": "sha256:" + "a" * 64}
+                    ]
                 },
             }
         )

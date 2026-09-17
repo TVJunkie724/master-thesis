@@ -712,8 +712,16 @@ resource "azurerm_storage_container" "azure_six_layer_function_package" {
 }
 
 resource "azurerm_service_plan" "azure_six_layer_flex" {
-  count               = local.azure_six_layer_function_infrastructure_enabled ? 1 : 0
-  name                = "${local.azure_six_layer_name}-six-flex"
+  # Flex permits exactly one app per FC1 plan; these plans have no idle workers.
+  for_each = toset(compact([
+    local.azure_six_layer_event_enabled ? "ingress" : "",
+    local.azure_six_layer_l2_enabled ? "processing" : "",
+    local.azure_six_layer_l2_enabled ? "extension" : "",
+    local.azure_six_layer_l2_enabled ? "action" : "",
+    local.azure_six_layer_hot_enabled ? "reader" : "",
+    local.azure_event_enabled ? "eventing" : "",
+  ]))
+  name                = "${local.azure_six_layer_name}-flex-${each.key}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -726,7 +734,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   name                = "${local.azure_six_layer_name}-six-events-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["ingress"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
@@ -735,7 +743,6 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
@@ -749,14 +756,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                                = "python"
-    WEBSITE_RUN_FROM_PACKAGE                                = "1"
     ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
@@ -839,7 +843,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   name                = "${local.azure_six_layer_name}-six-process-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["processing"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
@@ -848,7 +852,6 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
@@ -862,14 +865,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                                = "python"
-    WEBSITE_RUN_FROM_PACKAGE                                = "1"
     ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(local.azure_six_layer_embedded_event_enabled)
@@ -926,7 +926,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   name                = "${local.azure_six_layer_name}-six-extension-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["extension"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
@@ -935,7 +935,6 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
 
   runtime_name    = "python"
   runtime_version = "3.11"
-  zip_deploy_file = each.value.package_path
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
@@ -949,9 +948,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "python"
-    WEBSITE_RUN_FROM_PACKAGE = "1"
-    ARCHITECTURE_PROFILE     = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    ARCHITECTURE_PROFILE = "${var.architecture_profile_id}@${var.architecture_profile_version}"
   }
 
   tags = local.azure_six_layer_tags
@@ -970,6 +967,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
 }
 
 data "azurerm_function_app_host_keys" "azure_six_layer_processor_extension" {
+  depends_on          = [module.azure_six_layer_extension_package]
   for_each            = azurerm_function_app_flex_consumption.azure_six_layer_processor_extension
   name                = each.value.name
   resource_group_name = each.value.resource_group_name
@@ -982,7 +980,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   name                = "${local.azure_six_layer_name}-six-action-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["action"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
@@ -991,7 +989,6 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
@@ -1005,8 +1002,6 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME           = "python"
-    WEBSITE_RUN_FROM_PACKAGE           = "1"
     ARCHITECTURE_PROFILE               = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     SIX_LAYER_ACTION_ENDPOINT_ENABLED  = "true"
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED  = "false"
@@ -1026,6 +1021,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
 }
 
 data "azurerm_function_app_host_keys" "azure_six_layer_extension_action" {
+  depends_on          = [module.azure_six_layer_action_package]
   count               = local.azure_six_layer_l2_enabled ? 1 : 0
   name                = azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].name
   resource_group_name = azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].resource_group_name
@@ -1166,7 +1162,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   name                = "${local.azure_six_layer_name}-six-history-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["reader"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
@@ -1175,7 +1171,6 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 20
   instance_memory_in_mb                          = 2048
@@ -1188,14 +1183,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME      = "python"
-    WEBSITE_RUN_FROM_PACKAGE      = "1"
     ARCHITECTURE_PROFILE          = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                 = local.deployment_suffix
     SIX_LAYER_RAW_HISTORY_ENABLED = "true"
@@ -1338,9 +1330,6 @@ locals {
     } : {},
     local.azure_six_layer_hot_enabled ? {
       cosmos = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id
-    } : {},
-    local.azure_six_layer_object_store_enabled ? {
-      history_storage = azurerm_storage_account.main[0].id
     } : {},
     local.azure_six_layer_remote_telemetry_enabled ? {
       event_hubs = azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].id

@@ -86,6 +86,7 @@ def test_provider_packages_are_deterministic_and_preserve_source(provider):
     with zipfile.ZipFile(io.BytesIO(first)) as archive:
         assert archive.read("process.py").decode("utf-8") == _files()["process.py"]
         assert "_platform_runtime.py" in archive.namelist()
+        assert ("host.json" in archive.namelist()) is (provider == "azure")
     evidence_json = json.dumps(asdict(evidence), sort_keys=True)
     assert "def process" not in evidence_json
     assert "configuration" not in evidence_json

@@ -277,12 +277,26 @@ resource "azurerm_servicebus_subscription" "domain_control" {
   lock_duration                             = "PT1M"
 }
 
-resource "azurerm_servicebus_subscription_rule" "domain_control" {
-  count           = local.azure_event_enabled ? 1 : 0
-  name            = "$Default"
-  subscription_id = azurerm_servicebus_subscription.domain_control[0].id
-  filter_type     = "SqlFilter"
-  sql_filter      = local.azure_event_control_filter
+# Azure creates $Default with the subscription. Update that owned child instead
+# of trying to create it again; subscription destruction also removes the rule.
+resource "azurerm_resource_group_template_deployment" "domain_control_filter" {
+  count               = local.azure_event_enabled ? 1 : 0
+  name                = "${local.azure_event_name}-domain-filter"
+  resource_group_name = azurerm_resource_group.main[0].name
+  deployment_mode     = "Incremental"
+  template_content = jsonencode({
+    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+    contentVersion = "1.0.0.0"
+    resources = [{
+      type       = "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules"
+      apiVersion = "2024-01-01"
+      name       = "${azurerm_servicebus_namespace.eventing[0].name}/${azurerm_servicebus_topic.domain_control[0].name}/${azurerm_servicebus_subscription.domain_control[0].name}/$Default"
+      properties = {
+        filterType = "SqlFilter"
+        sqlFilter  = { sqlExpression = local.azure_event_control_filter }
+      }
+    }]
+  })
 }
 
 resource "azurerm_servicebus_subscription" "event_bridge_control" {
@@ -297,12 +311,24 @@ resource "azurerm_servicebus_subscription" "event_bridge_control" {
   lock_duration                             = "PT1M"
 }
 
-resource "azurerm_servicebus_subscription_rule" "event_bridge_control" {
-  count           = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
-  name            = "$Default"
-  subscription_id = azurerm_servicebus_subscription.event_bridge_control[0].id
-  filter_type     = "SqlFilter"
-  sql_filter      = local.azure_event_bridge_control_filter
+resource "azurerm_resource_group_template_deployment" "event_bridge_control_filter" {
+  count               = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
+  name                = "${local.azure_event_name}-bridge-filter"
+  resource_group_name = azurerm_resource_group.main[0].name
+  deployment_mode     = "Incremental"
+  template_content = jsonencode({
+    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+    contentVersion = "1.0.0.0"
+    resources = [{
+      type       = "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules"
+      apiVersion = "2024-01-01"
+      name       = "${azurerm_servicebus_namespace.eventing[0].name}/${azurerm_servicebus_topic.domain_control[0].name}/${azurerm_servicebus_subscription.event_bridge_control[0].name}/$Default"
+      properties = {
+        filterType = "SqlFilter"
+        sqlFilter  = { sqlExpression = local.azure_event_bridge_control_filter }
+      }
+    }]
+  })
 }
 
 resource "azurerm_servicebus_queue" "event_bridge_control_failure" {
@@ -342,7 +368,8 @@ resource "azurerm_user_assigned_identity" "event_runtime" {
 }
 
 data "azurerm_function_app_host_keys" "azure_event_domain_target" {
-  count = local.azure_event_domain_target_enabled ? 1 : 0
+  depends_on = [module.azure_six_layer_ingress_package, module.azure_six_layer_processing_package]
+  count      = local.azure_event_domain_target_enabled ? 1 : 0
   name = (
     local.azure_event_l2_local
     ? azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].name
@@ -356,7 +383,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   name                = "${local.azure_event_name}-event-runtime-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["eventing"].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_event_function_package[0].name}"
@@ -365,7 +392,6 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_event_package
 
   maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = var.azure_event_runtime_memory_mib
@@ -379,14 +405,11 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                   = "python"
-    WEBSITE_RUN_FROM_PACKAGE                   = "1"
     ARCHITECTURE_PROFILE                       = "six-layer-eventing@1"
     EVENT_HUBS__fullyQualifiedNamespace        = "${local.azure_event_namespace_name}.servicebus.windows.net"
     EVENT_HUBS__credential                     = "managedidentity"

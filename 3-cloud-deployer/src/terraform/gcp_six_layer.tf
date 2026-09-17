@@ -98,9 +98,8 @@ locals {
     "dimension.gcp.gcp.ordered-mqtt-pubsub-adapter.node_count",
     local.gcp_six_layer_large_scenario ? "4" : "1",
   ))
-  gcp_six_layer_gke_zone                  = "${var.gcp_region}-b"
-  gcp_six_layer_default_node_machine_type = local.gcp_six_layer_large_scenario ? "e2-standard-8" : "e2-standard-4"
-  gcp_six_layer_bifromq_namespace         = "${local.gcp_six_layer_name}-bifromq"
+  gcp_six_layer_gke_zone          = "${var.gcp_region}-b"
+  gcp_six_layer_bifromq_namespace = "${local.gcp_six_layer_name}-bifromq"
   gcp_six_layer_gke_endpoint = local.gcp_six_layer_l1_enabled ? try(
     google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].endpoint,
     "127.0.0.1",
@@ -443,27 +442,6 @@ resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 
   workload_identity_config {
     workload_pool = "${local.gcp_project_id}.svc.id.goog"
-  }
-
-  node_config {
-    machine_type = local.gcp_six_layer_default_node_machine_type
-    disk_type    = "pd-balanced"
-    disk_size_gb = 50
-    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-    labels       = local.gcp_six_layer_labels
-
-    metadata = {
-      disable-legacy-endpoints = "true"
-    }
-
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
-
-    shielded_instance_config {
-      enable_secure_boot          = true
-      enable_integrity_monitoring = true
-    }
   }
 
   depends_on = [terraform_data.gcp_six_layer_foundation_guard]
@@ -1926,13 +1904,14 @@ resource "google_cloud_scheduler_job" "gcp_gcp_cloud_scheduler" {
 }
 
 resource "google_workflows_workflow" "gcp_gcp_workflows" {
-  count           = local.gcp_six_layer_l2_enabled ? 1 : 0
-  project         = local.gcp_project_id
-  region          = var.gcp_region
-  name            = local.gcp_six_layer_workflow_name
-  description     = "Fixed four-action Six-layer notification workflow"
-  service_account = google_service_account.gcp_six_layer_runtime["workflow"].id
-  labels          = local.gcp_six_layer_labels
+  count               = local.gcp_six_layer_l2_enabled ? 1 : 0
+  project             = local.gcp_project_id
+  region              = var.gcp_region
+  name                = local.gcp_six_layer_workflow_name
+  description         = "Fixed four-action Six-layer notification workflow"
+  service_account     = google_service_account.gcp_six_layer_runtime["workflow"].id
+  deletion_protection = false
+  labels              = local.gcp_six_layer_labels
 
   source_contents = yamlencode({
     main = {

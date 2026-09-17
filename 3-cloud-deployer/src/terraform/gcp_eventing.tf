@@ -476,7 +476,9 @@ resource "google_logging_project_sink" "eventing" {
   project                = local.gcp_project_id
   name                   = "${local.gcp_event_name}-eventing"
   destination            = "logging.googleapis.com/${google_logging_project_bucket_config.eventing[0].id}"
-  unique_writer_identity = true
+  # This sink and its log bucket are in the same project; Cloud Logging writes
+  # directly and returns no writer identity for this supported case.
+  unique_writer_identity = false
   # Cloud Run uses a distinct monitored-resource type for worker pools. Keep
   # both the push/control service and the fixed Large telemetry consumers in
   # the bounded Event Layer evidence bucket.
@@ -484,13 +486,6 @@ resource "google_logging_project_sink" "eventing" {
     "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"%s\") OR resource.type=\"cloud_run_workerpool\"",
     "${local.gcp_event_name}-event-runtime",
   )
-}
-
-resource "google_project_iam_member" "eventing_sink_writer" {
-  count   = local.gcp_event_enabled ? 1 : 0
-  project = local.gcp_project_id
-  role    = "roles/logging.bucketWriter"
-  member  = google_logging_project_sink.eventing[0].writer_identity
 }
 
 output "gcp_event_log_bucket" {

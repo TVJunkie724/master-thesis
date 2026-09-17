@@ -680,7 +680,12 @@ output "gcp_six_layer_build_service_account" {
 
 output "gcp_six_layer_registry_prefix" {
   description = "Internal Artifact Registry prefix for content-addressed Six-layer images"
-  value       = local.gcp_six_layer_container_enabled ? local.gcp_six_layer_registry_prefix : null
+  # Reference the repository itself so targeted image-foundation applies also
+  # materialize this output in state before the publisher runs.
+  value = try(
+    "${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].location}-docker.pkg.dev/${local.gcp_project_id}/${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].repository_id}/",
+    null,
+  )
 }
 
 output "gcp_hot_writer_url" {
