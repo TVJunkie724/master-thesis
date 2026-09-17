@@ -114,3 +114,19 @@ def test_gcp_l1_uses_the_resolved_small_medium_and_large_node_profiles():
         '"e2-standard-8" : "e2-standard-2"' in foundation
     )
     assert "replicas = local.gcp_six_layer_adapter_replicas" in edge
+
+
+def test_gcp_bifromq_pod_pins_the_non_root_image_identity():
+    edge = _source("gcp_six_layer_l1.tf")
+    deployment = edge.split(
+        'resource "kubernetes_deployment_v1" '
+        '"gcp_apache_bifromq_4_0_0_incubating_on_gke_standard"',
+        maxsplit=1,
+    )[1].split(
+        'resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer"',
+        maxsplit=1,
+    )[0]
+
+    assert "run_as_non_root = true" in deployment
+    assert "run_as_user  = 1000" in deployment
+    assert "run_as_group = 1000" in deployment

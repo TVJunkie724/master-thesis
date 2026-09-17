@@ -690,6 +690,13 @@ deadline; no messages were sent. Kubernetes removal, Terraform Destroy and all
 RQ1 lifecycle evidence, establish RQ2 only for AWS, and do not substitute run
 allowances for RQ3 billing data. The research questions remain unchanged.
 
+An offline check of the exact pinned BifroMQ image then resolved its declared
+user `bifromq` to UID/GID 1000. The Pod security context had required non-root
+execution without supplying that numeric identity, which prevents Kubernetes
+from verifying a named image user. The existing UID/GID is now explicit. This
+is a narrow startup correction, not a topology or capacity change, and remains
+unverified live until a bounded GCP retry reaches Ready.
+
 During local diagnostics, secret-bearing output was exposed inside the private
 tool transcript. The affected Azure and AWS administrator credentials were
 rotated, the replacement credentials were verified, and every prior credential

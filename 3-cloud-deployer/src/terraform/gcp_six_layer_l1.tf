@@ -214,6 +214,12 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
       spec {
         security_context {
           run_as_non_root = true
+          # The pinned upstream image declares USER bifromq. Kubernetes cannot
+          # prove a named image user is non-root unless the numeric identity is
+          # explicit in the pod security context. The image binds bifromq to
+          # UID/GID 1000; keep that immutable-image contract visible here.
+          run_as_user  = 1000
+          run_as_group = 1000
         }
 
         affinity {

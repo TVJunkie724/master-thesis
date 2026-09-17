@@ -82,6 +82,14 @@ slow rollout from the earlier whole-run cutoff. A second increase is not the
 default response; another timeout requires diagnosis. This is not a claim that
 the rollout problem is resolved.
 
+The subsequent offline image/configuration check found one concrete startup
+precondition: the pinned upstream image declares the named user `bifromq`
+(UID/GID 1000), while the Pod previously set only `run_as_non_root`. Kubernetes
+cannot verify a named image user numerically at admission/runtime. The broker
+Pod now pins that existing UID/GID explicitly; no resource, topology, image or
+capacity choice changes. This correction is offline evidence only until the
+bounded GCP retry reaches a Ready Pod.
+
 AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
 Report inactive `pendingDeletion` definitions separately from active resources;
 an accepted Delete/empty Terraform state is not proof of physical absence.
