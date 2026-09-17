@@ -4,7 +4,15 @@ import time
 
 import pytest
 
-from scripts.run_core_evaluation import Terraform, apply_smoke_bounds, deadline, reserve
+from scripts.run_core_evaluation import (
+    Terraform,
+    apply_smoke_bounds,
+    deadline,
+    functional_seconds,
+    reserve,
+    safe_failure_metrics,
+    terraform_resource_timings,
+)
 from scripts import core_live_aws, core_live_azure
 
 
@@ -38,6 +46,31 @@ def test_deadline_interrupts_and_restores_handler():
             time.sleep(0.1)
     assert signal.getsignal(signal.SIGALRM) == previous
     assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+
+
+def test_provider_deadlines_are_bounded_and_give_slow_clouds_more_time():
+    assert functional_seconds("aws", None) == 600
+    assert functional_seconds("azure", None) == 1200
+    assert functional_seconds("gcp", None) == 1800
+    assert functional_seconds("gcp", 900) == 900
+    with pytest.raises(ValueError, match="DEADLINE_OUT_OF_RANGE"):
+        functional_seconds("gcp", 3601)
+
+
+def test_terraform_resource_timings_are_secret_free_and_structured(tmp_path):
+    log = tmp_path / "terraform.log"
+    log.write_text(
+        'azurerm_resource_group.core: Creation complete after 1m33s [id=/secret/id]\n'
+        'module.core.google_cloud_run_v2_service.reader[0]: Modifications complete after 4.5s [id=x]\n'
+        'aws_s3_bucket.core: Destruction complete after 2s [id=secret]\n'
+    )
+
+    assert terraform_resource_timings(log) == [
+        {"resource": "azurerm_resource_group.core", "operation": "create", "duration_seconds": 93.0},
+        {"resource": "module.core.google_cloud_run_v2_service.reader[0]", "operation": "update", "duration_seconds": 4.5},
+        {"resource": "aws_s3_bucket.core", "operation": "destroy", "duration_seconds": 2.0},
+    ]
+    assert "/secret/id" not in json.dumps(terraform_resource_timings(log))
 
 
 def test_terraform_failure_does_not_emit_raw_diagnostic(tmp_path, monkeypatch):
@@ -90,6 +123,33 @@ def test_azure_readback_poll_tolerates_flex_cold_start(monkeypatch):
     monkeypatch.setattr(core_live_azure.requests, "get", get)
     monkeypatch.setattr(core_live_azure.time, "sleep", lambda _seconds: None)
 
+    observation = {}
     assert core_live_azure.poll_points(
-        {"access_url": "https://example.test"}, "key", {}, attempts=2, pause_seconds=0
+        {"access_url": "https://example.test"}, "key", {}, attempts=2, pause_seconds=0,
+        observation=observation,
     ) == points
+    assert observation["attempts"] == 2
+    assert observation["timeout_count"] == 1
+    assert observation["wait_seconds"] >= 0
+
+
+def test_azure_failed_readback_retains_only_safe_wait_metrics(monkeypatch):
+    monkeypatch.setattr(
+        core_live_azure.requests,
+        "get",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(core_live_azure.requests.ReadTimeout()),
+    )
+    monkeypatch.setattr(core_live_azure.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(RuntimeError, match="CORE_READBACK_TIMEOUT") as caught:
+        core_live_azure.poll_points(
+            {"access_url": "https://example.test"}, "key", {}, attempts=2, pause_seconds=0,
+        )
+
+    assert safe_failure_metrics(caught.value) == {
+        "readback_poll_attempts": 2,
+        "readback_timeout_count": 2,
+        "readback_wait_seconds": pytest.approx(0, abs=1),
+    }
+    caught.value.safe_metrics["secret"] = "must-not-be-copied"
+    assert "secret" not in safe_failure_metrics(caught.value)

@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-10"
-version: "2.7"
+lastUpdated: "2026-09-17"
+version: "2.8"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -36,6 +36,14 @@ functional verification, successful Destroy and independent physical absence.
 AWS IoT Command deletion can leave an inactive provider-managed tombstone for
 12 hours; this is recorded, not silently counted as an empty inventory.
 Execution status and bounded-run limitations are maintained in the Core plan.
+The runner now retains successful and failed phase timings, Terraform-reported
+per-resource lifecycle durations without provider IDs, and Azure readback
+poll/timeout observations. These service timings are diagnostic because cloud
+resource boundaries differ. The comparable thesis measures remain the shared
+Plan, Apply, readiness, verification, Destroy and inventory phases. Based on
+the observed runs, the functional fail-safe limits are 10 minutes for AWS,
+20 for Azure and 30 for GCP; a second GCP increase requires diagnosis rather
+than another automatic extension.
 
 **Decision (2026-09-16):** Implement one research-only `core` Terraform scope
 for L1–L3 and Event Layer. L4/L5 placement, Twin projection delivery and access
@@ -50,9 +58,10 @@ These are not renamed full-profile candidates or inherited cost approvals.
 GCP Core is retained while its L4/L5 exclusion remains unchanged.
 
 **Evidence boundary:** Offline preparation and mock resource plans are not live
-E2E evidence. Prior federation probes remain historical identity evidence; no
-complete workload E2E has yet run. Recheck changed bindings and images before
-the first authorized Core workload. RQ1 records scoped provisioning/cleanup,
+E2E evidence. Prior federation probes remain historical identity evidence. The
+AWS provider-local Core smoke is complete; Azure and GCP attempts are explicit
+incomplete observations, not negative functional conclusions. Recheck changed
+bindings and images before a retry. RQ1 records scoped provisioning/cleanup,
 RQ2 comparable Core functions, RQ3 actual scoped eventing and costs. Research
 questions and Five-layer reference remain unchanged. Implementation results and
 the live approval boundary are in the [Core plan](plans/2026-09-16_poc_core_evaluation.md).

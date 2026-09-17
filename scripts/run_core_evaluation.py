@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import importlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import subprocess
@@ -27,8 +29,65 @@ from src.providers.terraform.deployer_strategy import (
 )
 
 
+DEFAULT_FUNCTIONAL_SECONDS = {"aws": 600, "azure": 1200, "gcp": 1800}
+TERRAFORM_COMPLETION = re.compile(
+    r"^(?P<resource>[A-Za-z0-9_.\[\]\"'/-]+): "
+    r"(?P<operation>Creation|Modifications|Destruction) complete after "
+    r"(?P<duration>(?:(?:\d+)h)?(?:(?:\d+)m)?(?:\d+(?:\.\d+)?)s)(?: |$)",
+    re.MULTILINE,
+)
+
+
 def save(path, value):
     atomic_write_private_bytes(path, (json.dumps(value, indent=2) + "\n").encode())
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def functional_seconds(provider, override):
+    seconds = DEFAULT_FUNCTIONAL_SECONDS[provider] if override is None else override
+    if seconds <= 0 or seconds > 3600:
+        raise ValueError("CORE_FUNCTIONAL_DEADLINE_OUT_OF_RANGE")
+    return seconds
+
+
+def duration_seconds(value):
+    match = re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?(\d+(?:\.\d+)?)s", value)
+    if not match:
+        raise ValueError("CORE_TERRAFORM_DURATION_INVALID")
+    hours, minutes, seconds = match.groups()
+    return int(hours or 0) * 3600 + int(minutes or 0) * 60 + float(seconds)
+
+
+def terraform_resource_timings(log):
+    """Extract secret-free resource lifecycle timings from a private Terraform log."""
+    text = log.read_text(errors="replace")
+    return [
+        {
+            "resource": match["resource"],
+            "operation": {
+                "Creation": "create",
+                "Modifications": "update",
+                "Destruction": "destroy",
+            }[match["operation"]],
+            "duration_seconds": duration_seconds(match["duration"]),
+        }
+        for match in TERRAFORM_COMPLETION.finditer(text)
+    ]
+
+
+def safe_failure_metrics(error):
+    allowed = {"readback_poll_attempts", "readback_timeout_count", "readback_wait_seconds"}
+    metrics = getattr(error, "safe_metrics", {})
+    if not isinstance(metrics, dict):
+        return {}
+    return {
+        key: value
+        for key, value in metrics.items()
+        if key in allowed and isinstance(value, (int, float)) and not isinstance(value, bool)
+    }
 
 
 @contextmanager
@@ -137,16 +196,55 @@ def run(args):
     for key, value in values.items():
         env["TF_VAR_" + key] = json.dumps(value) if not isinstance(value, str) else value
     tf = Terraform(folder, env)
-    report = {"provider": provider, "scope": "core", "green": False}
+    run_started = time.monotonic()
+    functional_limit = functional_seconds(provider, args.functional_seconds)
+    report = {
+        "provider": provider,
+        "scope": "core",
+        "green": False,
+        "started_at": utc_now(),
+        "functional_time_limit_seconds": functional_limit,
+        "approved_run_allowance_eur": args.reserve_eur,
+        "observed_cost_status": "pending_provider_billing",
+        "phase_measurements": [],
+        "terraform_resource_timings": [],
+    }
     outputs, mutated = {}, False
 
     def phase(name, action):
         print(provider + ": " + name, flush=True)
+        started_at = utc_now()
         started = time.monotonic()
-        result = action()
-        report[name + "_seconds"] = round(time.monotonic() - started, 3)
-        save(root / "report.json", report)
-        return result
+        first_command = tf.sequence
+        status = "failed"
+        failure_metrics = {}
+        try:
+            result = action()
+            status = "completed"
+            return result
+        except BaseException as exc:
+            failure_metrics = safe_failure_metrics(exc)
+            raise
+        finally:
+            duration = round(time.monotonic() - started, 3)
+            report[name + "_seconds"] = duration
+            measurement = {
+                "phase": name,
+                "status": status,
+                "started_at": started_at,
+                "completed_at": utc_now(),
+                "duration_seconds": duration,
+            }
+            if failure_metrics:
+                measurement["failure_metrics"] = failure_metrics
+            report["phase_measurements"].append(measurement)
+            for sequence in range(first_command + 1, tf.sequence + 1):
+                log = folder / f"command-{sequence:02d}.log"
+                if log.exists():
+                    for timing in terraform_resource_timings(log):
+                        timing.update(phase=name, command_sequence=sequence)
+                        report["terraform_resource_timings"].append(timing)
+            save(root / "report.json", report)
 
     try:
         phase("initialize", lambda: tf.run("init", "-no-color"))
@@ -169,7 +267,7 @@ def run(args):
         print(json.dumps({"provider": provider, "create_counts": report["create_counts"]}), flush=True)
         reserve(args.ledger, provider, run_id, args.cap_eur, args.reserve_eur)
         mutated = True  # Set before the first mutation, including partial failure.
-        with deadline(args.functional_seconds):
+        with deadline(functional_limit):
             phase("image_foundation", lambda: tf.run("apply", "-auto-approve", "-no-color",
                   *["-target=" + target for target in targets]))
             outputs = tf.outputs()
@@ -245,8 +343,16 @@ def run(args):
         report["green"] = bool(report.get("verification") and report.get("destroy_succeeded")
                                and "residual_counts" in report and not any(report["residual_counts"].values())
                                and not report.get("failure_type") and not report.get("stop_builds_error"))
+        report["completed_at"] = utc_now()
+        report["total_seconds"] = round(time.monotonic() - run_started, 3)
         save(root / "report.json", report)
-        print(json.dumps(report), flush=True)
+        print(json.dumps({
+            "provider": provider,
+            "functional_passed": report["functional_passed"],
+            "destroy_succeeded": report.get("destroy_succeeded", False),
+            "green": report["green"],
+            "total_seconds": report["total_seconds"],
+        }), flush=True)
     return 0 if report["green"] else 1
 
 
@@ -260,5 +366,9 @@ if __name__ == "__main__":
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--cap-eur", type=float, required=True)
     parser.add_argument("--reserve-eur", type=float, required=True)
-    parser.add_argument("--functional-seconds", type=int, default=1200)
+    parser.add_argument(
+        "--functional-seconds",
+        type=int,
+        help="Override the provider-specific bounded functional deadline (maximum 3600 seconds).",
+    )
     raise SystemExit(run(parser.parse_args()))

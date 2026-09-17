@@ -67,8 +67,10 @@ def sas(resource, key, name=None):
     return result + ("&skn=" + name if name else "")
 
 
-def poll_points(read, key, query, attempts=60, pause_seconds=3):
-    for _ in range(attempts):
+def poll_points(read, key, query, attempts=60, pause_seconds=3, observation=None):
+    started = time.monotonic()
+    timeout_count = 0
+    for attempt in range(1, attempts + 1):
         try:
             response = requests.get(
                 read["access_url"],
@@ -78,12 +80,26 @@ def poll_points(read, key, query, attempts=60, pause_seconds=3):
             )
         except requests.Timeout:
             response = None
+            timeout_count += 1
+        current = {
+            "attempts": attempt,
+            "timeout_count": timeout_count,
+            "wait_seconds": round(time.monotonic() - started, 3),
+        }
+        if observation is not None:
+            observation.update(current)
         if response is not None and response.status_code == 200:
             points = response.json().get("points", [])
             if len(points) == 10:
                 return points
         time.sleep(pause_seconds)
-    raise RuntimeError("CORE_READBACK_TIMEOUT")
+    error = RuntimeError("CORE_READBACK_TIMEOUT")
+    error.safe_metrics = {
+        "readback_poll_attempts": attempts,
+        "readback_timeout_count": timeout_count,
+        "readback_wait_seconds": round(time.monotonic() - started, 3),
+    }
+    raise error
 
 
 def smoke(values, outputs):
@@ -127,9 +143,13 @@ def smoke(values, outputs):
             raise RuntimeError("CORE_AZURE_SEND_HTTP_" + str(sent.status_code))
     query = {"device_id": device, "metric": "temperature", "bucket_seconds": "0", "limit": "100",
              "from": (now - timedelta(minutes=1)).isoformat(), "to": (now + timedelta(minutes=10)).isoformat()}
-    points = poll_points(read, key, query)
+    readback = {}
+    points = poll_points(read, key, query, observation=readback)
     assert sorted(float(p["value"]) for p in points) == list(range(10))
     return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started,
+            "readback_poll_attempts": readback["attempts"],
+            "readback_timeout_count": readback["timeout_count"],
+            "readback_wait_seconds": readback["wait_seconds"],
             "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
                 datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points]}
 

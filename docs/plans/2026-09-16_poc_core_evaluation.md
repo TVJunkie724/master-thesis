@@ -22,9 +22,22 @@ publisher, full Core Apply, ten ingress messages, authenticated L3 readback,
 Destroy and an independent inventory. Credentials/raw diagnostics/state stay
 private. Cumulative allowance inputs are supplied externally; they are not
 cloud billing measurements or a provider-enforced spending cap. The functional
-deadline includes image publication and provisioning. Cleanup is attempted on
-failure/interruption; host failure or forced process termination still requires
-operator recovery from the retained state. No unattended execution is claimed.
+deadline includes image publication and provisioning. Provider defaults are
+10 minutes for AWS, 20 minutes for Azure and 30 minutes for GCP; an explicit
+smaller override remains possible and no functional deadline above 60 minutes
+is accepted. Cleanup is attempted on failure/interruption; host failure or
+forced process termination still requires operator recovery from the retained
+state. No unattended execution is claimed.
+
+Every Core attempt retains UTC start/end timestamps and completed or failed
+phase durations for initialization, baseline inventory, Plan, image foundation,
+image publication, Apply, verification, Destroy and residual inventory. It also
+extracts Terraform's create/update/destroy duration per resource address while
+discarding provider resource IDs, and records Azure readback polling attempts,
+request timeouts and wait duration. Individual resource timings are diagnostic:
+provider reporting granularity differs, so the cross-provider thesis comparison
+uses the lifecycle phases defined by the live-evaluation protocol. The external
+allowance ledger remains distinct from observed provider billing.
 
 Core keeps recurring movers disabled. Azure Flex and GCP Cloud Run scale-out
 is limited to one instance per scaling group/revision for this tiny smoke test.
@@ -51,8 +64,11 @@ messages were submitted through IoT Hub, but the first authenticated L3 reader
 request hit a Flex cold start and timed out after 30 s. No successful readback
 was recorded, so the run is not a functional pass. Destroy completed in 773.3 s
 and the independent resource-group inventory returned zero. The reader polling
-path now treats request timeouts as retryable within the existing bounded loop;
-this correction is offline-tested but was not re-run live.
+path now treats request timeouts as retryable within the bounded loop and records
+the polling attempts, timeout count and wait duration. The provider-specific
+functional deadline remains 20 minutes because the earlier failure was the
+single-request timeout, not the whole-run limit. These corrections are
+offline-tested but were not re-run live.
 
 GCP completed image publication and the full Google-resource Apply in 805.8 s.
 The second stage created the namespace, service account, two internal services,
@@ -60,7 +76,11 @@ configuration and secret, but the BifroMQ deployment did not become Ready before
 the whole-run deadline. No MQTT messages were sent and no L3 readback is claimed.
 Kubernetes removal took 39.4 s, Terraform Destroy 557.9 s, and all 14 independent
 inventory categories returned zero. No speculative runtime change was made
-without pod-level evidence.
+without pod-level evidence. The GCP functional deadline is raised once from the
+previous run's 25 minutes to 30 minutes so a bounded retry can distinguish a
+slow rollout from the earlier whole-run cutoff. A second increase is not the
+default response; another timeout requires diagnosis. This is not a claim that
+the rollout problem is resolved.
 
 AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
 Report inactive `pendingDeletion` definitions separately from active resources;

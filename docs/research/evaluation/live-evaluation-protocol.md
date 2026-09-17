@@ -649,6 +649,14 @@ The result reports:
   provider cost; and
 - cleanup residuals and explicit limitations.
 
+Terraform per-resource create/update/destroy durations are retained when the
+CLI reports them, with provider IDs removed. They are diagnostic evidence for
+service-provisioning behavior, not a mandatory cross-provider ranking metric:
+resource boundaries and timing granularity differ by provider. The comparable
+primary infrastructure measurements remain Plan, Apply, readiness, Destroy and
+inventory reconciliation. Failed attempts keep the elapsed phase and any
+resource timings observed before the abort.
+
 Consecutive-stage latency and extra charts are optional diagnostics or
 RQ-specific analysis. Keep collected checkpoint data and automatic delivery
 counters; no additional measurement campaign is required to populate extra
