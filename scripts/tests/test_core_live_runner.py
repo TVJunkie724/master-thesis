@@ -169,3 +169,43 @@ def test_azure_failed_readback_retains_only_safe_wait_metrics(monkeypatch):
     }
     caught.value.safe_metrics["secret"] = "must-not-be-copied"
     assert "secret" not in safe_failure_metrics(caught.value)
+
+
+def test_azure_diagnostics_query_both_deployment_workspaces(monkeypatch):
+    def arm(_values, _method, path):
+        if "/resources?" in path:
+            return {"value": [
+                {"type": "Microsoft.OperationalInsights/workspaces", "id": "/containers"},
+                {"type": "Microsoft.OperationalInsights/workspaces", "id": "/functions"},
+            ]}
+        return {"properties": {"customerId": path.split("?")[0].strip("/")}}
+
+    class Token:
+        token = "test-only"
+
+        def get_token(self, _scope):
+            return self
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"tables": []}
+
+    queried = []
+
+    def post(url, **_kwargs):
+        queried.append(url)
+        return Response()
+
+    monkeypatch.setattr(core_live_azure, "arm", arm)
+    monkeypatch.setattr(core_live_azure, "credential", lambda _values: Token())
+    monkeypatch.setattr(core_live_azure.requests, "post", post)
+    result = core_live_azure.diagnostics(
+        {"azure_subscription_id": "test"}, {"azure_six_layer_resource_group_name": "core-test"},
+    )
+    assert len(result["workspaces"]) == 2
+    assert queried == [
+        "https://api.loganalytics.io/v1/workspaces/containers/query",
+        "https://api.loganalytics.io/v1/workspaces/functions/query",
+    ]

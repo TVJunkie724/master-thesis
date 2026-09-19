@@ -160,13 +160,18 @@ def diagnostics(values, outputs):
         return {}
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
     resources = arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
-    workspace = next((r for r in resources if r["type"].lower() == "microsoft.operationalinsights/workspaces"), None)
-    if not workspace:
+    workspaces = [r for r in resources if r["type"].lower() == "microsoft.operationalinsights/workspaces"]
+    if not workspaces:
         return {}
-    identifier = arm(values, "GET", workspace["id"] + "?api-version=2022-10-01")["properties"]["customerId"]
     token = credential(values).get_token("https://api.loganalytics.io/.default").token
-    response = requests.post(f"https://api.loganalytics.io/v1/workspaces/{identifier}/query",
-                             headers={"Authorization": "Bearer " + token},
-                             json={"query": "union isfuzzy=true FunctionAppLogs, AzureDiagnostics | take 1000",
-                                   "timespan": "PT30M"}, timeout=45)
-    return {"status": response.status_code, "data": response.json()}
+    result = []
+    # Container Apps and Functions use separate workspaces; the first can be
+    # empty even while the Function hosts report the cause of a failed run.
+    for workspace in workspaces:
+        identifier = arm(values, "GET", workspace["id"] + "?api-version=2022-10-01")["properties"]["customerId"]
+        response = requests.post(f"https://api.loganalytics.io/v1/workspaces/{identifier}/query",
+                                 headers={"Authorization": "Bearer " + token},
+                                 json={"query": "union isfuzzy=true FunctionAppLogs, AzureDiagnostics | take 1000",
+                                       "timespan": "PT30M"}, timeout=20)
+        result.append({"status": response.status_code, "data": response.json()})
+    return {"workspaces": result}
