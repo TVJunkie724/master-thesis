@@ -32,11 +32,12 @@ and the
 
 ## Current phase status
 
-Supervised Core checkpoint (2026-09-19): AWS and Azure have passed the real
-ten-message provider-local L1–L3/Event-Layer telemetry path and completed
-independent empty active/residual inventories. Azure uses the documented warm
-HTTP integration condition. GCP remains under supervised verification after
-bounded wiring corrections. Per-run outcomes, lifecycle measurements, failed
+Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
+ten-message provider-local L1–L3/Event-Layer telemetry path. AWS/Azure independent
+inventories are empty. GCP Destroy succeeded with zero active residuals; its
+provider-managed pending Logging-bucket deletion remains explicitly open.
+Azure uses the documented warm HTTP integration condition. Per-run outcomes,
+lifecycle measurements, failed
 attempts and the older AWS per-message-latency evidence gap are recorded in the
 [Core evaluation plan](2026-09-16_poc_core_evaluation.md). This checkpoint does
 not establish command roundtrip, storage-tier transitions, directed Core cases,

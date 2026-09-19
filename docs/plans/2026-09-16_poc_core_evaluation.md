@@ -14,6 +14,32 @@ they are not used to implement the Core layer cut.
 
 ### Follow-up on 2026-09-19
 
+All three provider-local Core telemetry smokes have now passed (ten messages
+each). This establishes the scoped integration path, not command roundtrip,
+storage-tier transitions, L4/L5, directed cases or performance statistics.
+AWS/Azure cleanup is complete. GCP Destroy succeeded and its independent
+inventory contains zero active resources, but one provider-managed Logging
+bucket remains `DELETE_REQUESTED`; strict overall `green` therefore stays false
+until physical deletion. Do not rerun the functional test solely for that delay.
+An additional read-only inventory across all Core-prefixed GCP attempts found
+zero active resources and eleven pending-deletion Logging buckets in total,
+including the latest successful run. Generated compute children were compared
+with the latest run's saved baseline. These historical markers are not hidden
+by reporting only the final run's prefix.
+
+| Successful local run | Image foundation (s) | Image publication (s) | Core Apply (s) | Kubernetes stage (s) | Verification (s) | Destroy (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| AWS | 62.6 | 54.8 | 98.8 | n/a | 56.0 | 71.8 |
+| Azure | 66.1 | 33.6 | 668.8 | n/a | 209.2 | 782.6 |
+| GCP | 36.7 | 233.5 | 791.5 | 139.0 | 19.0 | 542.9 |
+
+These are individual integration observations, not comparable cold-start
+benchmarks: Azure uses the explicit warm HTTP condition, and provisioned
+resource boundaries differ. Resource-level timings are retained separately.
+The older AWS run lacks the newer per-message latency samples; see the evidence
+gap below. Billed run costs remain pending provider attribution, not inferred
+from private allowances or monthly account totals.
+
 The independent AWS inventory became completely empty on 2026-09-17, including
 the two formerly pending IoT Command definitions. The cleanup monitor was
 stopped after that observation.
@@ -261,7 +287,22 @@ event and correlation identities. Tests cover both arbitrary and UUID source
 IDs, repeated invocation stability and successful processed-event construction;
 the extension contract itself is not relaxed. The failed run entered immediate
 cleanup. Its prior network correction is live-observed, but the UUID correction
-still requires the next bounded run.
+was then tested in a fresh bounded run. The preceding failed run completed
+Destroy in 545.5 s with zero active residuals and one pending-deletion Logging
+bucket.
+
+The subsequent GCP Core run passed all ten MQTT/TLS → ingress → Event Layer →
+processing → Firestore → authenticated readback messages, including the expected
+values. MQTT connected on its first attempt; batch delivery/readback took 18.8 s
+and verification 19.0 s. Ten individual persistence-latency samples were retained.
+No manual deployment intervention was needed in this successful run. Immediate
+Destroy completed in 542.9 s. Independent inventory confirmed zero active
+resources, including generated compute children and project IAM bindings;
+one Logging bucket remains in provider-managed pending deletion. Functional
+pass and accepted Destroy are true, while strict overall `green` remains false.
+The successful run's phases, per-resource timings, image digests and individual
+message observations are retained privately. Final Deployer regression result:
+1,746 unit tests passed; 24 runner/preparation tests also passed.
 
 An offline audit of the earlier successful AWS smoke recovered 186 Terraform
 create/destroy timing records from its retained logs, alongside its existing
@@ -291,7 +332,7 @@ is accepted. Cleanup is attempted on failure/interruption; host failure or
 forced process termination still requires operator recovery from the retained
 state. No unattended execution is claimed.
 
-Every Core attempt retains UTC start/end timestamps and completed or failed
+Current Core attempts retain UTC start/end timestamps and completed or failed
 phase durations for initialization, baseline inventory, Plan, image foundation,
 image publication, Apply, verification, Destroy and residual inventory. It also
 extracts Terraform's create/update/destroy duration per resource address while

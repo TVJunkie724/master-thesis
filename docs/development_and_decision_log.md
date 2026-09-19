@@ -3,7 +3,7 @@ title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
 lastUpdated: "2026-09-19"
-version: "2.9"
+version: "2.10"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -69,9 +69,13 @@ GCP Core is retained while its L4/L5 exclusion remains unchanged.
 
 **Evidence boundary:** Offline preparation and mock resource plans are not live
 E2E evidence. Prior federation probes remain historical identity evidence. The
-AWS and Azure provider-local Core smokes and cleanup are complete; GCP attempts
-remain explicit incomplete observations, not negative functional conclusions. Recheck changed
-bindings and images before a retry. RQ1 records scoped provisioning/cleanup,
+All three provider-local Core telemetry smokes have passed ten-message readback.
+AWS and Azure cleanup is complete. GCP Destroy succeeded with zero active
+residuals; a pending-deletion Logging bucket still blocks strict overall green.
+The Core plan retains this distinction. This is not command-roundtrip, tier-transition, directed-case or
+L4/L5 evidence. The older AWS run's missing per-message latency distribution is
+explicitly retained as a limitation, not reconstructed from incomplete logs.
+RQ1 records scoped provisioning/cleanup,
 RQ2 comparable Core functions, RQ3 actual scoped eventing and costs. Research
 questions and Five-layer reference remain unchanged. Implementation results and
 the live approval boundary are in the [Core plan](plans/2026-09-16_poc_core_evaluation.md).
