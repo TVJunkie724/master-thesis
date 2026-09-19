@@ -848,6 +848,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
         value = "processor"
       }
       env {
+        name  = "L2_PROVIDER"
+        value = var.layer_2_provider
+      }
+      env {
         name  = "PROCESSOR_EXTENSION_URL"
         value = google_cloud_run_v2_service.gcp_six_layer_processor_extension[0].uri
       }

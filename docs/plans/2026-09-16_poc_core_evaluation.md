@@ -147,6 +147,16 @@ supervised attempt and is covered by the native plan. Its deployment time includ
 that diagnostic intervention and one adapter restart; it is not an unassisted
 benchmark sample.
 
+That attempt subsequently delivered all ten device messages to ingress, but the
+processor rejected Event-Layer deliveries with
+`EVENTING_CONSUMER_PROVIDER_MISMATCH`. Its runtime requires `L2_PROVIDER`, which
+the processor's Terraform environment omitted even though the resolved placement
+was correct. The service now receives that existing placement variable, and a
+native mock-plan assertion checks the actual processor environment. This is a
+wiring correction, not a changed runtime contract or additional resource.
+The failed attempt entered immediate cleanup; successful end-to-end readback
+still requires a fresh bounded run.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize

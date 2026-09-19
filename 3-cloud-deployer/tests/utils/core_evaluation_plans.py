@@ -96,6 +96,11 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "The GCP raw-history index must match the reader's ascending stored_at order."
   }
   assert {
+    condition = alltrue([for service in google_cloud_run_v2_service.gcp_gcp_cloud_run_service :
+      lookup({for setting in service.template[0].containers[0].env : setting.name => setting.value}, "L2_PROVIDER", "") == "google"])
+    error_message = "The GCP processor must receive the provider setting required by its Event-Layer consumer."
+  }
+  assert {
     condition = alltrue([for service in kubernetes_service_v1.gcp_six_layer_bifromq_auth :
       service.spec[0].publish_not_ready_addresses])
     error_message = "The private broker auth webhook must be reachable before MQTT subscription readiness."
