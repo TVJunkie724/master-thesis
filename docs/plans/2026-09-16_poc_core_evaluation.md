@@ -14,7 +14,33 @@ they are not used to implement the Core layer cut.
 
 ### First directed Core smoke: Azure to AWS
 
-The next supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
+**Outcome (2026-09-19): passed, including cleanup.** The fourth attempt delivered
+all ten messages from Azure IoT Hub through the Azure source bridge to the AWS
+Event Layer, processing and hot storage. Authenticated AWS readback returned the
+ten expected values; received and processed event streams each contained ten
+matching events. Destroy succeeded and independent AWS/Azure/active-Entra
+inventory was zero, including the temporary OIDC provider. The missing source
+receiver permission was corrected without extra compute or administrator roles.
+
+| Successful directed run | Image foundation (s) | Image publication (s) | Core Apply (s) | Verification (s) | Destroy (s) | Total lifecycle (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| Azure → AWS | 62.9 | 128.6 | 541.5 | 32.9 | 228.8 | 1045.7 |
+
+Retained private evidence includes pinned published-image digests, phase timings,
+308 resource create/destroy timing observations and ten message-persistence
+latency samples (25.508–26.602 s from event timestamp to stored timestamp).
+Batch delivery/readback took 29.048 s. This is one integration observation, not a
+steady-state or cold-start benchmark; timestamp latency includes the complete
+ingress/bridge/processing path and depends on clock alignment. Billed run cost
+is still pending provider attribution, not equated with its planning reserve.
+RQ1 now has the directed deployment/verification/cleanup evidence chain; RQ2
+passes this telemetry path; RQ3 retains its explicit bridge/broker topology.
+The other five directed Core cases, command roundtrip, storage transitions and
+L4/L5 are not validated by this run. No further live run was started after success.
+
+#### Slice plan and earlier attempts
+
+The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
 ingress, AWS Event Layer/processing/hot storage, ten matching telemetry values
 and authenticated AWS readback. Retain the existing reverse command route and
 both federation bindings, but do not claim command receipt or a second scenario.
@@ -26,7 +52,7 @@ AWS outbound issuer read-only. No shared account preparation, GCP, L4/L5, UI or
 new deployment abstraction is part of this slice. Keep phase/resource/message
 metrics, bounded execution, immediate Destroy and independent AWS/Azure/Entra
 inventory. Cost/time approval is specific to this directed attempt, not inherited
-from the local smokes. Final resource counts and outcomes follow after review.
+from the local smokes. Final resource counts and outcomes are recorded above.
 
 The first account-bound plan passed read-only review with 154 create entries,
 including one Azure Function App and eleven AWS Lambdas (one is the existing

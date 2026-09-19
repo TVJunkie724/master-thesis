@@ -40,7 +40,13 @@ found the source bridge lacked hub-scoped Data Receiver permission. That exact
 permission is corrected offline, without broader authority or new compute.
 RQ1 retains provisioning/cleanup timings and defects; RQ2 remains pending for
 directed delivery; RQ3 keeps failed-run costs separate from successful samples.
-All three attempts have zero independent AWS/Azure/active-Entra residuals.
+The initial three attempts have zero independent AWS/Azure/active-Entra residuals.
+The fourth attempt then passed all ten expected telemetry values and both AWS
+event-stream checks, followed by successful Destroy and zero independent
+residuals. This live-validates the narrow receiver-permission correction and
+closes RQ2's functional gate for this directed Core telemetry slice only.
+Phase/resource timings and ten message-latency samples are retained; billed cost
+attribution, the other five directed cases and command roundtrip remain separate.
 
 **Azure integration condition (2026-09-19):** Actual worker indexing exposed
 HTTP argument and Event Hubs batch-annotation defects, now corrected without
