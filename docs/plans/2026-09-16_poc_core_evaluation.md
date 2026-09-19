@@ -166,6 +166,23 @@ covers all eight references, alongside the native mock plans. The failed attempt
 entered cleanup without claiming that its processor-provider correction had been
 live-verified.
 
+The Azure attempt with supported IoT ingress authentication completed Apply in
+597.8 s but still reached the functional deadline without readback. Ingress,
+event runtime and processor extension exposed no registered functions; existing
+HTTP functions elsewhere remained registered. Destroy and independent inventory
+confirmed zero remaining run resource groups.
+
+Two small follow-up diagnoses reused the actual processor-extension package and
+the existing OneDeploy module with just one disposable Function App, FC1 plan
+and storage account. Both the on-demand and single-always-ready-instance cases
+initially exposed zero functions and encountered host/trigger-sync timeouts.
+They do not prove that a longer cold-start allowance or warming all Core apps
+would fix Azure. Both diagnoses completed Destroy and zero-group inventory.
+The remaining Azure startup cause is unresolved; no further full Azure retry
+was started on the basis of these observations. The GCP namespace-race attempt
+also completed Destroy with zero active residuals and one pending-deletion
+Logging bucket; its functional path remains unverified after the latest fixes.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize
