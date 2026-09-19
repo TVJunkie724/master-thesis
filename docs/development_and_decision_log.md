@@ -30,6 +30,18 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**First directed slice (2026-09-19):** Reuse the existing Azure IoT sender,
+AWS authenticated reader, image publisher and supervised lifecycle for one
+Azure-to-AWS Core telemetry smoke. Keep reverse-route bindings, but make no
+command-roundtrip claim. Live provisioning exposed incompatible Service Bus
+source settings (sessions plus autoforwarding); sessions remain on destination
+queues only. Subsequent delivery stopped before remote readback, and inspection
+found the source bridge lacked hub-scoped Data Receiver permission. That exact
+permission is corrected offline, without broader authority or new compute.
+RQ1 retains provisioning/cleanup timings and defects; RQ2 remains pending for
+directed delivery; RQ3 keeps failed-run costs separate from successful samples.
+All three attempts have zero independent AWS/Azure/active-Entra residuals.
+
 **Azure integration condition (2026-09-19):** Actual worker indexing exposed
 HTTP argument and Event Hubs batch-annotation defects, now corrected without
 changing responsibilities. A disposable same-app comparison then verified the

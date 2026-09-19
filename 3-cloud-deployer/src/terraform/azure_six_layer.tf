@@ -1291,6 +1291,11 @@ locals {
         scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
         role  = "Azure Event Hubs Data Sender"
       }
+      # The ingress adapter publishes here; the co-located bridge consumes it.
+      event_hubs_outbound_receiver = {
+        scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
+        role  = "Azure Event Hubs Data Receiver"
+      }
       bridge_telemetry_failure_sender = {
         scope = azurerm_eventhub.azure_six_layer_bridge_telemetry_failure[0].id
         role  = "Azure Event Hubs Data Sender"

@@ -43,6 +43,14 @@ attempts and the older AWS per-message-latency evidence gap are recorded in the
 not establish command roundtrip, storage-tier transitions, directed Core cases,
 L4/L5 or a complete-profile deployment, and does not authorize those runs.
 
+First separately authorized directed Core slice (Azure to AWS, 2026-09-19):
+resource deployment now succeeds, but ten-message readback has not passed.
+The source accepted ten messages; the outbound Event Hubs receiver permission
+was missing and is now corrected offline. All attempted AWS/Azure/Entra
+resources have been destroyed with zero independent residuals. The fixed
+slice needs live revalidation; the other five directed Core cases remain unrun.
+See the Core evaluation plan for failed-attempt timings and the exact boundary.
+
 Scope revision (2026-09-16): the [bounded separation plan](2026-09-16_poc_l3_read_access_separation.md)
 assigns authenticated history readers, lifecycle and charges to L3. L5 is an
 independent consumer, with graphical implementation still pending. No remote

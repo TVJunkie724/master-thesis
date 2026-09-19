@@ -46,6 +46,33 @@ forwarded messages retain their session IDs. A regression check covers all
 three sources and their session-enabled destinations. No resources or command
 test claims are added. The failed attempt enters immediate cleanup before retry.
 
+That attempt's Destroy and independent inventories completed with zero AWS,
+Azure and active Entra residuals. In the third attempt, Apply succeeded, including
+the corrected subscriptions, but the ten-message readback timed out after 324.6 s.
+Read-only Azure Monitor totals showed ten accepted IoT messages and ten incoming
+messages in the bridge Event Hubs namespace, with zero outgoing messages there.
+The captured Function logs contained startup records, not a verified successful
+bridge invocation; log-ingestion delay limits conclusions from their absence.
+Inspection found the concrete missing prerequisite: the outbound hub granted the
+shared ingress/bridge identity Data Sender, but not Data Receiver for its trigger.
+Add exactly that hub-scoped receiver assignment, not broader administrator rights
+or a warm-instance workaround. Regression checks pass; the fix still requires a
+new live attempt. No successful directed telemetry transfer is claimed yet.
+
+The third attempt also completed Destroy and independent inventories with zero
+AWS/Azure/active-Entra residuals, including the temporary OIDC provider. Its
+image foundation/publication, Apply, verification and Destroy took respectively
+63.9/155.3/489.1/324.6/229.2 seconds; total lifecycle time was 1310.4 seconds.
+Retained evidence includes 306 resource create/destroy timing observations.
+No successful message-persistence latency sample or billed run cost is available.
+The corrected runner and Terraform checks pass 28 targeted tests. RQ1 records
+the provisioning and permission defects; RQ2 still requires directed delivery;
+RQ3 retains the broker topology and cost boundary without treating a failed run
+as functional or performance evidence.
+The follow-up account-bound plan passed read-only review: 155 create entries,
+exactly one additional hub-scoped role assignment and no new compute or broker.
+It did not apply resources or reserve another live attempt.
+
 ### Follow-up on 2026-09-19
 
 All three provider-local Core telemetry smokes have now passed (ten messages

@@ -26,6 +26,14 @@ def test_autoforwarding_sources_disable_sessions_but_destination_queues_keep_the
         assert re.search(r"requires_session\s*=\s*true", destination)
 
 
+def test_outbound_telemetry_bridge_can_receive_from_its_source_hub():
+    source = _source("azure_six_layer.tf")
+    outbound = source.split("local.azure_six_layer_remote_telemetry_outbound ? {", 1)[1].split("} : {},", 1)[0]
+    receiver = outbound.split("event_hubs_outbound_receiver = {", 1)[1].split("}", 1)[0]
+    assert 'role  = "Azure Event Hubs Data Receiver"' in receiver
+    assert 'azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id' in receiver
+
+
 def test_azure_event_layer_owns_exact_reviewed_resource_symbols():
     source = _source("azure_eventing.tf")
     required = {
