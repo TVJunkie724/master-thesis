@@ -251,6 +251,18 @@ infrastructure group. Functional verification and cleanup are both green.
 The run retains ten structured lifecycle phases and 194 Terraform resource
 timing records, and uses the explicitly documented warm HTTP condition.
 
+The next GCP retry verified the corrected extension reachability: the extension
+returned HTTP 200, but processing rejected its runtime response. An offline
+test crossing the real packaged extension boundary reproduced the cause: GCP
+forwarded an arbitrary source event ID as `invocation_id`, although the existing
+extension contract requires a UUID. AWS and Azure already derive a deterministic
+slot-specific UUID. GCP now uses the same derivation while preserving source
+event and correlation identities. Tests cover both arbitrary and UUID source
+IDs, repeated invocation stability and successful processed-event construction;
+the extension contract itself is not relaxed. The failed run entered immediate
+cleanup. Its prior network correction is live-observed, but the UUID correction
+still requires the next bounded run.
+
 An offline audit of the earlier successful AWS smoke recovered 186 Terraform
 create/destroy timing records from its retained logs, alongside its existing
 phase and batch-delivery durations. The original report was not overwritten.

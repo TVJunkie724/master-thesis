@@ -29,7 +29,7 @@
   "catalog_ref": {
     "id": "six-layer-eventing-component-catalog",
     "version": "1",
-    "digest": "sha256:e0d7d78b2e0f3b554879325c6f6b4a314a973c0e9e11e801865c3d30f72dca9b"
+    "digest": "sha256:5fd43bc20a800ce66dbe29af9718994d09cca1c7775b291a1bd50e536a11d6a7"
   },
   "eventing_decision_ref": {
     "id": "phase-08-eventing-decision",
@@ -69,5 +69,5 @@
     "gcp-to-aws",
     "gcp-to-azure"
   ],
-  "content_digest": "sha256:d952ab4a1ec59afc7c0e641e40974e073175c8693010fada4a8650e22211df40"
+  "content_digest": "sha256:cc745d4e3c37b6ae017ca95e23126a5e6c2e482a7cdf5ddc63b8875fb96226aa"
 }

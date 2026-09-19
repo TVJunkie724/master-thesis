@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
+import uuid
 import zipfile
 
 import pytest
@@ -785,6 +786,33 @@ def test_provider_wrappers_return_equivalent_runtime_envelopes(tmp_path):
         responses[provider] = _invoke_wrapper(provider_root, provider, envelope)
     assert responses["aws"] == responses["azure"] == responses["gcp"]
     assert responses["aws"]["status"] == "success"
+
+
+@pytest.mark.parametrize("source_event_id", ["device-event-1", "11111111-1111-4111-8111-111111111111"])
+def test_gcp_processor_envelope_crosses_real_extension_boundary(tmp_path, source_event_id):
+    core = _load_module(
+        "gcp_extension_boundary_core",
+        CONTRACT_ROOT.parents[3] / "providers/gcp/containers/six-layer-domain/platform/core.py",
+    )
+    event = core.build_ingress_event(
+        {"event_id": source_event_id, "device_id": "device-1", "value": 5,
+         "metric": "temperature", "event_time": "2026-09-19T00:00:00Z"},
+        deployment_id="core-test",
+    )
+    request = core.processor_extension_request(event)
+    package, _ = build_provider_package(manifest=_manifest(), files=_files(), provider="gcp")
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
+        archive.extractall(tmp_path)
+    response = _invoke_wrapper(tmp_path, "gcp", request)
+    assert response["status"] == "success"
+    assert request["invocation_id"] == str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{source_event_id}:processor.telemetry")
+    )
+    assert core.processor_extension_request(event) == request
+    assert request["correlation_id"] == event["correlation_id"]
+    processed = core.build_processed_event(event, response)
+    assert processed["payload"]["value"] == 5
+    assert processed["payload"]["quality"] == "accepted"
 
 
 def test_provider_wrappers_return_equivalent_timeout_envelopes(tmp_path):

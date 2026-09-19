@@ -9,6 +9,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import uuid
 
 import pytest
 
@@ -133,7 +134,9 @@ def _received(core, *, event_id: str = "event-1", projection: bool = True):
 def _extension_response(received):
     return {
         "schema_version": "user-function-runtime-envelope.v1",
-        "invocation_id": received["event_id"],
+        "invocation_id": str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"{received['event_id']}:processor.telemetry")
+        ),
         "correlation_id": received["correlation_id"],
         "slot_id": "processor.telemetry",
         "status": "success",

@@ -2,14 +2,14 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-10"
-version: "1.9"
+lastUpdated: "2026-09-19"
+version: "2.0"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active execution source; offline closure complete, supervised live
-evaluation pending
+Status: active execution source; offline closure complete, supervised Core
+evaluation in progress; full-profile evaluation pending
 
 ## 1. Purpose
 
@@ -32,6 +32,16 @@ and the
 
 ## Current phase status
 
+Supervised Core checkpoint (2026-09-19): AWS and Azure have passed the real
+ten-message provider-local L1–L3/Event-Layer telemetry path and completed
+independent empty active/residual inventories. Azure uses the documented warm
+HTTP integration condition. GCP remains under supervised verification after
+bounded wiring corrections. Per-run outcomes, lifecycle measurements, failed
+attempts and the older AWS per-message-latency evidence gap are recorded in the
+[Core evaluation plan](2026-09-16_poc_core_evaluation.md). This checkpoint does
+not establish command roundtrip, storage-tier transitions, directed Core cases,
+L4/L5 or a complete-profile deployment, and does not authorize those runs.
+
 Scope revision (2026-09-16): the [bounded separation plan](2026-09-16_poc_l3_read_access_separation.md)
 assigns authenticated history readers, lifecycle and charges to L3. L5 is an
 independent consumer, with graphical implementation still pending. No remote
@@ -40,8 +50,9 @@ replacement infrastructure; GCP L1–L3/Eventing remain in scope. The active
 matrix now has two complete local baselines and six directed cases, not a
 complete GCP-local run. A separate [fixed Core evaluation scope](2026-09-16_poc_core_evaluation.md)
 now omits L4/L5 at infrastructure and runtime level and prepares nine Small
-research input sets offline. Exact live-plan admission and execution remain
-pending; this does not make a complete-profile Management deployment ready.
+research input sets offline. Provider-local Core execution is now supervised
+under the checkpoint above; directed cases still require their own live-plan
+admission. This does not make a complete-profile Management deployment ready.
 The dated checkpoints below are historical and do not clear the new graph's
 implementation gate or authorize reusing old candidate/budget/image approvals.
 
