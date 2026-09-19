@@ -240,6 +240,11 @@ def test_azure_six_layer_flex_uses_one_plan_per_app_and_onedeploy():
     assert 'for_each = toset(compact([' in six_layer
     for plan in ("ingress", "processing", "extension", "action", "reader"):
         assert f'azure_six_layer_flex["{plan}"]' in six_layer
+        container = f'azure_six_layer_function_package["{plan}"].name'
+        assert six_layer.count(container) == 1
+        assert packages.count(container) == 1
+    assert 'azure_six_layer_function_package[0]' not in six_layer + packages
+    assert 'name                  = "six-layer-functions-${each.key}"' in six_layer
     assert 'azure_six_layer_flex["eventing"]' in eventing
     assert "zip_deploy_file" not in six_layer
     assert "zip_deploy_file" not in eventing

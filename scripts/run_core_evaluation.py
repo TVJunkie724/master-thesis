@@ -79,7 +79,8 @@ def terraform_resource_timings(log):
 
 
 def safe_failure_metrics(error):
-    allowed = {"readback_poll_attempts", "readback_timeout_count", "readback_wait_seconds"}
+    allowed = {"readback_poll_attempts", "readback_timeout_count", "readback_wait_seconds",
+               "mqtt_connect_attempts", "mqtt_connect_wait_seconds"}
     metrics = getattr(error, "safe_metrics", {})
     if not isinstance(metrics, dict):
         return {}

@@ -1,6 +1,8 @@
 import json
 import signal
+import ssl
 import time
+from urllib.parse import urlparse
 
 import pytest
 
@@ -14,7 +16,7 @@ from scripts.run_core_evaluation import (
     safe_failure_metrics,
     terraform_resource_timings,
 )
-from scripts import core_live_aws, core_live_azure
+from scripts import core_live_aws, core_live_azure, core_live_gcp
 
 
 def test_allowance_is_cumulative_and_rejected_without_overwriting(tmp_path):
@@ -209,3 +211,38 @@ def test_azure_diagnostics_query_both_deployment_workspaces(monkeypatch):
         "https://api.loganalytics.io/v1/workspaces/containers/query",
         "https://api.loganalytics.io/v1/workspaces/functions/query",
     ]
+
+
+def test_gcp_connect_waits_for_load_balancer_but_never_ignores_tls(monkeypatch):
+    class Connection:
+        errors = iter([TimeoutError(), ConnectionRefusedError(), None])
+
+        def connect(self, _host, _port, _keepalive):
+            error = next(self.errors)
+            if error:
+                raise error
+
+    monkeypatch.setattr(core_live_gcp.time, "sleep", lambda _: None)
+    connection = Connection()
+    endpoint = urlparse("mqtts://example.test:8883")
+    assert core_live_gcp.connect_mqtt(connection, endpoint)["mqtt_connect_attempts"] == 3
+    connection.errors = iter([ssl.SSLCertVerificationError()])
+    with pytest.raises(ssl.SSLCertVerificationError):
+        core_live_gcp.connect_mqtt(connection, endpoint)
+    connection.errors = iter([CoreDeadlineExceeded("CORE_DEADLINE")])
+    with pytest.raises(CoreDeadlineExceeded):
+        core_live_gcp.connect_mqtt(connection, endpoint)
+
+
+def test_gcp_connect_timeout_is_bounded_and_retains_wait_metrics(monkeypatch):
+    class Connection:
+        def connect(self, _host, _port, _keepalive):
+            raise TimeoutError()
+
+    monkeypatch.setattr(core_live_gcp.time, "sleep", lambda _: None)
+    with pytest.raises(RuntimeError, match="CORE_MQTT_CONNECT_TIMEOUT") as caught:
+        core_live_gcp.connect_mqtt(Connection(), urlparse("mqtts://example.test:8883"), attempts=2)
+    assert safe_failure_metrics(caught.value) == {
+        "mqtt_connect_attempts": 2,
+        "mqtt_connect_wait_seconds": pytest.approx(0, abs=1),
+    }

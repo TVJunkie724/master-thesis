@@ -9,7 +9,7 @@ module "azure_six_layer_ingress_package" {
   resource_group_name       = azurerm_resource_group.main[0].name
   package_path              = local.azure_six_layer_runtime_package
   storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package[0].name
+  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["ingress"].name
   storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
 }
 
@@ -21,7 +21,7 @@ module "azure_six_layer_processing_package" {
   resource_group_name       = azurerm_resource_group.main[0].name
   package_path              = local.azure_six_layer_runtime_package
   storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package[0].name
+  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["processing"].name
   storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
 }
 
@@ -33,7 +33,7 @@ module "azure_six_layer_action_package" {
   resource_group_name       = azurerm_resource_group.main[0].name
   package_path              = local.azure_six_layer_runtime_package
   storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package[0].name
+  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["action"].name
   storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
 }
 
@@ -45,7 +45,7 @@ module "azure_six_layer_reader_package" {
   resource_group_name       = azurerm_resource_group.main[0].name
   package_path              = local.azure_six_layer_runtime_package
   storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package[0].name
+  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["reader"].name
   storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
 }
 
@@ -69,6 +69,6 @@ module "azure_six_layer_extension_package" {
   resource_group_name       = azurerm_resource_group.main[0].name
   package_path              = each.value.package_path
   storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package[0].name
+  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["extension"].name
   storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
 }

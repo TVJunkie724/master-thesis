@@ -78,6 +78,13 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Tiny Core smoke runtimes must scale to zero and cap scale-out at one instance per group/revision."
   }
   assert {
+    condition = length(toset(concat(
+      [for container in values(azurerm_storage_container.azure_six_layer_function_package) : container.name],
+      [for container in azurerm_storage_container.azure_event_function_package : container.name]
+    ))) == length(azurerm_service_plan.azure_six_layer_flex)
+    error_message = "Each Azure Flex app must own a distinct deployment container to prevent OneDeploy package collisions."
+  }
+  assert {
     condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&

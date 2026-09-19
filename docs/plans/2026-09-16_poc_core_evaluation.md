@@ -32,10 +32,39 @@ reference is now included in both actual ZIP packages, and the source/catalog
 digests are refreshed. This fixes a concrete prerequisite; it is not yet proof
 of successful Azure readback. See the [Microsoft Event Hubs binding reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-hubs).
 
+The first follow-up cleanup completed in 787.6 s with zero remaining resource
+groups. A second Azure attempt completed Apply in 619.8 s but the reader still
+timed out. Read-only inspection then identified a deployment collision: five
+Flex apps shared one package container, whose root contained OneDeploy's
+`released-package.zip` and `kudu-state.json`. The source ZIP paths were unique,
+but that does not isolate the platform's active deployment files. Microsoft
+requires a [separate deployment container per Flex app](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to#configure-deployment-settings).
+Each existing domain/extension app now receives its own private container;
+the event runtime already had a separate one. This adds four small containers
+to the local Azure Core case, not another storage account or compute service.
+Native mock plans assert distinct deployment containers for all Azure apps;
+source checks verify matching app and publisher references.
+The defective live attempt was interrupted for cleanup before another retry.
+These supervised diagnostic runs, including HTTP readiness probes, are not
+cold-start benchmarks or replacements for the final evaluation samples.
+
 Read-only retained GCP logs for the last failed run explicitly report
 `image has non-numeric user` and `CreateContainerConfigError`. This confirms the
 startup defect addressed by the numeric UID/GID correction; the subsequent
 workload still requires its live test.
+
+The subsequent GCP retry completed Google-resource Apply in 748.6 s and the
+Kubernetes stage in 107.7 s. Direct read-only pod inspection confirmed both
+broker and MQTT adapter Ready with zero restarts, so the numeric UID fix is
+live-verified. Verification then stopped after 5.0 s in the client's initial
+TCP connection attempt, before TLS/MQTT authentication or message submission.
+This is not a passed Core smoke. The harness now retries only TCP timeout or
+connection refusal at most 20 times, separated by three seconds and still
+inside the existing whole-run deadline. TLS errors are not retried and
+certificate verification remains enabled. Connection attempts/wait time are
+retained on success or exhausted retries. This distinguishes transient external
+load-balancer readiness from a persistent connectivity fault without changing
+the deployed topology or extending the overall limit.
 
 ### Original run observations
 

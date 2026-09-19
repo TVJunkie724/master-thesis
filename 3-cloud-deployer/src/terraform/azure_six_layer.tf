@@ -705,8 +705,11 @@ resource "azurerm_eventhub" "azure_azure_event_hubs_only_for_reviewed_remote_tel
 }
 
 resource "azurerm_storage_container" "azure_six_layer_function_package" {
-  count                 = local.azure_six_layer_function_infrastructure_enabled ? 1 : 0
-  name                  = "six-layer-functions"
+  # OneDeploy writes released-package.zip and kudu-state.json at the root.
+  # Sharing a deployment container lets one app overwrite another app's code.
+  # Eventing already owns a separate deployment container.
+  for_each              = toset([for role in keys(azurerm_service_plan.azure_six_layer_flex) : role if role != "eventing"])
+  name                  = "six-layer-functions-${each.key}"
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
@@ -737,7 +740,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   service_plan_id     = azurerm_service_plan.azure_six_layer_flex["ingress"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["ingress"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
@@ -846,7 +849,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   service_plan_id     = azurerm_service_plan.azure_six_layer_flex["processing"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["processing"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
@@ -929,7 +932,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   service_plan_id     = azurerm_service_plan.azure_six_layer_flex["extension"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["extension"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
@@ -983,7 +986,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   service_plan_id     = azurerm_service_plan.azure_six_layer_flex["action"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["action"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
@@ -1165,7 +1168,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   service_plan_id     = azurerm_service_plan.azure_six_layer_flex["reader"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["reader"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 

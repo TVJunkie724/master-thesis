@@ -119,6 +119,23 @@ def diagnostics(values, outputs):
     return response.json()
 
 
+def connect_mqtt(connection, endpoint, attempts=20, pause_seconds=3):
+    """Allow bounded LB propagation after Pod readiness; never retry bad TLS."""
+    started = time.monotonic()
+    for attempt in range(1, attempts + 1):
+        try:
+            connection.connect(endpoint.hostname, endpoint.port, 60)
+            return {"mqtt_connect_attempts": attempt,
+                    "mqtt_connect_wait_seconds": round(time.monotonic() - started, 3)}
+        except (TimeoutError, ConnectionRefusedError):
+            if attempt < attempts:
+                time.sleep(pause_seconds)
+    error = RuntimeError("CORE_MQTT_CONNECT_TIMEOUT")
+    error.safe_metrics = {"mqtt_connect_attempts": attempts,
+                          "mqtt_connect_wait_seconds": round(time.monotonic() - started, 3)}
+    raise error
+
+
 def smoke(values, outputs):
     endpoint = urlparse(outputs["gcp_six_layer_mqtt_endpoint"])
     auth = outputs["gcp_six_layer_mqtt_device_credentials"]
@@ -128,7 +145,7 @@ def smoke(values, outputs):
     connection.tls_set_context(context)
     connected = []
     connection.on_connect = lambda c, u, f, code: connected.append(code)
-    connection.connect(endpoint.hostname, endpoint.port, 60)
+    readiness = connect_mqtt(connection, endpoint)
     connection.loop_start()
     now = datetime.now(timezone.utc)
     started = time.monotonic()
@@ -166,7 +183,8 @@ def smoke(values, outputs):
             points = response.json().get("points", [])
             if len(points) == 10:
                 assert sorted(float(p["value"]) for p in points) == list(range(10))
-                return {"sent": 10, "read_back": 10, "delivery_seconds": time.monotonic() - started,
+                return {"sent": 10, "read_back": 10, **readiness,
+                        "delivery_seconds": time.monotonic() - started,
                         "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
                             datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points]}
         time.sleep(3)
