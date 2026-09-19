@@ -884,6 +884,15 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
 
+  # Core verifies wiring under a bounded warm HTTP condition, not cold-start scaling.
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
+
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.main[0].id]
@@ -966,6 +975,14 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   https_only                                     = true
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
+
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
 
   site_config {
     minimum_tls_version     = "1.2"

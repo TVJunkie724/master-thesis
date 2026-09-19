@@ -211,6 +211,28 @@ because cleanup had already begun; this failed run contains no live ingress
 change. A native-plan regression covers reachability and retained IAM, and a
 new bounded Core run is still required to verify this correction.
 
+The subsequent Azure single-app comparison separated fixture and runtime issues.
+Two diagnostic minimal ZIPs had owner-only file permissions, unlike the actual
+project packages; retained host diagnostics reported access denied on `host.json`.
+Those disposable groups were destroyed and their zero-group inventories recorded.
+The corrected minimal fixture uses the existing deterministic ZIP writer (0644).
+It registered one function, but bounded on-demand HTTP requests still timed out.
+After enabling one always-ready HTTP instance in that same app, its expected
+HTTP response passed. Replacing only the package with the corrected real
+processor then passed registration and the first checked invocation, including
+the expected transformed value and accepted quality. This is supervised warm
+integration evidence, not a cold-start benchmark. The third comparison retains
+the warm-setting intervention and both package digests/timings separately.
+
+The next Core-only Azure configuration consequently keeps one HTTP instance ready
+at processing, processor extension and reader. The latter already used this
+condition; this adds two warm HTTP instances, not two new Function Apps. Full
+profile configuration and non-HTTP trigger settings are unchanged. Maximum
+on-demand scale-out remains one per function group; always-ready instances are
+additional to that ceiling. Record the warm baseline separately in cost and
+readiness interpretation, and remove all three with the run. Native mock plans
+verify these exact Core HTTP settings. Full Core verification remains pending.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize

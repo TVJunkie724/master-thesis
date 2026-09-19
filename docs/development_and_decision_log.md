@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-09-17"
-version: "2.8"
+lastUpdated: "2026-09-19"
+version: "2.9"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -29,6 +29,15 @@ maintained in `docs/research/architecture_evolution.md`.
 5. Git history is the archive for superseded implementation plans.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
+
+**Azure integration condition (2026-09-19):** Actual worker indexing exposed
+HTTP argument and Event Hubs batch-annotation defects, now corrected without
+changing responsibilities. A disposable same-app comparison then verified the
+minimal HTTP function and real processor under one always-ready HTTP instance.
+The Azure Core telemetry path therefore uses one warm instance at processing,
+processor extension and reader; full-profile defaults remain unchanged. This
+bounded condition must be reported with its additional baseline cost, not
+presented as on-demand/cold-start performance or a completed Core evaluation.
 
 **Live execution note (2026-09-17):** The three local Core smoke tests are now
 explicitly authorized and supervised. Preserve the distinction between

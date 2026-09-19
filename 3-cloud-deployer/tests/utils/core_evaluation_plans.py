@@ -85,9 +85,12 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Each Azure Flex app must own a distinct deployment container to prevent OneDeploy package collisions."
   }
   assert {
-    condition = alltrue([for reader in azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader :
-      length(reader.always_ready) == 1 && reader.always_ready[0].name == "http" && reader.always_ready[0].instance_count == 1])
-    error_message = "The bounded Core integration check keeps exactly one Azure reader instance warm."
+    condition = alltrue([for app in concat(
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader,
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption,
+      values(azurerm_function_app_flex_consumption.azure_six_layer_processor_extension)) :
+      length(app.always_ready) == 1 && app.always_ready[0].name == "http" && app.always_ready[0].instance_count == 1])
+    error_message = "The bounded Core integration check keeps one HTTP instance warm at each telemetry-path HTTP boundary."
   }
   assert {
     condition = alltrue([for key, index in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup :
