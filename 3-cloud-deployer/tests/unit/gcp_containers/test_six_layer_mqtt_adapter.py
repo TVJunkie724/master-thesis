@@ -7,9 +7,12 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import threading
 from types import ModuleType, SimpleNamespace
 
 import pytest
+import requests
+from werkzeug.serving import make_server
 
 
 SOURCE = (
@@ -133,6 +136,39 @@ def test_authorization_closes_topic_directions(
     )
 
     assert response.text == str(allowed).lower()
+
+
+def test_broker_identity_headers_survive_real_http_without_alias_ambiguity(adapter):
+    server = make_server(
+        "127.0.0.1", 0, adapter.app,
+        request_handler=adapter.BrokerWebhookRequestHandler,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        for headers, allowed in (
+            ({"user_id": "device-user", "tenant_id": "deployment-1"}, True),
+            ({"user_id": "bridge-user"}, True),
+            ({"user_id": "unknown-user"}, False),
+            ({"user-id": "device-user"}, False),
+            ({"user_id": "device-user", "user-id": "bridge-user"}, False),
+            ({}, False),
+        ):
+            response = requests.post(
+                f"http://127.0.0.1:{server.server_port}/check",
+                headers=headers, json={"conn": {}}, timeout=3,
+            )
+            assert response.status_code == 200
+            assert response.text == str(allowed).lower()
+    finally:
+        server.shutdown()
+        thread.join(timeout=3)
+        server.server_close()
+
+
+def test_missing_identity_is_rejected_even_with_missing_runtime_config(adapter, monkeypatch):
+    monkeypatch.delenv("BIFROMQ_BRIDGE_USERNAME")
+    assert not adapter._authorized("", "conn", "")
 
 
 def test_telemetry_is_bound_to_topic_device_and_authenticated_ingress(

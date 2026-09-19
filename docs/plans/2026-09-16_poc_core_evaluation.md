@@ -10,7 +10,7 @@ new architecture profile, UI or relaxation of full-profile admission is needed.
 The existing provider image-foundation targets remain part of image publication;
 they are not used to implement the Core layer cut.
 
-## Supervised live execution (2026-09-17, concluded)
+## Supervised live execution
 
 ### Follow-up on 2026-09-19
 
@@ -50,8 +50,8 @@ cold-start benchmarks or replacements for the final evaluation samples.
 
 Read-only retained GCP logs for the last failed run explicitly report
 `image has non-numeric user` and `CreateContainerConfigError`. This confirms the
-startup defect addressed by the numeric UID/GID correction; the subsequent
-workload still requires its live test.
+startup defect addressed by the numeric UID/GID correction; at that point the
+subsequent workload still required its live test.
 
 The subsequent GCP retry completed Google-resource Apply in 748.6 s and the
 Kubernetes stage in 107.7 s. Direct read-only pod inspection confirmed both
@@ -78,7 +78,31 @@ remain separate observations; a pending log bucket keeps strict overall `green`
 false without requiring the functional test to be repeated after its expiry.
 The second Azure cleanup completed in 756.5 s with zero resource groups.
 
-### Original run observations
+The isolated-container Azure retry completed Apply in 596.6 s. A supervised
+diagnostic change kept only the reader's HTTP group at one always-ready 2-GB
+instance. Its health route then responded with authenticated HTTP 200 and
+unauthenticated HTTP 401. The data query exposed a concrete Cosmos compiler
+error (`SC1001`, reserved property `value`), so the attempt still failed and its
+unchanged overall deadline initiated cleanup. The query now uses bracket
+notation for reserved value/aggregate property names. The next **Core-only**
+Terraform reader keeps one HTTP instance ready from provisioning; the full
+profile stays unchanged. This is a warm resource-integration condition, not
+a cold-start result. Record its additional billed baseline separately from
+on-demand execution; the reader is destroyed with the run.
+
+The next GCP retry completed Apply in 715.3 s and Kubernetes in 98.2 s, but
+MQTT authorization failed after 6.6 s. Broker/adapter logs showed successful
+HTTP calls to both authentication and authorization endpoints with a rejected
+connection. The pinned [BifroMQ webhook source](https://github.com/apache/bifromq/blob/v4.0.0-incubating/build/build-plugin-demo/src/main/java/org/apache/bifromq/demo/plugin/WebHookBasedAuthProvider.java)
+sends underscore identity headers that Werkzeug discards at the real HTTP
+boundary. A local socket-based reproduction confirmed rejection with valid
+configured identities; the previous Flask test-client checks bypassed this
+boundary. The adapter now preserves only the two upstream webhook identity
+headers and rejects ambiguous hyphen aliases. A real localhost HTTP regression
+test covers accepted device/bridge identities and rejected missing, unknown
+or ambiguous identities. No broker image, credentials or IAM roles change.
+
+### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize
 directed multi-cloud or L4/L5/full-profile execution. The sections below retain

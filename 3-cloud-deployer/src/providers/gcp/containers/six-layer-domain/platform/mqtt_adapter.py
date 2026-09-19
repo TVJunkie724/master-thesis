@@ -33,6 +33,7 @@ from google.cloud import pubsub_v1
 from google.oauth2 import id_token
 import paho.mqtt.client as mqtt
 import requests
+from werkzeug.serving import WSGIRequestHandler
 
 
 LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,23 @@ _subscriber: pubsub_v1.SubscriberClient | None = None
 _mqtt_client: mqtt.Client | None = None
 _started = False
 _start_lock = threading.Lock()
+
+
+class BrokerWebhookRequestHandler(WSGIRequestHandler):
+    """Preserve only the pinned broker plugin's two underscore headers."""
+
+    def make_environ(self):
+        environ = super().make_environ()
+        # Werkzeug drops underscore headers. BifroMQ 4.0.0 sends these exact
+        # names on the cluster-internal webhook; do not enable arbitrary ones
+        # or allow ambiguous hyphen/underscore aliases to authorize a request.
+        for header in ("user_id", "tenant_id"):
+            key = "HTTP_" + header.upper()
+            environ.pop(key, None)
+            values = self.headers.get_all(header, [])
+            if len(values) == 1 and not self.headers.get_all(header.replace("_", "-"), []):
+                environ[key] = values[0]
+        return environ
 
 
 def _required_environment(name: str) -> str:
@@ -135,6 +153,8 @@ def _action_topic(value: Mapping[str, Any]) -> tuple[str, str] | None:
 
 
 def _authorized(user_id: str, action: str, topic: str) -> bool:
+    if not user_id:
+        return False
     bridge_user = os.environ.get("BIFROMQ_BRIDGE_USERNAME", "")
     device_user = os.environ.get("BIFROMQ_DEVICE_USERNAME", "")
     if action == "conn":
@@ -333,4 +353,5 @@ if __name__ == "__main__":
         host="0.0.0.0",  # nosec B104
         port=int(os.environ.get("PORT", "8080")),
         threaded=True,
+        request_handler=BrokerWebhookRequestHandler,
     )

@@ -699,6 +699,11 @@ def test_cosmos_queries_are_partition_scoped_and_points_are_typed():
     assert "c.device_id = @device_id" in raw
     assert "c.kind = 'raw'" in raw
     assert "c.kind = 'hourly_rollup'" in rollup
+    # VALUE is a Cosmos query keyword; dot notation fails with SC1001 live.
+    assert 'c["value"]' in raw
+    assert "c.value" not in raw
+    for name in ("min", "max", "sum", "count"):
+        assert f'c["{name}"]' in rollup
     assert core.normalize_history_points(
         [
             {

@@ -85,6 +85,11 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Each Azure Flex app must own a distinct deployment container to prevent OneDeploy package collisions."
   }
   assert {
+    condition = alltrue([for reader in azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader :
+      length(reader.always_ready) == 1 && reader.always_ready[0].name == "http" && reader.always_ready[0].instance_count == 1])
+    error_message = "The bounded Core integration check keeps exactly one Azure reader instance warm."
+  }
+  assert {
     condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&

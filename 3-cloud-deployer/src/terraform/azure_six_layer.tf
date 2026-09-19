@@ -1181,6 +1181,16 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
 
+  # The bounded Core test measures resource integration, not cold-start latency.
+  # Live diagnosis reached the HTTP handler only after keeping this reader warm.
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
+
   identity {
     type = "SystemAssigned"
   }
