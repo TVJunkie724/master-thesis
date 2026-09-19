@@ -12,6 +12,33 @@ they are not used to implement the Core layer cut.
 
 ## Supervised live execution (2026-09-17, concluded)
 
+### Follow-up on 2026-09-19
+
+The independent AWS inventory became completely empty on 2026-09-17, including
+the two formerly pending IoT Command definitions. The cleanup monitor was
+stopped after that observation.
+
+The next Azure attempt completed Core Apply in 610.4 s but still did not finish
+authenticated readback. Repeated request timeouts therefore do not establish
+that the previous failure was merely a cold start. The operator initiated
+cleanup after the functional deadline: the original deadline raised Python's
+`TimeoutError`, which an HTTP library can translate into a retryable request
+timeout. The runner now raises a dedicated `RuntimeError` subtype, with a
+regression check proving that HTTP retry handling does not swallow it.
+
+The two Azure Python host packages also lacked the extension-bundle declaration
+required for their Event Hubs and Service Bus bindings. The standard v4 bundle
+reference is now included in both actual ZIP packages, and the source/catalog
+digests are refreshed. This fixes a concrete prerequisite; it is not yet proof
+of successful Azure readback. See the [Microsoft Event Hubs binding reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-hubs).
+
+Read-only retained GCP logs for the last failed run explicitly report
+`image has non-numeric user` and `CreateContainerConfigError`. This confirms the
+startup defect addressed by the numeric UID/GID correction; the subsequent
+workload still requires its live test.
+
+### Original run observations
+
 The user authorized the three local Core smoke tests. This does not authorize
 directed multi-cloud or L4/L5/full-profile execution. The sections below retain
 the earlier pre-approval reviews; they are historical preparation evidence.

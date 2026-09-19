@@ -5,6 +5,7 @@ import time
 import pytest
 
 from scripts.run_core_evaluation import (
+    CoreDeadlineExceeded,
     Terraform,
     apply_smoke_bounds,
     deadline,
@@ -41,11 +42,26 @@ def test_live_azure_core_uses_free_iot_ingress_without_changing_other_providers(
 
 def test_deadline_interrupts_and_restores_handler():
     previous = signal.getsignal(signal.SIGALRM)
-    with pytest.raises(TimeoutError, match="CORE_DEADLINE"):
+    with pytest.raises(CoreDeadlineExceeded, match="CORE_DEADLINE"):
         with deadline(0.01):
             time.sleep(0.1)
     assert signal.getsignal(signal.SIGALRM) == previous
     assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+
+
+def test_global_deadline_is_not_retried_as_an_http_timeout(monkeypatch):
+    def slow_request(*_args, **_kwargs):
+        # Socket libraries translate OSError (including built-in TimeoutError)
+        # into request timeouts. The whole-run deadline must escape that path.
+        try:
+            time.sleep(0.1)
+        except OSError as exc:
+            raise core_live_azure.requests.ReadTimeout() from exc
+
+    monkeypatch.setattr(core_live_azure.requests, "get", slow_request)
+    with pytest.raises(CoreDeadlineExceeded, match="CORE_DEADLINE"):
+        with deadline(0.01):
+            core_live_azure.poll_points({"access_url": "https://example.test"}, "key", {}, attempts=2)
 
 
 def test_provider_deadlines_are_bounded_and_give_slow_clouds_more_time():

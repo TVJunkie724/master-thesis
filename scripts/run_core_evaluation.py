@@ -90,10 +90,14 @@ def safe_failure_metrics(error):
     }
 
 
+class CoreDeadlineExceeded(RuntimeError):
+    """A run deadline must not be swallowed as a retryable socket timeout."""
+
+
 @contextmanager
 def deadline(seconds):
     def expired(*_):
-        raise TimeoutError("CORE_DEADLINE")
+        raise CoreDeadlineExceeded("CORE_DEADLINE")
     old = signal.signal(signal.SIGALRM, expired)
     signal.setitimer(signal.ITIMER_REAL, seconds)
     try:

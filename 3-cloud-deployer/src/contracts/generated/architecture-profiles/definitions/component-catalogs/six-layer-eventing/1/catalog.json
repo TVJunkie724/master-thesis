@@ -10889,7 +10889,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:343311c88c0dfcec8ec1e4ca143df3aa2bca63dd32d144699842c2a84400f574",
+      "source_digest": "sha256:f33e4464754bb4bdb311afd2e763b807a25a0e8695a773f58f7c08f87a6e9160",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -11078,7 +11078,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-eventing",
       "platform_handler": "function_app.app",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:cf0a2a1499ac87c24e4beb0bc12af2985421698f8668c2f26c9e399d2d5e7882",
+      "source_digest": "sha256:b1e1243bc0603af089f0091d42ee58128c4c57451047a2250c88b00e4e02b60a",
       "included_paths": [
         "function_app.py",
         "host.json",
@@ -11163,5 +11163,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:7d5f4664f9f6f4d117ed198e91943d29483c8592756b10483c24827838cad7ca"
+  "content_digest": "sha256:70fbcfacc9a0c25825951abdb54bc4796e597f2751d133c41b0b2992b8542307"
 }
