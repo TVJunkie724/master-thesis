@@ -157,6 +157,15 @@ wiring correction, not a changed runtime contract or additional resource.
 The failed attempt entered immediate cleanup; successful end-to-end readback
 still requires a fresh bounded run.
 
+The next GCP retry failed earlier in Kubernetes creation: the adapter service
+account and private auth Service raced namespace creation and received
+`namespaces not found`. All eight namespaced L1 objects now reference the owned
+namespace resource directly instead of repeating its local name. Terraform can
+therefore enforce creation and reverse destruction ordering. A regression check
+covers all eight references, alongside the native mock plans. The failed attempt
+entered cleanup without claiming that its processor-provider correction had been
+live-verified.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize

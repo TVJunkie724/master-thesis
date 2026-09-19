@@ -160,6 +160,18 @@ def test_gcp_six_layer_workflow_reports_one_terminal_outcome_to_domain_consumer(
     )
 
 
+def test_gcp_l1_objects_reference_the_owned_namespace_resource():
+    source = (TERRAFORM_SOURCE / "gcp_six_layer_l1.tf").read_text(encoding="utf-8")
+    reference = (
+        "namespace = kubernetes_namespace_v1."
+        "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name"
+    )
+    # A matching literal name does not impose creation/destruction ordering.
+    assert source.count('resource "kubernetes_') == 8
+    assert source.count(reference) == 8
+    assert "namespace = local.gcp_six_layer_bifromq_namespace" not in source
+
+
 def test_disabled_azure_platform_user_assignments_remain_provider_valid():
     user_source = (TERRAFORM_SOURCE / "azure_user.tf").read_text(encoding="utf-8")
     grafana_source = (TERRAFORM_SOURCE / "azure_grafana.tf").read_text(

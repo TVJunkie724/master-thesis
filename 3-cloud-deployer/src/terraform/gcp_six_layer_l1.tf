@@ -88,7 +88,7 @@ resource "kubernetes_config_map_v1" "gcp_six_layer_bifromq" {
 
   metadata {
     name      = "bifromq-config"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -131,7 +131,7 @@ resource "kubernetes_secret_v1" "gcp_six_layer_bifromq" {
 
   metadata {
     name      = "bifromq-runtime"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -155,7 +155,7 @@ resource "kubernetes_service_v1" "gcp_six_layer_bifromq_headless" {
 
   metadata {
     name      = "bifromq-headless"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -188,7 +188,7 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 
   metadata {
     name      = "bifromq"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels = merge(local.gcp_six_layer_labels, {
       component = "bifromq"
     })
@@ -361,7 +361,7 @@ resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer" {
 
   metadata {
     name      = "bifromq-mqtt"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -430,7 +430,7 @@ resource "kubernetes_service_account_v1" "gcp_six_layer_mqtt_adapter" {
 
   metadata {
     name      = "mqtt-adapter"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
     annotations = {
       "iam.gke.io/gcp-service-account" = google_service_account.gcp_six_layer_runtime["ingress"].email
@@ -506,7 +506,7 @@ resource "kubernetes_service_v1" "gcp_six_layer_bifromq_auth" {
 
   metadata {
     name      = "bifromq-auth"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -532,7 +532,7 @@ resource "kubernetes_deployment_v1" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
 
   metadata {
     name      = "mqtt-adapter"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels = merge(local.gcp_six_layer_labels, {
       component = "mqtt-adapter"
     })
