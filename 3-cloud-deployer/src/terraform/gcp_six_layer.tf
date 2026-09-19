@@ -756,8 +756,11 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_processor_extension" {
   name                = "${local.gcp_six_layer_name}-six-processor-extension"
   description         = "Validated processor.telemetry@1 GCP adapter"
   deletion_protection = false
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
-  labels              = local.gcp_six_layer_labels
+  # Cloud Run callers without VPC egress are not considered internal ingress.
+  # Reachability is separate from authorization; only the bound processor invokes.
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  labels               = local.gcp_six_layer_labels
 
   template {
     service_account                  = google_service_account.gcp_six_layer_runtime["extension"].email
@@ -903,8 +906,10 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_action_sink" {
   name                = "${local.gcp_six_layer_name}-six-poc-action"
   description         = "Fixed side-effect-free Six-layer action boundary"
   deletion_protection = false
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
-  labels              = local.gcp_six_layer_labels
+  # The domain runtime calls this boundary without a VPC connector as well.
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  labels               = local.gcp_six_layer_labels
 
   template {
     service_account                  = google_service_account.gcp_six_layer_runtime["action"].email

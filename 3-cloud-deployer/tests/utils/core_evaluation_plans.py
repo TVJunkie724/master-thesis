@@ -101,6 +101,19 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "The GCP processor must receive the provider setting required by its Event-Layer consumer."
   }
   assert {
+    condition = (
+      alltrue([for service in concat(
+        google_cloud_run_v2_service.gcp_six_layer_processor_extension,
+        google_cloud_run_v2_service.gcp_six_layer_action_sink) :
+        service.ingress == "INGRESS_TRAFFIC_ALL" && service.invoker_iam_disabled == false]) &&
+      alltrue([for binding in google_cloud_run_v2_service_iam_member.gcp_six_layer_processor_extension_invoker :
+        binding.role == "roles/run.invoker"]) &&
+      alltrue([for binding in google_cloud_run_v2_service_iam_member.gcp_six_layer_action_sink_invoker :
+        binding.role == "roles/run.invoker"])
+    )
+    error_message = "Cloud Run HTTP calls without VPC egress need reachable endpoints with mandatory, service-account-bound IAM."
+  }
+  assert {
     condition = alltrue([for service in kubernetes_service_v1.gcp_six_layer_bifromq_auth :
       service.spec[0].publish_not_ready_addresses])
     error_message = "The private broker auth webhook must be reachable before MQTT subscription readiness."

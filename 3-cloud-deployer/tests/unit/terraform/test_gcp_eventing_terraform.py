@@ -10,6 +10,22 @@ def _source(name: str) -> str:
     return (TERRAFORM_ROOT / name).read_text(encoding="utf-8")
 
 
+def test_gcp_extension_http_boundaries_keep_only_bound_service_account_invokers():
+    source = _source("gcp_six_layer.tf")
+    blocks = {}
+    for role in ("processor_extension", "action_sink"):
+        blocks[role] = source.split(
+            f'resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_{role}_invoker"', 1
+        )[1].split('\nresource "', 1)[0]
+        assert '"roles/run.invoker"' in blocks[role]
+        assert '"serviceAccount:' in blocks[role]
+        assert "allUsers" not in blocks[role]
+        assert "allAuthenticatedUsers" not in blocks[role]
+    assert 'gcp_six_layer_runtime["processor"].email' in blocks["processor_extension"]
+    for caller in ("domain", "workflow"):
+        assert f'gcp_six_layer_runtime["{caller}"].email' in blocks["action_sink"]
+
+
 def test_gcp_event_layer_assigns_consumers_to_l1_l2_and_hot_owners():
     source = _source("gcp_eventing.tf")
 

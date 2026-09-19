@@ -195,6 +195,22 @@ cover binding/signature agreement and every batch declaration. This identifies
 concrete package defects, not yet a successful live Core test; no resource,
 permission, timeout or functional responsibility was changed by these fixes.
 
+The next GCP run passed infrastructure/Kubernetes creation and delivered ten
+messages to ingress. Processing then failed with `PROCESSOR_EXTENSION_FAILED`:
+the extension had internal-only ingress, while its Cloud Run caller had no VPC
+egress path. Read-only inspection confirmed that the processor's invoker grant
+existed and public invocation was disabled. Google's
+[Cloud Run networking rules](https://docs.cloud.google.com/run/docs/securing/private-networking#receive-requests-from-other-cloud-run-resources-or-app-engine)
+require a VPC path for this internal-only service-to-service combination.
+Terraform now permits endpoint reachability while explicitly keeping the IAM
+check enabled and the existing service-account-only grants. The identical
+domain-to-action configuration defect is corrected too; action execution is
+not claimed by the ten-message Core smoke. No connector, NAT gateway or public
+invoker grant is added. The attempted supervised correction was safely skipped
+because cleanup had already begun; this failed run contains no live ingress
+change. A native-plan regression covers reachability and retained IAM, and a
+new bounded Core run is still required to verify this correction.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize
