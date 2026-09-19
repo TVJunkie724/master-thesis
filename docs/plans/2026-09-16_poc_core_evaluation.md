@@ -12,6 +12,21 @@ they are not used to implement the Core layer cut.
 
 ## Supervised live execution
 
+### First directed Core smoke: Azure to AWS
+
+The next supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
+ingress, AWS Event Layer/processing/hot storage, ten matching telemetry values
+and authenticated AWS readback. Retain the existing reverse command route and
+both federation bindings, but do not claim command receipt or a second scenario.
+Reuse the existing Core runner, Azure sender, AWS reader, real packages and AWS
+image publisher; add only a fixed-scenario option and combined residual checks.
+Before mutation, review a create-only account-bound plan and confirm the existing
+AWS outbound issuer read-only. No shared account preparation, GCP, L4/L5, UI or
+new deployment abstraction is part of this slice. Keep phase/resource/message
+metrics, bounded execution, immediate Destroy and independent AWS/Azure/Entra
+inventory. Cost/time approval is specific to this directed attempt, not inherited
+from the local smokes. Final resource counts and outcomes follow after review.
+
 ### Follow-up on 2026-09-19
 
 All three provider-local Core telemetry smokes have now passed (ten messages

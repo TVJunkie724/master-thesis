@@ -102,7 +102,8 @@ def poll_points(read, key, query, attempts=60, pause_seconds=3, observation=None
     raise error
 
 
-def smoke(values, outputs):
+def send_telemetry(values, outputs):
+    """Send ten real IoT Hub messages; storage may be in another provider."""
     group = outputs["azure_six_layer_resource_group_name"]
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
     resources = arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
@@ -122,10 +123,6 @@ def smoke(values, outputs):
                                       "secondaryKey": base64.b64encode(os.urandom(32)).decode()}}}, timeout=30)
     if response.status_code not in (200, 201):
         raise RuntimeError("CORE_AZURE_DEVICE_HTTP_" + str(response.status_code))
-    read = outputs["azure_component_storage_read_access_output"]
-    reader_id = next(r["id"] for r in resources if r["name"] == read["reader_function_name"])
-    read_keys = arm(values, "POST", reader_id + "/host/default/listkeys?api-version=2024-04-01")
-    key = read_keys.get("functionKeys", {}).get("default") or read_keys["masterKey"]
     now = datetime.now(timezone.utc)
     started = time.monotonic()
     for number in range(10):
@@ -141,6 +138,19 @@ def smoke(values, outputs):
                                       "iothub-contentencoding": "utf-8"}, data=json.dumps(payload), timeout=30)
         if sent.status_code != 204:
             raise RuntimeError("CORE_AZURE_SEND_HTTP_" + str(sent.status_code))
+    return now, started
+
+
+def smoke(values, outputs):
+    group = outputs["azure_six_layer_resource_group_name"]
+    base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
+    resources = arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
+    read = outputs["azure_component_storage_read_access_output"]
+    reader_id = next(r["id"] for r in resources if r["name"] == read["reader_function_name"])
+    read_keys = arm(values, "POST", reader_id + "/host/default/listkeys?api-version=2024-04-01")
+    key = read_keys.get("functionKeys", {}).get("default") or read_keys["masterKey"]
+    now, started = send_telemetry(values, outputs)
+    device = "core-sensor"
     query = {"device_id": device, "metric": "temperature", "bucket_seconds": "0", "limit": "100",
              "from": (now - timedelta(minutes=1)).isoformat(), "to": (now + timedelta(minutes=10)).isoformat()}
     readback = {}

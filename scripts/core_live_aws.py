@@ -156,7 +156,6 @@ def smoke(values, outputs):
     iot = aws.client("iot")
     endpoint = iot.describe_endpoint(endpointType="iot:Data-ATS")["endpointAddress"]
     publisher = aws.client("iot-data", endpoint_url="https://" + endpoint)
-    reader = aws.client("lambda")
     now = datetime.now(timezone.utc)
     device = "core-sensor"
     sent_at = time.monotonic()
@@ -171,6 +170,13 @@ def smoke(values, outputs):
                             "event_time": (now + timedelta(milliseconds=number)).isoformat()},
             }).encode(),
         )
+    return readback(values, outputs, now, sent_at)
+
+
+def readback(values, outputs, now, sent_at):
+    """Same AWS Event/L3 verification for local or cross-cloud ingress."""
+    reader = session(values).client("lambda")
+    device = "core-sensor"
     query = {"queryStringParameters": {
         "device_id": device, "metric": "temperature", "bucket_seconds": "0", "limit": "100",
         "from": (now - timedelta(minutes=1)).isoformat(),

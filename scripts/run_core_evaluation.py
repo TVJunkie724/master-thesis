@@ -151,10 +151,16 @@ def run(args):
         raise SystemExit("CORE_TERMINATED")
     signal.signal(signal.SIGTERM, interrupted)
     provider = args.provider
-    run_id = "core" + provider + "-" + uuid.uuid4().hex[:8]
+    directed = getattr(args, "azure_to_aws", False)
+    if directed and provider != "aws":
+        raise ValueError("The fixed Azure-to-AWS case uses the AWS destination runner")
+    run_id = ("corea2a" if directed else "core" + provider) + "-" + uuid.uuid4().hex[:8]
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     values = prepare(provider, root / "runtime")
+    if directed:
+        from scripts import core_live_azure_to_aws
+        core_live_azure_to_aws.configure(values, root / "runtime")
     values["digital_twin_name"] = run_id
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
     credentials = json.loads(args.credentials.read_text())
@@ -165,6 +171,8 @@ def run(args):
     values.update({key: credentials["azure"][key] for key in (
         "azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id")})
     ops = importlib.import_module("scripts.core_live_" + provider)
+    if directed:
+        ops = core_live_azure_to_aws
     publisher_module = importlib.import_module("src.providers.terraform." + provider + "_six_layer_image_publisher")
     publisher_class = getattr(publisher_module, {"aws": "Aws", "azure": "Azure", "gcp": "Gcp"}[provider] + "SixLayerImagePublisher")
     targets = {"aws": AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
@@ -197,6 +205,7 @@ def run(args):
     functional_limit = functional_seconds(provider, args.functional_seconds)
     report = {
         "provider": provider,
+        "scenario": "core-small-azure-to-aws" if directed else "core-small-local-" + provider,
         "scope": "core",
         "green": False,
         "started_at": utc_now(),
@@ -245,6 +254,11 @@ def run(args):
 
     try:
         phase("initialize", lambda: tf.run("init", "-no-color"))
+        if directed:
+            identity = phase("federation_readiness", lambda: ops.readiness(values))
+            values.update(identity)
+            for key, value in identity.items():
+                env["TF_VAR_" + key] = json.dumps(value) if not isinstance(value, str) else value
         baseline = phase("baseline_inventory", lambda: ops.inventory(values, run_id))
         if any(baseline.values()):
             raise RuntimeError("CORE_PREFIX_NOT_EMPTY")
@@ -258,11 +272,16 @@ def run(args):
             kind = resource["type"]
             prefixes = {"aws": ("aws_", "awscc_"), "azure": ("azurerm_", "azapi_"),
                         "gcp": ("google_", "kubernetes_", "tls_", "local_")}[provider]
+            if directed:
+                prefixes += ("azurerm_", "azapi_", "azuread_")
             if not kind.startswith(prefixes + ("random_", "terraform_")):
                 raise RuntimeError("CORE_WRONG_PROVIDER_RESOURCE")
             report["create_counts"][kind] = report["create_counts"].get(kind, 0) + 1
         print(json.dumps({"provider": provider, "create_counts": report["create_counts"]}), flush=True)
-        reserve(args.ledger, provider, run_id, args.cap_eur, args.reserve_eur)
+        if getattr(args, "plan_only", False):
+            report["plan_reviewed_without_mutation"] = True
+            return 0
+        reserve(args.ledger, "azure-to-aws" if directed else provider, run_id, args.cap_eur, args.reserve_eur)
         mutated = True  # Set before the first mutation, including partial failure.
         with deadline(functional_limit):
             phase("image_foundation", lambda: tf.run("apply", "-auto-approve", "-no-color",
@@ -356,6 +375,8 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("provider", choices=("aws", "azure", "gcp"))
+    parser.add_argument("--azure-to-aws", action="store_true", help="Run only the fixed Azure-ingress/AWS-Core scenario.")
+    parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
     parser.add_argument("--gcp-credentials", type=Path)
