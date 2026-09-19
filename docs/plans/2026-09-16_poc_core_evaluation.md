@@ -66,6 +66,18 @@ retained on success or exhausted retries. This distinguishes transient external
 load-balancer readiness from a persistent connectivity fault without changing
 the deployed topology or extending the overall limit.
 
+That GCP attempt removed Kubernetes resources in 84.5 s and completed Destroy
+in 549.9 s. The original 14 inventory categories were empty. An additional
+read-only check found the deployment's Cloud Logging bucket in
+`DELETE_REQUESTED`, which the original inventory did not cover. The inventory
+now includes active and pending-deletion log buckets separately. Google retains
+this [deletion state for seven days](https://docs.cloud.google.com/logging/docs/buckets).
+An empty active-workload inventory is therefore not a claim of complete physical
+absence. Functional pass, accepted Destroy and provider-side final deletion
+remain separate observations; a pending log bucket keeps strict overall `green`
+false without requiring the functional test to be repeated after its expiry.
+The second Azure cleanup completed in 756.5 s with zero resource groups.
+
 ### Original run observations
 
 The user authorized the three local Core smoke tests. This does not authorize

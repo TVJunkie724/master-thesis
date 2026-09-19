@@ -39,6 +39,14 @@ def pages(session, url, key, **params):
         params["pageToken"] = token
 
 
+def log_bucket_inventory(session, project, region, prefix):
+    buckets = pages(session,
+        f"https://logging.googleapis.com/v2/projects/{project}/locations/{region}/buckets", "buckets")
+    owned = [bucket for bucket in buckets if prefix in bucket.get("name", "")]
+    pending = sum(bucket.get("lifecycleState") == "DELETE_REQUESTED" for bucket in owned)
+    return {"log_buckets": len(owned) - pending, "pending_deletion:log_buckets": pending}
+
+
 def inventory(values, prefix):
     session = client(values)
     project, region = values["gcp_project_id"], values["gcp_region"]
@@ -61,6 +69,7 @@ def inventory(values, prefix):
         result[label] = sum(prefix in str(item.get("name", "")) or prefix in str(item.get("email", "")) for item in items)
     result["buckets"] = sum(prefix in item["name"] for item in pages(
         session, "https://storage.googleapis.com/storage/v1/b", "items", project=project))
+    result.update(log_bucket_inventory(session, project, region, prefix))
     policy = session.post(f"https://cloudresourcemanager.googleapis.com/v1/projects/{project}:getIamPolicy",
                           json={}, timeout=45)
     policy.raise_for_status()

@@ -246,3 +246,14 @@ def test_gcp_connect_timeout_is_bounded_and_retains_wait_metrics(monkeypatch):
         "mqtt_connect_attempts": 2,
         "mqtt_connect_wait_seconds": pytest.approx(0, abs=1),
     }
+
+
+def test_gcp_inventory_distinguishes_pending_log_buckets_from_active(monkeypatch):
+    monkeypatch.setattr(core_live_gcp, "pages", lambda *_args: [
+        {"name": "projects/test/locations/test/buckets/coregcp-owned-active", "lifecycleState": "ACTIVE"},
+        {"name": "projects/test/locations/test/buckets/coregcp-owned-old", "lifecycleState": "DELETE_REQUESTED"},
+        {"name": "projects/test/locations/test/buckets/unrelated", "lifecycleState": "ACTIVE"},
+    ])
+    assert core_live_gcp.log_bucket_inventory(None, "test", "test", "coregcp-owned") == {
+        "log_buckets": 1, "pending_deletion:log_buckets": 1,
+    }
