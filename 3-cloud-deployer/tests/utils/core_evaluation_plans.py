@@ -96,6 +96,11 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "The GCP raw-history index must match the reader's ascending stored_at order."
   }
   assert {
+    condition = alltrue([for service in kubernetes_service_v1.gcp_six_layer_bifromq_auth :
+      service.spec[0].publish_not_ready_addresses])
+    error_message = "The private broker auth webhook must be reachable before MQTT subscription readiness."
+  }
+  assert {
     condition = (
       alltrue([for hub in azurerm_iothub.azure_azure_iot_hub :
         length(hub.fallback_route) == 1 && hub.fallback_route[0].enabled &&

@@ -511,6 +511,9 @@ resource "kubernetes_service_v1" "gcp_six_layer_bifromq_auth" {
   }
 
   spec {
+    # Authentication must be reachable before the bridge can receive SUBACK.
+    # This private webhook is not the device-facing MQTT readiness boundary.
+    publish_not_ready_addresses = true
     selector = {
       app = "mqtt-adapter"
     }

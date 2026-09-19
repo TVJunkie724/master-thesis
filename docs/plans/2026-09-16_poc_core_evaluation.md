@@ -137,6 +137,16 @@ only after QoS-1 SUBACK and clears readiness on disconnect/reconnect, using the
 existing Kubernetes probes. Tests cover delayed/rejected acknowledgements and
 reconnection. No additional service or generic retry framework is introduced.
 
+The following GCP attempt exposed a readiness bootstrap dependency: the broker
+authenticates through the adapter's private Service, but that Service originally
+hid the endpoint until the adapter had obtained SUBACK. The auth Service now
+publishes not-yet-ready endpoints, just as the broker's existing headless
+bootstrap Service does. The device-facing listener and workload readiness remain
+separate. This single setting was applied to the owned Service during the
+supervised attempt and is covered by the native plan. Its deployment time includes
+that diagnostic intervention and one adapter restart; it is not an unassisted
+benchmark sample.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize
