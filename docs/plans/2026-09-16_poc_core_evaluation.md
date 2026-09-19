@@ -183,6 +183,18 @@ was started on the basis of these observations. The GCP namespace-race attempt
 also completed Destroy with zero active residuals and one pending-deletion
 Logging bucket; its functional path remains unverified after the latest fixes.
 
+Before another Azure deployment, an offline check against the actual Azure
+Python worker's function registry reproduced two registration failures that
+plain SDK discovery had missed: the extension declared `request` while its HTTP
+binding used the default `req`; Event Hubs batch handlers used `list[T]`, which
+the tested worker rejected as a non-type annotation. The adapter now uses `req`
+and all seven batch-handler declarations use the supported `typing.List[T]`.
+The same offline registry then accepted the processor, all 12 enabled domain
+functions and all seven enabled Event-Layer functions. Focused regression tests
+cover binding/signature agreement and every batch declaration. This identifies
+concrete package defects, not yet a successful live Core test; no resource,
+permission, timeout or functional responsibility was changed by these fixes.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize

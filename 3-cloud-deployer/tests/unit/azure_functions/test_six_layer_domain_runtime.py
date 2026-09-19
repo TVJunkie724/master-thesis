@@ -5,6 +5,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+from typing import List, get_type_hints
+
+import azure.functions as func
 
 import pytest
 
@@ -48,6 +51,20 @@ def _load_runtime(module_name: str):
 
 
 runtime = _load_runtime("azure_six_layer_domain")
+
+
+def test_event_hub_batch_annotations_are_worker_compatible(monkeypatch):
+    # The deployed worker rejects PEP-585 list[T] during indexing even though
+    # FunctionApp.get_functions() accepts it. Azure's binding expects typing.List.
+    for suffix in ("IOT_PROCESSOR", "REMOTE_TELEMETRY", "BRIDGE_TELEMETRY",
+                   "BRIDGE_EVENT_RECEIVED", "BRIDGE_EVENT_PROCESSED"):
+        monkeypatch.setenv("SIX_LAYER_" + suffix + "_ENABLED", "true")
+    selected = _load_runtime("azure_domain_indexing")
+    batches = [f for f in selected.app.get_functions()
+               if any(b.type == "eventHubTrigger" for b in f.get_bindings())]
+    assert len(batches) == 5
+    for function in batches:
+        assert get_type_hints(function.get_user_function())["messages"] == List[func.EventHubEvent]
 
 
 def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):

@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, List, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -1178,7 +1178,7 @@ if REMOTE_TELEMETRY_ENABLED:
         cardinality="many",
         consumer_group="$Default",
     )
-    def remote_telemetry_consumer(messages: list[func.EventHubEvent]) -> None:
+    def remote_telemetry_consumer(messages: List[func.EventHubEvent]) -> None:
         """Consume provider-managed Event Hubs batches after durable landing."""
 
         try:
@@ -1205,7 +1205,7 @@ if BRIDGE_TELEMETRY_ENABLED:
         consumer_group="$Default",
     )
     def cross_cloud_telemetry_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         """Checkpoint the source Event Hub only after durable target acceptance."""
@@ -1235,7 +1235,7 @@ if BRIDGE_EVENT_RECEIVED_ENABLED:
         consumer_group="bridge-received",
     )
     def cross_cloud_event_received_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         from phase8_eventing.azure.runtime import event_hub_batch
@@ -1263,7 +1263,7 @@ if BRIDGE_EVENT_PROCESSED_ENABLED:
         consumer_group="bridge-processed",
     )
     def cross_cloud_event_processed_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         from phase8_eventing.azure.runtime import event_hub_batch
@@ -1337,7 +1337,7 @@ if IOT_PROCESSOR_ENABLED:
         cardinality="many",
         consumer_group="$Default",
     )
-    def iot_telemetry_adapter(messages: list[func.EventHubEvent]) -> None:
+    def iot_telemetry_adapter(messages: List[func.EventHubEvent]) -> None:
         """Adapt the existing simulator payload from IoT Hub and enqueue it."""
 
         try:

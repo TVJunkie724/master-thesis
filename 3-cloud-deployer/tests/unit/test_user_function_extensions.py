@@ -10,6 +10,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
 import zipfile
@@ -63,6 +64,21 @@ def _metadata() -> dict:
         "configuration": manifest["configuration"],
         "declared_capabilities": manifest["declared_capabilities"],
     }
+
+
+def test_azure_package_http_binding_matches_actual_python_signature(tmp_path):
+    package, _ = build_provider_package(manifest=_manifest(), files=_files(), provider="azure")
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
+        archive.extractall(tmp_path)
+    # Isolate from the invocation tests' SDK stub: discovery must use the real SDK.
+    result = subprocess.run([sys.executable, "-c", """
+import inspect
+import function_app
+function, = function_app.app.get_functions()
+bound = {binding.name for binding in function.get_bindings() if binding.name != '$return'}
+assert bound == set(inspect.signature(function.get_user_function()).parameters)
+"""], cwd=tmp_path, text=True, capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr
 
 
 def _zip(files: dict[str, str]) -> bytes:
