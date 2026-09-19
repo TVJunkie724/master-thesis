@@ -253,6 +253,7 @@ def run(args):
             save(root / "report.json", report)
 
     try:
+        image_inputs = phase("validate_image_contexts", lambda: publisher_module.image_requests(root / "runtime", values))
         phase("initialize", lambda: tf.run("init", "-no-color"))
         if directed:
             identity = phase("federation_readiness", lambda: ops.readiness(values))
@@ -289,8 +290,7 @@ def run(args):
             outputs = tf.outputs()
             publisher = publisher_class.from_tfvars_and_outputs(
                 project_path=root / "runtime", tfvars=values, outputs=outputs)
-            images = phase("publish_images", lambda: publisher.publish(
-                publisher_module.image_requests(root / "runtime", values)))
+            images = phase("publish_images", lambda: publisher.publish(image_inputs))
             values.update(publisher_module.image_tfvars(images, values))
             for key, value in values.items():
                 env["TF_VAR_" + key] = json.dumps(value) if not isinstance(value, str) else value

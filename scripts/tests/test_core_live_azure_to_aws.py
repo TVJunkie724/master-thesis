@@ -5,6 +5,7 @@ import pytest
 
 from scripts import core_live_azure_to_aws as directed
 from scripts.prepare_core_runtime import prepare
+from src.providers.terraform.aws_six_layer_image_publisher import image_requests
 
 
 def test_fixed_case_reuses_real_aws_and_azure_packages(tmp_path):
@@ -18,6 +19,7 @@ def test_fixed_case_reuses_real_aws_and_azure_packages(tmp_path):
     assert values["layer_4_provider"] == values["layer_5_provider"] == ""
     assert (root / ".build/aws/core-processor.zip").is_file()
     assert list((root / ".build/azure").glob("*.zip"))
+    assert {request.name for request in image_requests(root, values)} == {"storage-mover", "bridge"}
     pairs = {(r["source_provider"], r["destination_provider"])
              for r in values["resolved_cross_cloud_routes"]}
     assert pairs == {("azure", "aws"), ("aws", "azure")}

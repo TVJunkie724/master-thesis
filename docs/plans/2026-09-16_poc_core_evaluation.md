@@ -19,13 +19,23 @@ ingress, AWS Event Layer/processing/hot storage, ten matching telemetry values
 and authenticated AWS readback. Retain the existing reverse command route and
 both federation bindings, but do not claim command receipt or a second scenario.
 Reuse the existing Core runner, Azure sender, AWS reader, real packages and AWS
-image publisher; add only a fixed-scenario option and combined residual checks.
+image publisher (storage mover plus the existing reverse-route bridge image);
+add only a fixed-scenario option and combined residual checks.
 Before mutation, review a create-only account-bound plan and confirm the existing
 AWS outbound issuer read-only. No shared account preparation, GCP, L4/L5, UI or
 new deployment abstraction is part of this slice. Keep phase/resource/message
 metrics, bounded execution, immediate Destroy and independent AWS/Azure/Entra
 inventory. Cost/time approval is specific to this directed attempt, not inherited
 from the local smokes. Final resource counts and outcomes follow after review.
+
+The first account-bound plan passed read-only review with 154 create entries,
+including one Azure Function App and eleven AWS Lambdas (one is the existing
+container-based bridge). The first supervised attempt stopped after image
+foundation because the research preparer omitted that bridge build context.
+Destroy and AWS/Azure/Entra inventories were fully clean. The preparer now calls
+the existing bridge builder; image contexts are checked before any cloud mutation.
+A regression test verifies both selected image inputs. This fixes the test
+preparer, not the application architecture or resource plan.
 
 ### Follow-up on 2026-09-19
 

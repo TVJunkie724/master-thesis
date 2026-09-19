@@ -8,11 +8,13 @@ from scripts import core_live_aws as aws, core_live_azure as azure
 from scripts.prepare_core_evaluation import materialize
 from src.core.secure_files import atomic_write_private_bytes
 from src.providers.terraform.package_builders.azure_six_layer import build_azure_six_layer_graph_apps
+from src.providers.terraform.package_builders.aws_six_layer import build_aws_six_layer_bridge_context
 
 
 def configure(values, runtime):
     values.update(materialize("core-small-azure-to-aws")["tfvars"])
     build_azure_six_layer_graph_apps(runtime, ("six-layer-domain", "six-layer-eventing"))
+    build_aws_six_layer_bridge_context(runtime)
     atomic_write_private_bytes(runtime / "runtime.tfvars.json", json.dumps(values).encode())
 
 
