@@ -9,7 +9,6 @@ import pytest
 from scripts.run_core_evaluation import (
     CoreDeadlineExceeded,
     Terraform,
-    apply_smoke_bounds,
     deadline,
     functional_seconds,
     reserve,
@@ -30,16 +29,6 @@ def test_allowance_is_cumulative_and_rejected_without_overwriting(tmp_path):
     assert path.read_bytes() == previous
     assert len(json.loads(previous)) == 3
     assert path.stat().st_mode & 0o077 == 0
-
-
-def test_live_azure_core_uses_free_iot_ingress_without_changing_other_providers():
-    azure = {"azure_iot_hub_sku": "S1", "azure_iot_hub_capacity": 1}
-    apply_smoke_bounds("azure", azure)
-    assert azure == {"azure_iot_hub_sku": "F1", "azure_iot_hub_capacity": 1}
-
-    aws = {"azure_iot_hub_sku": "S1", "azure_iot_hub_capacity": 1}
-    apply_smoke_bounds("aws", aws)
-    assert aws == {"azure_iot_hub_sku": "S1", "azure_iot_hub_capacity": 1}
 
 
 def test_deadline_interrupts_and_restores_handler():

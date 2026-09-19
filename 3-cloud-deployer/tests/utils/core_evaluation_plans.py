@@ -97,6 +97,16 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
   }
   assert {
     condition = (
+      alltrue([for hub in azurerm_iothub.azure_azure_iot_hub :
+        length(hub.fallback_route) == 1 && hub.fallback_route[0].enabled &&
+        toset(hub.fallback_route[0].endpoint_names) == toset(["events"])]) &&
+      alltrue([for policy in azurerm_iothub_shared_access_policy.azure_six_layer_ingress :
+        policy.service_connect && !policy.device_connect && !policy.registry_read && !policy.registry_write])
+    )
+    error_message = "Azure IoT ingress needs an enabled built-in route and a ServiceConnect-only policy."
+  }
+  assert {
+    condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&
       length(aws_iam_role.aws_six_layer_twinmaker) == 0 &&

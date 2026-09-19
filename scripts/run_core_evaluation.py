@@ -145,13 +145,6 @@ class Terraform:
         return {k: v["value"] for k, v in json.loads(self.run("output", "-json").read_text()).items()}
 
 
-def apply_smoke_bounds(provider, values):
-    if provider == "azure":
-        # The supervised Core smoke sends ten messages. Azure IoT Hub F1
-        # exercises the same L1 ingress contract without an unnecessary S1 day.
-        values.update(azure_iot_hub_sku="F1", azure_iot_hub_capacity=1)
-
-
 def run(args):
     os.umask(0o077)
     def interrupted(*_):
@@ -163,7 +156,6 @@ def run(args):
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     values = prepare(provider, root / "runtime")
     values["digital_twin_name"] = run_id
-    apply_smoke_bounds(provider, values)
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
     credentials = json.loads(args.credentials.read_text())
     aws = credentials["aws"]

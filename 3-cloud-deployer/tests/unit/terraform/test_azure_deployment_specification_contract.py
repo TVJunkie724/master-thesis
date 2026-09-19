@@ -168,10 +168,15 @@ def test_azure_rbac_and_entra_use_the_single_poc_administrator():
         assert all("azurerm.preparation" not in block for block in blocks)
 
 
-def test_azure_iot_data_role_name_is_valid():
+def test_azure_iot_builtin_endpoint_uses_supported_service_connection():
     source = _source("azure_six_layer.tf")
     assert "IoT Hub Data Receiver" not in source
-    assert 'role  = "IoT Hub Data Reader"' in source
+    assert "IoT Hub Data Reader" not in source
+    assert 'resource "azurerm_iothub_shared_access_policy" "azure_six_layer_ingress"' in source
+    assert "SIX_LAYER_IOT_HUB__fullyQualifiedNamespace" not in source
+    assert "SIX_LAYER_IOT_HUB__credential" not in source
+    assert "Endpoint=%s;SharedAccessKeyName=%s;SharedAccessKey=%s;EntityPath=%s" in source
+    assert "azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_endpoint" in source
 
 
 def test_azure_access_reference_matches_the_single_administrator_contract():

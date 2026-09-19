@@ -112,6 +112,20 @@ three downloaded deployed packages, with network disabled and the matching
 Python/CPU platform, discovered their expected 2/4/1 functions. The remaining
 Azure startup/registration cause is unresolved; this is not a Core pass.
 
+Provider documentation exposed two further concrete Azure ingress defects:
+the built-in IoT Hub Event Hubs-compatible endpoint does not support
+[Entra ID authentication](https://learn.microsoft.com/en-us/azure/iot-hub/authenticate-authorize-azure-ad),
+and the Terraform resource does not enable its fallback route when omitted.
+The binding now uses a deployment-owned ServiceConnect-only policy and the
+built-in `events` fallback route is explicit. The obsolete IoT Hub Data Reader
+assignment is removed; other managed-identity connections remain unchanged.
+This adds no Event Hub or other billed service and requires no user-entered key.
+It fixes unsupported ingress configuration, not yet proven Azure startup.
+Retained plans also show S1/one unit in the earlier runs: the runner's requested
+F1 override affected legacy variables, not the Six-layer component. That inert
+override and the inaccurate F1 claims are removed. Cost interpretation uses
+the actual S1 resource and pending provider billing, not the intended override.
+
 The next GCP attempt completed Apply in 790.7 s and Kubernetes in 96.5 s.
 MQTT authentication passed, but readback returned Firestore `FailedPrecondition`:
 the raw-history composite index sorted `stored_at` descending while the reader
@@ -154,8 +168,8 @@ allowance ledger remains distinct from observed provider billing.
 
 Core keeps recurring movers disabled. Azure Flex and GCP Cloud Run scale-out
 is limited to one instance per scaling group/revision for this tiny smoke test.
-The supervised Azure smoke used IoT Hub F1 for ten messages; the resolved full
-profile remains unchanged. This is not throughput evidence.
+The supervised Azure smoke uses the resolved IoT Hub S1/one-unit component for
+ten messages; it does not establish throughput evidence.
 
 Initial AWS live attempts exposed and reproduced two lifecycle problems:
 dynamic IoT Commands require a JSON-substitution preprocessor, and SNS FIFO
@@ -444,7 +458,7 @@ counts or an account-bound Apply plan. Region: `westeurope`.
 
 | Responsibility | Current concrete Azure resources |
 |---|---|
-| L1 | Resolved profile: one IoT Hub S1, one unit. The supervised ten-message Core smoke uses F1/one unit without changing the full profile. |
+| L1 | One resolved IoT Hub S1, one unit; ten messages in the supervised Core smoke. |
 | Event Layer | One Standard Event Hubs namespace, one throughput unit, three hubs and three consumer groups; one Standard Service Bus namespace, one topic/subscription and filter |
 | L2 and adapters | Six Flex Consumption Function Apps in total: processing, event adapter, processor extension, action extension, Event runtime and L3 reader; six FC1 plans because Flex permits one app per plan; one Consumption Logic App with its trigger/actions |
 | L3 | One serverless Cosmos DB account/database/container; one storage account with three containers for history and runtime packages; archive/expiry lifecycle; authenticated Function readback |

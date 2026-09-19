@@ -259,6 +259,14 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   event_hub_partition_count   = local.azure_six_layer_iot_partitions
   event_hub_retention_in_days = 1
 
+  # Terraform does not enable the built-in fallback route when omitted.
+  fallback_route {
+    source         = "DeviceMessages"
+    condition      = "true"
+    endpoint_names = ["events"]
+    enabled        = true
+  }
+
   cloud_to_device {
     default_ttl        = "PT1H"
     max_delivery_count = 10
@@ -270,6 +278,17 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   }
 
   tags = local.azure_six_layer_tags
+}
+
+resource "azurerm_iothub_shared_access_policy" "azure_six_layer_ingress" {
+  count               = local.azure_six_layer_l1_enabled ? 1 : 0
+  name                = "six-layer-ingress"
+  resource_group_name = azurerm_resource_group.main[0].name
+  iothub_name         = azurerm_iothub.azure_azure_iot_hub[0].name
+  service_connect     = true
+  device_connect      = false
+  registry_read       = false
+  registry_write      = false
 }
 
 resource "azurerm_cosmosdb_account" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
@@ -764,20 +783,23 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   }
 
   app_settings = {
-    ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
-    DEPLOYMENT_ID                                           = local.deployment_suffix
-    SIX_LAYER_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
-    SIX_LAYER_DOMAIN_TOPIC_NAME                             = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
-    SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace          = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
-    SIX_LAYER_SERVICE_BUS__credential                       = "managedidentity"
-    SIX_LAYER_SERVICE_BUS__clientId                         = azurerm_user_assigned_identity.main[0].client_id
-    SIX_LAYER_MANAGED_IDENTITY_CLIENT_ID                    = azurerm_user_assigned_identity.main[0].client_id
-    SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(!local.azure_six_layer_l2_enabled && local.azure_six_layer_embedded_event_enabled)
-    SIX_LAYER_IOT_PROCESSOR_ENABLED                         = tostring(local.azure_six_layer_l1_enabled)
-    SIX_LAYER_IOT_HUB_NAME                                  = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
-    SIX_LAYER_IOT_HUB__fullyQualifiedNamespace              = local.azure_six_layer_l1_enabled ? "${azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_namespace}.servicebus.windows.net" : "disabled.servicebus.windows.net"
-    SIX_LAYER_IOT_HUB__credential                           = "managedidentity"
-    SIX_LAYER_IOT_HUB__clientId                             = azurerm_user_assigned_identity.main[0].client_id
+    ARCHITECTURE_PROFILE                           = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                  = local.deployment_suffix
+    SIX_LAYER_DOMAIN_QUEUE_NAME                    = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
+    SIX_LAYER_DOMAIN_TOPIC_NAME                    = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
+    SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    SIX_LAYER_SERVICE_BUS__credential              = "managedidentity"
+    SIX_LAYER_SERVICE_BUS__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    SIX_LAYER_MANAGED_IDENTITY_CLIENT_ID           = azurerm_user_assigned_identity.main[0].client_id
+    SIX_LAYER_DOMAIN_CONSUMER_ENABLED              = tostring(!local.azure_six_layer_l2_enabled && local.azure_six_layer_embedded_event_enabled)
+    SIX_LAYER_IOT_PROCESSOR_ENABLED                = tostring(local.azure_six_layer_l1_enabled)
+    SIX_LAYER_IOT_HUB_NAME                         = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
+    # IoT Hub's built-in Event Hubs-compatible endpoint does not support Entra ID.
+    SIX_LAYER_IOT_HUB = try(format("Endpoint=%s;SharedAccessKeyName=%s;SharedAccessKey=%s;EntityPath=%s",
+      azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_endpoint,
+      azurerm_iothub_shared_access_policy.azure_six_layer_ingress[0].name,
+      azurerm_iothub_shared_access_policy.azure_six_layer_ingress[0].primary_key,
+    azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path), "")
     SIX_LAYER_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
     SIX_LAYER_REMOTE_TELEMETRY_ENABLED                      = tostring(local.azure_six_layer_remote_telemetry_inbound)
     SIX_LAYER_REMOTE_TELEMETRY_HUB_NAME                     = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name, "disabled")
@@ -1271,10 +1293,6 @@ locals {
       }
     } : {},
     local.azure_six_layer_l1_enabled ? {
-      iot_hub_receiver = {
-        scope = azurerm_iothub.azure_azure_iot_hub[0].id
-        role  = "IoT Hub Data Reader"
-      }
       iot_hub_contributor = {
         scope = azurerm_iothub.azure_azure_iot_hub[0].id
         role  = "IoT Hub Data Contributor"
