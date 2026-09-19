@@ -37,7 +37,8 @@ minimal HTTP function and real processor under one always-ready HTTP instance.
 The Azure Core telemetry path therefore uses one warm instance at processing,
 processor extension and reader; full-profile defaults remain unchanged. This
 bounded condition must be reported with its additional baseline cost, not
-presented as on-demand/cold-start performance or a completed Core evaluation.
+presented as on-demand/cold-start performance. The subsequent Azure Core run
+passed ten-message readback and completed Destroy with zero run resource groups.
 
 **Live execution note (2026-09-17):** The three local Core smoke tests are now
 explicitly authorized and supervised. Preserve the distinction between
@@ -68,8 +69,8 @@ GCP Core is retained while its L4/L5 exclusion remains unchanged.
 
 **Evidence boundary:** Offline preparation and mock resource plans are not live
 E2E evidence. Prior federation probes remain historical identity evidence. The
-AWS provider-local Core smoke is complete; Azure and GCP attempts are explicit
-incomplete observations, not negative functional conclusions. Recheck changed
+AWS and Azure provider-local Core smokes and cleanup are complete; GCP attempts
+remain explicit incomplete observations, not negative functional conclusions. Recheck changed
 bindings and images before a retry. RQ1 records scoped provisioning/cleanup,
 RQ2 comparable Core functions, RQ3 actual scoped eventing and costs. Research
 questions and Five-layer reference remain unchanged. Implementation results and

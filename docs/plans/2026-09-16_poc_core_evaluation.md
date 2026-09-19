@@ -231,7 +231,34 @@ profile configuration and non-HTTP trigger settings are unchanged. Maximum
 on-demand scale-out remains one per function group; always-ready instances are
 additional to that ceiling. Record the warm baseline separately in cost and
 readiness interpretation, and remove all three with the run. Native mock plans
-verify these exact Core HTTP settings. Full Core verification remains pending.
+verify these exact Core HTTP settings. The subsequent live result is recorded
+below.
+
+The warm single-app comparison completed Destroy and independent zero-group
+inventory. Application Insights had created an additional action group inside
+the disposable diagnostic group; it was identified and removed before declaring
+cleanup complete. No existing group or notification configuration was changed.
+
+The subsequent Azure Core run passed the actual ten-message IoT Hub → Event
+Layer → processing → Cosmos readback path. All ten expected values were returned,
+and ten persistence-latency samples were retained. Apply took 668.8 s and
+verification 209.2 s, with 24 readback polls and no readback request timeout.
+All six apps registered their configured functions, including the formerly
+missing ingress, Event runtime and processor extension. Immediate Destroy
+completed in 782.6 s; independent inventory confirmed zero remaining run
+resource groups. An additional group-name check found no separate managed
+infrastructure group. Functional verification and cleanup are both green.
+The run retains ten structured lifecycle phases and 194 Terraform resource
+timing records, and uses the explicitly documented warm HTTP condition.
+
+An offline audit of the earlier successful AWS smoke recovered 186 Terraform
+create/destroy timing records from its retained logs, alongside its existing
+phase and batch-delivery durations. The original report was not overwritten.
+That older run did not retain ten individual source-to-persistence latency
+samples or the later structured phase timestamps. Partial diagnostic checkpoint
+pairs are not substituted for that missing distribution. AWS functional and
+cleanup success stand; any later comparison requiring matched per-message
+latency distributions must explicitly account for this evidence gap.
 
 ### Original run observations (2026-09-17)
 
