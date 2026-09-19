@@ -615,7 +615,8 @@ resource "azurerm_servicebus_subscription" "azure_azure_service_bus_standard" {
   name                                      = "domain-consumer"
   topic_id                                  = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
   max_delivery_count                        = 5
-  requires_session                          = true
+  # Autoforwarding sources cannot require sessions; the destination queue does.
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"
@@ -655,7 +656,7 @@ resource "azurerm_servicebus_subscription" "azure_six_layer_remote_control_inbou
   name                                      = "local-domain-landing"
   topic_id                                  = azurerm_servicebus_topic.azure_six_layer_remote_control["inbound"].id
   max_delivery_count                        = 5
-  requires_session                          = true
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"
@@ -668,7 +669,7 @@ resource "azurerm_servicebus_subscription" "azure_six_layer_remote_control_outbo
   name                                      = "cross-cloud-bridge"
   topic_id                                  = azurerm_servicebus_topic.azure_six_layer_remote_control["outbound"].id
   max_delivery_count                        = 5
-  requires_session                          = true
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"

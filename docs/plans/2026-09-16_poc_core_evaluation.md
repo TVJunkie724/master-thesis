@@ -37,6 +37,15 @@ the existing bridge builder; image contexts are checked before any cloud mutatio
 A regression test verifies both selected image inputs. This fixes the test
 preparer, not the application architecture or resource plan.
 
+The second attempt published both images but Azure rejected three Service Bus
+subscriptions during Apply: `RequiresSession` and `ForwardTo` cannot coexist on
+an autoforwarding source. Disable sessions only on those forwarding
+subscriptions; keep session-enabled destination queues and runtime consumers.
+This follows the [Azure autoforwarding contract](https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-auto-forwarding):
+forwarded messages retain their session IDs. A regression check covers all
+three sources and their session-enabled destinations. No resources or command
+test claims are added. The failed attempt enters immediate cleanup before retry.
+
 ### Follow-up on 2026-09-19
 
 All three provider-local Core telemetry smokes have now passed (ten messages

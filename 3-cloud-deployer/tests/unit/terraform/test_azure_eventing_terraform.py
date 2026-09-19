@@ -1,6 +1,7 @@
 """Source-level gates for the reviewed Azure Event Layer bundle."""
 
 from pathlib import Path
+import re
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -8,6 +9,21 @@ TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 def _source(filename: str) -> str:
     return (TERRAFORM_ROOT / filename).read_text(encoding="utf-8")
+
+
+def test_autoforwarding_sources_disable_sessions_but_destination_queues_keep_them():
+    source = _source("azure_six_layer.tf")
+    subscriptions = re.findall(
+        r'resource "azurerm_servicebus_subscription" "[^"]+" \{(.*?)\n\}',
+        source, re.S,
+    )
+    forwarded = [body for body in subscriptions if "forward_to" in body]
+    assert len(forwarded) == 3
+    for body in forwarded:
+        assert re.search(r"requires_session\s*=\s*false", body)
+        queue = re.search(r"forward_to\s*=\s*azurerm_servicebus_queue\.(\w+)", body)[1]
+        destination = source.split(f'resource "azurerm_servicebus_queue" "{queue}" {{', 1)[1].split("\n}", 1)[0]
+        assert re.search(r"requires_session\s*=\s*true", destination)
 
 
 def test_azure_event_layer_owns_exact_reviewed_resource_symbols():
