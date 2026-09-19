@@ -171,6 +171,31 @@ def test_missing_identity_is_rejected_even_with_missing_runtime_config(adapter, 
     assert not adapter._authorized("", "conn", "")
 
 
+def test_readiness_waits_for_subscription_ack_and_closes_on_disconnect(adapter, monkeypatch):
+    monkeypatch.setattr(adapter, "_started", True)
+    client = adapter.app.test_client()
+    assert client.get("/healthz").status_code == 503
+
+    adapter._on_subscribe(None, None, 1, [1])
+    assert client.get("/healthz").status_code == 200
+    assert client.get("/healthz").json["ready"] is True
+
+    adapter._on_disconnect(None, None, None, 0)
+    assert client.get("/healthz").status_code == 503
+    for codes in ([128], [0], []):
+        adapter._on_subscribe(None, None, 2, codes)
+        assert client.get("/healthz").status_code == 503
+
+
+def test_reconnect_requires_a_new_subscription_ack(adapter):
+    subscriptions = []
+    client = SimpleNamespace(subscribe=lambda topic, qos: subscriptions.append((topic, qos)) or (0, 1))
+    adapter._mqtt_subscribed.set()
+    adapter._on_connect(client, None, None, 0)
+    assert not adapter._mqtt_subscribed.is_set()
+    assert subscriptions == [(adapter.SHARED_TELEMETRY_FILTER, 1)]
+
+
 def test_telemetry_is_bound_to_topic_device_and_authenticated_ingress(
     adapter, monkeypatch
 ):

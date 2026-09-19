@@ -102,6 +102,27 @@ headers and rejects ambiguous hyphen aliases. A real localhost HTTP regression
 test covers accepted device/bridge identities and rejected missing, unknown
 or ambiguous identities. No broker image, credentials or IAM roles change.
 
+The following Azure attempt completed Apply in 656.9 s. The warm reader returned
+authenticated HTTP 200 and a valid empty history response, confirming the query
+correction, but no telemetry points arrived before the unchanged deadline.
+Ingress, event-runtime and processor-extension apps still exposed zero registered
+functions. One supervised trigger sync was accepted without changing that
+observation. All six remote builds reported success. Offline imports of the
+three downloaded deployed packages, with network disabled and the matching
+Python/CPU platform, discovered their expected 2/4/1 functions. The remaining
+Azure startup/registration cause is unresolved; this is not a Core pass.
+
+The next GCP attempt completed Apply in 790.7 s and Kubernetes in 96.5 s.
+MQTT authentication passed, but readback returned Firestore `FailedPrecondition`:
+the raw-history composite index sorted `stored_at` descending while the reader
+queries ascending. Terraform now matches the reader, with a native-plan check.
+The webhook timeline also showed the bridge connection/subscription only 22 s
+after the device began publishing. The adapter's HTTP health endpoint previously
+returned success before a subscription acknowledgement. It now reports readiness
+only after QoS-1 SUBACK and clears readiness on disconnect/reconnect, using the
+existing Kubernetes probes. Tests cover delayed/rejected acknowledgements and
+reconnection. No additional service or generic retry framework is introduced.
+
 ### Original run observations (2026-09-17)
 
 The user authorized the three local Core smoke tests. This does not authorize

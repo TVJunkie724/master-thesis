@@ -49,6 +49,7 @@ _subscriber: pubsub_v1.SubscriberClient | None = None
 _mqtt_client: mqtt.Client | None = None
 _started = False
 _start_lock = threading.Lock()
+_mqtt_subscribed = threading.Event()
 
 
 class BrokerWebhookRequestHandler(WSGIRequestHandler):
@@ -189,7 +190,8 @@ def authorize():
 
 @app.get("/healthz")
 def health():
-    return jsonify({"schema_version": "mqtt-adapter-health.v1", "ready": _started})
+    ready = _started and _mqtt_subscribed.is_set()
+    return jsonify({"schema_version": "mqtt-adapter-health.v1", "ready": ready}), 200 if ready else 503
 
 
 def _ingress_token(audience: str) -> str:
@@ -236,12 +238,27 @@ def _forward_telemetry(topic: str, payload: bytes) -> None:
 
 
 def _on_connect(client, _userdata, _flags, reason_code, _properties=None):
+    _mqtt_subscribed.clear()
     if reason_code != 0:
         LOGGER.error("MQTT bridge connection rejected with code %s", reason_code)
         return
     result, _mid = client.subscribe(SHARED_TELEMETRY_FILTER, qos=1)
     if result != mqtt.MQTT_ERR_SUCCESS:
         raise RuntimeError("Could not subscribe the MQTT telemetry bridge")
+
+
+def _on_subscribe(_client, _userdata, _mid, reason_codes, _properties=None):
+    # CONNECT/PUBACK do not prove that this consumer is receiving telemetry.
+    # Keep the existing Kubernetes readiness probe closed until QoS-1 SUBACK.
+    if len(reason_codes) == 1 and reason_codes[0] == 1:
+        _mqtt_subscribed.set()
+    else:
+        _mqtt_subscribed.clear()
+        LOGGER.error("MQTT bridge subscription rejected or QoS-1 not granted")
+
+
+def _on_disconnect(_client, _userdata, _flags, _reason_code, _properties=None):
+    _mqtt_subscribed.clear()
 
 
 def _on_message(client, _userdata, message):
@@ -315,6 +332,8 @@ def _run_bridge() -> None:
         _required_environment("BIFROMQ_BRIDGE_PASSWORD"),
     )
     client.on_connect = _on_connect
+    client.on_subscribe = _on_subscribe
+    client.on_disconnect = _on_disconnect
     client.on_message = _on_message
     client.reconnect_delay_set(min_delay=1, max_delay=30)
     client.connect(

@@ -90,6 +90,12 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "The bounded Core integration check keeps exactly one Azure reader instance warm."
   }
   assert {
+    condition = alltrue([for key, index in google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup :
+      alltrue([for field in index.fields : field.order == "ASCENDING" if field.field_path == "stored_at"])
+      if key == "raw_history"])
+    error_message = "The GCP raw-history index must match the reader's ascending stored_at order."
+  }
+  assert {
     condition = (
       length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 0 &&
       length(aws_s3_bucket.aws_six_layer_twinmaker) == 0 &&

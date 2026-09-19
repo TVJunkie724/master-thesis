@@ -1621,7 +1621,7 @@ resource "google_firestore_index" "gcp_gcp_firestore_native_standard_raw_and_rol
         { field_path = "device_id", order = "ASCENDING" },
         { field_path = "metric", order = "ASCENDING" },
         { field_path = "timestamp_shard", order = "ASCENDING" },
-        { field_path = "stored_at", order = "DESCENDING" },
+        { field_path = "stored_at", order = "ASCENDING" },
       ]
     }
     raw_mover = {

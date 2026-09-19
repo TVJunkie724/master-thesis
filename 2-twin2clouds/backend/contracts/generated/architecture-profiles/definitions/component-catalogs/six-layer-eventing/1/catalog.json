@@ -10949,7 +10949,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/gcp/containers/six-layer-domain",
       "platform_handler": "handler.gcp.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:233b5d42e68feb51236650d40b8d9636d368d35a3654bcb529f3c579b214a372",
+      "source_digest": "sha256:8a086cdef299ff31743b83f6028531d1be10589e4f09fbfdef5e603a669ecbe6",
       "included_paths": [
         ".dockerignore",
         "Dockerfile",
@@ -11163,5 +11163,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:1137aa79f3ab1f00f192df478fecad68990543e0ac4989fa511c165707dce3bb"
+  "content_digest": "sha256:36be47a9235ad3703e28758244d85b74070aee342deb202aaf695db79fa7f6e4"
 }
