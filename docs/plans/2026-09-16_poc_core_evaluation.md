@@ -108,6 +108,14 @@ successful deploy, telemetry readback and cleanup. Further runs require a fresh
 cost decision because the current supervised attempt allowance is exhausted;
 the ledger is not a provider billing ceiling.
 
+For the next supervised AWS→Azure attempt, the Core runner now recognizes only
+the observed Flex OneDeploy `KuduSpecializer` restart. It waits 45 s, reviews a
+fresh Terraform plan against the original create-only addresses, then retries
+Apply once in the same state with the already published images and packages.
+Unexpected updates, replacements, deletes, new addresses or a second failure
+still trigger immediate Destroy and independent inventory. This does not extend
+the functional deadline or treat a successful Apply as telemetry proof.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub

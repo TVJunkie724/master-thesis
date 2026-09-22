@@ -117,6 +117,24 @@ def reserve(ledger_path, provider, run_id, cap, amount):
     save(ledger_path, ledger)
 
 
+def azure_flex_kudu_restart(log):
+    """Recognize only the observed transient OneDeploy failure, never raw diagnostics."""
+    value = log.read_text(errors="replace")
+    return (len(re.findall(r"(?m)^Error: ", value)) == 1
+            and "[KuduSpecializer] Kudu has been restarted during deployment" in value
+            and re.search(r"\bwith module\.azure_six_layer_[a-z_]+_package\[", value) is not None)
+
+
+def retry_create_count(plan, approved_addresses):
+    """Keep a same-state retry within the original create-only resource scope."""
+    pending = [item for item in plan.get("resource_changes", [])
+               if item["mode"] == "managed" and item["change"]["actions"] != ["no-op"]]
+    if any(item["change"]["actions"] != ["create"]
+           or item["address"] not in approved_addresses for item in pending):
+        raise RuntimeError("CORE_RETRY_PLAN_CHANGED_SCOPE")
+    return len(pending)
+
+
 class Terraform:
     def __init__(self, folder, env):
         self.folder, self.env, self.sequence = folder, env, 0
@@ -330,7 +348,21 @@ def run(args):
             for key, value in values.items():
                 env["TF_VAR_" + key] = json.dumps(value) if not isinstance(value, str) else value
             save(root / "image-digests.json", images)
-            phase("deploy", lambda: tf.run("apply", "-auto-approve", "-no-color"))
+            try:
+                phase("deploy", lambda: tf.run("apply", "-auto-approve", "-no-color"))
+            except RuntimeError:
+                failed_log = folder / f"command-{tf.sequence:02d}.log"
+                if not aws_to_azure or not azure_flex_kudu_restart(failed_log):
+                    raise
+                report["deploy_retry_code"] = "AZURE_FLEX_KUDU_RESTART"
+                phase("deploy_retry_backoff", lambda: time.sleep(45))
+                phase("deploy_retry_plan", lambda: tf.run("plan", "-no-color", "-out=retry.plan"))
+                retry_plan = json.loads(tf.run("show", "-json", "retry.plan").read_text())
+                report["deploy_retry_create_count"] = retry_create_count(
+                    retry_plan, {item["address"] for item in changes
+                                 if item["change"]["actions"] == ["create"]},
+                )
+                phase("deploy_retry", lambda: tf.run("apply", "-auto-approve", "-no-color", "retry.plan"))
             if provider == "gcp" and not directed:
                 values["gcp_six_layer_kubernetes_stage_enabled"] = True
                 env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "true"

@@ -9,9 +9,11 @@ import pytest
 from scripts.run_core_evaluation import (
     CoreDeadlineExceeded,
     Terraform,
+    azure_flex_kudu_restart,
     deadline,
     functional_seconds,
     reserve,
+    retry_create_count,
     safe_failure_metrics,
     terraform_resource_timings,
 )
@@ -89,6 +91,36 @@ def test_terraform_failure_does_not_emit_raw_diagnostic(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="TERRAFORM_APPLY_FAILED_LOG_01") as error:
         Terraform(tmp_path, {}).run("apply")
     assert "sensitive" not in str(error.value)
+
+
+def test_azure_kudu_retry_is_only_for_one_package_restart(tmp_path):
+    log = tmp_path / "command-01.log"
+    log.write_text(
+        'Error: waiting for creation of Template Deployment: '
+        '[KuduSpecializer] Kudu has been restarted during deployment\n'
+        '  with module.azure_six_layer_processing_package[0].'
+        'azurerm_resource_group_template_deployment.publish,\n'
+    )
+    assert azure_flex_kudu_restart(log)
+    log.write_text(log.read_text() + 'Error: unrelated provider failure\n')
+    assert not azure_flex_kudu_restart(log)
+    log.write_text('Error: CORE_DEADLINE\n')
+    assert not azure_flex_kudu_restart(log)
+
+
+def test_retry_plan_can_only_finish_original_creates():
+    approved = {"module.azure_package.publish", "azurerm_resource_group.main"}
+    def plan(address, actions):
+        return {"resource_changes": [{"mode": "managed", "address": address,
+                                      "change": {"actions": actions}}]}
+
+    assert retry_create_count(plan("module.azure_package.publish", ["create"]), approved) == 1
+    assert retry_create_count(plan("module.azure_package.publish", ["no-op"]), approved) == 0
+    for address, actions in (("module.azure_package.publish", ["delete", "create"]),
+                             ("module.azure_package.publish", ["update"]),
+                             ("azurerm_resource_group.unreviewed", ["create"])):
+        with pytest.raises(RuntimeError, match="CORE_RETRY_PLAN_CHANGED_SCOPE"):
+            retry_create_count(plan(address, actions), approved)
 
 
 def test_sns_archive_cleanup_only_touches_owned_state(monkeypatch):
