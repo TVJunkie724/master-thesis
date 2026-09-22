@@ -1159,6 +1159,7 @@ if EVENTING_DELIVERY_ENDPOINT_ENABLED:
                 },
             )
         except ContractError as exc:
+            logging.warning("Event delivery rejected: %s", exc.code)
             return _reader_response(
                 exc.status,
                 {
@@ -1166,6 +1167,9 @@ if EVENTING_DELIVERY_ENDPOINT_ENABLED:
                     "error_code": exc.code,
                 },
             )
+        except Exception as exc:
+            logging.error("Event delivery failed: %s", type(exc).__name__)
+            raise
 
 
 if REMOTE_TELEMETRY_ENABLED:

@@ -60,6 +60,20 @@ may remain in a provider pending-deletion state after Destroy; this is recorded
 separately from active resources and prevents a strict `green` until it vanishes.
 Actual billed cost requires later provider attribution.
 
+The first AWS→Azure Apply succeeded. Azure Monitor showed ten incoming messages
+on `domain-telemetry-received`, ten outgoing from that hub, ten terminal records
+on `domain-telemetry-failure`, zero on the processed hub and zero authenticated
+L3 points. The readback reached its 60-poll limit after 476.4 s. The domain
+delivery endpoint was invoked; its existing logs did not expose the returned
+contract error code. The next package logs only that bounded error code or
+exception type so a retry can distinguish a rejected event from a transient
+failure. No delivery fix is inferred from the diagnostic alone.
+The failed attempt's foundation, two image publications, Apply and Destroy took
+71.0, 79.2/36.7, 644.7 and 876.7 seconds respectively. Destroy and independent
+inventory found no active AWS/Azure/Entra resources; one inactive AWS IoT
+Command remains `pendingDeletion` and keeps strict `green` false. Billed cost
+attribution is pending.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
