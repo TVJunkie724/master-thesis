@@ -116,6 +116,19 @@ Unexpected updates, replacements, deletes, new addresses or a second failure
 still trigger immediate Destroy and independent inventory. This does not extend
 the functional deadline or treat a successful Apply as telemetry proof.
 
+The subsequent AWS→Azure Core run on 2026-09-23 passed without needing that
+retry. Ten AWS IoT telemetry messages reached authenticated Azure L3 readback
+with all ten expected values. Verification took 148.6 s; observed
+message-to-persistence intervals were 58.4–146.7 s (median 105.2 s) in this
+small, cold-start-affected sample, not a steady-state latency claim. Image
+foundation, AWS/Azure image publication and Apply took 71.6, 80.7/35.1 and
+668.2 s. Destroy succeeded in 889.3 s, followed by independent AWS, Azure and
+Entra inventory with zero active run-owned resources. One inactive AWS IoT
+Command still has `pendingDeletion`; the strict all-clear remains false until
+the provider removes that tombstone. This is a functional RQ2 Core pass and an
+RQ1 deployment/verification/destroy measurement, not evidence for command
+roundtrip, L4/L5, simulator, full E2E or final billed RQ3 costs.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
