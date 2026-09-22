@@ -82,6 +82,31 @@ Azure and GCP adapters default that field to `device_id`. The AWS adapter now
 uses the same fallback while retaining an explicitly supplied Twin ID. Unit
 tests cover both cases; another live run is needed before claiming RQ2 success.
 This is a cross-provider event-contract correction, not an L4/L5 or UI change.
+The failed AWS→GCP attempt took 63.0 s for image foundation, 83.9/219.1 s
+for AWS/GCP images, 576.5 s for Apply, 194.4 s for verification and 445.1 s
+for Destroy. Independent inventory found zero active resources. One inactive
+AWS IoT Command and one GCP Logging bucket in provider-managed pending-deletion
+state remain; neither is counted as a functional pass or fully green cleanup.
+The run-owned GCP workload identity pool was also checked read-only and absent.
+The corrected AWS→GCP retry passed its bounded Core telemetry path: ten sent,
+ten authenticated GCP L3 readbacks, with 26.6 s verification and observed
+message-to-persistence values of 21.3–23.8 s in this small sample. Apply and
+Destroy took 604.9 and 443.3 s. Independent inventory again found zero active
+resources and no run-owned GCP identity pool. The same two provider-managed
+pending-deletion tombstones keep the strict all-clear false until they expire;
+they do not invalidate the functional result. No L4/L5, simulator or command
+roundtrip was exercised.
+The AWS→Azure retry stopped during Apply, before any telemetry was sent. The
+Azure Processing Flex Function's package deployment reported a Kudu restart
+during publication; Terraform consequently returned a failed deployment. This
+is an observed deploy failure, not a failed L1–L3/Event message assertion. Its
+foundation, AWS/Azure image publication, partial Apply and Destroy took 72.3,
+79.4/39.2, 443.3 and 929.1 s. Destroy succeeded and independent inventory
+found zero active AWS, Azure or Entra resources. One inactive AWS IoT Command
+remains `pendingDeletion`. Do not claim this directed case green without a new
+successful deploy, telemetry readback and cleanup. Further runs require a fresh
+cost decision because the current supervised attempt allowance is exhausted;
+the ledger is not a provider billing ceiling.
 
 #### Slice plan and earlier attempts
 
