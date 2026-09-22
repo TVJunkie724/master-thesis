@@ -220,6 +220,7 @@ def _ingress_event(payload: Mapping[str, Any]) -> dict[str, Any]:
     body = dict(source_body)
     body.pop("event_type", None)
     body.pop("channel", None)
+    body["twin_id"] = body.get("twin_id") or body.get("device_id") or _partition_key(payload)
     return {
         "schema_version": "canonical-domain-event.v1",
         "event_id": event_id,

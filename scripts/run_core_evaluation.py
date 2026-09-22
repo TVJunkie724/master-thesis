@@ -110,7 +110,7 @@ def deadline(seconds):
 
 def reserve(ledger_path, provider, run_id, cap, amount):
     ledger = json.loads(ledger_path.read_text()) if ledger_path.exists() else []
-    used = sum(item["allowance_eur"] for item in ledger if item["provider"] == provider)
+    used = sum(item["allowance_eur"] for item in ledger)
     if amount <= 0 or cap <= 0 or used + amount > cap:
         raise RuntimeError("CORE_CUMULATIVE_ALLOWANCE_EXHAUSTED")
     ledger.append({"provider": provider, "run_id": run_id, "allowance_eur": amount})

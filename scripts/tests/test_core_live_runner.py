@@ -22,12 +22,11 @@ def test_allowance_is_cumulative_and_rejected_without_overwriting(tmp_path):
     path = tmp_path / "ledger.json"
     reserve(path, "aws", "one", 2, 1)
     reserve(path, "azure", "other", 2, 1)
-    reserve(path, "aws", "two", 2, 1)
     previous = path.read_bytes()
     with pytest.raises(RuntimeError, match="ALLOWANCE_EXHAUSTED"):
-        reserve(path, "aws", "three", 2, 1)
+        reserve(path, "gcp", "three", 2, 1)
     assert path.read_bytes() == previous
-    assert len(json.loads(previous)) == 3
+    assert len(json.loads(previous)) == 2
     assert path.stat().st_mode & 0o077 == 0
 
 

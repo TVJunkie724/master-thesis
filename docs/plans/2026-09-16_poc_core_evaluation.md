@@ -74,6 +74,15 @@ inventory found no active AWS/Azure/Entra resources; one inactive AWS IoT
 Command remains `pendingDeletion` and keeps strict `green` false. Billed cost
 attribution is pending.
 
+The first AWS→GCP Apply also succeeded, but the destination readback remained
+empty. GCP Event runtime reported `DESTINATION_NOT_ACCEPTED`; the destination
+processor rejected the incoming received events with `INVALID_TWIN_ID`. The
+AWS ingress adapter had forwarded a payload without `twin_id`, whereas the
+Azure and GCP adapters default that field to `device_id`. The AWS adapter now
+uses the same fallback while retaining an explicitly supplied Twin ID. Unit
+tests cover both cases; another live run is needed before claiming RQ2 success.
+This is a cross-provider event-contract correction, not an L4/L5 or UI change.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub

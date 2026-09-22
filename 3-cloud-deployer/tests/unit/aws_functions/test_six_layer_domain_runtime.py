@@ -234,6 +234,7 @@ def test_event_adapter_emits_canonical_received_event_to_local_fifo(monkeypatch)
     envelope = json.loads(message["MessageBody"])
     assert envelope["event_type"] == "telemetry.received.v1"
     assert envelope["producer"] == "component.device-ingress"
+    assert envelope["payload"]["twin_id"] == "device-1"
     assert "stored_at" not in envelope["payload"]
 
 
@@ -317,6 +318,13 @@ def test_canonical_source_id_is_bounded_and_drives_ordering_key():
     event["source_id"] = "d" * 129
     with pytest.raises(runtime.ContractError, match="INVALID_CANONICAL_EVENT"):
         runtime._validate_canonical_event(event)
+
+
+def test_ingress_event_keeps_explicit_twin_id_for_federation():
+    event = _module()._ingress_event(
+        {"device_id": "device-1", "twin_id": "twin-1", "value": 21.5}
+    )
+    assert event["payload"]["twin_id"] == "twin-1"
 
 
 def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
