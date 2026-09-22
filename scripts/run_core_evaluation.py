@@ -1,4 +1,4 @@
-"""Supervised, single-provider Core research run; never full-profile admission.
+"""Supervised Core research run; never full-profile admission.
 
 Run inside the deployment container. All raw output/state remains in a private
 directory; stdout contains only phase names, timings and non-identifying counts.
@@ -151,16 +151,36 @@ def run(args):
         raise SystemExit("CORE_TERMINATED")
     signal.signal(signal.SIGTERM, interrupted)
     provider = args.provider
-    directed = getattr(args, "azure_to_aws", False)
-    if directed and provider != "aws":
-        raise ValueError("The fixed Azure-to-AWS case uses the AWS destination runner")
-    run_id = ("corea2a" if directed else "core" + provider) + "-" + uuid.uuid4().hex[:8]
+    azure_to_aws = getattr(args, "azure_to_aws", False)
+    aws_to_azure = getattr(args, "aws_to_azure", False)
+    aws_to_gcp = getattr(args, "aws_to_gcp", False)
+    if sum((azure_to_aws, aws_to_azure, aws_to_gcp)) > 1:
+        raise ValueError("Select only one directed Core scenario")
+    if azure_to_aws and provider != "aws":
+        raise ValueError("The Azure-to-AWS case uses the AWS destination runner")
+    if aws_to_azure and provider != "azure":
+        raise ValueError("The AWS-to-Azure case uses the Azure destination runner")
+    if aws_to_gcp and provider != "gcp":
+        raise ValueError("The AWS-to-GCP case uses the GCP destination runner")
+    directed = azure_to_aws or aws_to_azure or aws_to_gcp
+    scenario = ("core-small-azure-to-aws" if azure_to_aws else
+                "core-small-aws-to-azure" if aws_to_azure else
+                "core-small-aws-to-gcp" if aws_to_gcp else "core-small-local-" + provider)
+    run_id = ("corea2a" if azure_to_aws else "corea2z" if aws_to_azure else
+              "corea2g" if aws_to_gcp else
+              "core" + provider) + "-" + uuid.uuid4().hex[:8]
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
     values = prepare(provider, root / "runtime")
-    if directed:
-        from scripts import core_live_azure_to_aws
-        core_live_azure_to_aws.configure(values, root / "runtime")
+    directed_ops = None
+    if azure_to_aws:
+        from scripts import core_live_azure_to_aws as directed_ops
+    elif aws_to_azure:
+        from scripts import core_live_aws_to_azure as directed_ops
+    elif aws_to_gcp:
+        from scripts import core_live_aws_to_gcp as directed_ops
+    if directed_ops:
+        directed_ops.configure(values, root / "runtime")
     values["digital_twin_name"] = run_id
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
     credentials = json.loads(args.credentials.read_text())
@@ -171,27 +191,32 @@ def run(args):
     values.update({key: credentials["azure"][key] for key in (
         "azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id")})
     ops = importlib.import_module("scripts.core_live_" + provider)
-    if directed:
-        ops = core_live_azure_to_aws
-    publisher_module = importlib.import_module("src.providers.terraform." + provider + "_six_layer_image_publisher")
-    publisher_class = getattr(publisher_module, {"aws": "Aws", "azure": "Azure", "gcp": "Gcp"}[provider] + "SixLayerImagePublisher")
-    targets = {"aws": AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
-               "azure": AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
-               "gcp": GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS}[provider]
-    if provider == "aws":
+    if directed_ops:
+        ops = directed_ops
+    image_providers = directed_ops.image_providers if directed_ops and hasattr(directed_ops, "image_providers") else (provider,)
+    publishers = {
+        name: importlib.import_module("src.providers.terraform." + name + "_six_layer_image_publisher")
+        for name in image_providers
+    }
+    targets_by_provider = {"aws": AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
+                           "azure": AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS,
+                           "gcp": GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS}
+    targets = tuple(target for name in image_providers for target in targets_by_provider[name])
+    if "aws" in image_providers:
         account = ops.session(values).client("sts").get_caller_identity()["Account"]
-        values["aws_six_layer_storage_mover_image"] = (
-            f"{account}.dkr.ecr.{values['aws_region']}.amazonaws.com/{run_id}-six-images@sha256:" + "0" * 64
-        )
-    elif provider == "azure":
+        placeholder = f"{account}.dkr.ecr.{values['aws_region']}.amazonaws.com/{run_id}-six-images@sha256:" + "0" * 64
+        values["aws_six_layer_storage_mover_image"] = placeholder
+        if aws_to_azure or aws_to_gcp:
+            values["aws_six_layer_bridge_image"] = placeholder
+    if "azure" in image_providers:
         values["azure_six_layer_storage_mover_image"] = "unpublished.azurecr.io/storage-mover@sha256:" + "0" * 64
-    else:
+    if provider == "gcp":
         info = json.loads(args.gcp_credentials.read_text())
         if info["project_id"] != credentials["gcp"]["gcp_project_id"]:
             raise RuntimeError("CORE_GCP_PROJECT_MISMATCH")
         values.update(gcp_credentials_json=json.dumps(info), gcp_project_id=info["project_id"],
                       gcp_deployment_principal_email=info["client_email"])
-        values.update(publisher_module.placeholder_image_tfvars(values))
+        values.update(publishers["gcp"].placeholder_image_tfvars(values))
     folder = root / "terraform"
     shutil.copytree(ROOT / "3-cloud-deployer/src/terraform", folder,
                     ignore=shutil.ignore_patterns(".terraform", "*.tfstate*", "*.tfplan"))
@@ -205,7 +230,7 @@ def run(args):
     functional_limit = functional_seconds(provider, args.functional_seconds)
     report = {
         "provider": provider,
-        "scenario": "core-small-azure-to-aws" if directed else "core-small-local-" + provider,
+        "scenario": scenario,
         "scope": "core",
         "green": False,
         "started_at": utc_now(),
@@ -253,7 +278,10 @@ def run(args):
             save(root / "report.json", report)
 
     try:
-        image_inputs = phase("validate_image_contexts", lambda: publisher_module.image_requests(root / "runtime", values))
+        image_inputs = phase("validate_image_contexts", lambda: {
+            name: module.image_requests(root / "runtime", values)
+            for name, module in publishers.items()
+        })
         phase("initialize", lambda: tf.run("init", "-no-color"))
         if directed:
             identity = phase("federation_readiness", lambda: ops.readiness(values))
@@ -275,6 +303,10 @@ def run(args):
                         "gcp": ("google_", "kubernetes_", "tls_", "local_")}[provider]
             if directed:
                 prefixes += ("azurerm_", "azapi_", "azuread_")
+                if aws_to_azure or aws_to_gcp:
+                    prefixes += ("aws_", "awscc_")
+                if aws_to_gcp:
+                    prefixes += ("google_", "kubernetes_", "tls_", "local_")
             if not kind.startswith(prefixes + ("random_", "terraform_")):
                 raise RuntimeError("CORE_WRONG_PROVIDER_RESOURCE")
             report["create_counts"][kind] = report["create_counts"].get(kind, 0) + 1
@@ -282,21 +314,24 @@ def run(args):
         if getattr(args, "plan_only", False):
             report["plan_reviewed_without_mutation"] = True
             return 0
-        reserve(args.ledger, "azure-to-aws" if directed else provider, run_id, args.cap_eur, args.reserve_eur)
+        reserve(args.ledger, scenario, run_id, args.cap_eur, args.reserve_eur)
         mutated = True  # Set before the first mutation, including partial failure.
         with deadline(functional_limit):
             phase("image_foundation", lambda: tf.run("apply", "-auto-approve", "-no-color",
                   *["-target=" + target for target in targets]))
             outputs = tf.outputs()
-            publisher = publisher_class.from_tfvars_and_outputs(
-                project_path=root / "runtime", tfvars=values, outputs=outputs)
-            images = phase("publish_images", lambda: publisher.publish(image_inputs))
-            values.update(publisher_module.image_tfvars(images, values))
+            images = {}
+            for name, module in publishers.items():
+                publisher_class = getattr(module, {"aws": "Aws", "azure": "Azure", "gcp": "Gcp"}[name] + "SixLayerImagePublisher")
+                publisher = publisher_class.from_tfvars_and_outputs(
+                    project_path=root / "runtime", tfvars=values, outputs=outputs)
+                images[name] = phase("publish_images_" + name, lambda p=publisher, n=name: p.publish(image_inputs[n]))
+                values.update(module.image_tfvars(images[name], values))
             for key, value in values.items():
                 env["TF_VAR_" + key] = json.dumps(value) if not isinstance(value, str) else value
             save(root / "image-digests.json", images)
             phase("deploy", lambda: tf.run("apply", "-auto-approve", "-no-color"))
-            if provider == "gcp":
+            if provider == "gcp" and not directed:
                 values["gcp_six_layer_kubernetes_stage_enabled"] = True
                 env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "true"
                 phase("deploy_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color"))
@@ -376,6 +411,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("provider", choices=("aws", "azure", "gcp"))
     parser.add_argument("--azure-to-aws", action="store_true", help="Run only the fixed Azure-ingress/AWS-Core scenario.")
+    parser.add_argument("--aws-to-azure", action="store_true", help="Run only the fixed AWS-ingress/Azure-Core scenario.")
+    parser.add_argument("--aws-to-gcp", action="store_true", help="Run only the fixed AWS-ingress/GCP-Core scenario.")
     parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)

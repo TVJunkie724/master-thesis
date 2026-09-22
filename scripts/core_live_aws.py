@@ -152,6 +152,12 @@ def diagnostics(values, outputs):
 
 def smoke(values, outputs):
     """Ten IoT ingress messages, real Event/L2/L3 delivery, IAM reader invocation."""
+    now, sent_at = send_telemetry(values)
+    return readback(values, outputs, now, sent_at)
+
+
+def send_telemetry(values):
+    """Publish the ten canonical messages through the real AWS IoT ingress."""
     aws = session(values)
     iot = aws.client("iot")
     endpoint = iot.describe_endpoint(endpointType="iot:Data-ATS")["endpointAddress"]
@@ -170,7 +176,7 @@ def smoke(values, outputs):
                             "event_time": (now + timedelta(milliseconds=number)).isoformat()},
             }).encode(),
         )
-    return readback(values, outputs, now, sent_at)
+    return now, sent_at
 
 
 def readback(values, outputs, now, sent_at):

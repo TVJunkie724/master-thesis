@@ -142,6 +142,12 @@ def send_telemetry(values, outputs):
 
 
 def smoke(values, outputs):
+    now, started = send_telemetry(values, outputs)
+    return readback(values, outputs, now, started)
+
+
+def readback(values, outputs, now, started):
+    """Query the authenticated Azure L3 reader after local or remote ingress."""
     group = outputs["azure_six_layer_resource_group_name"]
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
     resources = arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
@@ -149,7 +155,6 @@ def smoke(values, outputs):
     reader_id = next(r["id"] for r in resources if r["name"] == read["reader_function_name"])
     read_keys = arm(values, "POST", reader_id + "/host/default/listkeys?api-version=2024-04-01")
     key = read_keys.get("functionKeys", {}).get("default") or read_keys["masterKey"]
-    now, started = send_telemetry(values, outputs)
     device = "core-sensor"
     query = {"device_id": device, "metric": "temperature", "bucket_seconds": "0", "limit": "100",
              "from": (now - timedelta(minutes=1)).isoformat(), "to": (now + timedelta(minutes=10)).isoformat()}

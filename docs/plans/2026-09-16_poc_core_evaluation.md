@@ -38,6 +38,28 @@ passes this telemetry path; RQ3 retains its explicit bridge/broker topology.
 The other five directed Core cases, command roundtrip, storage transitions and
 L4/L5 are not validated by this run. No further live run was started after success.
 
+### Next two directed Core smokes
+
+The next supervised cases are `core-small-aws-to-azure` and
+`core-small-aws-to-gcp`, sequentially. Both send ten canonical IoT messages from
+AWS and verify authenticated hot-storage readback at the destination. They
+retain the existing reverse command bindings without claiming command receipt.
+The source uses the existing AWS bridge image; Azure uses one storage-mover
+image, while GCP uses platform, event-runtime, processor-extension and
+storage-mover images. A fixed-case runner reuses existing sender/readers and
+combines source/destination image foundations, diagnostics and inventories.
+
+Read-only account-bound plans pass create-only review: 161 entries for AWS→Azure
+and 151 for AWS→GCP. The first includes three AWS Lambdas and six Azure Flex
+Functions, Azure Event Hubs/Service Bus, Cosmos DB and one Logic App. The second
+includes three AWS Lambdas and eight GCP Cloud Run services, Pub/Sub, Firestore,
+one Workflow and one Logging bucket. Neither plan includes GKE or L4/L5.
+Every live attempt has a bounded functional window, immediate Destroy and
+independent source/destination residual inventory. GCP's managed Logging bucket
+may remain in a provider pending-deletion state after Destroy; this is recorded
+separately from active resources and prevents a strict `green` until it vanishes.
+Actual billed cost requires later provider attribution.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub

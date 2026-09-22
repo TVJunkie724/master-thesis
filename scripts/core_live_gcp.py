@@ -179,6 +179,12 @@ def smoke(values, outputs):
     finally:
         connection.disconnect()
         connection.loop_stop()
+    return readback(values, outputs, now, started, readiness)
+
+
+def readback(values, outputs, now, started, readiness=None):
+    """Query authenticated GCP hot storage after local or remote ingress."""
+    readiness = readiness or {}
     read = outputs["gcp_component_storage_read_access_output"]["access_url"]
     audience = read.split("/raw-history/")[0]
     token = service_account.IDTokenCredentials.from_service_account_info(
