@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import base64
+import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +19,7 @@ from src.runtime.six_layer_eventing.destination_publishers import (
     AwsDestinationPublisher,
     AzureDestinationPublisher,
     GcpDestinationPublisher,
+    GcpRestPublisherClient,
     load_destination,
     raise_safe_publish_error,
 )
@@ -311,6 +315,54 @@ def test_gcp_publisher_waits_for_message_id_and_resumes_failed_ordering_key():
     assert publisher_client.resumed == [
         ("projects/project-1/topics/control", "device-1")
     ]
+
+
+def test_azure_gcp_rest_publisher_preserves_event_and_ordering_without_protobuf():
+    calls = []
+
+    class Credentials:
+        def before_request(self, _request, method, url, headers):
+            assert method == "POST"
+            assert url.startswith("https://europe-west1-pubsub.googleapis.com/")
+            headers["Authorization"] = "Bearer private-test-token"
+
+    class Session:
+        def post(self, url, **kwargs):
+            calls.append((url, kwargs))
+            return SimpleNamespace(status_code=200, json=lambda: {"messageIds": ["message-1"]})
+
+    destination = load_destination({"telemetry_topic": "projects/project-1/topics/telemetry"}, provider="gcp")
+    publisher = GcpDestinationPublisher(destination, GcpRestPublisherClient(
+        Credentials(), auth_request=object(), session=Session()))
+    assert publisher.publish(_route("azure", "gcp", channel="telemetry"),
+                             _event("event-1", telemetry=True)) == "message-1"
+    url, kwargs = calls[0]
+    assert url.endswith("/v1/projects/project-1/topics/telemetry:publish")
+    message = kwargs["json"]["messages"][0]
+    assert json.loads(base64.b64decode(message["data"]))["event_id"] == "event-1"
+    assert message["orderingKey"] == "device-1"
+    assert message["attributes"] == {"event_type": "telemetry.received.v1"}
+    assert kwargs["timeout"] == 30
+
+
+@pytest.mark.parametrize("status,expected", [(403, RouteBlockingBridgeError),
+                                              (503, RetryableBridgeError)])
+def test_azure_gcp_rest_publisher_classifies_status_without_response_body(status, expected):
+    class Credentials:
+        def before_request(self, _request, _method, _url, headers):
+            headers["Authorization"] = "Bearer private-test-token"
+
+    class Session:
+        def post(self, _url, **_kwargs):
+            return SimpleNamespace(status_code=status)
+
+    destination = load_destination({"telemetry_topic": "projects/project-1/topics/telemetry"}, provider="gcp")
+    publisher = GcpDestinationPublisher(destination, GcpRestPublisherClient(
+        Credentials(), auth_request=object(), session=Session()))
+    with pytest.raises(expected) as raised:
+        publisher.publish(_route("azure", "gcp", channel="telemetry"),
+                          _event("event-1", telemetry=True))
+    assert "private-test-token" not in str(raised.value)
 
 
 @dataclass

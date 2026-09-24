@@ -1,8 +1,11 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from scripts import core_live_azure_to_gcp as directed
 from scripts.prepare_core_runtime import prepare
+from scripts.run_core_evaluation import safe_failure_metrics
 from src.providers.terraform.azure_six_layer_image_publisher import image_requests as azure_images
 from src.providers.terraform.gcp_six_layer_image_publisher import image_requests as gcp_images
 
@@ -56,6 +59,57 @@ def test_source_readiness_waits_for_both_triggers(monkeypatch):
                                            {"azure_six_layer_resource_group_name": "group"}) == {
         "azure_source_function_readiness_attempts": 2,
     }
+
+
+def test_readback_timeout_keeps_source_and_outbox_counts(monkeypatch):
+    monkeypatch.setattr(directed, "source_functions_ready", lambda *_: {
+        "azure_source_function_readiness_attempts": 2})
+    monkeypatch.setattr(directed.azure, "send_telemetry", lambda *_: (datetime.now(timezone.utc), 1.0))
+    monkeypatch.setattr(directed.gcp, "readback", lambda *_: (_ for _ in ()).throw(
+        RuntimeError("CORE_READBACK_TIMEOUT")))
+    monkeypatch.setattr(directed, "azure_outbox_metrics", lambda *_: {
+        "azure_outbox_metric_http_status": 200, "azure_outbox_incoming": 10,
+        "azure_outbox_outgoing": 0})
+    with pytest.raises(RuntimeError, match="CORE_READBACK_TIMEOUT") as raised:
+        directed.smoke({}, {})
+    assert safe_failure_metrics(raised.value) == {
+        "azure_source_function_readiness_attempts": 2,
+        "azure_outbox_metric_http_status": 200,
+        "azure_outbox_incoming": 10,
+        "azure_outbox_outgoing": 0,
+    }
+
+
+def test_outbox_metrics_return_only_counts(monkeypatch):
+    monkeypatch.setattr(directed.azure, "arm", lambda *_args, **_kwargs: {
+        "value": [{"type": "Microsoft.EventHub/namespaces", "id": "/namespace/id"}]})
+    monkeypatch.setattr(directed.azure, "credential", lambda *_: SimpleNamespace(
+        get_token=lambda *_: SimpleNamespace(token="private-test-token")))
+    def get(*_args, **_kwargs):
+        return SimpleNamespace(status_code=200, json=lambda: {"value": [
+            {"name": {"value": "IncomingMessages"}, "timeseries": [
+                {"data": [{"total": 4}, {"total": 6}]}]},
+            {"name": {"value": "OutgoingMessages"}, "timeseries": [
+                {"data": [{"total": 7}]}]},
+        ]})
+    monkeypatch.setattr(directed.requests, "get", get)
+    result = directed.azure_outbox_metrics(
+        {"azure_subscription_id": "sub"}, {"azure_six_layer_resource_group_name": "group"})
+    assert result == {"azure_outbox_metric_http_status": 200,
+                      "azure_outbox_incoming": 10, "azure_outbox_incoming_points": 2,
+                      "azure_outbox_outgoing": 7, "azure_outbox_outgoing_points": 1}
+    assert "private-test-token" not in str(result)
+
+
+def test_failure_diagnostics_waits_only_for_delayed_azure_logs(monkeypatch):
+    polls = []
+    monkeypatch.setattr(directed.azure, "diagnostics", lambda *_: polls.append(1) or {
+        "workspaces": [{"data": {"tables": [{"rows": [] if len(polls) == 1 else [["safe"]]}]}}]})
+    monkeypatch.setattr(directed.gcp, "diagnostics", lambda *_: {"entries": []})
+    monkeypatch.setattr(directed.time, "sleep", lambda seconds: polls.append(seconds))
+    result = directed.diagnostics({}, {})
+    assert result["azure_log_poll_attempts"] == 2
+    assert polls == [1, 10, 1]
 
 
 def test_deleted_gcp_identity_pool_is_tombstone_not_active(monkeypatch):

@@ -64,8 +64,52 @@ def inventory(values, prefix):
 def smoke(values, outputs):
     source = source_functions_ready(values, outputs)
     now, started = azure.send_telemetry(values, outputs)
-    return {**gcp.readback(values, outputs, now, started),
-            **source, "source_provider": "azure", "destination_provider": "gcp"}
+    try:
+        readback = gcp.readback(values, outputs, now, started)
+    except RuntimeError as exc:
+        if str(exc) == "CORE_READBACK_TIMEOUT":
+            try:
+                outbox = azure_outbox_metrics(values, outputs)
+            except Exception:
+                # Diagnostics must never replace the original functional failure.
+                outbox = {"azure_outbox_metric_http_status": 0}
+            exc.safe_metrics = {**getattr(exc, "safe_metrics", {}), **source,
+                                **outbox}
+        raise
+    return {**readback, **source,
+            "source_provider": "azure", "destination_provider": "gcp"}
+
+
+def azure_outbox_metrics(values, outputs):
+    """Read namespace counters only; no Event Hub payload or credential is stored."""
+    group = outputs["azure_six_layer_resource_group_name"]
+    base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
+    resources = azure.arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
+    namespaces = [item for item in resources
+                  if item["type"].lower() == "microsoft.eventhub/namespaces"]
+    if len(namespaces) != 1:
+        return {"azure_outbox_metric_http_status": 0}
+    token = azure.credential(values).get_token("https://management.azure.com/.default").token
+    response = requests.get("https://management.azure.com" + namespaces[0]["id"]
+                            + "/providers/Microsoft.Insights/metrics",
+                            params={"api-version": "2023-10-01",
+                                    "metricnamespace": "Microsoft.EventHub/namespaces",
+                                    "metricnames": "IncomingMessages,OutgoingMessages",
+                                    "aggregation": "Total", "interval": "PT1M"},
+                            headers={"Authorization": "Bearer " + token}, timeout=30)
+    result = {"azure_outbox_metric_http_status": response.status_code}
+    if response.status_code != 200:
+        return result
+    for item in response.json().get("value", []):
+        name = item.get("name", {}).get("value")
+        if name not in ("IncomingMessages", "OutgoingMessages"):
+            continue
+        points = [point["total"] for series in item.get("timeseries", [])
+                  for point in series.get("data", []) if isinstance(point.get("total"), (int, float))]
+        result["azure_outbox_" + ("incoming" if name == "IncomingMessages" else "outgoing")] = sum(points)
+        result["azure_outbox_" + ("incoming" if name == "IncomingMessages" else "outgoing")
+               + "_points"] = len(points)
+    return result
 
 
 def source_functions_ready(values, outputs, attempts=18, pause_seconds=5):
@@ -96,4 +140,15 @@ def stop_builds(values, outputs):
 
 
 def diagnostics(values, outputs):
-    return {"azure": azure.diagnostics(values, outputs), "gcp": gcp.diagnostics(values, outputs)}
+    # Flex resource logs can trail the failed invocation; bounded read-only
+    # polling runs before immediate destroy and never replays the workload.
+    azure_logs = {}
+    for attempt in range(2):
+        azure_logs = azure.diagnostics(values, outputs)
+        if any(table.get("rows") for workspace in azure_logs.get("workspaces", [])
+               for table in workspace.get("data", {}).get("tables", [])):
+            break
+        if attempt == 0:
+            time.sleep(10)
+    return {"azure": azure_logs, "azure_log_poll_attempts": attempt + 1,
+            "gcp": gcp.diagnostics(values, outputs)}

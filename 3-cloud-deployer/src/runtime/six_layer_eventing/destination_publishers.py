@@ -1,7 +1,9 @@
-"""Official-SDK destination data-plane publishers for the Phase 8 bridge."""
+"""Provider data-plane publishers for the Phase 8 bridge."""
 
 from __future__ import annotations
 
+import base64
+from concurrent.futures import Future
 from dataclasses import dataclass
 import hashlib
 import json
@@ -425,6 +427,54 @@ class GcpDestinationPublisher:
             raise_safe_publish_error(exc)
 
 
+class _GcpRestHttpError(Exception):
+    """Keep HTTP classification without retaining a provider response body."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+
+class GcpRestPublisherClient:
+    """Small Pub/Sub REST adapter for Azure Flex's incompatible protobuf runtime."""
+
+    def __init__(self, credentials: object, *, auth_request: object = None,
+                 session: object = None) -> None:
+        if auth_request is None:
+            from google.auth.transport.requests import Request
+
+            auth_request = Request()
+        if session is None:
+            import requests
+
+            session = requests.Session()
+        self._credentials = credentials
+        self._auth_request = auth_request
+        self._session = session
+
+    def publish(self, topic: str, data: bytes, *, ordering_key: str,
+                event_type: str) -> Future[str]:
+        url = f"https://{GCP_PUBSUB_ENDPOINT}/v1/{topic}:publish"
+        headers = {"Content-Type": "application/json"}
+        self._credentials.before_request(self._auth_request, "POST", url, headers)
+        response = self._session.post(
+            url,
+            headers=headers,
+            json={"messages": [{"data": base64.b64encode(data).decode("ascii"),
+                                "orderingKey": ordering_key,
+                                "attributes": {"event_type": event_type}}]},
+            timeout=30,
+        )
+        if response.status_code != 200:
+            raise _GcpRestHttpError(response.status_code)
+        message_ids = response.json().get("messageIds")
+        if (not isinstance(message_ids, list) or len(message_ids) != 1
+                or not isinstance(message_ids[0], str) or not message_ids[0]):
+            raise RetryableBridgeError("DESTINATION_NOT_ACCEPTED")
+        completed: Future[str] = Future()
+        completed.set_result(message_ids[0])
+        return completed
+
+
 __all__ = [
     "AWS_REGION",
     "AZURE_NAMESPACE_SUFFIX",
@@ -435,6 +485,7 @@ __all__ = [
     "AzureDestinationPublisher",
     "GcpDestination",
     "GcpDestinationPublisher",
+    "GcpRestPublisherClient",
     "load_destination",
     "raise_safe_publish_error",
 ]

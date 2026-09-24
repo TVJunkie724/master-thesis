@@ -80,7 +80,10 @@ def terraform_resource_timings(log):
 
 def safe_failure_metrics(error):
     allowed = {"readback_poll_attempts", "readback_timeout_count", "readback_wait_seconds",
-               "mqtt_connect_attempts", "mqtt_connect_wait_seconds"}
+               "mqtt_connect_attempts", "mqtt_connect_wait_seconds",
+               "azure_source_function_readiness_attempts", "azure_outbox_metric_http_status",
+               "azure_outbox_incoming", "azure_outbox_incoming_points",
+               "azure_outbox_outgoing", "azure_outbox_outgoing_points"}
     metrics = getattr(error, "safe_metrics", {})
     if not isinstance(metrics, dict):
         return {}
@@ -123,6 +126,15 @@ def azure_flex_kudu_restart(log):
     return (len(re.findall(r"(?m)^Error: ", value)) == 1
             and "[KuduSpecializer] Kudu has been restarted during deployment" in value
             and re.search(r"\bwith module\.azure_six_layer_[a-z_]+_package\[", value) is not None)
+
+
+def azure_iothub_concurrent_write(log):
+    """Recognize only the observed transient IoT policy provisioning race."""
+    value = log.read_text(errors="replace")
+    return (len(re.findall(r"(?m)^Error: ", value)) == 1
+            and 'Code="ConflictingConcurrentWriteNotAllowed"' in value
+            and re.search(r"\bwith azurerm_iothub_shared_access_policy\.azure_six_layer_ingress\b", value)
+            is not None)
 
 
 def retry_create_count(plan, approved_addresses):
@@ -358,10 +370,13 @@ def run(args):
                 phase("deploy", lambda: tf.run("apply", "-auto-approve", "-no-color"))
             except RuntimeError:
                 failed_log = folder / f"command-{tf.sequence:02d}.log"
-                if not (aws_to_azure or azure_to_gcp) or not azure_flex_kudu_restart(failed_log):
+                transient = ("AZURE_FLEX_KUDU_RESTART" if azure_flex_kudu_restart(failed_log)
+                             else "AZURE_IOTHUB_CONCURRENT_WRITE" if azure_iothub_concurrent_write(failed_log)
+                             else "")
+                if not (aws_to_azure or azure_to_gcp) or not transient:
                     raise
-                report["deploy_retry_code"] = "AZURE_FLEX_KUDU_RESTART"
-                phase("deploy_retry_backoff", lambda: time.sleep(45))
+                report["deploy_retry_code"] = transient
+                phase("deploy_retry_backoff", lambda: time.sleep(60 if transient == "AZURE_IOTHUB_CONCURRENT_WRITE" else 45))
                 phase("deploy_retry_plan", lambda: tf.run("plan", "-no-color", "-out=retry.plan"))
                 retry_plan = json.loads(tf.run("show", "-json", "retry.plan").read_text())
                 report["deploy_retry_create_count"] = retry_create_count(

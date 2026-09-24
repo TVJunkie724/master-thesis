@@ -10,6 +10,7 @@ from scripts.run_core_evaluation import (
     CoreDeadlineExceeded,
     Terraform,
     azure_flex_kudu_restart,
+    azure_iothub_concurrent_write,
     deadline,
     functional_seconds,
     reserve,
@@ -106,6 +107,20 @@ def test_azure_kudu_retry_is_only_for_one_package_restart(tmp_path):
     assert not azure_flex_kudu_restart(log)
     log.write_text('Error: CORE_DEADLINE\n')
     assert not azure_flex_kudu_restart(log)
+
+
+def test_azure_iothub_retry_is_only_for_one_policy_race(tmp_path):
+    log = tmp_path / "command-01.log"
+    log.write_text(
+        'Error: updating Shared Access Policy: Code="ConflictingConcurrentWriteNotAllowed"\n'
+        '  with azurerm_iothub_shared_access_policy.azure_six_layer_ingress[0],\n'
+    )
+    assert azure_iothub_concurrent_write(log)
+    log.write_text(log.read_text() + 'Error: unrelated provider failure\n')
+    assert not azure_iothub_concurrent_write(log)
+    log.write_text('Error: Code="ConflictingConcurrentWriteNotAllowed"\n'
+                   '  with azurerm_iothub.azure_azure_iot_hub[0],\n')
+    assert not azure_iothub_concurrent_write(log)
 
 
 def test_retry_plan_can_only_finish_original_creates():

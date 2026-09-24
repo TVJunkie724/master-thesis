@@ -136,7 +136,9 @@ def test_azure_six_layer_graph_app_is_a_standalone_deterministic_package(tmp_pat
         assert "cross_cloud_control_bridge" in function_app
         assert 'max_retry_count="5"' in function_app
         assert "_event_hub_delivery_attempt(context)" in function_app
-        assert "google-cloud-pubsub==2.39.0" in requirements
+        assert "google-auth==2.56.0" in requirements
+        assert "requests==2.34.2" in requirements
+        assert "google-cloud-pubsub" not in requirements
         assert "boto3==1.43.47" in requirements
 
 
