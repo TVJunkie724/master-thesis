@@ -129,6 +129,46 @@ the provider removes that tombstone. This is a functional RQ2 Core pass and an
 RQ1 deployment/verification/destroy measurement, not evidence for command
 roundtrip, L4/L5, simulator, full E2E or final billed RQ3 costs.
 
+### Azure to GCP Core checkpoint (2026-09-24)
+
+The next directed case used Azure IoT Hub and its ZIP-deployed source Function,
+then the GCP Event Layer, processing and L3 hot storage. Its account-bound
+Terraform plan contained 149 create-only entries, including four published GCP
+images, eight Cloud Run services, Pub/Sub, Firestore and one run-owned workload
+identity pool/provider. No GKE, L4 or L5 resource was planned. The fixed-case
+runner and its offline tests were added without changing the architecture or
+the other directed cases.
+
+Two individually destroyed attempts completed Apply and each received HTTP 204
+for ten Azure IoT Hub telemetry sends. Neither returned the ten expected values
+from authenticated GCP L3 readback within its bounded ~202-second verification
+window. The second attempt waited read-only until both Azure source functions
+were registered before sending, so missing trigger registration at send time is
+not an adequate explanation. The available GCP logs show successful reader
+requests but do not establish where the events stopped. Azure source logs were
+not available in the first immediate diagnostic query; an extra Azure metrics
+query failed in the second and was removed rather than retained as a new
+dependency. Do not infer a federation, bridge, or processing defect from these
+observations alone.
+
+| Attempt | GCP image foundation/publication (s) | Apply (s) | Verification (s) | Destroy (s) | Outcome |
+|---|---:|---:|---:|---:|---|
+| First | 35.3 / 215.5 | 953.5 | 202.1 | 471.1 | L3 readback timeout |
+| Second | 30.8 / 227.6 | 909.9 | 201.6 | 473.8 | L3 readback timeout |
+
+Both Terraform destroys succeeded. Independent Azure resource-group, Entra,
+GCP workload and project-IAM inventory found zero active run-owned resources.
+GCP retains only a Logging bucket and a workload identity pool in provider
+`DELETED`/pending-deletion states; the pool's state was checked read-only and
+the inventory now classifies it as a tombstone, not an active resource. Strict
+all-clear remains false while those tombstones exist. RQ1 has deployment and
+cleanup timings; RQ2 does **not** have an Azure→GCP Core pass; RQ3 provider-billed
+cost is pending attribution and must not be equated with a planning allowance.
+No command roundtrip, L4/L5, simulator or full E2E claim follows from these runs.
+Before another paid attempt, inspect source-outbox and target-ingress counts
+within a bounded run to locate the first missing hop; this needs a separate
+cost decision.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub

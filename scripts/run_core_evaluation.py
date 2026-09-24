@@ -172,7 +172,8 @@ def run(args):
     azure_to_aws = getattr(args, "azure_to_aws", False)
     aws_to_azure = getattr(args, "aws_to_azure", False)
     aws_to_gcp = getattr(args, "aws_to_gcp", False)
-    if sum((azure_to_aws, aws_to_azure, aws_to_gcp)) > 1:
+    azure_to_gcp = getattr(args, "azure_to_gcp", False)
+    if sum((azure_to_aws, aws_to_azure, aws_to_gcp, azure_to_gcp)) > 1:
         raise ValueError("Select only one directed Core scenario")
     if azure_to_aws and provider != "aws":
         raise ValueError("The Azure-to-AWS case uses the AWS destination runner")
@@ -180,12 +181,15 @@ def run(args):
         raise ValueError("The AWS-to-Azure case uses the Azure destination runner")
     if aws_to_gcp and provider != "gcp":
         raise ValueError("The AWS-to-GCP case uses the GCP destination runner")
-    directed = azure_to_aws or aws_to_azure or aws_to_gcp
+    if azure_to_gcp and provider != "gcp":
+        raise ValueError("The Azure-to-GCP case uses the GCP destination runner")
+    directed = azure_to_aws or aws_to_azure or aws_to_gcp or azure_to_gcp
     scenario = ("core-small-azure-to-aws" if azure_to_aws else
                 "core-small-aws-to-azure" if aws_to_azure else
-                "core-small-aws-to-gcp" if aws_to_gcp else "core-small-local-" + provider)
+                "core-small-aws-to-gcp" if aws_to_gcp else
+                "core-small-azure-to-gcp" if azure_to_gcp else "core-small-local-" + provider)
     run_id = ("corea2a" if azure_to_aws else "corea2z" if aws_to_azure else
-              "corea2g" if aws_to_gcp else
+              "corea2g" if aws_to_gcp else "corez2g" if azure_to_gcp else
               "core" + provider) + "-" + uuid.uuid4().hex[:8]
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -197,6 +201,8 @@ def run(args):
         from scripts import core_live_aws_to_azure as directed_ops
     elif aws_to_gcp:
         from scripts import core_live_aws_to_gcp as directed_ops
+    elif azure_to_gcp:
+        from scripts import core_live_azure_to_gcp as directed_ops
     if directed_ops:
         directed_ops.configure(values, root / "runtime")
     values["digital_twin_name"] = run_id
@@ -352,7 +358,7 @@ def run(args):
                 phase("deploy", lambda: tf.run("apply", "-auto-approve", "-no-color"))
             except RuntimeError:
                 failed_log = folder / f"command-{tf.sequence:02d}.log"
-                if not aws_to_azure or not azure_flex_kudu_restart(failed_log):
+                if not (aws_to_azure or azure_to_gcp) or not azure_flex_kudu_restart(failed_log):
                     raise
                 report["deploy_retry_code"] = "AZURE_FLEX_KUDU_RESTART"
                 phase("deploy_retry_backoff", lambda: time.sleep(45))
@@ -445,6 +451,7 @@ if __name__ == "__main__":
     parser.add_argument("--azure-to-aws", action="store_true", help="Run only the fixed Azure-ingress/AWS-Core scenario.")
     parser.add_argument("--aws-to-azure", action="store_true", help="Run only the fixed AWS-ingress/Azure-Core scenario.")
     parser.add_argument("--aws-to-gcp", action="store_true", help="Run only the fixed AWS-ingress/GCP-Core scenario.")
+    parser.add_argument("--azure-to-gcp", action="store_true", help="Run only the fixed Azure-ingress/GCP-Core scenario.")
     parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
