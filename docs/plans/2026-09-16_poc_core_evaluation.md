@@ -148,8 +148,10 @@ not an adequate explanation. The available GCP logs show successful reader
 requests but do not establish where the events stopped. Azure source logs were
 not available in the first immediate diagnostic query; an extra Azure metrics
 query failed in the second and was removed rather than retained as a new
-dependency. Do not infer a federation, bridge, or processing defect from these
-observations alone.
+dependency. A subsequent read-only GCP audit query found only Pub/Sub
+create/delete and IAM-policy operations, not data-plane publish or token-exchange
+records; this logging scope cannot locate the missing hop. Do not infer a
+federation, bridge, or processing defect from these observations alone.
 
 | Attempt | GCP image foundation/publication (s) | Apply (s) | Verification (s) | Destroy (s) | Outcome |
 |---|---:|---:|---:|---:|---|
