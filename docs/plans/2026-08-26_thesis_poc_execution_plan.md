@@ -8,8 +8,8 @@ version: "2.0"
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active execution source; offline closure complete, nine Core telemetry
-paths passed live; separate L4 and full-profile evaluation pending
+Status: active execution source; nine Core telemetry paths and two isolated L4
+checks passed live; integration close-out and full-profile evaluation pending
 
 ## 1. Purpose
 
@@ -43,6 +43,11 @@ authenticated readback, Destroy and independent zero-active-resource inventory.
 Actual Event-to-L4 delivery, simulator/command and graphical L5 remain open;
 no Core reruns or new dashboard platform are implied. The dated checkpoints
 below remain historical observations, not current coverage counts.
+
+The [integration close-out](2026-10-04_poc_integration_closeout.md) now records
+the fixed AWS simulator/feedback runner preparation, GCP subscription-readiness
+check, 117 passing offline regressions and read-only AWS Core/Event-to-L4 plans.
+No additional live result or graphical-L5 mapping is implied by this preparation.
 
 Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
 ten-message provider-local L1–L3/Event-Layer telemetry path. AWS/Azure independent

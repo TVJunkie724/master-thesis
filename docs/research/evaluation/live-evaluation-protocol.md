@@ -23,6 +23,11 @@ later layers are developed. A local-adapter L4 check cannot substitute for
 Event-to-L4 delivery using the deployed identity. L5 remains last and no Grafana
 restoration or GCP L4/L5 replacement is implied.
 
+The [integration close-out plan](../../plans/2026-10-04_poc_integration_closeout.md)
+specifies the next one-message simulator/feedback assertion, SDK-owned identity
+cleanup and read-only Event/L4 dependency findings. Its offline tests and saved
+plans are not live command-delivery evidence.
+
 ## Purpose
 
 The live evaluation answers the research questions with the smallest useful

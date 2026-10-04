@@ -30,6 +30,19 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Integration close-out preparation (2026-10-04):** Keep real simulator command
+receipt separate from the nine telemetry passes and two isolated L4 checks.
+A fixed AWS Core runner option adds one feedback rule and the existing device
+registration/simulator, with exact timestamp/value readback and trace-correlated
+receipt. Certificate journaling and independent inventory close the SDK-owned
+cleanup gap; cleanup errors cannot yield green. GCP's optional combined listener
+waits for MQTT subscription acknowledgement before sending. Account-bound
+read-only planning admits 94 AWS Core creation entries; a separate targeted
+Event/L4 dependency experiment reduces 51 entries to 33 without adding a new
+deployment profile. None of these preparation results is live command or
+Event-to-L4 evidence. Graphical L5 remains a distinct decision, not a JSON-reader
+rename. See the [close-out plan](plans/2026-10-04_poc_integration_closeout.md).
+
 **First directed slice (2026-09-19):** Reuse the existing Azure IoT sender,
 AWS authenticated reader, image publisher and supervised lifecycle for one
 Azure-to-AWS Core telemetry smoke. Keep reverse-route bindings, but make no

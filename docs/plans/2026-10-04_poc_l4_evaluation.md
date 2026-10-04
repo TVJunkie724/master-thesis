@@ -311,8 +311,12 @@ native L4 mock plans pass. Per-provider billing attribution remains pending.
 
 ## Remaining close-out sequence
 
-1. Execute the two isolated L4 attempts after their specific scope/cost approval;
-   record failures as failures, with immediate cleanup, before any retry.
+The [integration close-out](2026-10-04_poc_integration_closeout.md) records the
+subsequent simulator preparation and read-only Event/L4 dependency experiments.
+
+1. Completed: both isolated L4 cases passed, with failed attempts retained and
+   immediate cleanup/independent zero active inventory. Do not rerun them merely
+   because the integration stages remain open.
 2. Verify actual Event-to-L4 delivery and deployed identity separately. A green
    local-adapter fixture does not clear that edge. Review the exact resource
    delta before a combined cut; do not relax full-profile admission or add L5
