@@ -63,8 +63,10 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
         azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption,
         values(azurerm_function_app_flex_consumption.azure_six_layer_processor_extension),
         azurerm_function_app_flex_consumption.azure_six_layer_extension_action,
-        azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader,
-        azurerm_function_app_flex_consumption.event_runtime) : app.maximum_instance_count == 1]) &&
+        azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) : app.maximum_instance_count == 1]) &&
+      alltrue([for app in azurerm_function_app_flex_consumption.event_runtime :
+        app.maximum_instance_count == (local.azure_event_l2_local && length(var.events) > 0 ? 2 : 1) &&
+        sum(concat([0], [for group in app.always_ready : group.instance_count])) <= app.maximum_instance_count]) &&
       alltrue([for service in concat(
         values(google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter),
         google_cloud_run_v2_service.gcp_six_layer_processor_extension,
@@ -75,7 +77,7 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
         service.template[0].scaling[0].min_instance_count == 0 &&
         service.template[0].scaling[0].max_instance_count == 1])
     )
-    error_message = "Tiny Core smoke runtimes must scale to zero and cap scale-out at one instance per group/revision."
+    error_message = "Core caps stay at one except the two-group Azure command experiment; warm sums must satisfy AzureRM validation."
   }
   assert {
     condition = length(var.events) > 0 || alltrue([for app in concat(
@@ -256,6 +258,7 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
             warm_assertion = """
   assert {
     condition = (
+      azurerm_function_app_flex_consumption.event_runtime[0].maximum_instance_count == 2 &&
       toset([for group in azurerm_function_app_flex_consumption.event_runtime[0].always_ready : group.name]) ==
         toset(["function:event-rule-evaluator", "function:event-control-router"]) &&
       alltrue([for group in azurerm_function_app_flex_consumption.event_runtime[0].always_ready : group.instance_count == 1]) &&

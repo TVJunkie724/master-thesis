@@ -147,6 +147,16 @@ The native mock-plan suite passes with positive warm-group and unchanged
 telemetry-plan assertions; 669 Azure/Terraform/runner regression tests pass
 (the separately executed native-plan test is excluded from that count).
 
+Attempt 04 exposed an apply-time AzureRM validation before verification: the
+provider requires the sum of always-ready instances not to exceed the configured
+maximum. Two warmed trigger groups therefore cannot use the telemetry-only
+limit of one. This is the pinned provider's validation, not evidence that Azure
+uses a shared on-demand scale group. The command-only Event runtime limit is now
+two; telemetry-only Core remains one and full-profile defaults remain unchanged.
+Native mock assertions explicitly check both the sum constraint and the bounded
+exception. See the [pinned provider implementation](https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.67.0/internal/services/appservice/function_app_flex_consumption_resource.go).
+No command receipt was tested in this attempt; cleanup is recorded separately.
+
 ## Event-to-L4 delivery
 
 AWS attempt 01 reached workspace creation, but TwinMaker rejected its role/S3

@@ -393,7 +393,8 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   runtime_name    = "python"
   runtime_version = "3.12"
 
-  maximum_instance_count                         = local.core_evaluation ? 1 : 100
+  # AzureRM validates the sum of always-ready groups against this limit at apply.
+  maximum_instance_count                         = local.core_evaluation ? (local.azure_event_l2_local && length(var.events) > 0 ? 2 : 1) : 100
   instance_memory_in_mb                          = var.azure_event_runtime_memory_mib
   https_only                                     = true
   public_network_access_enabled                  = true
