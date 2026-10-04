@@ -398,34 +398,19 @@ def _materialize_twin_projection(payload: Mapping[str, Any]) -> None:
         "metric": {"stringValue": metric},
         "value": {"doubleValue": float(value)},
         "sourceSequence": {"stringValue": source_sequence},
+        "observedAt": {"stringValue": _iso(observed_at)},
+        "lastEventId": {"stringValue": _event_id(payload)},
     }
-    entries = []
-    for property_name, property_value in properties.items():
-        entries.append(
-            {
-                "entryId": str(
-                    uuid.uuid5(
-                        uuid.NAMESPACE_URL,
-                        f"{_event_id(payload)}:{property_name}",
-                    )
-                ),
-                "entityPropertyReference": {
-                    "entityId": entity_id,
-                    "componentName": "telemetry",
-                    "propertyName": property_name,
-                },
-                "propertyValues": [
-                    {
-                        "timestamp": observed_at,
-                        "value": property_value,
-                    }
-                ],
-            }
-        )
-    _client("iottwinmaker").batch_put_property_values(
+    response = _client("iottwinmaker").update_entity(
         workspaceId=workspace,
-        entries=entries,
+        entityId=entity_id,
+        componentUpdates={"telemetry": {
+            "updateType": "UPDATE",
+            "propertyUpdates": {key: {"value": value} for key, value in properties.items()},
+        }},
     )
+    if response.get("state") in {"ERROR", "DELETING"}:
+        raise ContractError("TWIN_PROJECTION_WRITE_FAILED", 503)
 
 
 def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:

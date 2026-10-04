@@ -174,9 +174,9 @@ class _TwinMaker:
     def __init__(self):
         self.entries = []
 
-    def batch_put_property_values(self, **kwargs):
+    def update_entity(self, **kwargs):
         self.entries.append(kwargs)
-        return {"errorEntries": []}
+        return {"state": "ACTIVE"}
 
 
 class _Dynamo:
@@ -727,18 +727,18 @@ def test_projection_candidate_updates_local_twin_with_observation_time(monkeypat
     )
 
     assert twinmaker.entries[0]["workspaceId"] == "workspace-1"
-    entries = {
-        entry["entityPropertyReference"]["propertyName"]: entry
-        for entry in twinmaker.entries[0]["entries"]
-    }
-    assert set(entries) == {"metric", "value", "sourceSequence"}
-    value = entries["value"]["propertyValues"][0]
-    assert runtime._iso(value["timestamp"]) == "2026-08-05T00:00:00.000000Z"
-    assert value["value"] == {"doubleValue": 20.5}
-    assert entries["metric"]["propertyValues"][0]["value"] == {
+    assert twinmaker.entries[0]["entityId"] == "twin-1"
+    component = twinmaker.entries[0]["componentUpdates"]["telemetry"]
+    assert component["updateType"] == "UPDATE"
+    entries = component["propertyUpdates"]
+    assert set(entries) == {"metric", "value", "sourceSequence", "observedAt", "lastEventId"}
+    assert entries["observedAt"]["value"] == {"stringValue": "2026-08-05T00:00:00.000000Z"}
+    assert entries["lastEventId"]["value"]["stringValue"]
+    assert entries["value"]["value"] == {"doubleValue": 20.5}
+    assert entries["metric"]["value"] == {
         "stringValue": "temperature"
     }
-    assert entries["sourceSequence"]["propertyValues"][0]["value"] == {
+    assert entries["sourceSequence"]["value"] == {
         "stringValue": "event-projection-1"
     }
 

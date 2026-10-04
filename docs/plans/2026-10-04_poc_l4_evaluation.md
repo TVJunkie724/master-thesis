@@ -1,7 +1,8 @@
 # Bounded L4 evaluation: AWS and Azure
 
 Status: infrastructure plans checked offline and account-bound read-only on
-2026-10-04; **projection blocked, not approved for Apply**.
+2026-10-04; native AWS projection correction implemented and verified offline;
+**live L4 acceptance still pending**.
 Predecessor: [nine Core telemetry passes](../research/evaluation/core-telemetry-results.md).
 Research questions and full-profile admission remain unchanged. GCP L4/L5
 remain excluded; no replacement VM, dashboard or custom Twin service is added.
@@ -26,12 +27,18 @@ workspace: AWS describes it as invoking a
 [DataWriter connector](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/data-connector-interfaces.html).
 The AWS infrastructure plan therefore does not clear the projection gate.
 
-The lean proposed correction is native current-state entity properties, matching
-the bounded Azure projection; L3 remains the history owner. That would require
-a small AWS model/adapter/readback correction and an explicit comparison note,
-not a substitute connector/storage service. It is **not implemented or approved
-by these plan-only checks**. Do not seed a differently defined test model and
-claim that the unchanged application passed.
+The approved lean correction now uses native current-state entity properties,
+matching the bounded Azure projection; L3 remains the history owner. The actual
+AWS seeder resolves the active workspace output, creates the telemetry component
+without external/time-series properties or Lambda connectors, and rejects an
+incompatible pre-existing component. Legacy external components remain unchanged.
+The runtime uses `UpdateEntity` for metric/value/sourceSequence/observedAt/lastEventId;
+the probe uses `GetEntity` and requires one active, correlated current-state snapshot.
+Content/probe revisions are now `aws-l4-seed.v3` / `aws-twinmaker-readback.v2`.
+This does **not** claim TwinMaker historical data-connector equivalence to the
+original five-layer architecture, exactly-once delivery, or stale-event ordering.
+RQ2 compares the bounded current-state responsibility; history is assessed at L3.
+The nine Core observations remain valid because their scope excludes L4.
 
 Use the actual adapter source, not a replacement implementation or direct SDK
 write masquerading as adapter verification. SDK clients use the existing local
@@ -56,8 +63,8 @@ No generic layer-selection framework or third architecture profile is needed.
 
 | Provider | Existing Terraform resource roots | SDK-owned children |
 |---|---|---|
-| AWS | `aws_s3_bucket.aws_six_layer_twinmaker`, `aws_s3_bucket_public_access_block.aws_six_layer_twinmaker`, `aws_iam_role.aws_six_layer_twinmaker`, `aws_iam_role_policy.aws_six_layer_twinmaker`, `awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard` | One telemetry component type and one entity, seeded using the existing model contract |
-| Azure | `azurerm_resource_group.main`, `azurerm_digital_twins_instance.azure_azure_digital_twins` | One ADT-scoped Data Owner binding for the existing administrator, one existing DTDL model and one Twin |
+| AWS | `aws_s3_bucket.aws_six_layer_twinmaker`, `aws_s3_bucket_public_access_block.aws_six_layer_twinmaker`, `aws_iam_role.aws_six_layer_twinmaker`, `aws_iam_role_policy.aws_six_layer_twinmaker`, `awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard` | One telemetry component type and two entities (root/device), using the corrected application seed |
+| Azure | `azurerm_resource_group.main`, `azurerm_digital_twins_instance.azure_azure_digital_twins` | One ADT-scoped Data Owner binding for the existing administrator, one existing DTDL model, two Twins and their contains relationship |
 
 Saved account-bound create-only plans now contain **six AWS entries** (the five
 roots plus `random_id.deployment_suffix`) and **two Azure entries** (group/ADT).

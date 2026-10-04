@@ -202,7 +202,11 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
         )
 
     def create_component_type(**kwargs):
-        component_types[kwargs["componentTypeId"]] = {"status": {"state": "ACTIVE"}}
+        assert "functions" not in kwargs
+        component_types[kwargs["componentTypeId"]] = {
+            "status": {"state": "ACTIVE"},
+            "propertyDefinitions": kwargs["propertyDefinitions"],
+        }
 
     def update_entity(**kwargs):
         entities[kwargs["entityId"]]["components"].update(kwargs["componentUpdates"])
@@ -216,14 +220,13 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
     provider.clients["twinmaker"].get_entity = lambda **kwargs: entities[
         kwargs["entityId"]
     ]
+    del provider.clients["lambda"]  # The native seed must not resolve a connector.
 
     aws_deployer.create_twinmaker_entities(
         context,
         tmp_path,
         {
-            "aws_twinmaker_workspace_id": "workspace",
-            "aws_l4_connector_function_arn": "connector",
-            "aws_l4_connector_last_entry_function_arn": "last-entry",
+            "aws_component_twin_state_output": {"workspace_id": "workspace"},
         },
     )
 
@@ -236,6 +239,38 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
     assert component["componentTypeId"] == (
         f"factory-{aws_deployer.SIX_LAYER_SEED_COMPONENT_NAME}"
     )
+    definitions = component_types[component["componentTypeId"]]["propertyDefinitions"]
+    assert set(definitions) == {"schemaVersion", "metric", "value", "sourceSequence", "observedAt", "lastEventId"}
+    assert all(not prop["isTimeSeries"] and not prop["isStoredExternally"] for prop in definitions.values())
+
+
+def test_legacy_external_component_definition_is_unchanged():
+    properties = aws_deployer._component_properties({
+        "properties": [{"name": "value", "dataType": "DOUBLE"}],
+        "constProperties": [{"name": "unit", "value": "C"}],
+    })
+    assert properties["value"]["isTimeSeries"] is True
+    assert properties["value"]["isStoredExternally"] is True
+    assert properties["unit"]["defaultValue"] == {"stringValue": "C"}
+
+
+def test_native_seed_rejects_existing_external_component():
+    context, provider = _aws_context(profile=("six-layer-eventing", "1"))
+    twinmaker = provider.clients["twinmaker"]
+    twinmaker.create_component_type = MagicMock(side_effect=ConflictError)
+    twinmaker.get_component_type = MagicMock(return_value={"propertyDefinitions": {
+        "value": {"isTimeSeries": True, "isStoredExternally": True},
+    }})
+    twinmaker.update_entity = MagicMock()
+    run = RuntimeRun("AWS", "native seed", aws_deployer.logger)
+    node = aws_deployer._six_layer_seed(context)["children"][0]["children"][0]
+    aws_deployer._create_component(
+        run, twinmaker, workspace_id="workspace", twin_name="factory", node=node,
+        parent_id="sensor", connector_arn=None, connector_last_entry_arn=None,
+    )
+    with pytest.raises(ProviderRuntimeError):
+        run.raise_if_failed()
+    twinmaker.update_entity.assert_not_called()
 
 
 def test_iot_registration_continues_devices_and_fails_aggregate(monkeypatch, tmp_path):

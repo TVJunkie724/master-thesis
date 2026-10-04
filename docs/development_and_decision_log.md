@@ -1090,3 +1090,20 @@ is not silently implemented or counted as a pass. The
 regional public meter prices and read-only Standard pricing-mode confirmation.
 Service-only cost arithmetic is not a total deployment ceiling. No research
 question, private budget, full-profile success or new cloud spending is implied.
+
+### 2026-10-04 — Native AWS L4 current-state correction
+
+Following approval of the lean correction, the active AWS seed now uses its
+Six-layer workspace output and a native current-state component. No connector
+Lambda or additional datastore is introduced. The runtime updates the entity;
+authenticated readback matches metric, value, sequence and observation time in
+one active snapshot. An incompatible existing external component fails closed;
+the legacy external component contract is preserved. Content/probe revisions
+advance to v3/v2. 145 focused offline tests pass across AWS/Azure runtimes,
+post-deployment operations, verification and deployment-access projection.
+
+This is not yet live L4 evidence. Historical TwinMaker connector functionality
+is not claimed equivalent to the original architecture: L3 owns history, while
+this RQ2 comparison covers current Twin state. RQs and the nine Core results
+remain unchanged. SDK child counts were corrected to the real root/device graph
+on both providers; cloud execution remains a separate bounded step.

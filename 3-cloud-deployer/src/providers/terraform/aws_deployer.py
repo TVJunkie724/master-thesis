@@ -170,10 +170,10 @@ def _resolve_lambda_arn(
         return None
 
 
-def _hierarchy_contains_component(nodes: list[dict]) -> bool:
+def _hierarchy_requires_connector(nodes: list[dict]) -> bool:
     return any(
-        node.get("type") == "component"
-        or _hierarchy_contains_component(node.get("children", []))
+        (node.get("type") == "component" and not node.get("currentState"))
+        or _hierarchy_requires_connector(node.get("children", []))
         for node in nodes
     )
 
@@ -203,10 +203,13 @@ def _six_layer_seed(context: "DeploymentContext") -> dict:
                         "type": "component",
                         "name": SIX_LAYER_SEED_COMPONENT_NAME,
                         "componentTypeId": SIX_LAYER_SEED_COMPONENT_NAME,
+                        "currentState": True,
                         "properties": [
                             {"name": "value", "dataType": "DOUBLE"},
                             {"name": "metric", "dataType": "STRING"},
                             {"name": "sourceSequence", "dataType": "STRING"},
+                            {"name": "observedAt", "dataType": "STRING"},
+                            {"name": "lastEventId", "dataType": "STRING"},
                         ],
                         "constProperties": [
                             {
@@ -277,39 +280,41 @@ def create_twinmaker_entities(
     """Create every configured TwinMaker entity and component fail-closed."""
     del project_path
     provider = _require_aws_provider(context)
-    workspace_id = terraform_outputs.get("aws_twinmaker_workspace_id")
+    active_profile = _is_active_phase8_profile(context)
+    workspace_id = (
+        terraform_outputs.get("aws_component_twin_state_output", {}).get("workspace_id")
+        if active_profile else terraform_outputs.get("aws_twinmaker_workspace_id")
+    )
     if not workspace_id:
-        raise RuntimeError("Terraform output aws_twinmaker_workspace_id is required")
+        raise RuntimeError("Terraform output for TwinMaker workspace_id is required")
     hierarchy = context.config.hierarchy
     if not isinstance(hierarchy, list):
         raise ValueError("AWS TwinMaker hierarchy must be a list")
-    if _is_active_phase8_profile(context):
+    if active_profile:
         hierarchy = [*hierarchy, _six_layer_seed(context)]
     elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
     twinmaker = provider.clients["twinmaker"]
-    lambda_client = provider.clients["lambda"]
     twin_name = context.config.digital_twin_name
-    connector_arn = _resolve_lambda_arn(
-        lambda_client,
-        terraform_outputs,
-        "aws_l4_connector_function_arn",
-        f"{twin_name}-l4-connector",
-    )
-    connector_last_entry_arn = (
-        _resolve_lambda_arn(
+    connector_arn = connector_last_entry_arn = None
+    if _hierarchy_requires_connector(hierarchy):
+        lambda_client = provider.clients["lambda"]
+        connector_arn = _resolve_lambda_arn(
             lambda_client,
             terraform_outputs,
+            "aws_l4_connector_function_arn",
+            f"{twin_name}-l4-connector",
+        )
+        connector_last_entry_arn = _resolve_lambda_arn(
+            lambda_client, terraform_outputs,
             "aws_l4_connector_last_entry_function_arn",
             f"{twin_name}-l4-connector-last-entry",
-        )
-        or connector_arn
-    )
-    if _hierarchy_contains_component(hierarchy) and not connector_arn:
-        raise RuntimeError(
-            "TwinMaker hierarchy contains components but no L4 connector exists"
-        )
+        ) or connector_arn
+        if not connector_arn:
+            raise RuntimeError(
+                "TwinMaker hierarchy contains external components but no L4 connector exists"
+            )
 
     run = RuntimeRun("AWS", "TwinMaker", logger)
     for root in hierarchy:
@@ -417,8 +422,8 @@ def _component_properties(node: dict) -> dict:
     properties = {
         prop["name"]: {
             "dataType": {"type": prop.get("dataType", "STRING")},
-            "isTimeSeries": True,
-            "isStoredExternally": True,
+            "isTimeSeries": not node.get("currentState", False),
+            "isStoredExternally": not node.get("currentState", False),
         }
         for prop in node.get("properties", [])
     }
@@ -466,19 +471,22 @@ def _create_component(
     component_type_id = f"{twin_name}-{name}"
 
     def create_and_attach() -> bool:
-        functions = {
-            "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
-        }
-        if connector_last_entry_arn:
-            functions["attributePropertyValueReaderByEntity"] = {
-                "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+        extra = {}
+        if not node.get("currentState"):
+            functions = {
+                "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
             }
+            if connector_last_entry_arn:
+                functions["attributePropertyValueReaderByEntity"] = {
+                    "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+                }
+            extra["functions"] = functions
         try:
             twinmaker.create_component_type(
                 workspaceId=workspace_id,
                 componentTypeId=component_type_id,
                 propertyDefinitions=_component_properties(node),
-                functions=functions,
+                **extra,
             )
         except twinmaker.exceptions.ConflictException:
             logger.info(
@@ -486,6 +494,15 @@ def _create_component(
             )
         else:
             _wait_for_component_type(twinmaker, workspace_id, component_type_id)
+        if node.get("currentState"):
+            definitions = twinmaker.get_component_type(
+                workspaceId=workspace_id, componentTypeId=component_type_id
+            ).get("propertyDefinitions", {})
+            for key in _component_properties(node):
+                definition = definitions.get(key)
+                if (definition is None or definition.get("isTimeSeries")
+                        or definition.get("isStoredExternally")):
+                    raise RuntimeError("TwinMaker component is not a native current-state model")
         try:
             twinmaker.update_entity(
                 workspaceId=workspace_id,
