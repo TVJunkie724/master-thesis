@@ -199,7 +199,7 @@ def listen_for_command(timeout_seconds=300, *, telemetry_payload=None):
                 separators=(",", ":"),
             ),
             1,
-            ackCallback=lambda _mid: received.set(),
+            ackCallback=lambda mid: received.set(),
         )
 
     client.connect()

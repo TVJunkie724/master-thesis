@@ -1,5 +1,5 @@
 """Fixed one-message receipt assertion shared by the Azure/GCP research cuts."""
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import io
 import json
@@ -30,7 +30,7 @@ def exercise(runtime, config, values):
     capture, previous = io.StringIO(), runtime.globals.config
     try:
         runtime.globals.config = config
-        with redirect_stdout(capture):
+        with redirect_stdout(capture), redirect_stderr(capture):
             received = runtime.listen_for_command(300, telemetry_payload=payload)
     finally:
         runtime.globals.config = previous

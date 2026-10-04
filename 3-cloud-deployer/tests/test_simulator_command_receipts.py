@@ -48,7 +48,7 @@ def test_aws_command_listener_acknowledges_execution_and_emits_checkpoint(
         )
 
     client.subscribe.side_effect = subscribe
-    client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](1) if broker_ack else None
+    client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](mid=1) if broker_ack else None
     monkeypatch.setattr(aws_transmission, "AWSIoTMQTTClient", lambda _id: client)
 
     assert aws_transmission.listen_for_command(timeout_seconds=0.001) is broker_ack
@@ -120,7 +120,7 @@ def test_combined_roundtrip_reuses_connection_and_requires_trace(provider, match
         monkeypatch.setattr(runtime, "AWSIoTMQTTClient", factory)
         client.subscribe.side_effect = lambda _topic, _qos, callback: callbacks.append(callback)
         client.publish.side_effect = lambda topic, *_: receive() if topic == "telemetry" else None
-        client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](1)
+        client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](mid=1)
     else:
         monkeypatch.setattr(runtime, "_get_client", factory)
         monkeypatch.setattr(runtime, "Message", lambda payload: SimpleNamespace(data=payload))

@@ -3,7 +3,7 @@
 No alternate runtime, new infrastructure profile or direct command injection.
 The private certificate journal also covers registration failures before attach.
 """
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import io
 import json
@@ -144,7 +144,7 @@ def smoke(values, outputs):
     started = time.monotonic()
     try:
         simulator_config.config = config
-        with redirect_stdout(capture):
+        with redirect_stdout(capture), redirect_stderr(capture):
             received = transmission.listen_for_command(300, telemetry_payload=telemetry)
     finally:
         simulator_config.config = previous
