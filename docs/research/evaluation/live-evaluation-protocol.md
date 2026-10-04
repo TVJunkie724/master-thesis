@@ -8,6 +8,8 @@ The [Core evaluation record](../../plans/2026-09-16_poc_core_evaluation.md)
 separately records each attempt, metrics, Destroy and independent inventory,
 including inactive provider tombstones. Complete-profile, command roundtrip,
 storage transitions and L4/L5 verification remain separate evaluations.
+The [compact Core results](core-telemetry-results.md) consolidate the nine
+successful paths and explicitly retain measurement gaps and cleanup limitations.
 
 ## Purpose
 
