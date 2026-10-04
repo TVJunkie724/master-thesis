@@ -90,8 +90,13 @@ class Experiment:
         self.report = {"provider": provider, "started_at": utc_now(), "functional_pass": False,
                        "terraform_resource_timings": [], "billed_cost": "pending_attribution"}
         self.report["saved_plan_sha256"] = hashlib.sha256((folder / "review.plan").read_bytes()).hexdigest()
-        self.report["source_revision"] = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parents[1], text=True).strip()
+        revision = os.environ.get("L4_SOURCE_REVISION")
+        if revision is None:
+            revision = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=Path(__file__).resolve().parents[1], text=True).strip()
+        if not re.fullmatch(r"[0-9a-f]{40}", revision):
+            raise ValueError("L4_SOURCE_REVISION_REQUIRED")
+        self.report["source_revision"] = revision
         self.sequence, self.data, self.scope, self.role_id = 0, None, None, None
         self.apply_started = False
         self.env = dict(os.environ, TF_IN_AUTOMATION="1", TF_INPUT="0")
