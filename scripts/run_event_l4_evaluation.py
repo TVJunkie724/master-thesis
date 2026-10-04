@@ -18,8 +18,8 @@ from scripts import core_live_aws as core
 from scripts.l4_projection_check import DEVICE, BoundedClient, native_snapshot, matches, wait_for
 from scripts.prepare_core_runtime import ROOT, prepare
 from scripts.prepare_l4_evaluation import AWS_ROOTS
-from scripts.run_core_evaluation import Terraform, save, reserve, utc_now
-from scripts.run_l4_evaluation import Experiment, deadline, lifecycle
+from scripts.run_core_evaluation import Terraform, save, reserve, utc_now, retry_create_count
+from scripts.run_l4_evaluation import Experiment, deadline, lifecycle, workspace_role_propagation_failure
 from src.providers.terraform.aws_deployer import create_twinmaker_entities
 
 TARGETS = (*AWS_ROOTS, 'aws_lambda_event_source_mapping.event_runtime["twin-state-update"]',
@@ -92,8 +92,23 @@ class EventExperiment(Experiment):
             self.apply_started = True
             started = time.monotonic()
             try:
-                self.terraform('apply', '-input=false', '-no-color', '-parallelism=2',
-                               '-state=' + str(self.folder / 'fresh.tfstate'), str(self.folder / 'review.plan'))
+                selected = self.folder / 'review.plan'
+                for attempt in range(3):
+                    try:
+                        self.terraform('apply', '-input=false', '-no-color', '-parallelism=2',
+                            '-state=' + str(self.folder / 'fresh.tfstate'), str(selected))
+                        break
+                    except RuntimeError:
+                        if attempt == 2 or not workspace_role_propagation_failure(self.last_log):
+                            raise
+                        self.report['workspace_role_retries'] = attempt + 1
+                        time.sleep(20 * (attempt + 1))
+                        selected = self.folder / f'workspace-retry-{attempt + 1}.plan'
+                        self.terraform('plan', '-input=false', '-no-color',
+                            '-state=' + str(self.folder / 'fresh.tfstate'),
+                            '-var-file=' + str(self.folder / 'private.tfvars.json'), '-out=' + str(selected),
+                            *('-target=' + r for r in TARGETS))
+                        retry_create_count(json.loads(self.terraform('show', '-json', str(selected)).read_text()), ALLOWED)
             finally:
                 self.report['apply_seconds'] = time.monotonic() - started
             resources = self.state()
