@@ -1454,7 +1454,8 @@ output "azure_component_twin_state_output" {
     access_role     = "Azure Digital Twins Data Reader"
     internal_evidence = {
       resource_ref        = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
-      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id]
+      # A targeted research plan may omit human access; never invent its binding.
+      access_binding_refs = try([azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id], [])
       artifact_refs       = ["dtmi:twin2multicloud:poc:TwinNode;1"]
       content_revision    = "azure-l4-seed.v1"
       data_probe_revision = "azure-adt-readback.v1"

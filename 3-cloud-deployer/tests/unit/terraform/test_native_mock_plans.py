@@ -141,7 +141,8 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert f"Success! {8 + core_plan_count} passed, 0 failed." in result.stdout
+    # Three fixed L4 research plan/dependency checks are also credential-free.
+    assert f"Success! {11 + core_plan_count} passed, 0 failed." in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
 
