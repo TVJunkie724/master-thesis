@@ -250,6 +250,8 @@ now return null when their referenced container is absent; full-deployment
 handoffs remain unchanged. The correction does not add storage services or
 expand the research cut. This was an output-evaluation failure, not an observed
 Digital Twins data-permission failure.
+Apply took 728.829 s and Destroy 766.627 s; cleanup and independent zero inventory
+passed. The corrected native mock-plan suite passes without cloud credentials.
 
 ## L5 and interpretation
 
