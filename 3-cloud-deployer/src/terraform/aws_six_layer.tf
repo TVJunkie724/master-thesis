@@ -1630,10 +1630,11 @@ output "aws_component_twin_state_output" {
     principal_label = var.platform_user_email
     internal_evidence = {
       resource_ref = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
-      access_binding_refs = [
+      # An isolated research cut omits human access; do not invent its evidence.
+      access_binding_refs = try([
         aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn,
         aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
-      ]
+      ], [])
       artifact_refs       = ["telemetry"]
       content_revision    = "aws-l4-seed.v3"
       data_probe_revision = "aws-twinmaker-readback.v2"
