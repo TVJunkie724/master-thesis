@@ -182,6 +182,19 @@ def test_cleanup_failure_still_inventories_and_never_passes():
     assert report["inventory_pass"] is True
 
 
+def test_functional_error_keeps_http_status_and_location_without_message():
+    report = {}
+    def fail():
+        error = RuntimeError("private-provider-response")
+        error.status_code = 403
+        raise error
+    runner.lifecycle(fail, lambda: True, lambda: True, report)
+    assert report["functional_error_http_status"] == 403
+    assert report["functional_error_location"]["file"] == "test_l4_projection_check.py"
+    assert isinstance(report["functional_error_location"]["line"], int)
+    assert "private-provider-response" not in str(report)
+
+
 def test_no_approval_no_preparation(monkeypatch):
     monkeypatch.setattr(runner, "prepare", lambda *_: pytest.fail("No approved run"))
     with pytest.raises(ValueError, match="APPROVAL"):

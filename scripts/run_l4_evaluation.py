@@ -52,6 +52,14 @@ def lifecycle(functional, cleanup, inventory, report):
         functional()
     except BaseException as exc:
         report["functional_error_type"] = type(exc).__name__
+        if isinstance(getattr(exc, "status_code", None), int):
+            report["functional_error_http_status"] = exc.status_code
+        trace = exc.__traceback__
+        while trace and trace.tb_next:
+            trace = trace.tb_next
+        if trace:
+            report["functional_error_location"] = {
+                "file": Path(trace.tb_frame.f_code.co_filename).name, "line": trace.tb_lineno}
         report["functional_pass"] = False
     finally:
         for name, action in (("cleanup", cleanup), ("inventory", inventory)):
