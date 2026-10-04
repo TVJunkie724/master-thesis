@@ -303,6 +303,7 @@ def run(args):
         "terraform_resource_timings": [],
     }
     outputs, mutated = {}, False
+    mqtt_stage_targets = tuple("-target=" + address for address in sorted(GCP_MQTT_KUBERNETES_ADDRESSES))
 
     def phase(name, action):
         print(provider + ": " + name, flush=True)
@@ -413,7 +414,8 @@ def run(args):
             if values["layer_1_provider"] == "google":
                 values["gcp_six_layer_kubernetes_stage_enabled"] = True
                 env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "true"
-                phase("review_kubernetes", lambda: tf.run("plan", "-no-color", "-out=kubernetes.plan"))
+                phase("review_kubernetes", lambda: tf.run("plan", "-no-color", "-out=kubernetes.plan",
+                                                         *mqtt_stage_targets))
                 stage_plan = json.loads(tf.run("show", "-json", "kubernetes.plan").read_text())
                 report["kubernetes_create_count"] = retry_create_count(stage_plan, GCP_MQTT_KUBERNETES_ADDRESSES)
                 phase("deploy_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color", "kubernetes.plan"))
@@ -444,7 +446,8 @@ def run(args):
                     with deadline(300):
                         # Keep GKE alive until its controller removes LoadBalancer children.
                         env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "false"
-                        phase("remove_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color"))
+                        phase("remove_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color",
+                                                                 *mqtt_stage_targets))
             except BaseException as exc:
                 report["kubernetes_cleanup_error"] = type(exc).__name__
                 # Full destroy must still be attempted if stage removal fails.

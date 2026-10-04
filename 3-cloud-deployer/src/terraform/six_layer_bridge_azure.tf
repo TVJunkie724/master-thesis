@@ -146,6 +146,12 @@ resource "azuread_application" "azure_six_layer_bridge_audience" {
   display_name     = "${var.digital_twin_name} v2 event bridge ${local.deployment_suffix}"
   description      = "Dedicated Phase 8 workload-federation audience"
   sign_in_audience = "AzureADMyOrg"
+
+  lifecycle {
+    # The dedicated child resources below own these fields. The parent must
+    # not remove their role/URI during a subsequent deployment stage.
+    ignore_changes = [app_role, identifier_uris]
+  }
 }
 
 resource "azuread_application_identifier_uri" "azure_six_layer_bridge_audience" {
