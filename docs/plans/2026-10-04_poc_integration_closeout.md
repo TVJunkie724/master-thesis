@@ -159,6 +159,18 @@ No command receipt was tested in this attempt. Deployment took 443.070 s,
 Destroy 844.046 s and total lifecycle 1431.215 s; independent resource-group
 inventory is zero. The corrected native mock-plan suite passes.
 
+Attempt 05 provisioned the warm groups and indexed every required function, but
+the command receipt still timed out. Exact authenticated L3 readback found the
+new point. Read-only Event Hubs checkpoint inspection found sequence 0 for the
+telemetry processor, historical persistence and rule evaluator. A checkpoint
+does not itself prove successful downstream rule/control handling (terminal
+failure handling can also advance it). The deployed processing app contained
+the expected rule, whose condition matches the fixture offline. Warm capacity
+alone is therefore not a demonstrated fix. Delayed diagnostic logs do not justify
+claiming that the rule handler never ran. The runner now additionally saves
+bounded, read-only Incoming/Outgoing broker metrics before cleanup; missing
+metric samples must not be reported as zero traffic or functional success.
+
 ## Event-to-L4 delivery
 
 AWS attempt 01 reached workspace creation, but TwinMaker rejected its role/S3

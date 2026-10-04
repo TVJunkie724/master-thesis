@@ -141,3 +141,27 @@ def test_azure_failure_diagnostic_distinguishes_persistence_from_receipt(tmp_pat
     result = provider.diagnostics({"project_path": str(tmp_path)}, {})
     assert result["matching_l3_points_after_receipt_failure"] == int(matching)
     assert "functional_passed" not in result
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_azure_broker_diagnostics_are_read_only_private_and_non_blocking(tmp_path, monkeypatch, failed):
+    from urllib.parse import parse_qs, urlsplit
+    provider = core_live_azure_roundtrip
+    arm = Mock(side_effect=RuntimeError("do-not-expose") if failed else None,
+               return_value={"value": []})
+    monkeypatch.setattr(provider.core, "arm", arm)
+    provider.broker_metrics({"project_path": str(tmp_path)}, {
+        "azure_event_control_topic_id": "/owned/control/topics/domain-control",
+        "azure_event_hubs_standard_id": "/owned/telemetry",
+    })
+    assert arm.call_count == 2
+    for call, scope in zip(arm.call_args_list, ("/owned/control", "/owned/telemetry")):
+        assert call.args[1] == "GET"
+        parsed = urlsplit(call.args[2])
+        assert parsed.path == scope + "/providers/microsoft.insights/metrics"
+        assert parse_qs(parsed.query)["metricnames"] == ["IncomingMessages,OutgoingMessages"]
+    for label in ("control", "telemetry"):
+        path = tmp_path / ("broker-metrics-" + label + ".json")
+        assert path.stat().st_mode & 0o077 == 0
+        data = json.loads(path.read_text())
+        assert data == ({"error_type": "RuntimeError"} if failed else {"value": []})

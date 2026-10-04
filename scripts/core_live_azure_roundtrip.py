@@ -1,8 +1,9 @@
 """Actual Azure IoT device receipt, with the existing Core lifecycle/cleanup."""
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import time
+from urllib.parse import urlencode
 
 from scripts import core_live_azure as core
 from scripts.core_command_receipt import DEVICE, configure, exercise, query, confirm_history
@@ -82,6 +83,9 @@ def reader(values, outputs, now):
 
 
 def diagnostics(values, outputs):
+    # Capture broker counters before resource deletion and log-ingestion delay.
+    # These are diagnostic observations, never a substitute for device receipt.
+    broker_metrics(values, outputs)
     result = core.diagnostics(values, outputs)
     fixture = Path(values["project_path"]) / "simulator-fixture.json"
     if fixture.exists():
@@ -94,6 +98,27 @@ def diagnostics(values, outputs):
         except Exception as exc:
             result["failure_readback_error_type"] = type(exc).__name__
     return result
+
+
+def broker_metrics(values, outputs):
+    end = datetime.now(timezone.utc)
+    query_string = urlencode({
+        "api-version": "2018-01-01", "metricnames": "IncomingMessages,OutgoingMessages",
+        "aggregation": "Total", "interval": "PT1M", "$filter": "EntityName eq '*'",
+        "timespan": (end - timedelta(minutes=30)).isoformat() + "/" + end.isoformat(),
+    })
+    scopes = {
+        "control": (outputs.get("azure_event_control_topic_id") or "").split("/topics/")[0],
+        "telemetry": outputs.get("azure_event_hubs_standard_id"),
+    }
+    for label, scope in scopes.items():
+        if not scope:
+            continue
+        try:
+            observation = core.arm(values, "GET", scope + "/providers/microsoft.insights/metrics?" + query_string)
+        except Exception as exc:
+            observation = {"error_type": type(exc).__name__}
+        save(Path(values["project_path"]) / ("broker-metrics-" + label + ".json"), observation)
 
 
 # The device is a child of this run's fresh IoT Hub. Terraform removes the hub,
