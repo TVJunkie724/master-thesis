@@ -75,6 +75,13 @@ class EventExperiment(Experiment):
         return not any(self.report['residual_counts'].values())
 
     def cleanup(self):
+        if self.apply_started and not self.report.get('functional_pass'):
+            try:
+                with deadline(45):
+                    save(self.folder / 'runtime-diagnostics.json', core.diagnostics(self.variables, {}))
+            except BaseException as exc:
+                # Diagnostic failure or timeout must never skip destruction.
+                self.report['diagnostics_error_type'] = type(exc).__name__
         if self.apply_started and (self.folder / 'fresh.tfstate').exists():
             try:
                 core.before_destroy(self.variables, json.loads((self.folder / 'fresh.tfstate').read_text()))

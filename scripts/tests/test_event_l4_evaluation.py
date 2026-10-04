@@ -42,6 +42,22 @@ def test_isolated_l4_allowlist_unchanged():
     assert object.__new__(EventExperiment).allowed_resources() == ALLOWED
 
 
+@pytest.mark.parametrize('diagnostic_error', [False, True])
+def test_failed_event_cut_retains_diagnostics_without_blocking_cleanup(tmp_path, monkeypatch, diagnostic_error):
+    from scripts import run_event_l4_evaluation as runner
+    experiment = object.__new__(EventExperiment)
+    experiment.apply_started, experiment.folder = True, tmp_path
+    experiment.variables, experiment.report = {}, {'functional_pass': False}
+    diagnostic = Mock(side_effect=TimeoutError() if diagnostic_error else None, return_value={'logs': []})
+    monkeypatch.setattr(runner.core, 'diagnostics', diagnostic)
+    cleanup = Mock(return_value=True)
+    monkeypatch.setattr(Experiment, 'cleanup', cleanup)
+    assert experiment.cleanup() is True
+    cleanup.assert_called_once()
+    assert (tmp_path / 'runtime-diagnostics.json').exists() is not diagnostic_error
+    assert ('diagnostics_error_type' in experiment.report) is diagnostic_error
+
+
 def test_fixture_routes_through_real_projection_and_expected_identity(monkeypatch):
     path = Path(__file__).resolve().parents[2] / '3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/handler.py'
     spec = importlib.util.spec_from_file_location('event_l4_domain', path)
