@@ -62,7 +62,7 @@ remain failed; arrival alone does not override teardown or harness errors.
 
 ### AWS command observation (2026-10-04)
 
-Attempt 05, runtime revision `f505bb69`, passed the actual simulator/command and
+Attempt 05, with runtime fixes through `f505bb69`, passed the actual simulator/command and
 authenticated L3 assertion: one telemetry message, one trace-correlated command,
 broker-acknowledged device response and one exact timestamp/value readback. The
 single observed send-to-receipt time was **13.646645 s**. This is not a latency
@@ -85,6 +85,23 @@ the strict runner retained `green=false` even for functional attempt 05. Later
 zero-inventory reconciliation must be recorded separately, not overwrite these
 original observations. Per-resource lifecycle timings and private raw evidence
 remain retained; billing attribution is pending.
+
+### Azure command adapter correction
+
+The first Azure command attempt was stopped during provisioning after a primary
+API review found the existing sender using an unsupported HTTP POST to a device
+endpoint. Azure's service-side C2D send uses AMQP, not that REST endpoint
+([Microsoft endpoint documentation](https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-endpoints)).
+No device receipt or live HTTP failure is claimed for the stopped attempt.
+
+The adapter now uses the official token-authenticated `IoTHubRegistryManager`
+with the existing runtime Managed Identity and explicitly closes its connection.
+The Function package pins `azure-iot-hub==2.7.0`, `uamqp==1.6.11` and `six==1.17.0`.
+The last dependency is needed by that SDK despite missing from its direct package
+metadata. Import and real token-auth client construction were verified locally in
+the Linux amd64 Azure Functions Python 3.12 image, without a network send. 61 focused
+runtime/simulator/receipt tests pass. Cloud resources, roles and command semantics
+are unchanged; live receipt still requires a new bounded attempt.
 
 ## Event-to-L4 delivery
 

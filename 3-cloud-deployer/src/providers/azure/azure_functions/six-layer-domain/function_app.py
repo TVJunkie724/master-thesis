@@ -14,7 +14,6 @@ import re
 import time
 from typing import Any, Iterable, List, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 import uuid
 
@@ -579,40 +578,35 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
     )
 
 
+def _iot_command_client(hostname):
+    # Import only for the command role; the pinned service SDK sends via AMQP.
+    from azure.iot.hub import IoTHubRegistryManager
+    return IoTHubRegistryManager.from_token_credential(hostname, _credential())
+
+
 def _send_device_command(event: Mapping[str, Any]) -> bool:
     hostname = os.getenv("SIX_LAYER_IOT_HUB_HOSTNAME", "")
     body = event_body(event)
     device_id = partition_key(event)
     if not hostname:
         return False
-    url = (
-        f"https://{hostname}/devices/{quote(device_id, safe='')}/messages/deviceBound"
-        "?api-version=2021-04-12"
-    )
     command = {"message": str(body.get("message") or "Rule matched")}
     trace_id = _diagnostic_trace_id(event)
     if trace_id is not None:
         command["trace_id"] = trace_id
-    payload = canonical_json(command).encode("utf-8")
-    for _ in range(3):
-        try:
-            token = _credential().get_token("https://iothubs.azure.net/.default")
-            request = Request(
-                url,
-                data=payload,
-                headers={
-                    "authorization": f"Bearer {token.token}",
-                    "content-type": "application/json; charset=utf-8",
-                    "iothub-messageid": event_id(event),
-                },
-                method="POST",
-            )
-            with urlopen(request, timeout=10) as response:  # nosec B310
-                if response.status == 204:
-                    return True
-        except (HTTPError, TimeoutError, URLError, OSError):
-            continue
-    return False
+    client = None
+    try:
+        client = _iot_command_client(hostname)
+        client.send_c2d_message(device_id, canonical_json(command), properties={"messageId": event_id(event)})
+        return True
+    except Exception as exc:
+        # Never expose the credential, command payload or SDK exception text.
+        logging.warning("IoT command send failed: %s", type(exc).__name__)
+        return False
+    finally:
+        if client is not None:
+            client.amqp_svc_client.disconnect_sync()
+            client.amqp_svc_client = None  # Avoid a second disconnect in SDK __del__.
 
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
