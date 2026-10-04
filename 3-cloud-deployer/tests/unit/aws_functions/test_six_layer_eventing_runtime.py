@@ -283,3 +283,19 @@ def test_retryable_failure_returns_only_record_identifier(monkeypatch):
 def test_empty_batch_fails_with_stable_code():
     with pytest.raises(RuntimeError, match="INVALID_SOURCE_RECORD"):
         runtime.lambda_handler({"Records": []}, None)
+
+
+def test_delivery_diagnostics_exclude_exception_payload(monkeypatch, capsys):
+    from botocore.exceptions import ClientError
+    client = Mock()
+    client.invoke.side_effect = ClientError({"Error": {"Code": "AccessDeniedException",
+        "Message": "credential-or-payload-must-not-appear"}}, "Invoke")
+    monkeypatch.setenv("PROCESSING_FUNCTION_NAME", "processor")
+    monkeypatch.setenv("CONSUMER_ROLE", "telemetry-processor")
+    monkeypatch.setattr(runtime, "_client", lambda _: client)
+    result = runtime.lambda_handler(_kinesis(_event("telemetry.received.v1")), None)
+    output = capsys.readouterr().out
+    assert result["accepted"] == 0
+    assert '"provider_code":"AccessDeniedException"' in output
+    assert "credential-or-payload" not in output
+    assert "device-1" not in output
