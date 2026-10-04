@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
 from typing import List, get_type_hints
+from unittest.mock import Mock
 
 import azure.functions as func
 
@@ -253,3 +255,40 @@ def test_local_event_layer_processed_roles_remain_provider_scoped(monkeypatch):
         match="EVENTING_CONSUMER_PROVIDER_MISMATCH",
     ):
         runtime._consume_eventing_delivery("rule-evaluator", event)
+
+
+def test_event_layer_rule_control_and_iot_command_preserve_simulator_trace(monkeypatch):
+    trace = "TRACE-1234ABCD"
+    event = _processed_event()
+    event.update(source_sequence=trace, correlation_id=trace)
+    event["payload"]["value"] = 42
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    for layer in ("L1", "L2", "HOT"):
+        monkeypatch.setenv("SIX_LAYER_" + layer + "_PROVIDER", "azure")
+    monkeypatch.setenv("SIX_LAYER_IOT_HUB_HOSTNAME", "hub.test")
+    monkeypatch.setenv("SIX_LAYER_RULES_JSON", json.dumps([{
+        "rule_id": "command-check", "condition": "value == INTEGER(42)",
+        "action": {"type": "function", "functionName": "poc-command-check",
+                   "feedback": {"device_id": "device-1", "payload": "roundtrip-confirmed"}},
+    }]))
+    queue, outcomes = [], []
+    monkeypatch.setattr(runtime, "_publish_eventing_control", queue.append)
+    monkeypatch.setattr(runtime, "_post_bound_json", lambda _url, body, **_: runtime._poc_action_result(body))
+    monkeypatch.setattr(runtime, "_store_outcome", outcomes.append)
+    client = Mock()
+    monkeypatch.setattr(runtime, "_iot_command_client", lambda _: client)
+    runtime._consume_eventing_delivery("rule-evaluator", event)
+    consumed = []
+    for _ in range(4):
+        assert queue
+        item = queue.pop(0)
+        consumed.append(item["event_type"])
+        runtime._consume_eventing_delivery("control-router", item)
+    assert not queue
+    assert consumed == ["event.matched.v1", "extension.action.outcome.v1",
+                        "device.command.requested.v1", "device.command.outcome.v1"]
+    client.send_c2d_message.assert_called_once()
+    assert client.send_c2d_message.call_args.args[0] == "device-1"
+    assert json.loads(client.send_c2d_message.call_args.args[1]) == {
+        "trace_id": trace, "message": "roundtrip-confirmed"}
+    assert [item["payload"]["status"] for item in outcomes] == ["SUCCEEDED", "ACCEPTED"]
