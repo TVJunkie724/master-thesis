@@ -133,7 +133,7 @@ class Experiment:
             self.iam = session.client("iam", config=config)
         else:
             from azure.identity import ClientSecretCredential
-            from azure.mgmt.resource import ResourceManagementClient
+            from azure.mgmt.resource.resources import ResourceManagementClient
             from azure.mgmt.authorization import AuthorizationManagementClient
             azure = credentials["azure"]
             self.credential = ClientSecretCredential(azure["azure_tenant_id"],

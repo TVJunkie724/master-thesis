@@ -1,6 +1,7 @@
 from copy import deepcopy
 from types import SimpleNamespace
 from pathlib import Path
+import json
 
 import pytest
 from botocore.session import Session
@@ -17,6 +18,27 @@ def test_isolated_aws_output_handles_absent_human_bindings():
     assert "aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn" in output
     assert "aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id" in output
     assert "], [])" in output
+
+
+def test_azure_runner_initializes_with_installed_sdk_without_network(tmp_path, monkeypatch):
+    monkeypatch.setenv("L4_SOURCE_REVISION", "a" * 40)
+    (tmp_path / "private.tfvars.json").write_text(json.dumps({"digital_twin_name": "l4-azure-12345678"}))
+    (tmp_path / "review.plan").write_bytes(b"offline fixture")
+    (tmp_path / "plan.json").write_text(json.dumps({"resource_changes": [{
+        "address": "azurerm_resource_group.main[0]",
+        "change": {"after": {"name": "l4-azure-12345678-rg"}},
+    }]}))
+    experiment = runner.Experiment("azure", {"azure": {
+        "azure_subscription_id": "00000000-0000-0000-0000-000000000001",
+        "azure_tenant_id": "00000000-0000-0000-0000-000000000002",
+        "azure_client_id": "00000000-0000-0000-0000-000000000003",
+        "azure_client_secret": "offline-fixture-not-a-credential",
+    }}, tmp_path, tmp_path)
+    assert experiment.apply_started is False
+    assert experiment.arm is not None and experiment.auth is not None
+    experiment.arm.close()
+    experiment.auth.close()
+    experiment.credential.close()
 
 
 class FakeAWS:
