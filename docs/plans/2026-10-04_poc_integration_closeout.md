@@ -155,7 +155,9 @@ uses a shared on-demand scale group. The command-only Event runtime limit is now
 two; telemetry-only Core remains one and full-profile defaults remain unchanged.
 Native mock assertions explicitly check both the sum constraint and the bounded
 exception. See the [pinned provider implementation](https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.67.0/internal/services/appservice/function_app_flex_consumption_resource.go).
-No command receipt was tested in this attempt; cleanup is recorded separately.
+No command receipt was tested in this attempt. Deployment took 443.070 s,
+Destroy 844.046 s and total lifecycle 1431.215 s; independent resource-group
+inventory is zero. The corrected native mock-plan suite passes.
 
 ## Event-to-L4 delivery
 
