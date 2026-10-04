@@ -156,9 +156,13 @@ def send_mqtt(payload: dict, device_config: dict | None = None) -> None:
     )
 
 
-def listen_for_command(timeout_seconds: float = 300) -> bool:
+def listen_for_command(timeout_seconds: float = 300, *, expected_trace_id: str | None = None) -> bool:
     """Wait for one command and emit bounded local receipt evidence."""
     device_config = _active_config()
+    if expected_trace_id is not None and (
+        not isinstance(expected_trace_id, str) or not _TRACE_ID.fullmatch(expected_trace_id)
+    ):
+        raise ValueError("A valid expected command trace is required")
     received = threading.Event()
     client = _client(device_config, suffix="commands")
 
@@ -171,6 +175,8 @@ def listen_for_command(timeout_seconds: float = 300) -> bool:
         if matched is None or matched.group("device_id") != device_config["device_id"]:
             return
         value = json.loads(message.payload.decode("utf-8"))
+        if expected_trace_id is not None and _trace_id(value) != expected_trace_id:
+            return
         event_id = value.get("event_id") if isinstance(value, dict) else None
         _checkpoint(
             "simulator_command_received",

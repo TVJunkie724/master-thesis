@@ -143,9 +143,15 @@ def send_mqtt(payload, device_config=None):
     print(f"Message sent! Device: {iot_device_id}, Topic: {topic}")
 
 
-def listen_for_command(timeout_seconds=300):
-    """Wait for one AWS IoT Command, acknowledge it, and emit receipt evidence."""
+def listen_for_command(timeout_seconds=300, *, telemetry_payload=None):
+    """Listen, optionally send on this connection, and acknowledge a matching command."""
     device_config = globals.config
+    expected_trace = _trace_id(telemetry_payload) if telemetry_payload is not None else None
+    if telemetry_payload is not None and (
+        expected_trace is None or any(telemetry_payload.get(key) not in (None, device_config["device_id"])
+                                      for key in ("device_id", "iotDeviceId"))
+    ):
+        raise ValueError("Roundtrip telemetry requires a valid trace and matching device")
     received = threading.Event()
     client = AWSIoTMQTTClient(device_config["device_id"])
     client.configureEndpoint(device_config["endpoint"], 8883)
@@ -164,6 +170,8 @@ def listen_for_command(timeout_seconds=300):
             value = json.loads(message.payload.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             value = {}
+        if expected_trace is not None and _trace_id(value) != expected_trace:
+            return
         _checkpoint(
             "simulator_command_received",
             _trace_id(value),
@@ -195,6 +203,9 @@ def listen_for_command(timeout_seconds=300):
     client.connect()
     try:
         client.subscribe(device_config["command_topic_filter"], 1, on_command)
+        if telemetry_payload is not None:
+            client.publish(device_config["topic"], json.dumps(telemetry_payload), 1)
+            _checkpoint("simulator_sent", expected_trace, telemetry_payload.get("event_id"))
         return received.wait(timeout_seconds)
     finally:
         client.disconnect()

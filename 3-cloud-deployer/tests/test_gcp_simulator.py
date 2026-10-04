@@ -82,7 +82,8 @@ def test_send_mqtt_rejects_payload_for_another_device(tmp_path, monkeypatch):
         transmission.send_mqtt({"iotDeviceId": "other-device", "value": 21})
 
 
-def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("expected,accepted", [(None, True), ("TRACE-ABCDEF12", True), ("TRACE-WRONG123", False)])
+def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch, capsys, expected, accepted):
     _config(tmp_path)
     client = MagicMock()
 
@@ -102,11 +103,12 @@ def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch,
     client.loop_start.side_effect = loop_start
     monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
 
-    assert transmission.listen_for_command(timeout_seconds=0.1) is True
+    assert transmission.listen_for_command(timeout_seconds=0.001, expected_trace_id=expected) is accepted
 
     output = capsys.readouterr().out
-    assert "T2MC_CHECKPOINT" in output
-    assert '"stage":"simulator_command_received"' in output
-    assert '"event_id":"event-1"' in output
-    assert '"trace_id":"TRACE-ABCDEF12"' in output
+    assert ("T2MC_CHECKPOINT" in output) is accepted
+    if accepted:
+        assert '"stage":"simulator_command_received"' in output
+        assert '"event_id":"event-1"' in output
+        assert '"trace_id":"TRACE-ABCDEF12"' in output
     client.subscribe.assert_called_once_with("devices/device-1/commands", qos=1)
