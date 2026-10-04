@@ -109,6 +109,19 @@ the Linux amd64 Azure Functions Python 3.12 image, without a network send. 61 fo
 runtime/simulator/receipt tests pass. Cloud resources, roles and command semantics
 are unchanged; live receipt still requires a new bounded attempt.
 
+The second attempt completed deployment (636.472 s) and recorded one simulator
+send, but failed `COMMAND_RECEIPT_TIMEOUT` after 305.703 s of verification.
+Available logs showed processing-host initialization, not a traced end-to-end
+message flow; they do not establish an AMQP failure or a cold-start root cause.
+Its immediate Destroy is tracked separately. Before another send, the local Azure
+harness now requires the expected functions to be indexed across all six apps.
+The bounded registration wait is timed and retained privately. A failed receipt
+also triggers one authenticated exact-timestamp L3 check, reported as diagnostic
+evidence only. The input fixture is retained so that this check cannot match an
+unrelated point. No extra cloud resource or alternate data path is introduced.
+The focused registration/receipt/runtime group passes 72 tests; the broader Azure
+runtime/package/Terraform group passed 226 tests after the SDK change.
+
 ## Event-to-L4 delivery
 
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS
