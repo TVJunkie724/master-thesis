@@ -13,8 +13,9 @@ from src.iot_device_simulator.azure import globals as azure_globals
 from src.iot_device_simulator.azure import transmission as azure_transmission
 
 
+@pytest.mark.parametrize("broker_ack", [False, True])
 def test_aws_command_listener_acknowledges_execution_and_emits_checkpoint(
-    monkeypatch, capsys
+    monkeypatch, capsys, broker_ack
 ):
     aws_globals.config.clear()
     aws_globals.config.update(
@@ -35,7 +36,7 @@ def test_aws_command_listener_acknowledges_execution_and_emits_checkpoint(
 
     def subscribe(_topic, _qos, callback):
         callback(
-            client,
+            None,
             None,
             SimpleNamespace(
                 topic=(
@@ -47,16 +48,18 @@ def test_aws_command_listener_acknowledges_execution_and_emits_checkpoint(
         )
 
     client.subscribe.side_effect = subscribe
+    client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](1) if broker_ack else None
     monkeypatch.setattr(aws_transmission, "AWSIoTMQTTClient", lambda _id: client)
 
-    assert aws_transmission.listen_for_command(timeout_seconds=0.1) is True
+    assert aws_transmission.listen_for_command(timeout_seconds=0.001) is broker_ack
 
     output = capsys.readouterr().out
     assert "T2MC_CHECKPOINT" in output
     assert '"stage":"simulator_command_received"' in output
     assert '"trace_id":"TRACE-ABCDEF12"' in output
     assert '"event_id":"execution-1"' in output
-    response = client.publish.call_args
+    client.publish.assert_not_called()
+    response = client.publishAsync.call_args
     assert response.args[0].endswith("/executions/execution-1/response/json")
     assert json.loads(response.args[1])["status"] == "SUCCEEDED"
 
@@ -107,7 +110,7 @@ def test_combined_roundtrip_reuses_connection_and_requires_trace(provider, match
     def receive():
         trace = "TRACE-ABCDEF12" if matching else "TRACE-WRONG123"
         if provider == "aws":
-            callbacks[0](client, None, SimpleNamespace(
+            callbacks[0](None, None, SimpleNamespace(
                 topic="$aws/commands/things/factory-device-1/executions/one/request/json",
                 payload=json.dumps({"trace_id": trace}).encode()))
         else:
@@ -117,6 +120,7 @@ def test_combined_roundtrip_reuses_connection_and_requires_trace(provider, match
         monkeypatch.setattr(runtime, "AWSIoTMQTTClient", factory)
         client.subscribe.side_effect = lambda _topic, _qos, callback: callbacks.append(callback)
         client.publish.side_effect = lambda topic, *_: receive() if topic == "telemetry" else None
+        client.publishAsync.side_effect = lambda *args, **kwargs: kwargs["ackCallback"](1)
     else:
         monkeypatch.setattr(runtime, "_get_client", factory)
         monkeypatch.setattr(runtime, "Message", lambda payload: SimpleNamespace(data=payload))

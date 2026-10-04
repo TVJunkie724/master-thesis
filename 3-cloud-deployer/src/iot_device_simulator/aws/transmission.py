@@ -161,7 +161,7 @@ def listen_for_command(timeout_seconds=300, *, telemetry_payload=None):
         device_config["cert_path"],
     )
 
-    def on_command(active_client, _userdata, message):
+    def on_command(_active_client, _userdata, message):
         matched = _COMMAND_TOPIC.fullmatch(message.topic)
         if matched is None or matched.group("target") != device_config["command_target_id"]:
             return
@@ -181,7 +181,9 @@ def listen_for_command(timeout_seconds=300, *, telemetry_payload=None):
             f"$aws/commands/things/{device_config['command_target_id']}/"
             f"executions/{execution_id}/response/json"
         )
-        active_client.publish(
+        # AWSIoTPythonSDK supplies None as callback client. Its dispatcher must
+        # stay free to process PUBACK, so acknowledge asynchronously on our client.
+        client.publishAsync(
             response_topic,
             json.dumps(
                 {
@@ -197,8 +199,8 @@ def listen_for_command(timeout_seconds=300, *, telemetry_payload=None):
                 separators=(",", ":"),
             ),
             1,
+            ackCallback=lambda _mid: received.set(),
         )
-        received.set()
 
     client.connect()
     try:
