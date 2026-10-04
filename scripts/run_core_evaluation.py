@@ -409,7 +409,7 @@ def run(args):
                 transient = ("AZURE_FLEX_KUDU_RESTART" if azure_flex_kudu_restart(failed_log)
                              else "AZURE_IOTHUB_CONCURRENT_WRITE" if azure_iothub_concurrent_write(failed_log)
                              else "")
-                if not (aws_to_azure or azure_to_gcp or gcp_to_azure) or not transient:
+                if not (provider == "azure" or aws_to_azure or azure_to_gcp or gcp_to_azure) or not transient:
                     raise
                 report["deploy_retry_code"] = transient
                 phase("deploy_retry_backoff", lambda: time.sleep(60 if transient == "AZURE_IOTHUB_CONCURRENT_WRITE" else 45))
