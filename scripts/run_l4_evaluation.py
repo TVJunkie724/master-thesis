@@ -181,9 +181,12 @@ class Experiment:
             raise RuntimeError("L4_STATE_SCOPE_REJECTED")
         resources = root.get("resources", [])
         managed = {r["address"]: r["values"] for r in resources if r["mode"] == "managed"}
-        if not set(managed) <= EXPECTED[self.provider]:
+        if not set(managed) <= self.allowed_resources():
             raise RuntimeError("L4_STATE_SCOPE_REJECTED")
         return managed
+
+    def allowed_resources(self):
+        return EXPECTED[self.provider]
 
     def functional(self):
         with deadline(1200):
@@ -308,7 +311,7 @@ class Experiment:
             self.terraform("destroy", "-auto-approve", "-input=false", "-no-color", "-parallelism=2",
                 "-state=" + str(self.folder / "fresh.tfstate"),
                 "-var-file=" + str(self.folder / "private.tfvars.json"),
-                *("-target=" + address for address in sorted(EXPECTED[self.provider])))
+                *("-target=" + address for address in sorted(self.allowed_resources())))
         finally:
             self.report["destroy_seconds"] = round(time.monotonic() - started, 3)
         return not errors
