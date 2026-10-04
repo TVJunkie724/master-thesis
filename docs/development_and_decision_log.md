@@ -1051,3 +1051,22 @@ Terraform ownership correction; RQ2 gains all six directed telemetry paths;
 RQ3 gains recorded Eventing topologies and persistence samples, with billed
 run-cost attribution pending. No research question, full-profile admission,
 command-roundtrip claim or product scope was changed.
+
+### 2026-10-04 — Core synthesis and bounded next step
+
+The [compact Core results](research/evaluation/core-telemetry-results.md)
+consolidate all nine successful telemetry paths offline using the existing
+execution record. Phase boundaries, provider readiness differences, failed
+attempts, inactive deletion markers and the older AWS per-message evidence gap
+remain explicit. No raw private evidence, personal budget, fabricated latency
+or billed-cost claim is published. This is integration evidence, not a provider
+performance ranking or proof of complete-profile equivalence.
+
+The [next L4 slice](plans/2026-10-04_poc_l4_evaluation.md) is restricted to AWS
+and Azure managed Twin services, one Twin/model and the existing projection
+adapter invoked locally. It is a partial research experiment, not a deployed
+Eventing-to-L4 integration claim. Fixed Terraform targets reuse existing L4
+definitions; final dependency closure, model compatibility, pricing and exact
+execution approval remain gates. No production guard is relaxed, new layer
+framework added, or cloud mutation performed. Research questions stay unchanged;
+GCP L4/L5 remain excluded and L5 stays last.

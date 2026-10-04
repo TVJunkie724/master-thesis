@@ -2,14 +2,14 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-19"
+lastUpdated: "2026-10-04"
 version: "2.0"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active execution source; offline closure complete, supervised Core
-evaluation in progress; full-profile evaluation pending
+Status: active execution source; offline closure complete, nine Core telemetry
+paths passed live; separate L4 and full-profile evaluation pending
 
 ## 1. Purpose
 
@@ -31,6 +31,15 @@ and the
 [`live-evaluation-protocol.md`](../research/evaluation/live-evaluation-protocol.md).
 
 ## Current phase status
+
+Current checkpoint (2026-10-04): all three local and six directed Core telemetry
+cases passed their ten-message assertion. The [compact Core results](../research/evaluation/core-telemetry-results.md)
+consolidate successful phase timings, measurement gaps, dated zero-active-resource
+inventories and inactive provider deletion markers. Actual billed attribution
+remains pending. These are not complete-profile E2E passes. Next is the
+[bounded AWS/Azure L4 preparation](2026-10-04_poc_l4_evaluation.md), without Apply
+approval, new images or a repeat of all nine Core cases. The dated checkpoints
+below remain historical observations, not current coverage counts.
 
 Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
 ten-message provider-local L1–L3/Event-Layer telemetry path. AWS/Azure independent
