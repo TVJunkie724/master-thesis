@@ -2,7 +2,7 @@
 
 Status: infrastructure plans checked offline and account-bound read-only on
 2026-10-04; native AWS projection correction implemented and verified offline;
-**live L4 acceptance still pending**.
+**AWS and Azure isolated L4 acceptance passed, including cleanup and zero active inventory**.
 Predecessor: [nine Core telemetry passes](../research/evaluation/core-telemetry-results.md).
 Research questions and full-profile admission remain unchanged. GCP L4/L5
 remain excluded; no replacement VM, dashboard or custom Twin service is added.
@@ -105,7 +105,8 @@ and resource timings, and unconditional cleanup followed by independent inventor
 SDK response/call limits and a 20-minute functional deadline stop the experiment;
 cleanup has its own time window. Cleanup cannot delete a pre-existing prefix when
 preflight rejects the run. Permission errors are not treated as absent resources.
-No Apply has been performed merely by implementing or testing this runner.
+Implementation/offline tests did not Apply resources; the separately approved
+live observations below now provide real provisioning/projection evidence.
 Verification: 176 focused offline tests pass across runner/scope guards,
 AWS/Azure adapters, seed lifecycle, probes and access contracts. Another 136
 simulator/Eventing/metrics tests pass; these groups do not duplicate a live run.
@@ -199,7 +200,8 @@ No cross-month run or change of AWS pricing mode is allowed by this proposal.
 For conservative planning, 1,200 AWS data calls cost USD 0.00198; two full
 entity-months cost USD 0.105. The current Frankfurt S3 Price List API gives
 USD 0.0000054 per Tier-1 request and USD 0.00000043 per Tier-2 request: an extra
-1,000 of each costs USD 0.00583. No object payload is uploaded. A technical
+1,000 of each costs USD 0.00583. No object payload is uploaded by the runner;
+TwinMaker creates its own workspace lifecycle marker in S3. A technical
 allowance of USD 0.25 leaves margin for the tiny response transfer and provider
 control-plane requests; it is not a measured bill or enforced billing cap.
 [S3 pricing](https://aws.amazon.com/s3/pricing/).
@@ -209,7 +211,7 @@ there are no routed messages or query workloads. Limits stop further functional
 calls after an oversized response, not retroactively undo already billed traffic.
 Cleanup is never abandoned to conserve a call allowance.
 
-Execution still requires approval of these specific two managed-service checks.
+The two specific managed-service checks were approved on 2026-10-04.
 The CLI interlock is not itself authorization. The operator must stop after a
 failed attempt, review its private report and inventory, and recheck the remaining
 allowance before a retry or moving to the second provider. Historic Core spending
@@ -236,6 +238,77 @@ the same bounded numeric Twin projection responsibility on AWS/Azure. RQ3
 records the scoped resource/API costs without treating omitted GCP L4 as free
 or attributing these fixture measurements to Eventing. L5 stays last.
 
+## Live observations (2026-10-04)
+
+AWS isolated L4 passed at revision `cdf0d3e6`. The actual native seed created
+one telemetry component type and the root/device entities. The actual adapter
+updated the current state and replayed the same event; both authenticated
+readbacks matched metric, numeric value, sequence, event ID and observation time.
+SDK child deletion, Terraform Destroy and independent workspace/S3/IAM inventory
+completed with zero active residuals. The run used 16 projection/seed SDK calls
+and 21,978 cumulative response bytes; this is not a billed-operation count.
+
+| AWS phase | Seconds |
+|---|---:|
+| Plan and runner initialization | 6.174 |
+| Apply, including one bounded IAM-readiness retry | 48.803 |
+| Model/entity seed | 1.066 |
+| Projection acknowledgement / correlated readback | 0.093 / 0.060 |
+| Replay acknowledgement / correlated readback | 0.123 / 0.059 |
+| SDK child cleanup | 6.739 |
+| Terraform Destroy | 14.278 |
+| Independent inventory | 0.895 |
+
+Six create and six destroy resource-duration observations are retained privately.
+These are local-adapter API timings, not Event-Layer message latencies, repeated
+benchmarks, or proof of deployed runtime identity. Provider-billed attribution
+remains pending; no allowance is reported as actual cost.
+
+Two earlier AWS cloud attempts failed before model/entity seeding and were
+cleaned with zero inventory: the first encountered IAM trust propagation
+(Apply 11.809 s, Destroy 9.342 s); the second successfully created the workspace
+but exposed an output that indexed intentionally omitted human SSO bindings
+(Apply 50.636 s, Destroy 15.007 s). The runner now retries only that classified
+workspace/IAM failure, at most twice, after reviewing a plan with one missing
+workspace create and no changes to the five existing entries. The output now
+returns empty binding evidence for the isolated cut, without inventing access.
+See [AWS service-role requirements](https://docs.aws.amazon.com/iot-twinmaker/latest/guide/twinmaker-gs-service-role.html).
+
+Two additional starts stopped locally before Apply: the container lacks Git,
+so the runner accepts a validated pinned revision; Azure's installed resource
+SDK exports its client under `azure.mgmt.resource.resources`. Both are corrected.
+The failure records remain separate from the successful observation.
+
+Azure isolated L4 passed at revision `f7770bd3`. Terraform provisioned only the
+resource group and ADT instance. One instance-scoped Data Owner assignment
+authorized the existing administrator; no extra administrator or tenant role
+was created. The existing DTDL model, root/device Twins and contains relationship
+were seeded; the actual adapter's update and replay produced matching authenticated
+snapshots. SDK cleanup removed the relationship, Twins, model and scoped role,
+then Terraform removed both infrastructure resources. Independent group/role
+inventory found zero active residuals. Nine seed/projection SDK calls returned
+5,065 cumulative bytes; these are observations, not billed units.
+
+| Azure phase | Seconds |
+|---|---:|
+| Plan and runner initialization | 33.686 |
+| Terraform Apply | 115.292 |
+| Scoped-role readiness (one observation) | 1.313 |
+| DTDL/Twin/relationship seed | 3.185 |
+| Projection acknowledgement / correlated readback | 0.769 / 0.059 |
+| Replay acknowledgement / correlated readback | 0.064 / 0.056 |
+| SDK child and scoped-role cleanup | 4.017 |
+| Terraform Destroy | 129.808 |
+| Independent inventory | 1.361 |
+
+Two create and two destroy resource-duration observations are retained privately.
+These two isolated passes establish managed service/model/current-state behavior,
+not Event-to-L4 delivery, command return or graphical L5. Successful AWS evidence
+uses revision `cdf0d3e6`; the later Azure change only corrected runner SDK import
+and added its offline initialization regression. No AWS rerun is needed for that.
+Following the live findings, 179 focused offline tests and all three credential-free
+native L4 mock plans pass. Per-provider billing attribution remains pending.
+
 ## Remaining close-out sequence
 
 1. Execute the two isolated L4 attempts after their specific scope/cost approval;
@@ -250,6 +323,18 @@ or attributing these fixture measurements to Eventing. L5 stays last.
    tests passed offline (136 tests); no live command result follows from them.
    Do not automatically repeat every directed telemetry case: add a directed
    command case only for an unverified routing/identity path and label coverage.
+   Preparation finding: AWS send/listen currently create separate connections
+   with the same MQTT client ID; Azure helpers likewise create separate clients
+   for one device. An optional bounded send-after-listener-ready mode is now
+   implemented using the same connection and accepting only the matching
+   diagnostic trace. Existing manual listener behavior is preserved. No new role, certificate, UI,
+   service or general session framework. GCP already separates telemetry/command
+   client IDs; its listener now also accepts an expected trace and ignores other
+   receipts. These changes are offline-tested preparation, not live roundtrip
+   evidence. The current Core preparer deliberately has empty event/device
+   configuration; the next live cut must explicitly add one registered simulator
+   device and one feedback rule, with exact plan/cleanup review. Merely rerunning
+   the unchanged ten-message telemetry smoke cannot establish command return.
 4. Resolve and verify the smallest graphical L5 responsibility last. The existing
    feasibility review is not implementation approval. No Grafana platform,
    GCP VM, silent reader-to-visualization relabelling or changed research question

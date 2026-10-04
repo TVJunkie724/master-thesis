@@ -1129,3 +1129,41 @@ The protocol now explicitly distinguishes today's split execution from the
 conditional complete-graph protocol. Actual Event-to-L4 delivery, live simulator
 command return, graphical L5 and billed-cost attribution remain open. L5 must
 not become an unapproved platform build or change of the research questions.
+
+### 2026-10-04 — AWS and Azure isolated L4 passed live
+
+The approved managed-service checks passed on both providers: real Terraform
+provisioning, real application seed/model, native numeric projection, exact
+authenticated state readback and same-event replay. AWS uses revision `cdf0d3e6`,
+Azure `f7770bd3`. Both immediately removed SDK children and infrastructure;
+independent scoped inventories found zero active residuals. Phase, per-resource,
+projection/replay, Destroy and inventory timings are retained in the
+[L4 execution record](plans/2026-10-04_poc_l4_evaluation.md). Billed attribution
+is pending, not replaced by an allowance.
+
+AWS exposed IAM propagation during workspace creation and an output indexing
+deliberately omitted human bindings. Only the missing workspace is now retried
+under an exact re-plan guard; absent human access produces empty evidence.
+Both earlier cloud failures were destroyed and inventoried before retry.
+Local pre-Apply failures also corrected the git-free runner revision input and
+installed Azure SDK import. No extra service, broad role or research question
+change was introduced. 179 focused offline tests and three native mock plans
+pass after these changes. The full graph, Event-to-L4 deployed delivery,
+simulator command return and graphical L5 remain separate, unclaimed evidence.
+
+### 2026-10-04 — Bounded simulator roundtrip preparation
+
+Inspection of the next check found separate send/listen connections in the AWS
+and Azure simulator helpers (AWS reused the same MQTT client ID). Their optional
+combined mode now subscribes/listens before sending on the same client; it
+requires a valid diagnostic trace and the configured device. Only the correlated
+command can satisfy the receipt check. Existing manual mode remains unchanged.
+GCP already uses distinct client IDs and now offers the same explicit expected
+trace check for its listener. No cloud resource, role, certificate, UI or session
+framework was added. Positive/wrong-trace and invalid-payload tests cover the
+small change; no live command result is inferred. The next resource plan must
+include a real simulator device and feedback rule, which today's telemetry-only
+Core fixture intentionally omits.
+The expanded simulator/Eventing/metrics group passes 146 tests; together with
+the 179 focused L4/runtime/verification tests this is 325 offline passes, plus
+the three native Terraform mock checks. Changed Python files pass Ruff.

@@ -36,9 +36,12 @@ Current checkpoint (2026-10-04): all three local and six directed Core telemetry
 cases passed their ten-message assertion. The [compact Core results](../research/evaluation/core-telemetry-results.md)
 consolidate successful phase timings, measurement gaps, dated zero-active-resource
 inventories and inactive provider deletion markers. Actual billed attribution
-remains pending. These are not complete-profile E2E passes. Next is the
-[bounded AWS/Azure L4 preparation](2026-10-04_poc_l4_evaluation.md), without Apply
-approval, new images or a repeat of all nine Core cases. The dated checkpoints
+remains pending. These are not complete-profile E2E passes. The separately
+approved [bounded AWS/Azure L4 checks](2026-10-04_poc_l4_evaluation.md) now also
+passed live: real service/model creation, local-adapter state update/replay,
+authenticated readback, Destroy and independent zero-active-resource inventory.
+Actual Event-to-L4 delivery, simulator/command and graphical L5 remain open;
+no Core reruns or new dashboard platform are implied. The dated checkpoints
 below remain historical observations, not current coverage counts.
 
 Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real

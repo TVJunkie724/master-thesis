@@ -76,5 +76,8 @@ reporting the cost of obtaining a result, separately from a successful attempt.
 The older AWS local run lacks individual persistence samples and later structured
 phase timestamps. Its functional result stands, but a matched nine-case latency
 distribution cannot be claimed. No automatic rerun of all nine cases is planned.
-Next: prepare the [bounded AWS/Azure L4 check](../../plans/2026-10-04_poc_l4_evaluation.md).
+Follow-up: the [bounded AWS/Azure L4 check](../../plans/2026-10-04_poc_l4_evaluation.md)
+has now passed separately for both providers, including cleanup and zero active
+inventory. Its synthetic local-adapter projection is not Event-to-L4 delivery
+or a replacement for the still-open simulator/command and graphical-L5 checks.
 Research questions remain unchanged; GCP L4/L5 stay excluded without replacement.

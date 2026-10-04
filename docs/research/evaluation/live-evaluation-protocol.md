@@ -14,8 +14,9 @@ successful paths and explicitly retain measurement gaps and cleanup limitations.
 Current execution is deliberately split: the nine Core observations are followed
 by the [isolated AWS/Azure L4 check](../../plans/2026-10-04_poc_l4_evaluation.md),
 then separately scoped simulator/command and graphical-L5 evidence. The L4
-native-state correction and supervised runner are implemented and tested offline;
-neither is a new live pass. The complete-graph staged protocol later in this
+native-state correction and supervised runner now have two isolated live passes
+(AWS/Azure), including model/state/replay readback and clean independent inventory.
+The complete-graph staged protocol later in this
 document applies only after its outstanding implementation/approval gates clear;
 it does not require repeating all nine Core runs or keeping resources alive while
 later layers are developed. A local-adapter L4 check cannot substitute for
