@@ -129,6 +129,8 @@ new point both during verification and after the receipt failure. Retained logs
 show ingress, processing and historical persistence, but no rule-evaluator
 execution in the observation window. This localizes the missing evidence; it
 does not prove an AMQP failure or a platform scaling defect.
+Attempt 03 measured 583.996 s deployment, 314.914 s verification and 950.904 s
+Destroy (1995.107 s total); its independent resource-group inventory is zero.
 
 The next bounded command experiment adds one always-ready instance for each of
 the existing rule-evaluator and control-router functions and the action HTTP
