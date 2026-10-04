@@ -215,6 +215,9 @@ def run(args):
     if gcp_to_azure and provider != "azure":
         raise ValueError("The GCP-to-Azure case uses the Azure destination runner")
     directed = azure_to_aws or aws_to_azure or aws_to_gcp or azure_to_gcp or gcp_to_aws or gcp_to_azure
+    command_roundtrip = getattr(args, "command_roundtrip", False)
+    if command_roundtrip and (provider != "aws" or directed):
+        raise ValueError("The bounded command cut currently supports only local AWS")
     scenario = ("core-small-azure-to-aws" if azure_to_aws else
                 "core-small-aws-to-azure" if aws_to_azure else
                 "core-small-aws-to-gcp" if aws_to_gcp else
@@ -245,6 +248,9 @@ def run(args):
         directed_ops.configure(values, root / "runtime")
     values["digital_twin_name"] = run_id
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
+    if command_roundtrip:
+        from scripts import core_live_aws_roundtrip
+        core_live_aws_roundtrip.configure(values, root / "runtime")
     credentials = json.loads(args.credentials.read_text())
     aws = credentials["aws"]
     values.update(aws_access_key_id=aws["aws_access_key_id"],
@@ -253,6 +259,8 @@ def run(args):
     values.update({key: credentials["azure"][key] for key in (
         "azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id")})
     ops = importlib.import_module("scripts.core_live_" + provider)
+    if command_roundtrip:
+        ops = core_live_aws_roundtrip
     if directed_ops:
         ops = directed_ops
     image_providers = directed_ops.image_providers if directed_ops and hasattr(directed_ops, "image_providers") else (provider,)
@@ -294,6 +302,7 @@ def run(args):
         "provider": provider,
         "scenario": scenario,
         "scope": "core",
+        "command_roundtrip": command_roundtrip,
         "green": False,
         "started_at": utc_now(),
         "functional_time_limit_seconds": functional_limit,
@@ -479,6 +488,8 @@ def run(args):
         report["green"] = bool(report.get("verification") and report.get("destroy_succeeded")
                                and "residual_counts" in report and not any(report["residual_counts"].values())
                                and not report.get("failure_type") and not report.get("stop_builds_error"))
+        if any(report.get(key) for key in ("prepare_destroy_error", "cleanup_error", "inventory_error")):
+            report["green"] = False
         report["completed_at"] = utc_now()
         report["total_seconds"] = round(time.monotonic() - run_started, 3)
         save(root / "report.json", report)
@@ -502,6 +513,7 @@ if __name__ == "__main__":
     parser.add_argument("--gcp-to-aws", action="store_true", help="Run only the fixed GCP-ingress/AWS-Core scenario.")
     parser.add_argument("--gcp-to-azure", action="store_true", help="Run only the fixed GCP-ingress/Azure-Core scenario.")
     parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
+    parser.add_argument("--command-roundtrip", action="store_true", help="Local AWS only: one real simulator device and one feedback rule; no L4/L5.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
     parser.add_argument("--gcp-credentials", type=Path)

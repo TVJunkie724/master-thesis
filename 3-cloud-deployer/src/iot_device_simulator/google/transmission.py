@@ -7,6 +7,7 @@ import json
 import os
 import re
 import threading
+import time
 
 from . import globals
 
@@ -156,19 +157,33 @@ def send_mqtt(payload: dict, device_config: dict | None = None) -> None:
     )
 
 
-def listen_for_command(timeout_seconds: float = 300, *, expected_trace_id: str | None = None) -> bool:
+def listen_for_command(timeout_seconds: float = 300, *, expected_trace_id: str | None = None,
+                       telemetry_payload: dict | None = None) -> bool:
     """Wait for one command and emit bounded local receipt evidence."""
     device_config = _active_config()
+    if telemetry_payload is not None:
+        trace = _trace_id(telemetry_payload)
+        if trace is None or expected_trace_id not in (None, trace) or any(
+            telemetry_payload.get(key) not in (None, device_config["device_id"])
+            for key in ("device_id", "iotDeviceId")
+        ):
+            raise ValueError("Roundtrip telemetry requires a valid trace and matching device")
+        expected_trace_id = trace
     if expected_trace_id is not None and (
         not isinstance(expected_trace_id, str) or not _TRACE_ID.fullmatch(expected_trace_id)
     ):
         raise ValueError("A valid expected command trace is required")
     received = threading.Event()
+    subscribed = threading.Event()
     client = _client(device_config, suffix="commands")
 
     def on_connect(active_client, _userdata, _flags, reason_code, _properties=None):
         if reason_code == 0:
             active_client.subscribe(device_config["command_topic"], qos=1)
+
+    def on_subscribe(_client, _userdata, _mid, reason_codes, _properties=None):
+        if reason_codes and all(code == 0 or code == 1 or code == 2 for code in reason_codes):
+            subscribed.set()
 
     def on_message(_client, _userdata, message):
         matched = _COMMAND_TOPIC.fullmatch(message.topic)
@@ -187,10 +202,21 @@ def listen_for_command(timeout_seconds: float = 300, *, expected_trace_id: str |
 
     client.on_connect = on_connect
     client.on_message = on_message
+    client.on_subscribe = on_subscribe
+    expires = time.monotonic() + timeout_seconds
     try:
         client.connect(device_config["endpoint"], device_config["port"], keepalive=60)
         client.loop_start()
-        return received.wait(timeout_seconds)
+        if telemetry_payload is not None:
+            if not subscribed.wait(max(0, min(15, expires - time.monotonic()))):
+                raise TimeoutError("MQTT command subscription not acknowledged")
+            payload = dict(telemetry_payload, iotDeviceId=device_config["device_id"])
+            publication = client.publish(device_config["telemetry_topic"], json.dumps(payload), qos=1, retain=False)
+            publication.wait_for_publish(timeout=max(0, min(15, expires - time.monotonic())))
+            if not publication.is_published():
+                raise TimeoutError("MQTT telemetry publish not acknowledged")
+            _checkpoint("simulator_sent", expected_trace_id, payload.get("event_id"))
+        return received.wait(max(0, expires - time.monotonic()))
     finally:
         client.loop_stop()
         client.disconnect()

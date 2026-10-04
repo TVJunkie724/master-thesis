@@ -112,3 +112,42 @@ def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch,
         assert '"event_id":"event-1"' in output
         assert '"trace_id":"TRACE-ABCDEF12"' in output
     client.subscribe.assert_called_once_with("devices/device-1/commands", qos=1)
+
+
+@pytest.mark.parametrize("suback", [0, 1, 128, None])
+def test_combined_roundtrip_waits_for_successful_suback(tmp_path, monkeypatch, suback):
+    _config(tmp_path)
+    client = MagicMock()
+    def start():
+        client.on_connect(client, None, None, 0)
+        if suback is not None:
+            client.on_subscribe(client, None, 1, [suback])
+    client.loop_start.side_effect = start
+    def publish(topic, payload, **kwargs):
+        assert topic == "devices/device-1/telemetry"
+        assert json.loads(payload)["iotDeviceId"] == "device-1"
+        client.on_message(client, None, SimpleNamespace(topic="devices/device-1/commands",
+            payload=b'{"trace_id":"TRACE-ABCDEF12"}'))
+        publication = MagicMock()
+        publication.is_published.return_value = True
+        return publication
+    client.publish.side_effect = publish
+    monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
+    if suback in (0, 1):
+        assert transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_called_once()
+    else:
+        with pytest.raises(TimeoutError, match="subscription"):
+            transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_not_called()
+    client.disconnect.assert_called_once()
+
+
+@pytest.mark.parametrize("payload", [{}, {"source_sequence": "TRACE-ABCDEF12", "device_id": "foreign"}])
+def test_combined_roundtrip_validates_before_connection(tmp_path, monkeypatch, payload):
+    _config(tmp_path)
+    client = MagicMock()
+    monkeypatch.setattr(transmission, "_client", client)
+    with pytest.raises(ValueError):
+        transmission.listen_for_command(0.01, telemetry_payload=payload)
+    client.assert_not_called()
