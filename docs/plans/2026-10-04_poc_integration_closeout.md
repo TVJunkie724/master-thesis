@@ -1,14 +1,15 @@
 # Bounded integration close-out
 
-Status: offline implementation and account-bound read-only planning; **no new
-live integration pass**. Continue after the nine Core telemetry and two isolated
+Status: supervised integration attempts in progress; **no new integration pass
+is inferred from preparation**. Continue after the nine Core telemetry and two isolated
 L4 observations. Those results are not invalidated or silently broadened.
 
 ## Simulator and command return
 
 Reuse the Core runner and deployed domain/Event code. The first fixed case is
-local AWS, selected explicitly with `--command-roundtrip`; directed/other-provider
-combinations currently fail before creating an output directory. The ordinary
+local AWS, selected explicitly with `--command-roundtrip`; local Azure and GCP
+now have provider-specific receipt/readback harnesses. Directed command
+combinations fail before creating an output directory. The ordinary
 ten-message Core smoke remains unchanged.
 
 The read-only fresh-state plan has 94 managed creation entries, including ten
@@ -45,8 +46,19 @@ before sending. This avoids a listener-start race; the existing manual listener
 and send helpers retain their behavior. These changes are tested offline only.
 The focused simulator, runtime, policy, package and runner regression contains
 117 passing tests; changed Python files pass Ruff.
-Azure/GCP live harness wiring, exact account plans and cost review remain pending;
-do not enable those CLI cases based on an AWS result.
+Account-bound read-only plans admit 98 Azure and 109 GCP managed creates; GCP's
+existing staged MQTT deployment additionally checks nine Kubernetes addresses.
+These counts include bindings/configuration, not independently billed services.
+Azure/GCP receipt checks still require their own live result, not inference from AWS.
+
+AWS attempts exposed a legacy-only Terraform endpoint guard: the Six-layer IoT
+command adapter received an empty Data-ATS endpoint. The guard now follows actual
+AWS L1 placement. The next attempts delivered the real command and exposed two
+simulator SDK callback details: the message callback supplies `None` as its client,
+and PUBACK supplies `mid` by keyword. Acknowledgement now uses the owned client's
+asynchronous publish and reports success only after PUBACK. Regression tests use
+the actual callback shapes, including a missing-ACK negative case. Failed attempts
+remain failed; arrival alone does not override teardown or harness errors.
 
 ## Event-to-L4 delivery
 
@@ -66,11 +78,23 @@ match the fixture. The declared non-AWS L1/L2 placement only excludes unneeded
 AWS dependencies from this partial plan; **no Azure resources or cross-cloud
 delivery are tested**. Full-profile admission stays closed.
 
-The private account-bound plans are preparation observations, not an execution
-runner or an approved cost quote. Before Apply, freeze the exact address allowlist,
-verify seed/readback and failure cleanup for this cut, and review its technical
-cost envelope. Review the Azure dependency closure separately. No general layer
-selection framework or alternate production architecture is introduced.
+The fixed AWS runner enforces all 33 addresses and a 900-second functional window.
+The separately reviewed Azure runner admits exactly 45 addresses: three Function
+Apps (two published packages), Event Hubs namespace/three hubs/two consumer groups,
+Service Bus, Cosmos DB, Digital Twins, Storage, an empty registry dependency and
+supporting identities/bindings/configuration. It publishes no container image and
+creates no IoT Hub. The existing package dependency also creates an unused reader
+app; this is not L5 evidence. One SDK-owned Event Hubs sender role is journaled and
+removed during cleanup. Terraform owns both Twin data roles. Its functional window
+is 1500 seconds, including provisioning and at most one processed fixture.
+
+Both runners are plan-only by default, use exact fresh create-only plans, preserve
+phase/per-resource timing, attempt cleanup on failure/interrupt and independently
+check inventory. Azure permits only the two known package submodules in its frozen
+state allowlist. Neither cut claims replay, cross-cloud delivery, graphical L5 or
+full-profile admission. The L4 runner group has 49 passing offline tests. A private
+execution allowance is not measured provider billing. No general layer-selection
+framework or alternate production architecture is introduced.
 
 ## L5 and interpretation
 
