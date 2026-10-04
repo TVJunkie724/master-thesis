@@ -31,10 +31,9 @@ def test_one_rule_uses_real_parser_without_new_layers(values, tmp_path):
     assert "layer_4_provider" not in values
 
 
-@pytest.mark.parametrize("provider,directed", [("azure", False), ("gcp", False), ("aws", True)])
-def test_unsupported_roundtrip_rejected_before_files(provider, directed, tmp_path):
-    with pytest.raises(ValueError, match="only local AWS"):
-        run(SimpleNamespace(provider=provider, command_roundtrip=True, azure_to_aws=directed, output_dir=tmp_path / "run"))
+def test_directed_roundtrip_rejected_before_files(tmp_path):
+    with pytest.raises(ValueError, match="only local providers"):
+        run(SimpleNamespace(provider="aws", command_roundtrip=True, azure_to_aws=True, output_dir=tmp_path / "run"))
     assert not (tmp_path / "run").exists()
 
 

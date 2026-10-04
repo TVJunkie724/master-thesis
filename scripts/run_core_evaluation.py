@@ -216,8 +216,8 @@ def run(args):
         raise ValueError("The GCP-to-Azure case uses the Azure destination runner")
     directed = azure_to_aws or aws_to_azure or aws_to_gcp or azure_to_gcp or gcp_to_aws or gcp_to_azure
     command_roundtrip = getattr(args, "command_roundtrip", False)
-    if command_roundtrip and (provider != "aws" or directed):
-        raise ValueError("The bounded command cut currently supports only local AWS")
+    if command_roundtrip and directed:
+        raise ValueError("The bounded command cut supports only local providers")
     scenario = ("core-small-azure-to-aws" if azure_to_aws else
                 "core-small-aws-to-azure" if aws_to_azure else
                 "core-small-aws-to-gcp" if aws_to_gcp else
@@ -249,8 +249,8 @@ def run(args):
     values["digital_twin_name"] = run_id
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
     if command_roundtrip:
-        from scripts import core_live_aws_roundtrip
-        core_live_aws_roundtrip.configure(values, root / "runtime")
+        command_ops = importlib.import_module("scripts.core_live_" + provider + "_roundtrip")
+        command_ops.configure(values, root / "runtime")
     credentials = json.loads(args.credentials.read_text())
     aws = credentials["aws"]
     values.update(aws_access_key_id=aws["aws_access_key_id"],
@@ -260,7 +260,7 @@ def run(args):
         "azure_subscription_id", "azure_client_id", "azure_client_secret", "azure_tenant_id")})
     ops = importlib.import_module("scripts.core_live_" + provider)
     if command_roundtrip:
-        ops = core_live_aws_roundtrip
+        ops = command_ops
     if directed_ops:
         ops = directed_ops
     image_providers = directed_ops.image_providers if directed_ops and hasattr(directed_ops, "image_providers") else (provider,)
@@ -513,7 +513,7 @@ if __name__ == "__main__":
     parser.add_argument("--gcp-to-aws", action="store_true", help="Run only the fixed GCP-ingress/AWS-Core scenario.")
     parser.add_argument("--gcp-to-azure", action="store_true", help="Run only the fixed GCP-ingress/Azure-Core scenario.")
     parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
-    parser.add_argument("--command-roundtrip", action="store_true", help="Local AWS only: one real simulator device and one feedback rule; no L4/L5.")
+    parser.add_argument("--command-roundtrip", action="store_true", help="Local provider only: one real simulator device and one feedback rule; no L4/L5.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)
     parser.add_argument("--gcp-credentials", type=Path)

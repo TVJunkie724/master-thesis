@@ -102,8 +102,8 @@ def poll_points(read, key, query, attempts=60, pause_seconds=3, observation=None
     raise error
 
 
-def send_telemetry(values, outputs):
-    """Send ten real IoT Hub messages; storage may be in another provider."""
+def register_simulator(values, outputs):
+    """Register the one run-owned device; return its connection material privately."""
     group = outputs["azure_six_layer_resource_group_name"]
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
     resources = arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
@@ -123,6 +123,14 @@ def send_telemetry(values, outputs):
                                       "secondaryKey": base64.b64encode(os.urandom(32)).decode()}}}, timeout=30)
     if response.status_code not in (200, 201):
         raise RuntimeError("CORE_AZURE_DEVICE_HTTP_" + str(response.status_code))
+    return hostname, device_key
+
+
+def send_telemetry(values, outputs):
+    """Send ten real IoT Hub messages; storage may be in another provider."""
+    hostname, device_key = register_simulator(values, outputs)
+    device = "core-sensor"
+    resource = hostname + "/devices/" + device
     now = datetime.now(timezone.utc)
     started = time.monotonic()
     for number in range(10):
