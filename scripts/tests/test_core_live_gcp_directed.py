@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -46,3 +47,21 @@ def test_directed_smoke_uses_mqtt_source_and_authenticated_destination_reader(
     assert result["source_provider"] == "gcp"
     assert result["destination_provider"] == target
     assert result["mqtt_connect_attempts"] == 2
+
+
+@pytest.mark.parametrize("status,state,active,pending", [
+    (404, None, 0, 0), (200, "ACTIVE", 1, 0), (200, "DELETED", 0, 1),
+])
+def test_aws_destination_inventory_includes_reverse_route_identity_pool(
+        monkeypatch, status, state, active, pending):
+    directed = core_live_gcp_to_aws
+    monkeypatch.setattr(directed.reverse, "inventory", lambda *_: {"aws:resources": 0})
+    requested = []
+    def get(url, **_):
+        requested.append(url)
+        return SimpleNamespace(status_code=status, json=lambda: {"state": state})
+    monkeypatch.setattr(directed.gcp, "client", lambda _: SimpleNamespace(get=get))
+    result = directed.inventory({"gcp_project_id": "example-project"}, "coreg2a-12345678")
+    assert result["gcp:workload_identity_pools"] == active
+    assert result.get("pending_deletion:gcp:workload_identity_pools", 0) == pending
+    assert requested[0].endswith("/coreg2a-12345678-aws-bridge")

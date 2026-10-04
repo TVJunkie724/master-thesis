@@ -26,8 +26,25 @@ def smoke(values, outputs):
             "source_provider": "gcp", "destination_provider": "aws"}
 
 
+def inventory(values, prefix):
+    result = reverse.inventory(values, prefix)
+    pool = prefix[:16] + "-aws-bridge"
+    url = ("https://iam.googleapis.com/v1/projects/" + values["gcp_project_id"]
+           + "/locations/global/workloadIdentityPools/" + pool)
+    response = gcp.client(values).get(url, timeout=45)
+    if response.status_code == 404:
+        result["gcp:workload_identity_pools"] = 0
+    elif response.status_code == 200:
+        deleted = response.json().get("state") == "DELETED"
+        result["gcp:workload_identity_pools"] = 0 if deleted else 1
+        if deleted:
+            result["pending_deletion:gcp:workload_identity_pools"] = 1
+    else:
+        raise RuntimeError("CORE_GCP_POOL_INVENTORY_HTTP_" + str(response.status_code))
+    return result
+
+
 readiness = reverse.readiness
-inventory = reverse.inventory
 stop_builds = reverse.stop_builds
 diagnostics = reverse.diagnostics
 before_destroy = aws.before_destroy
