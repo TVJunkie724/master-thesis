@@ -204,7 +204,7 @@ Both runners are plan-only by default, use exact fresh create-only plans, preser
 phase/per-resource timing, attempt cleanup on failure/interrupt and independently
 check inventory. Azure permits only the two known package submodules in its frozen
 state allowlist. Neither cut claims replay, cross-cloud delivery, graphical L5 or
-full-profile admission. The L4 runner group has 49 passing offline tests. A private
+full-profile admission. The L4 runner group has 56 passing offline tests. A private
 execution allowance is not measured provider billing. No general layer-selection
 framework or alternate production architecture is introduced.
 
