@@ -7,6 +7,7 @@ import argparse
 import base64
 from contextlib import redirect_stderr, redirect_stdout
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -169,6 +170,8 @@ class AzureEventExperiment(Experiment):
 
 
 def run(args):
+    # Fail before plan/reservation/mutation if the evaluation SDK is unavailable.
+    importlib.import_module('azure.eventhub')
     os.umask(0o077)
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)

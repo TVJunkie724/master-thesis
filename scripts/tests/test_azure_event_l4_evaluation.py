@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from scripts.run_azure_event_l4_evaluation import ALLOWED, review, expected_projection, AzureEventExperiment
 from scripts.run_event_l4_evaluation import processed_fixture
 from scripts.l4_projection_check import load_adapter
+from scripts import run_azure_event_l4_evaluation as runner
 
 
 def plan():
@@ -18,6 +20,16 @@ def test_exact_fixed_cut_has_no_ingress_device_or_l5():
     assert not any(a.startswith(('aws_', 'google_', 'azurerm_iothub.', 'azurerm_dashboard_grafana.')) for a in ALLOWED)
     assert 'azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_projection_writer"]' in ALLOWED
     assert 'azurerm_eventhub_consumer_group.domain_standard["twin-state-update"]' in ALLOWED
+
+
+def test_missing_publisher_sdk_fails_before_output_or_cloud_work(tmp_path, monkeypatch):
+    output = tmp_path / 'unstarted'
+    missing = Mock(side_effect=ModuleNotFoundError('azure.eventhub'))
+    monkeypatch.setattr(runner.importlib, 'import_module', missing)
+    with pytest.raises(ModuleNotFoundError):
+        runner.run(SimpleNamespace(output_dir=output))
+    missing.assert_called_once_with('azure.eventhub')
+    assert not output.exists()
 
 
 @pytest.mark.parametrize('mutation', ['extra', 'missing', 'duplicate', 'update'])

@@ -235,6 +235,14 @@ full-profile admission. The L4 runner group has 56 passing offline tests. A priv
 execution allowance is not measured provider billing. No general layer-selection
 framework or alternate production architecture is introduced.
 
+Azure Event-to-L4 attempt 01 stopped before Apply because the local evaluation
+image lacked `azure-eventhub`. No cloud resource was created, and independent
+resource-group inventory was zero. The SDK is now a pinned development-only
+dependency (`5.15.1`), and the runner checks its availability before planning or
+reserving an execution allowance. The existing deployment image was extended
+locally with only this SDK for the next attempt; production dependencies and
+cloud resource scope are unchanged. All nine Azure Event/L4 runner tests pass.
+
 ## L5 and interpretation
 
 Graphical L5 needs a user decision, not automatic restoration of the historical
