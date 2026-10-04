@@ -1440,17 +1440,18 @@ output "azure_component_hot_storage_output" {
 }
 
 output "azure_component_cool_storage_output" {
-  value = local.azure_six_layer_cool_enabled ? {
+  # A targeted Event/L4 research cut can omit the cold-storage container.
+  value = local.azure_six_layer_cool_enabled ? try({
     storage_account_name = azurerm_storage_account.main[0].name
     container_name       = azurerm_storage_container.azure_azure_blob_cool[0].name
-  } : null
+  }, null) : null
 }
 
 output "azure_component_archive_storage_output" {
-  value = local.azure_six_layer_archive_enabled ? {
+  value = local.azure_six_layer_archive_enabled ? try({
     storage_account_name = azurerm_storage_account.main[0].name
     container_name       = azurerm_storage_container.azure_azure_blob_cool[0].name
-  } : null
+  }, null) : null
 }
 
 output "azure_component_twin_state_output" {

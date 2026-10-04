@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -30,6 +31,15 @@ def test_missing_publisher_sdk_fails_before_output_or_cloud_work(tmp_path, monke
         runner.run(SimpleNamespace(output_dir=output))
     missing.assert_called_once_with('azure.eventhub')
     assert not output.exists()
+
+
+def test_partial_cut_does_not_require_cold_storage_outputs():
+    source = (Path(__file__).resolve().parents[2] / '3-cloud-deployer/src/terraform/azure_six_layer.tf').read_text()
+    for layer in ('cool', 'archive'):
+        block = source.split('output "azure_component_' + layer + '_storage_output" {', 1)[1].split('\n}\n', 1)[0]
+        assert 'value = local.azure_six_layer_' + layer + '_enabled ? try({' in block
+        assert '}, null) : null' in block
+    assert not any('azure_azure_blob_cool' in address for address in ALLOWED)
 
 
 @pytest.mark.parametrize('mutation', ['extra', 'missing', 'duplicate', 'update'])

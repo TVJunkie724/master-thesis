@@ -231,7 +231,7 @@ Both runners are plan-only by default, use exact fresh create-only plans, preser
 phase/per-resource timing, attempt cleanup on failure/interrupt and independently
 check inventory. Azure permits only the two known package submodules in its frozen
 state allowlist. Neither cut claims replay, cross-cloud delivery, graphical L5 or
-full-profile admission. The L4 runner group has 56 passing offline tests. A private
+full-profile admission. The L4 runner group has 58 passing offline tests. A private
 execution allowance is not measured provider billing. No general layer-selection
 framework or alternate production architecture is introduced.
 
@@ -241,7 +241,15 @@ resource-group inventory was zero. The SDK is now a pinned development-only
 dependency (`5.15.1`), and the runner checks its availability before planning or
 reserving an execution allowance. The existing deployment image was extended
 locally with only this SDK for the next attempt; production dependencies and
-cloud resource scope are unchanged. All nine Azure Event/L4 runner tests pass.
+cloud resource scope are unchanged. All ten Azure Event/L4 runner tests pass.
+
+Azure attempt 02 created all 45 resources, then failed while evaluating the cool
+and archive handoff outputs: both referenced a storage container intentionally
+absent from the targeted cut. No seed or fixture was created. Those two outputs
+now return null when their referenced container is absent; full-deployment
+handoffs remain unchanged. The correction does not add storage services or
+expand the research cut. This was an output-evaluation failure, not an observed
+Digital Twins data-permission failure.
 
 ## L5 and interpretation
 
