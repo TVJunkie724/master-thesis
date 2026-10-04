@@ -27,6 +27,7 @@ def exercise(runtime, config, values):
     payload = {"event_id": trace, "source_id": DEVICE, "source_sequence": trace,
                "correlation_id": trace, "device_id": DEVICE, "metric": "temperature",
                "value": 42, "event_time": now.isoformat()}
+    save(Path(values["project_path"]) / "simulator-fixture.json", payload)
     capture, previous = io.StringIO(), runtime.globals.config
     try:
         runtime.globals.config = config

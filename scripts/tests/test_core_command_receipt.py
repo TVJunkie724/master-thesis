@@ -73,6 +73,7 @@ def test_provider_smoke_uses_real_simulator_and_authenticated_reader(provider, s
     request = Mock(return_value=response)
     monkeypatch.setattr(provider.core.requests, "get", request)
     if provider is core_live_azure_roundtrip:
+        monkeypatch.setattr(provider, "functions_ready", lambda *_: {"function_readiness_attempts": 1})
         monkeypatch.setattr(provider.core, "register_simulator", lambda *_: ("hub.test", "test-key"))
         monkeypatch.setattr(provider.core, "arm", Mock(side_effect=[
             {"value": [{"name": "reader", "id": "/test/reader"}]}, {"functionKeys": {"default": "reader-key"}}]))
@@ -93,3 +94,50 @@ def test_provider_smoke_uses_real_simulator_and_authenticated_reader(provider, s
     assert len(seen) == 1
     assert seen[0][0].__name__.endswith("transmission")
     assert request.call_args.kwargs["headers"]
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_azure_registration_checks_all_six_apps_before_send(tmp_path, monkeypatch, ready):
+    provider = core_live_azure_roundtrip
+    resources = [{"id": "/sites/" + role, "name": "fixture-" + ("" if role == "event-runtime" else "six-") + role + "-suffix",
+                  "type": "Microsoft.Web/sites"} for role in provider.EXPECTED_FUNCTIONS]
+    def arm(_values, _method, path, **kwargs):
+        if "/resources?" in path:
+            return {"value": resources}
+        role = path.split("/")[2]
+        names = provider.EXPECTED_FUNCTIONS[role]
+        if not ready and role == "events":
+            names = set()
+        return {"value": [{"name": "app/" + name} for name in names]}
+    monkeypatch.setattr(provider.core, "arm", arm)
+    values = {"azure_subscription_id": "test", "project_path": str(tmp_path)}
+    outputs = {"azure_six_layer_resource_group_name": "group"}
+    if ready:
+        assert provider.functions_ready(values, outputs, attempts=1)["function_readiness_attempts"] == 1
+    else:
+        with pytest.raises(RuntimeError, match="REGISTRATION_TIMEOUT"):
+            provider.functions_ready(values, outputs, attempts=1)
+    assert (tmp_path / "function-registration.json").stat().st_mode & 0o077 == 0
+
+
+def test_azure_missing_registration_prevents_device_creation(monkeypatch):
+    provider = core_live_azure_roundtrip
+    monkeypatch.setattr(provider, "functions_ready", Mock(side_effect=RuntimeError("NOT_READY")))
+    register = Mock()
+    monkeypatch.setattr(provider.core, "register_simulator", register)
+    with pytest.raises(RuntimeError, match="NOT_READY"):
+        provider.smoke({}, {})
+    register.assert_not_called()
+
+
+@pytest.mark.parametrize("matching", [False, True])
+def test_azure_failure_diagnostic_distinguishes_persistence_from_receipt(tmp_path, monkeypatch, matching):
+    provider = core_live_azure_roundtrip
+    now = datetime.now(timezone.utc)
+    (tmp_path / "simulator-fixture.json").write_text(json.dumps({"event_time": now.isoformat()}))
+    monkeypatch.setattr(provider.core, "diagnostics", lambda *_: {"workspaces": []})
+    monkeypatch.setattr(provider, "reader", lambda *_: lambda: [{
+        "value": 42, "event_time": (now + timedelta(seconds=not matching)).isoformat()}])
+    result = provider.diagnostics({"project_path": str(tmp_path)}, {})
+    assert result["matching_l3_points_after_receipt_failure"] == int(matching)
+    assert "functional_passed" not in result

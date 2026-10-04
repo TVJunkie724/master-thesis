@@ -1,23 +1,70 @@
 """Actual Azure IoT device receipt, with the existing Core lifecycle/cleanup."""
+from datetime import datetime
+import json
+from pathlib import Path
 import time
 
 from scripts import core_live_azure as core
 from scripts.core_command_receipt import DEVICE, configure, exercise, query, confirm_history
+from scripts.run_core_evaluation import save
 
 inventory = core.inventory
 stop_builds = core.stop_builds
-diagnostics = core.diagnostics
+
+EXPECTED_FUNCTIONS = {
+    "events": {"six-layer-iot-telemetry-adapter", "six-layer-eventing-domain-delivery"},
+    "process": {"six-layer-eventing-domain-delivery"},
+    "extension": {"main"},
+    "action": {"six-layer-poc-extension-action"},
+    "history": {"six-layer-raw-history-reader"},
+    "event-runtime": {"event-telemetry-processor", "event-historical-persistence", "event-control-router"},
+}
+
+
+def functions_ready(values, outputs, attempts=18, pause_seconds=5):
+    group = outputs["azure_six_layer_resource_group_name"]
+    base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
+    resources = core.arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
+    sites = [r for r in resources if r["type"].lower() == "microsoft.web/sites"]
+    selected = {}
+    for role in EXPECTED_FUNCTIONS:
+        marker = "-event-runtime-" if role == "event-runtime" else "-six-" + role + "-"
+        candidates = [r for r in sites if marker in r["name"]]
+        if len(candidates) != 1:
+            raise RuntimeError("COMMAND_FUNCTION_APP_SCOPE_MISMATCH")
+        selected[role] = candidates[0]
+    if len(sites) != len(selected):
+        raise RuntimeError("COMMAND_FUNCTION_APP_SCOPE_MISMATCH")
+    started = time.monotonic()
+    for attempt in range(1, attempts + 1):
+        missing = {}
+        for role, site in selected.items():
+            data = core.arm(values, "GET", site["id"] + "/functions?api-version=2023-12-01", allowed=(200, 404, 503))
+            found = {str(r.get("name", "")).split("/")[-1] for r in data.get("value", [])}
+            missing[role] = sorted(EXPECTED_FUNCTIONS[role] - found)
+        measurement = {"attempts": attempt, "seconds": time.monotonic() - started, "missing": missing}
+        save(Path(values["project_path"]) / "function-registration.json", measurement)
+        if not any(missing.values()):
+            return {"function_readiness_attempts": attempt, "function_readiness_seconds": measurement["seconds"]}
+        if attempt < attempts:
+            time.sleep(pause_seconds)
+    raise RuntimeError("COMMAND_FUNCTION_REGISTRATION_TIMEOUT")
 
 
 def smoke(values, outputs):
     from src.iot_device_simulator.azure import transmission
+    readiness = functions_ready(values, outputs)
     started = time.monotonic()
     hostname, key = core.register_simulator(values, outputs)
     registration_seconds = time.monotonic() - started
     config = {"device_id": DEVICE, "connection_string":
               f"HostName={hostname};DeviceId={DEVICE};SharedAccessKey={key}"}
     now, result = exercise(transmission, config, values)
-    result.update(scope="local_azure_simulator_command_and_l3", device_registration_seconds=registration_seconds)
+    result.update(scope="local_azure_simulator_command_and_l3", device_registration_seconds=registration_seconds, **readiness)
+    return confirm_history(reader(values, outputs, now), now, result)
+
+
+def reader(values, outputs, now):
     group = outputs["azure_six_layer_resource_group_name"]
     base = f"/subscriptions/{values['azure_subscription_id']}/resourceGroups/{group}"
     resources = core.arm(values, "GET", base + "/resources?api-version=2021-04-01")["value"]
@@ -31,7 +78,22 @@ def smoke(values, outputs):
         if response.status_code in (401, 403):
             raise RuntimeError("COMMAND_READER_UNAUTHORIZED")
         return response.json().get("points", []) if response.status_code == 200 else []
-    return confirm_history(read, now, result)
+    return read
+
+
+def diagnostics(values, outputs):
+    result = core.diagnostics(values, outputs)
+    fixture = Path(values["project_path"]) / "simulator-fixture.json"
+    if fixture.exists():
+        try:
+            now = datetime.fromisoformat(json.loads(fixture.read_text())["event_time"])
+            points = reader(values, outputs, now)()
+            result["matching_l3_points_after_receipt_failure"] = sum(
+                p.get("value") == 42 and bool(p.get("event_time")) and
+                datetime.fromisoformat(p["event_time"].replace("Z", "+00:00")) == now for p in points)
+        except Exception as exc:
+            result["failure_readback_error_type"] = type(exc).__name__
+    return result
 
 
 # The device is a child of this run's fresh IoT Hub. Terraform removes the hub,
