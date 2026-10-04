@@ -84,7 +84,8 @@ def workspace_role_propagation_failure(log):
     if len(re.findall(r"(?m)^Error:", text)) != 1:
         return False
     diagnostic = re.sub(r"\s+", " ", text.split("Error:", 1)[1]).lower()
-    return ("invalidrequest" in diagnostic and "assume" in diagnostic
+    role_check = "assume" in diagnostic or all(term in diagnostic for term in ("s3", "verify", "access"))
+    return ("invalidrequest" in diagnostic and role_check
             and "permission" in diagnostic and "role" in diagnostic
             and "awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard" in diagnostic)
 

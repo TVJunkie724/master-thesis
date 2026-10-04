@@ -233,3 +233,15 @@ def test_workspace_retry_only_allows_the_missing_workspace(tmp_path):
     assert runner.workspace_role_propagation_failure(log)
     log.write_text('Error: AccessDenied\n')
     assert not runner.workspace_role_propagation_failure(log)
+
+
+@pytest.mark.parametrize('message,expected', [
+    ('InvalidRequest: verify role permission for S3 access', True),
+    ('AccessDenied: verify role permission for S3 access', False),
+    ('InvalidRequest: unrelated S3 configuration', False),
+    ('InvalidRequest: verify role permission for S3 access\nError: another failure', False),
+])
+def test_workspace_retry_recognizes_only_bounded_role_validation(tmp_path, message, expected):
+    log = tmp_path / 'synthetic.log'
+    log.write_text('Error: ' + message + '\n with awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0]\n')
+    assert runner.workspace_role_propagation_failure(log) is expected

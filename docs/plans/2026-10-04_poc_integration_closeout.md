@@ -149,6 +149,15 @@ telemetry-plan assertions; 669 Azure/Terraform/runner regression tests pass
 
 ## Event-to-L4 delivery
 
+AWS attempt 01 reached workspace creation, but TwinMaker rejected its role/S3
+permission validation (`InvalidRequest`). No fixture was sent. Apply took
+85.704 s and Destroy 46.432 s; independent inventory is zero. The existing
+bounded same-state IAM retry now also recognizes this narrow S3-validation
+variant, retaining the create/no-op allowlist and overall deadline. It does not
+add permissions or treat an arbitrary access-denied error as retryable. The
+same workspace bucket policy already passed isolated L4; propagation is a retry
+hypothesis, not a reason to grant broader access.
+
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS
 read-only targeted dependency experiment first produced 51 managed creates.
 The smaller Event/L4-only experiment produces **33 creates**, using the existing
