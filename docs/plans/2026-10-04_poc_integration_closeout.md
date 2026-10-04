@@ -141,6 +141,9 @@ capacity; the on-demand limit is not a combined cap including warm instances
 ([Flex scaling](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan#per-function-scaling)).
 Any successful observation must be labelled as warm functional integration, not
 scale-to-zero latency evidence. Cleanup removes the warmed apps with the run.
+The native mock-plan suite passes with positive warm-group and unchanged
+telemetry-plan assertions; 669 Azure/Terraform/runner regression tests pass
+(the separately executed native-plan test is excluded from that count).
 
 ## Event-to-L4 delivery
 

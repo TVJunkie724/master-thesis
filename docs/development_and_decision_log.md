@@ -30,6 +30,13 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Azure command observation (2026-10-04):** A receipt timeout after successful
+function indexing and exact L3 readback is not an ingress failure. Keep that
+failed observation, then test bounded warm Rule/Control and action groups without
+changing routing or the receipt deadline. The warm condition is explicit and
+does not alter telemetry-only Core defaults or support a cold-start claim.
+See the [integration close-out](plans/2026-10-04_poc_integration_closeout.md).
+
 **Integration close-out preparation (2026-10-04):** Keep real simulator command
 receipt separate from the nine telemetry passes and two isolated L4 checks.
 A fixed AWS Core runner option adds one feedback rule and the existing device
