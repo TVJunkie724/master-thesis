@@ -170,6 +170,9 @@ alone is therefore not a demonstrated fix. Delayed diagnostic logs do not justif
 claiming that the rule handler never ran. The runner now additionally saves
 bounded, read-only Incoming/Outgoing broker metrics before cleanup; missing
 metric samples must not be reported as zero traffic or functional success.
+Attempt 05 measured 616.227 s deployment, 310.806 s verification and 879.557 s
+Destroy (1948.937 s total). Destroy and independent zero resource-group inventory
+passed; the failed functional result is retained unchanged.
 
 ## Event-to-L4 delivery
 
