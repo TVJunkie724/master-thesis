@@ -327,6 +327,7 @@ def create_twinmaker_entities(
             parent_id=None,
             connector_arn=connector_arn,
             connector_last_entry_arn=connector_last_entry_arn,
+            wait_for_active=active_profile,
         )
     run.raise_if_failed()
     if _is_active_phase8_profile(context):
@@ -351,6 +352,7 @@ def _create_twinmaker_node(
     parent_id: str | None,
     connector_arn: str | None,
     connector_last_entry_arn: str | None,
+    wait_for_active: bool = False,
 ) -> None:
     node_type = node.get("type")
     if node_type == "entity":
@@ -365,6 +367,8 @@ def _create_twinmaker_node(
             return
         if not _create_entity(run, twinmaker, workspace_id, entity_id, parent_id):
             return
+        if wait_for_active:
+            _wait_for_entity(twinmaker, workspace_id, entity_id)
         for child in node.get("children", []):
             _create_twinmaker_node(
                 run,
@@ -375,6 +379,7 @@ def _create_twinmaker_node(
                 parent_id=entity_id,
                 connector_arn=connector_arn,
                 connector_last_entry_arn=connector_last_entry_arn,
+                wait_for_active=wait_for_active,
             )
         return
     if node_type == "component":
@@ -498,10 +503,13 @@ def _create_component(
             definitions = twinmaker.get_component_type(
                 workspaceId=workspace_id, componentTypeId=component_type_id
             ).get("propertyDefinitions", {})
-            for key in _component_properties(node):
+            for key, expected in _component_properties(node).items():
                 definition = definitions.get(key)
                 if (definition is None or definition.get("isTimeSeries")
-                        or definition.get("isStoredExternally")):
+                        or definition.get("isStoredExternally")
+                        or definition.get("dataType") != expected["dataType"]
+                        or ("defaultValue" in expected
+                            and definition.get("defaultValue") != expected["defaultValue"])):
                     raise RuntimeError("TwinMaker component is not a native current-state model")
         try:
             twinmaker.update_entity(
@@ -511,9 +519,23 @@ def _create_component(
             )
         except twinmaker.exceptions.ConflictException:
             logger.info("TwinMaker component already attached: %s", name)
+        if node.get("currentState"):
+            _wait_for_entity(twinmaker, workspace_id, parent_id)
         return True
 
     run.attempt(component_type_id, create_and_attach, default=False)
+
+
+def _wait_for_entity(twinmaker, workspace_id: str, entity_id: str) -> None:
+    for _ in range(30):
+        response = twinmaker.get_entity(workspaceId=workspace_id, entityId=entity_id)
+        state = response.get("status", {}).get("state")
+        if state == "ACTIVE":
+            return
+        if state in {"ERROR", "DELETING"}:
+            raise RuntimeError("TwinMaker entity entered a terminal state")
+        time.sleep(1)
+    raise TimeoutError("TwinMaker entity did not become active within 30 seconds")
 
 
 def _wait_for_component_type(

@@ -197,6 +197,7 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
             {
                 "entityId": kwargs["entityId"],
                 "parentEntityId": kwargs.get("parentEntityId"),
+                "status": {"state": "ACTIVE"},
                 "components": {},
             },
         )

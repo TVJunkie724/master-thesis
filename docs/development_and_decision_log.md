@@ -1107,3 +1107,25 @@ is not claimed equivalent to the original architecture: L3 owns history, while
 this RQ2 comparison covers current Twin state. RQs and the nine Core results
 remain unchanged. SDK child counts were corrected to the real root/device graph
 on both providers; cloud execution remains a separate bounded step.
+
+### 2026-10-04 — Supervised L4 check and remaining evaluation gates
+
+Implemented one fixed research runner for the two isolated managed L4 checks,
+not a new deployment profile. It reuses actual AWS/Azure seed models and adapter
+source, validates exact update/replay snapshots, captures phase/resource times
+and source/model/fixture hashes, and attempts cleanup plus independent inventory
+after failure, timeout or interruption. New AWS entities/components have bounded
+active-state readiness; incompatible existing models remain rejected. The runner
+does not create images, Core services, Grafana or GCP replacements.
+
+Updated account-bound read-only plans still contain six AWS and two Azure
+create-only entries. Three native mocked Terraform plans pass. Focused L4,
+runtime, verification and access tests pass; a separate 136-test offline group
+covers simulator lifecycle/configuration, provider command receipts, Event
+runtimes and metrics assembly. No new cloud workload or live L4/command/L5 pass
+is claimed. The detailed plan records the test counts and bounded cost envelope.
+
+The protocol now explicitly distinguishes today's split execution from the
+conditional complete-graph protocol. Actual Event-to-L4 delivery, live simulator
+command return, graphical L5 and billed-cost attribution remain open. L5 must
+not become an unapproved platform build or change of the research questions.

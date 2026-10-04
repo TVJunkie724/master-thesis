@@ -10,7 +10,7 @@ remain excluded; no replacement VM, dashboard or custom Twin service is added.
 ## Smallest useful check
 
 Run AWS, then Azure, sequentially. Each case provisions the real managed L4
-service with Terraform, seeds one Twin and the existing telemetry model, invokes
+service with Terraform, seeds the root/device graph and existing telemetry model, invokes
 the existing provider projection adapter locally with a canonical
 `twin.state.upserted` fixture, and authenticates readback of the expected metric,
 numeric value and exact `source_sequence`. Send one update and replay that same
@@ -82,8 +82,9 @@ eleven managed entries into the dependency graph, including IoT Hub, ACR,
 Service Bus, storage and a user-assigned identity. That plan was rejected, not
 applied. The two-root alternative excludes that shared role map. A future runner
 must explicitly track/create/delete its single SDK role binding on the new ADT
-instance before the data-plane check. No additional administrator credential
-or subscription-wide grant is required by this proposal.
+instance before the data-plane check. The supervised runner now implements that
+binding and cleanup. No additional administrator credential or subscription-wide
+grant is required.
 
 One output-only correction handles a missing human-reader binding in a targeted
 Azure plan by returning empty binding evidence rather than indexing an absent
@@ -95,6 +96,22 @@ Azure human-reader binding regression. Terraform validation has zero errors
 and warnings. L4 mocks/validation used Terraform 1.15.8; the full-profile
 regression and account-bound plan-only checks used the existing 1.7.5 CLI.
 Saved plans are private, fresh-state and uniquely prefixed; no Apply ran.
+
+The fixed [L4 runner](../../scripts/run_l4_evaluation.py) and
+[projection check](../../scripts/l4_projection_check.py) now implement the isolated
+experiment. They use real seeding/model assets and runtime source, fresh allowlisted
+plans, active-state readiness, exact projection/replay snapshots, private phase
+and resource timings, and unconditional cleanup followed by independent inventory.
+SDK response/call limits and a 20-minute functional deadline stop the experiment;
+cleanup has its own time window. Cleanup cannot delete a pre-existing prefix when
+preflight rejects the run. Permission errors are not treated as absent resources.
+No Apply has been performed merely by implementing or testing this runner.
+Verification: 176 focused offline tests pass across runner/scope guards,
+AWS/Azure adapters, seed lifecycle, probes and access contracts. Another 136
+simulator/Eventing/metrics tests pass; these groups do not duplicate a live run.
+Changed Python files pass Ruff; the three native L4 mock plans pass again after
+the correction. Account-bound plan-only checks on the corrected revision still
+admit exactly six AWS/two Azure entries, without Apply.
 
 Reuse the existing seeding/model assets, projection adapters, authenticated
 verification probes and pre-destroy helpers where compatible. Azure's current
@@ -153,7 +170,7 @@ selected regional meters. Sources:
 | Azure routed messages | 0.0013 per 1,000 billed units |
 | Azure query units | 0.00065 per 1,000 units |
 
-Conservative **service-only arithmetic**, not approved total spending ceilings:
+Historical preparation arithmetic (superseded by the runner envelope below):
 the existing two-entity AWS seed charged for a full month would be USD 0.105;
 120 data-access calls and 60 queries add USD 0.003348. A USD 0.12 TwinMaker-only
 allowance covers that arithmetic, but not connector compute, S3 or a correction
@@ -162,11 +179,41 @@ messages or graph queries; 1,000 billed operation units cost USD 0.00325, below
 a USD 0.01 ADT-only allowance. Operations are metered by response size, not just
 request count, so a future runner must enforce both limits and bounded SDK retries.
 
-These are list-price calculations without credits, tax or currency conversion,
-not invoices or hard billing caps. A complete cost ceiling and exact approved
-live assertion remain open until the AWS model decision and final runner/call
-envelope are resolved. Do not Apply infrastructure merely to make a partial
-checkpoint appear green.
+These were list-price calculations without credits, tax or currency conversion,
+not invoices or hard billing caps. At that checkpoint the model decision and
+runner/call envelope were unresolved. The implemented envelope below supersedes
+the connector and call-count assumptions; it does not itself authorize Apply.
+
+### Implemented runner envelope
+
+The native AWS correction removes connector compute/storage entirely. One
+attempt per provider uses two entities/Twins, one numeric update and its replay,
+at most 60 readback rounds per assertion, and at most two HTTP attempts per SDK
+operation. The projection client stops after 300 calls or a response exceeding
+16 KiB. AWS child cleanup has a separate 300-call budget; Azure has only the
+fixed relationship, two Twins, model and role to remove. Permission-readiness
+polling is capped at 60 rounds. Functional execution stops after 20 minutes;
+Terraform is interrupted gracefully and cleanup is attempted regardless.
+No cross-month run or change of AWS pricing mode is allowed by this proposal.
+
+For conservative planning, 1,200 AWS data calls cost USD 0.00198; two full
+entity-months cost USD 0.105. The current Frankfurt S3 Price List API gives
+USD 0.0000054 per Tier-1 request and USD 0.00000043 per Tier-2 request: an extra
+1,000 of each costs USD 0.00583. No object payload is uploaded. A technical
+allowance of USD 0.25 leaves margin for the tiny response transfer and provider
+control-plane requests; it is not a measured bill or enforced billing cap.
+[S3 pricing](https://aws.amazon.com/s3/pricing/).
+For Azure, budgeting 1,200 responses of 16 KiB gives 19,200 operation units,
+USD 0.0624 at the retrieved meter. USD 0.10 is the ADT planning allowance;
+there are no routed messages or query workloads. Limits stop further functional
+calls after an oversized response, not retroactively undo already billed traffic.
+Cleanup is never abandoned to conserve a call allowance.
+
+Execution still requires approval of these specific two managed-service checks.
+The CLI interlock is not itself authorization. The operator must stop after a
+failed attempt, review its private report and inventory, and recheck the remaining
+allowance before a retry or moving to the second provider. Historic Core spending
+approval is not used as an L4 budget.
 
 ## Measurements and cleanup
 
@@ -188,3 +235,26 @@ RQ1 gains real service/model provisioning and teardown evidence; RQ2 compares
 the same bounded numeric Twin projection responsibility on AWS/Azure. RQ3
 records the scoped resource/API costs without treating omitted GCP L4 as free
 or attributing these fixture measurements to Eventing. L5 stays last.
+
+## Remaining close-out sequence
+
+1. Execute the two isolated L4 attempts after their specific scope/cost approval;
+   record failures as failures, with immediate cleanup, before any retry.
+2. Verify actual Event-to-L4 delivery and deployed identity separately. A green
+   local-adapter fixture does not clear that edge. Review the exact resource
+   delta before a combined cut; do not relax full-profile admission or add L5
+   merely to obtain this evidence.
+3. Exercise the existing simulator and command receipt on the three provider
+   delivery mechanisms, recording actual telemetry and return-path checkpoints.
+   Existing simulator, command-listener, Event-runtime and metrics-assembler
+   tests passed offline (136 tests); no live command result follows from them.
+   Do not automatically repeat every directed telemetry case: add a directed
+   command case only for an unverified routing/identity path and label coverage.
+4. Resolve and verify the smallest graphical L5 responsibility last. The existing
+   feasibility review is not implementation approval. No Grafana platform,
+   GCP VM, silent reader-to-visualization relabelling or changed research question
+   is introduced by this work. A changed service mapping needs an explicit
+   decision before implementation/spending.
+5. Consolidate observed metrics, failed-attempt overhead, cleanup and provider
+   billing attribution. Leave unavailable values null/pending; do not equate an
+   allowance or monthly account total with a measured scenario cost.
