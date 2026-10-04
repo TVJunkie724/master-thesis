@@ -113,7 +113,8 @@ The second attempt completed deployment (636.472 s) and recorded one simulator
 send, but failed `COMMAND_RECEIPT_TIMEOUT` after 305.703 s of verification.
 Available logs showed processing-host initialization, not a traced end-to-end
 message flow; they do not establish an AMQP failure or a cold-start root cause.
-Its immediate Destroy is tracked separately. Before another send, the local Azure
+Its immediate Destroy completed in 958.803 s (total attempt: 2035.337 s),
+followed by independent zero resource-group inventory. Before another send, the local Azure
 harness now requires the expected functions to be indexed across all six apps.
 The bounded registration wait is timed and retained privately. A failed receipt
 also triggers one authenticated exact-timestamp L3 check, reported as diagnostic
