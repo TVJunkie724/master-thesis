@@ -85,6 +85,12 @@ the strict runner retained `green=false` even for functional attempt 05. Later
 zero-inventory reconciliation must be recorded separately, not overwrite these
 original observations. Per-resource lifecycle timings and private raw evidence
 remain retained; billing attribution is pending.
+One subsequent read-only reconciliation still found zero active resources and
+the same five inactive command tombstones. AWS documents a **12-hour deletion
+waiting period** for recently deprecated commands; there is no immediate-delete
+override in `DeleteCommand`. This provider lifecycle is not a reason to rerun the
+functional test or repeatedly issue mutations
+([AWS API reference](https://docs.aws.amazon.com/iot/latest/apireference/API_DeleteCommand.html)).
 
 ### Azure command adapter correction
 
