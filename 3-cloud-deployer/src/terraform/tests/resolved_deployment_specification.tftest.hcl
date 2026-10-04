@@ -18,6 +18,11 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
   command = plan
 
   override_data {
+    target = data.aws_iot_endpoint.main
+    values = { endpoint_address = "test-ats.iot.eu-central-1.amazonaws.com" }
+  }
+
+  override_data {
     target = data.aws_caller_identity.current
     values = {
       account_id = "123456789012"
@@ -77,6 +82,14 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
       adapter_id      = "adapter.aws.python311"
       adapter_version = "1"
     }]
+  }
+
+  assert {
+    condition = (
+      length(data.aws_iot_endpoint.main) == 1 &&
+      aws_lambda_function.event_runtime["control-router"].environment[0].variables["IOT_COMMANDS_ENDPOINT"] == "test-ats.iot.eu-central-1.amazonaws.com"
+    )
+    error_message = "Six-layer command delivery requires the account IoT endpoint, independent of legacy L1 resources."
   }
 
   assert {
