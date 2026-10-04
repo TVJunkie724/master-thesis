@@ -30,6 +30,19 @@ from src.providers.terraform.deployer_strategy import (
 
 
 DEFAULT_FUNCTIONAL_SECONDS = {"aws": 600, "azure": 1200, "gcp": 1800}
+GCP_MQTT_KUBERNETES_ADDRESSES = {
+    kind + "." + name + "[0]" for kind, name in (
+        ("kubernetes_namespace_v1", "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard"),
+        ("kubernetes_config_map_v1", "gcp_six_layer_bifromq"),
+        ("kubernetes_secret_v1", "gcp_six_layer_bifromq"),
+        ("kubernetes_service_account_v1", "gcp_six_layer_mqtt_adapter"),
+        ("kubernetes_deployment_v1", "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard"),
+        ("kubernetes_deployment_v1", "gcp_gcp_ordered_mqtt_pubsub_adapter"),
+        ("kubernetes_service_v1", "gcp_six_layer_bifromq_headless"),
+        ("kubernetes_service_v1", "gcp_six_layer_bifromq_auth"),
+        ("kubernetes_service_v1", "gcp_gcp_external_load_balancer"),
+    )
+}
 TERRAFORM_COMPLETION = re.compile(
     r"^(?P<resource>[A-Za-z0-9_.\[\]\"'/-]+): "
     r"(?P<operation>Creation|Modifications|Destruction) complete after "
@@ -185,7 +198,9 @@ def run(args):
     aws_to_azure = getattr(args, "aws_to_azure", False)
     aws_to_gcp = getattr(args, "aws_to_gcp", False)
     azure_to_gcp = getattr(args, "azure_to_gcp", False)
-    if sum((azure_to_aws, aws_to_azure, aws_to_gcp, azure_to_gcp)) > 1:
+    gcp_to_aws = getattr(args, "gcp_to_aws", False)
+    gcp_to_azure = getattr(args, "gcp_to_azure", False)
+    if sum((azure_to_aws, aws_to_azure, aws_to_gcp, azure_to_gcp, gcp_to_aws, gcp_to_azure)) > 1:
         raise ValueError("Select only one directed Core scenario")
     if azure_to_aws and provider != "aws":
         raise ValueError("The Azure-to-AWS case uses the AWS destination runner")
@@ -195,13 +210,20 @@ def run(args):
         raise ValueError("The AWS-to-GCP case uses the GCP destination runner")
     if azure_to_gcp and provider != "gcp":
         raise ValueError("The Azure-to-GCP case uses the GCP destination runner")
-    directed = azure_to_aws or aws_to_azure or aws_to_gcp or azure_to_gcp
+    if gcp_to_aws and provider != "aws":
+        raise ValueError("The GCP-to-AWS case uses the AWS destination runner")
+    if gcp_to_azure and provider != "azure":
+        raise ValueError("The GCP-to-Azure case uses the Azure destination runner")
+    directed = azure_to_aws or aws_to_azure or aws_to_gcp or azure_to_gcp or gcp_to_aws or gcp_to_azure
     scenario = ("core-small-azure-to-aws" if azure_to_aws else
                 "core-small-aws-to-azure" if aws_to_azure else
                 "core-small-aws-to-gcp" if aws_to_gcp else
-                "core-small-azure-to-gcp" if azure_to_gcp else "core-small-local-" + provider)
+                "core-small-azure-to-gcp" if azure_to_gcp else
+                "core-small-gcp-to-aws" if gcp_to_aws else
+                "core-small-gcp-to-azure" if gcp_to_azure else "core-small-local-" + provider)
     run_id = ("corea2a" if azure_to_aws else "corea2z" if aws_to_azure else
               "corea2g" if aws_to_gcp else "corez2g" if azure_to_gcp else
+              "coreg2a" if gcp_to_aws else "coreg2z" if gcp_to_azure else
               "core" + provider) + "-" + uuid.uuid4().hex[:8]
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -215,6 +237,10 @@ def run(args):
         from scripts import core_live_aws_to_gcp as directed_ops
     elif azure_to_gcp:
         from scripts import core_live_azure_to_gcp as directed_ops
+    elif gcp_to_aws:
+        from scripts import core_live_gcp_to_aws as directed_ops
+    elif gcp_to_azure:
+        from scripts import core_live_gcp_to_azure as directed_ops
     if directed_ops:
         directed_ops.configure(values, root / "runtime")
     values["digital_twin_name"] = run_id
@@ -242,11 +268,11 @@ def run(args):
         account = ops.session(values).client("sts").get_caller_identity()["Account"]
         placeholder = f"{account}.dkr.ecr.{values['aws_region']}.amazonaws.com/{run_id}-six-images@sha256:" + "0" * 64
         values["aws_six_layer_storage_mover_image"] = placeholder
-        if aws_to_azure or aws_to_gcp:
+        if directed:
             values["aws_six_layer_bridge_image"] = placeholder
     if "azure" in image_providers:
         values["azure_six_layer_storage_mover_image"] = "unpublished.azurecr.io/storage-mover@sha256:" + "0" * 64
-    if provider == "gcp":
+    if "gcp" in image_providers:
         info = json.loads(args.gcp_credentials.read_text())
         if info["project_id"] != credentials["gcp"]["gcp_project_id"]:
             raise RuntimeError("CORE_GCP_PROJECT_MISMATCH")
@@ -339,9 +365,9 @@ def run(args):
                         "gcp": ("google_", "kubernetes_", "tls_", "local_")}[provider]
             if directed:
                 prefixes += ("azurerm_", "azapi_", "azuread_")
-                if aws_to_azure or aws_to_gcp:
+                if aws_to_azure or aws_to_gcp or gcp_to_aws:
                     prefixes += ("aws_", "awscc_")
-                if aws_to_gcp:
+                if aws_to_gcp or gcp_to_aws or gcp_to_azure:
                     prefixes += ("google_", "kubernetes_", "tls_", "local_")
             if not kind.startswith(prefixes + ("random_", "terraform_")):
                 raise RuntimeError("CORE_WRONG_PROVIDER_RESOURCE")
@@ -373,7 +399,7 @@ def run(args):
                 transient = ("AZURE_FLEX_KUDU_RESTART" if azure_flex_kudu_restart(failed_log)
                              else "AZURE_IOTHUB_CONCURRENT_WRITE" if azure_iothub_concurrent_write(failed_log)
                              else "")
-                if not (aws_to_azure or azure_to_gcp) or not transient:
+                if not (aws_to_azure or azure_to_gcp or gcp_to_azure) or not transient:
                     raise
                 report["deploy_retry_code"] = transient
                 phase("deploy_retry_backoff", lambda: time.sleep(60 if transient == "AZURE_IOTHUB_CONCURRENT_WRITE" else 45))
@@ -384,10 +410,13 @@ def run(args):
                                  if item["change"]["actions"] == ["create"]},
                 )
                 phase("deploy_retry", lambda: tf.run("apply", "-auto-approve", "-no-color", "retry.plan"))
-            if provider == "gcp" and not directed:
+            if values["layer_1_provider"] == "google":
                 values["gcp_six_layer_kubernetes_stage_enabled"] = True
                 env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "true"
-                phase("deploy_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color"))
+                phase("review_kubernetes", lambda: tf.run("plan", "-no-color", "-out=kubernetes.plan"))
+                stage_plan = json.loads(tf.run("show", "-json", "kubernetes.plan").read_text())
+                report["kubernetes_create_count"] = retry_create_count(stage_plan, GCP_MQTT_KUBERNETES_ADDRESSES)
+                phase("deploy_kubernetes", lambda: tf.run("apply", "-auto-approve", "-no-color", "kubernetes.plan"))
             outputs = tf.outputs()
             report["verification"] = phase("verify", lambda: ops.smoke(values, outputs))
     except BaseException as exc:
@@ -411,7 +440,7 @@ def run(args):
             except BaseException as exc:
                 report["stop_builds_error"] = type(exc).__name__
             try:
-                if provider == "gcp" and values.get("gcp_six_layer_kubernetes_stage_enabled"):
+                if values.get("gcp_six_layer_kubernetes_stage_enabled"):
                     with deadline(300):
                         # Keep GKE alive until its controller removes LoadBalancer children.
                         env["TF_VAR_gcp_six_layer_kubernetes_stage_enabled"] = "false"
@@ -467,6 +496,8 @@ if __name__ == "__main__":
     parser.add_argument("--aws-to-azure", action="store_true", help="Run only the fixed AWS-ingress/Azure-Core scenario.")
     parser.add_argument("--aws-to-gcp", action="store_true", help="Run only the fixed AWS-ingress/GCP-Core scenario.")
     parser.add_argument("--azure-to-gcp", action="store_true", help="Run only the fixed Azure-ingress/GCP-Core scenario.")
+    parser.add_argument("--gcp-to-aws", action="store_true", help="Run only the fixed GCP-ingress/AWS-Core scenario.")
+    parser.add_argument("--gcp-to-azure", action="store_true", help="Run only the fixed GCP-ingress/Azure-Core scenario.")
     parser.add_argument("--plan-only", action="store_true", help="Stop after read-only inventory and create-only plan review.")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path, required=True)

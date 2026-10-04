@@ -8,6 +8,7 @@ import pytest
 
 from scripts.run_core_evaluation import (
     CoreDeadlineExceeded,
+    GCP_MQTT_KUBERNETES_ADDRESSES,
     Terraform,
     azure_flex_kudu_restart,
     azure_iothub_concurrent_write,
@@ -136,6 +137,20 @@ def test_retry_plan_can_only_finish_original_creates():
                              ("azurerm_resource_group.unreviewed", ["create"])):
         with pytest.raises(RuntimeError, match="CORE_RETRY_PLAN_CHANGED_SCOPE"):
             retry_create_count(plan(address, actions), approved)
+
+
+def test_gcp_mqtt_stage_cannot_modify_cloud_resources_or_add_other_kubernetes_objects():
+    def plan(address, actions):
+        return {"resource_changes": [{"mode": "managed", "address": address,
+                                      "change": {"actions": actions}}]}
+    assert len(GCP_MQTT_KUBERNETES_ADDRESSES) == 9
+    for address in GCP_MQTT_KUBERNETES_ADDRESSES:
+        assert retry_create_count(plan(address, ["create"]), GCP_MQTT_KUBERNETES_ADDRESSES) == 1
+    for address, actions in (("google_container_cluster.other", ["create"]),
+                             ("google_container_node_pool.main", ["update"]),
+                             ("kubernetes_secret_v1.other[0]", ["create"])):
+        with pytest.raises(RuntimeError, match="CORE_RETRY_PLAN_CHANGED_SCOPE"):
+            retry_create_count(plan(address, actions), GCP_MQTT_KUBERNETES_ADDRESSES)
 
 
 def test_sns_archive_cleanup_only_touches_owned_state(monkeypatch):

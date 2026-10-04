@@ -145,7 +145,8 @@ def connect_mqtt(connection, endpoint, attempts=20, pause_seconds=3):
     raise error
 
 
-def smoke(values, outputs):
+def send_telemetry(values, outputs):
+    """Send the ten-message MQTT/TLS sample without selecting a destination reader."""
     endpoint = urlparse(outputs["gcp_six_layer_mqtt_endpoint"])
     auth = outputs["gcp_six_layer_mqtt_device_credentials"]
     context = ssl.create_default_context(cadata=outputs["gcp_six_layer_mqtt_server_certificate"])
@@ -179,6 +180,11 @@ def smoke(values, outputs):
     finally:
         connection.disconnect()
         connection.loop_stop()
+    return now, started, readiness
+
+
+def smoke(values, outputs):
+    now, started, readiness = send_telemetry(values, outputs)
     return readback(values, outputs, now, started, readiness)
 
 
