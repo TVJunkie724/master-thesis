@@ -176,6 +176,87 @@ Azure→GCP Core pass. RQ3 provider-billed
 cost remains pending attribution and must not be equated with planning allowance.
 No command roundtrip, L4/L5, simulator or full E2E claim follows from these runs.
 
+### Final two directed Core cases (2026-10-04)
+
+GCP→AWS and GCP→Azure reuse the existing local GCP MQTT/TLS sender and the
+authenticated destination reader. Source MQTT, ingress and bridge remain on
+GCP; Event Layer, processing and storage belong to the destination. Both
+directional trust bindings remain deployed, but the ten-message assertion
+establishes telemetry only. The fixed runners add no new architecture or UI.
+
+The read-only account-bound plans contain 170 (GCP→AWS) and 174 (GCP→Azure)
+create-only entries before Kubernetes. Each retains the existing GCP L1 GKE
+cluster, one `e2-standard-4` broker node, one `e2-standard-2` integration node,
+80 GiB total boot disk and one MQTT LoadBalancer address. GCP quota reads
+confirmed at least six E2 CPUs, 80 GiB disk and one address available; both
+machine types and GKE server configuration are readable in the configured zone.
+GCP publishes one platform image per case. AWS additionally publishes storage
+mover and reverse-route bridge images; Azure publishes its storage mover and
+deploys Functions as ZIP packages. L4/L5 remain absent.
+
+After the cluster exists, a saved plan admits only the nine existing MQTT
+Kubernetes objects; any other change stops the functional run and proceeds to
+cleanup. Each attempt has a 40-minute functional deadline. Cleanup first removes
+the Kubernetes workloads/LoadBalancer while GKE is alive, then destroys both
+cloud footprints and independently checks active resources, generated compute
+children, IAM/Entra objects and the reverse-route GCP identity pool. Inactive
+provider tombstones remain separate from active resources and strict all-clear.
+Phase/resource creation, verification, per-message persistence, destruction and
+inventory timings are retained locally; provider-billed RQ3 attribution follows
+later.
+
+The first GCP→AWS attempt passed: ten MQTT/TLS sends and ten authenticated AWS
+L3 readbacks. Image foundation, AWS/GCP publication, main Apply, Kubernetes
+Apply and verification took 62.3, 180.1/53.7, 471.4, 136.9 and 19.5 s. The
+observed message-to-persistence range was 14.5–15.6 s in this single cold-start
+sample. Kubernetes removal took 100.0 s and Terraform Destroy 561.7 s; 356
+resource lifecycle timing observations were retained.
+
+The initial runner inventory did not include the reverse-route GCP identity
+pool. This omission was identified during the run and corrected in the fixed
+GCP→AWS inventory. A separate post-destroy check with that corrected inventory
+confirmed zero active resources and one pool in `DELETED` state. Preserve the
+original report, which says `green=true`, alongside the expanded follow-up
+inventory; the latter establishes that strict tombstone-free all-clear is still
+false.
+
+The first GCP→Azure attempt completed main Apply in 669.2 s, then stopped before
+MQTT startup or message sends: the Kubernetes-stage scope gate found three
+Azure updates in a full follow-up plan. The Entra application's default empty
+role/URI fields conflicted with their dedicated child resources and caused a
+dependent Function settings change. The parent now ignores only those two
+child-owned fields. Cosmos diagnostic metrics also read back as `Requests` and
+`SLI` after `AllMetrics` configuration, a provider normalization outside the
+MQTT stage. Kubernetes plan/apply/removal now target only the nine existing
+MQTT objects, with the same strict saved-plan gate. Native Terraform validation
+has zero errors/warnings; 29 targeted tests pass. Destroy succeeded in 900.4 s;
+independent Azure, Entra, GCP and compute inventory found zero active resources
+and one deleted identity pool.
+
+The corrected GCP→Azure retry passed the saved nine-object MQTT plan and
+delivered ten MQTT/TLS messages to ten authenticated Azure L3 readbacks.
+Verification took 220.3 s (27 reader polls, zero HTTP timeouts); observed
+send-to-persistence intervals were 46.8–218.8 s in this single freshly deployed
+sample, not a steady-state benchmark. Image foundation, Azure/GCP publication,
+main Apply and Kubernetes Apply took 63.0, 38.9/53.8, 654.1 and 116.6 s.
+Kubernetes removal took 87.4 s and Terraform Destroy 948.4 s; 364 resource
+lifecycle timing observations were retained. Independent inventory found zero
+active Azure, Entra, GCP and generated compute resources, with one GCP identity
+pool in `DELETED` state. An additional broad run-prefix Graph query for both
+Azure attempts also found zero active applications and service principals,
+including the managed identities' principals. The strict runner flag remains
+false solely because of the deleted pool. No functional rerun is needed for
+that provider tombstone.
+
+Core telemetry coverage is now **9/9 functional passes**: three provider-local
+and all six directed cases. Every new attempt was destroyed and independently
+checked with zero active residuals. RQ1 retains phase/resource/deployment and
+cleanup measurements plus the failed scope-gate attempt; RQ2 establishes the
+bounded ten-message source-to-destination integration path; RQ3 retains the
+deployed Eventing topology and measured persistence intervals, with actual
+provider-billed run costs still pending attribution. These results do not claim
+command roundtrip, storage-tier transitions, L4/L5, simulator or full E2E.
+
 #### Slice plan and earlier attempts
 
 The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub

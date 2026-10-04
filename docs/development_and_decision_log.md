@@ -1022,3 +1022,32 @@ GCP publication uses at most four `e2-standard-2` builds with 20-minute
 timeouts, bounding the worker list-price exposure to USD 0.48 if no promotional
 free minutes remain. No image publication, Terraform Apply, Twin workload, or
 paid end-to-end run occurred.
+
+### 2026-10-04 — Remaining GCP-source Core cases
+
+The fixed GCP→AWS and GCP→Azure research runners reuse the existing MQTT/TLS
+sender, authenticated destination readers, package/image publishers and
+Terraform lifecycle. GCP's existing L1 broker remains on GKE; L4/L5 remain
+excluded. GCP→AWS passed in its first attempt (10/10, 19.5 s verification).
+The first GCP→Azure attempt stopped before message sends when a full follow-up
+plan included Azure changes outside the MQTT stage. The narrow correction
+targets the nine existing Kubernetes objects and leaves Entra app role/URI
+ownership with their dedicated child resources. The retry passed (10/10,
+220.3 s verification). Native Terraform validation and 29 targeted tests pass.
+
+Both successful runs and the failed attempt were immediately destroyed and
+independently inventoried with zero active resources. A follow-up expanded the
+first AWS-case inventory to include its reverse-route GCP pool; the original
+report is preserved alongside that correction. Additional Graph prefix queries
+confirm no active Entra apps or service principals for either Azure attempt.
+Each attempt leaves only one unusable, provider-deleted GCP identity-pool
+tombstone. Core telemetry is therefore functionally verified for all nine
+cases; strict tombstone-free all-clear remains separate.
+
+The [Core evaluation record](plans/2026-09-16_poc_core_evaluation.md) retains
+all attempts and deployment/image/service-creation/verification/message/
+destruction measurements. RQ1 gains operational evidence and the scoped
+Terraform ownership correction; RQ2 gains all six directed telemetry paths;
+RQ3 gains recorded Eventing topologies and persistence samples, with billed
+run-cost attribution pending. No research question, full-profile admission,
+command-roundtrip claim or product scope was changed.

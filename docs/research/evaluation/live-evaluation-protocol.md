@@ -1,9 +1,13 @@
 # Supervised Six-layer live evaluation
 
-Status: planned and offline-validated; bounded account preparation and all six
-directed federation probes are verified. The approved one-administrator Azure
-contract is live-revalidated without workload creation, and no Twin workload
-deployment is claimed.
+Status (2026-10-04): all three provider-local and all six directed Core telemetry
+cases have passed live. Bounded account preparation and all six standalone
+federation probes are also verified. Current Azure runs use the approved
+one-administrator contract.
+The [Core evaluation record](../../plans/2026-09-16_poc_core_evaluation.md)
+separately records each attempt, metrics, Destroy and independent inventory,
+including inactive provider tombstones. Complete-profile, command roundtrip,
+storage transitions and L4/L5 verification remain separate evaluations.
 
 ## Purpose
 
@@ -26,8 +30,8 @@ edges remain part of the recorded graph but do not create extra scenarios.
 
 **Scope correction (2026-09-16):** GCP L4/L5 are excluded, without replacement
 VMs or a custom Twin platform. GCP L1–L3 and Eventing remain in scope. The
-eight complete-graph planning candidates do not replace the still-pending GCP
-storage/core-only live run. The [Core evaluation implementation](../../plans/2026-09-16_poc_core_evaluation.md)
+eight complete-graph planning candidates do not replace the separately scoped
+nine-case Core telemetry evaluation. The [Core evaluation implementation](../../plans/2026-09-16_poc_core_evaluation.md)
 adds a fixed Terraform `core` scope and offline preparation for all three local
 and six directed cases. L4/L5, their Twin projection consumer and related routes
 are absent, not merely checked later inside a complete Apply.
