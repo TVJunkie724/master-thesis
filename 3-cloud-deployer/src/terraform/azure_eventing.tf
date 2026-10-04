@@ -399,6 +399,18 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
 
+  # The one-message Core command check measures wiring, not trigger cold starts.
+  # Ordinary telemetry Core plans (no rules) retain their original scale-to-zero setup.
+  dynamic "always_ready" {
+    for_each = local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0 ? toset([
+      "function:event-rule-evaluator", "function:event-control-router"
+    ]) : toset([])
+    content {
+      name           = always_ready.value
+      instance_count = 1
+    }
+  }
+
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.event_runtime[0].id]

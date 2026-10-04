@@ -1039,6 +1039,14 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
 
+  dynamic "always_ready" {
+    for_each = local.core_evaluation && length(var.events) > 0 ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
+
   site_config {
     minimum_tls_version     = "1.2"
     scm_minimum_tls_version = "1.2"

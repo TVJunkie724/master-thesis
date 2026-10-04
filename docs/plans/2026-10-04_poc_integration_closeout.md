@@ -123,6 +123,25 @@ unrelated point. No extra cloud resource or alternate data path is introduced.
 The focused registration/receipt/runtime group passes 72 tests; the broader Azure
 runtime/package/Terraform group passed 226 tests after the SDK change.
 
+Attempt 03 indexed all required apps, including the rule evaluator, but still
+timed out waiting for a device command. An exact authenticated L3 read found the
+new point both during verification and after the receipt failure. Retained logs
+show ingress, processing and historical persistence, but no rule-evaluator
+execution in the observation window. This localizes the missing evidence; it
+does not prove an AMQP failure or a platform scaling defect.
+
+The next bounded command experiment adds one always-ready instance for each of
+the existing rule-evaluator and control-router functions and the action HTTP
+group. This applies only to Core with configured rules; the nine telemetry-only
+Core plans and full-profile defaults are unchanged. No new resource, route or
+alternate command path is added, and the 300-second receipt window is unchanged.
+This tests trigger startup as a hypothesis, not an already established fix.
+Microsoft documents separate per-function scale groups and separate always-ready
+capacity; the on-demand limit is not a combined cap including warm instances
+([Flex scaling](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan#per-function-scaling)).
+Any successful observation must be labelled as warm functional integration, not
+scale-to-zero latency evidence. Cleanup removes the warmed apps with the run.
+
 ## Event-to-L4 delivery
 
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS

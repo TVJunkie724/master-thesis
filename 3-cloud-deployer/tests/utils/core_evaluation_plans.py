@@ -78,6 +78,12 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Tiny Core smoke runtimes must scale to zero and cap scale-out at one instance per group/revision."
   }
   assert {
+    condition = length(var.events) > 0 || alltrue([for app in concat(
+      azurerm_function_app_flex_consumption.event_runtime,
+      azurerm_function_app_flex_consumption.azure_six_layer_extension_action) : length(app.always_ready) == 0])
+    error_message = "Telemetry-only Core plans must not inherit the command experiment's additional always-ready groups."
+  }
+  assert {
     condition = length(toset(concat(
       [for container in values(azurerm_storage_container.azure_six_layer_function_package) : container.name],
       [for container in azurerm_storage_container.azure_event_function_package : container.name]
@@ -238,6 +244,31 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
         runs.append(
             f'run "{name.replace("-", "_")}" {{\n command = plan\n{overrides}\n variables {{\n{block}\n }}\n{assertions}\n}}'
         )
+        if name == "core-small-local-azure":
+            command_values = dict(values, events=[{
+                "rule_id": "command-check", "condition": "value == INTEGER(42)",
+                "action": {"type": "function", "functionName": "poc-command-check",
+                           "feedback": {"device_id": "core-sensor", "payload": "roundtrip-confirmed"}},
+            }])
+            command_block = "\n".join(
+                f"    {key} = {json.dumps(value)}" for key, value in command_values.items()
+            )
+            warm_assertion = """
+  assert {
+    condition = (
+      toset([for group in azurerm_function_app_flex_consumption.event_runtime[0].always_ready : group.name]) ==
+        toset(["function:event-rule-evaluator", "function:event-control-router"]) &&
+      alltrue([for group in azurerm_function_app_flex_consumption.event_runtime[0].always_ready : group.instance_count == 1]) &&
+      length(azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].always_ready) == 1 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].always_ready[0].name == "http" &&
+      azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].always_ready[0].instance_count == 1
+    )
+    error_message = "The bounded Azure command check warms only the two control trigger groups and action HTTP group."
+  }
+"""
+            runs.append(
+                f'run "core_azure_command_warm_control" {{\n command = plan\n{overrides}\n variables {{\n{command_block}\n }}\n{assertions}\n{warm_assertion}\n}}'
+            )
         if name == "core-small-local-aws":
             for label, changes in {
                 "full_cannot_omit_access_layers": {

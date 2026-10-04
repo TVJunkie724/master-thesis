@@ -17,7 +17,7 @@ EXPECTED_FUNCTIONS = {
     "extension": {"main"},
     "action": {"six-layer-poc-extension-action"},
     "history": {"six-layer-raw-history-reader"},
-    "event-runtime": {"event-telemetry-processor", "event-historical-persistence", "event-control-router"},
+    "event-runtime": {"event-telemetry-processor", "event-historical-persistence", "event-rule-evaluator", "event-control-router"},
 }
 
 
