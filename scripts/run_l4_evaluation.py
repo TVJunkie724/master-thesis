@@ -23,7 +23,7 @@ import time
 from types import SimpleNamespace
 import uuid
 
-from scripts.prepare_l4_evaluation import prepare, EXPECTED
+from scripts.prepare_l4_evaluation import prepare, EXPECTED, AWS_ROOTS
 from scripts.l4_projection_check import check, wait_for, BoundedClient, DEVICE
 from scripts.run_core_evaluation import save, terraform_resource_timings, utc_now
 from src.providers.azure.layers.layer_4_adt import six_layer_seed
@@ -79,6 +79,26 @@ def absent(action, missing_codes):
         raise
 
 
+def workspace_role_propagation_failure(log):
+    text = log.read_text(errors="replace")
+    if len(re.findall(r"(?m)^Error:", text)) != 1:
+        return False
+    diagnostic = re.sub(r"\s+", " ", text.split("Error:", 1)[1]).lower()
+    return ("invalidrequest" in diagnostic and "assume" in diagnostic
+            and "permission" in diagnostic and "role" in diagnostic
+            and "awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard" in diagnostic)
+
+
+def review_workspace_retry(plan):
+    changes = [r for r in plan.get("resource_changes", []) if r["mode"] == "managed"]
+    workspace = "awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0]"
+    if (len(changes) != len(EXPECTED["aws"])
+            or {r["address"] for r in changes} != EXPECTED["aws"]
+            or any(r["change"]["actions"] != (["create"] if r["address"] == workspace else ["no-op"])
+                   for r in changes)):
+        raise RuntimeError("L4_WORKSPACE_RETRY_SCOPE_REJECTED")
+
+
 class Experiment:
     def __init__(self, provider, credentials, terraform_dir, folder):
         self.provider, self.credentials = provider, credentials
@@ -130,6 +150,7 @@ class Experiment:
     def terraform(self, *args):
         self.sequence += 1
         path = self.folder / (f"terraform-{self.sequence:02}.log")
+        self.last_log = path
         try:
             with path.open("wb") as log:
                 proc = subprocess.Popen(["terraform", *args], cwd=self.tf, env=self.env,
@@ -179,8 +200,24 @@ class Experiment:
             self.report["apply_started_at"] = utc_now()
             self.apply_started = True
             try:
-                self.terraform("apply", "-input=false", "-no-color", "-parallelism=2",
-                    "-state=" + str(self.folder / "fresh.tfstate"), str(self.folder / "review.plan"))
+                selected_plan = self.folder / "review.plan"
+                for attempt in range(3):
+                    try:
+                        self.terraform("apply", "-input=false", "-no-color", "-parallelism=2",
+                            "-state=" + str(self.folder / "fresh.tfstate"), str(selected_plan))
+                        break
+                    except RuntimeError:
+                        if (self.provider != "aws" or attempt == 2
+                                or not workspace_role_propagation_failure(self.last_log)):
+                            raise
+                        self.report["workspace_role_retries"] = attempt + 1
+                        time.sleep(20 * (attempt + 1))
+                        selected_plan = self.folder / (f"workspace-retry-{attempt + 1}.plan")
+                        self.terraform("plan", "-input=false", "-no-color",
+                            "-state=" + str(self.folder / "fresh.tfstate"),
+                            "-var-file=" + str(self.folder / "private.tfvars.json"),
+                            "-out=" + str(selected_plan), *("-target=" + r for r in AWS_ROOTS))
+                        review_workspace_retry(json.loads(self.terraform("show", "-json", str(selected_plan)).read_text()))
             finally:
                 self.report["apply_seconds"] = round(time.monotonic() - started, 3)
             resources = self.state()

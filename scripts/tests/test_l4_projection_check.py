@@ -183,3 +183,21 @@ def test_azure_http_response_is_not_a_botocore_dictionary(status):
     else:
         with pytest.raises(HttpResponseError):
             runner.absent(fail, ())
+
+
+def test_workspace_retry_only_allows_the_missing_workspace(tmp_path):
+    plan = {"resource_changes": [{"mode": "managed", "address": address,
+        "change": {"actions": ["create"] if address.startswith("awscc_") else ["no-op"]}}
+        for address in runner.EXPECTED["aws"]]}
+    runner.review_workspace_retry(plan)
+    for resource in plan["resource_changes"]:
+        if not resource["address"].startswith("awscc_"):
+            resource["change"]["actions"] = ["update"]
+            break
+    with pytest.raises(RuntimeError, match="RETRY_SCOPE"):
+        runner.review_workspace_retry(plan)
+    log = tmp_path / "synthetic.log"
+    log.write_text('Error: InvalidRequest: role assume permission\n with awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0]\n')
+    assert runner.workspace_role_propagation_failure(log)
+    log.write_text('Error: AccessDenied\n')
+    assert not runner.workspace_role_propagation_failure(log)
