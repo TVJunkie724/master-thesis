@@ -720,9 +720,10 @@ output "aws_cloudwatch_log_groups" {
     local.aws_six_layer_bridge_enabled ? {
       "BRIDGE" = aws_cloudwatch_log_group.aws_six_layer_bridge[0].name
     } : {},
-    local.aws_six_layer_storage_mover_enabled ? {
+    # A targeted Event/L4 research cut can omit the background storage mover.
+    local.aws_six_layer_storage_mover_enabled ? try({
       "L3-storage-mover" = aws_cloudwatch_log_group.aws_aws_cloudwatch[0].name
-    } : {},
+    }, {}) : {},
   )
 }
 

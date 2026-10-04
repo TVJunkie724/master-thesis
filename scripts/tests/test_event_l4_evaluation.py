@@ -20,6 +20,13 @@ def test_exact_research_cut_has_no_image_cluster_or_graphical_resources():
     assert not any(a.startswith(('azurerm_', 'google_', 'aws_grafana_', 'aws_ecr_', 'aws_ecs_')) for a in ALLOWED)
 
 
+def test_partial_event_cut_does_not_require_storage_mover_log_output():
+    source = (Path(__file__).resolve().parents[2] / '3-cloud-deployer/src/terraform/outputs.tf').read_text()
+    assert 'local.aws_six_layer_storage_mover_enabled ? try({' in source
+    assert '"L3-storage-mover" = aws_cloudwatch_log_group.aws_aws_cloudwatch[0].name\n    }, {}) : {}' in source
+    assert not any('aws_aws_cloudwatch' in address for address in ALLOWED)
+
+
 @pytest.mark.parametrize('change', ['extra', 'missing', 'duplicate', 'update'])
 def test_scope_rejects_any_unreviewed_change(change):
     value = plan()

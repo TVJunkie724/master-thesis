@@ -157,6 +157,11 @@ variant, retaining the create/no-op allowlist and overall deadline. It does not
 add permissions or treat an arbitrary access-denied error as retryable. The
 same workspace bucket policy already passed isolated L4; propagation is a retry
 hypothesis, not a reason to grant broader access.
+Attempt 02 created the cut's resources, then failed while evaluating the output
+map's reference to a deliberately absent Storage-Mover log group. No fixture was
+sent. Apply took 110.503 s and Destroy 50.233 s; independent inventory is zero.
+The output now omits the unavailable log reference in a targeted cut, without
+adding the background mover or changing complete-deployment output behavior.
 
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS
 read-only targeted dependency experiment first produced 51 managed creates.
