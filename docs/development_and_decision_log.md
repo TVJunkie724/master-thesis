@@ -30,6 +30,13 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**AWS deployed Event-to-L4 observation (2026-10-04):** The bounded 33-resource
+cut passed with a real stream consumer, runtime identity and exact TwinMaker
+readback. Destroy and independent zero inventory passed. This closes that edge,
+not a full-profile deployment, replay test or cross-cloud L4 claim. Failed
+attempts and phase measurements remain in the
+[integration close-out](plans/2026-10-04_poc_integration_closeout.md).
+
 **Azure command observation (2026-10-04):** A receipt timeout after successful
 function indexing and exact L3 readback is not an ingress failure. Keep that
 failed observation, then test bounded warm Rule/Control and action groups without

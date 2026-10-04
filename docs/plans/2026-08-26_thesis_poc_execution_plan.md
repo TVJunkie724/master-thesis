@@ -40,14 +40,15 @@ remains pending. These are not complete-profile E2E passes. The separately
 approved [bounded AWS/Azure L4 checks](2026-10-04_poc_l4_evaluation.md) now also
 passed live: real service/model creation, local-adapter state update/replay,
 authenticated readback, Destroy and independent zero-active-resource inventory.
-Actual Event-to-L4 delivery, simulator/command and graphical L5 remain open;
-no Core reruns or new dashboard platform are implied. The dated checkpoints
-below remain historical observations, not current coverage counts.
-
-The [integration close-out](2026-10-04_poc_integration_closeout.md) now records
-the fixed AWS simulator/feedback runner preparation, GCP subscription-readiness
-check, 117 passing offline regressions and read-only AWS Core/Event-to-L4 plans.
-No additional live result or graphical-L5 mapping is implied by this preparation.
+The deployed AWS Event-to-L4 edge also passed, including Destroy and independent
+zero inventory. The real AWS simulator/command roundtrip passed functionally;
+inactive IoT Command deletion markers still prevent a strict zero-inventory
+claim for those attempts. Azure/GCP command return, Azure Event-to-L4 delivery
+and graphical L5 remain open. No Core reruns or new dashboard platform are
+implied. The [integration close-out](2026-10-04_poc_integration_closeout.md)
+records successful and failed attempts, actual coverage, lifecycle measurements
+and remaining gates. The dated checkpoints below remain historical observations,
+not current coverage counts.
 
 Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
 ten-message provider-local L1–L3/Event-Layer telemetry path. AWS/Azure independent

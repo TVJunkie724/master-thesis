@@ -163,6 +163,17 @@ sent. Apply took 110.503 s and Destroy 50.233 s; independent inventory is zero.
 The output now omits the unavailable log reference in a targeted cut, without
 adding the background mover or changing complete-deployment output behavior.
 
+Attempt 03 passed the deployed AWS Event-to-L4 edge at source revision
+`86d46701bc7a4a8e982328bdb00dc14949e0f28a`: one canonical processed fixture
+traversed the real Kinesis consumer and deployed domain adapter under its runtime
+identity. Authenticated TwinMaker readback matched value, source sequence, event
+ID and timestamp. Apply took 138.602 s, seed creation 1.196 s and projection plus
+readback 27.208 s (14 polls). The readback duration includes polling and is not a
+message-latency distribution. SDK cleanup took 15.255 s, Terraform Destroy
+46.452 s and independent inventory 7.839 s. All 33 managed resources and SDK seed
+objects were removed; functional, cleanup and inventory assertions passed.
+No IAM retry was needed. Earlier failed attempts remain separate observations.
+
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS
 read-only targeted dependency experiment first produced 51 managed creates.
 The smaller Event/L4-only experiment produces **33 creates**, using the existing
