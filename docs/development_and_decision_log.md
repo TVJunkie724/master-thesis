@@ -1070,3 +1070,23 @@ definitions; final dependency closure, model compatibility, pricing and exact
 execution approval remain gates. No production guard is relaxed, new layer
 framework added, or cloud mutation performed. Research questions stay unchanged;
 GCP L4/L5 remain excluded and L5 stays last.
+
+### 2026-10-04 — L4 plan-only findings
+
+Native mock and account-bound read-only L4 plans now isolate six AWS entries
+and two Azure entries, all create-only. A fixed plan-only preparer denies
+additional resources or existing-state updates; no Apply/seed occurred.
+Azure's original shared role-map target would pull eleven entries including
+IoT/ACR/Service Bus into the graph and was rejected. The smaller alternative
+requires one separately tracked ADT-scoped SDK role assignment at execution.
+The targeted Azure output now returns empty human-binding evidence when that
+role was not selected; full-profile access evidence remains covered separately.
+
+The AWS code/model review found that existing time-series projection relies on
+a connector absent from the active Six-layer workspace plan, with legacy seed
+output names also unresolved. The proposed no-connector current-state mapping
+is not silently implemented or counted as a pass. The
+[L4 preparation record](plans/2026-10-04_poc_l4_evaluation.md) retains this gate,
+regional public meter prices and read-only Standard pricing-mode confirmation.
+Service-only cost arithmetic is not a total deployment ceiling. No research
+question, private budget, full-profile success or new cloud spending is implied.
