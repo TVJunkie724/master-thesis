@@ -60,6 +60,32 @@ asynchronous publish and reports success only after PUBACK. Regression tests use
 the actual callback shapes, including a missing-ACK negative case. Failed attempts
 remain failed; arrival alone does not override teardown or harness errors.
 
+### AWS command observation (2026-10-04)
+
+Attempt 05, runtime revision `f505bb69`, passed the actual simulator/command and
+authenticated L3 assertion: one telemetry message, one trace-correlated command,
+broker-acknowledged device response and one exact timestamp/value readback. The
+single observed send-to-receipt time was **13.646645 s**. This is not a latency
+distribution or a directed multi-cloud command result.
+
+| Attempt | Functional result | Deploy s | Verify s | Destroy s | Total s |
+|---|---|---:|---:|---:|---:|
+| 01 | Receipt timeout | 97.879 | 301.836 | 103.077 | 657.882 |
+| 02 | Empty command endpoint diagnosed; stopped | 105.270 | 182.513 | 106.003 | 548.622 |
+| 03 | SDK message callback client was `None` | 104.750 | 166.099 | 114.506 | 545.033 |
+| 04 | PUBACK keyword callback mismatch | 107.769 | 118.249 | 83.925 | 479.066 |
+| 05 | Simulator roundtrip and L3 passed | 109.611 | 38.508 | 137.858 | 439.303 |
+
+Deploy excludes the separately captured image foundation/publication phases;
+total includes preparation, image phases, diagnostics where needed, and cleanup.
+All five attempts completed Destroy and independent zero **active** inventory,
+including simulator identity/certificate/policy. Each initial residual snapshot
+still contained one inactive IoT command marked `pendingDeletion`. Accordingly,
+the strict runner retained `green=false` even for functional attempt 05. Later
+zero-inventory reconciliation must be recorded separately, not overwrite these
+original observations. Per-resource lifecycle timings and private raw evidence
+remain retained; billing attribution is pending.
+
 ## Event-to-L4 delivery
 
 Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS

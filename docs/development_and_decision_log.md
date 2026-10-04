@@ -1180,3 +1180,27 @@ Core fixture intentionally omits.
 The expanded simulator/Eventing/metrics group passes 146 tests; together with
 the 179 focused L4/runtime/verification tests this is 325 offline passes, plus
 the three native Terraform mock checks. Changed Python files pass Ruff.
+
+### 2026-10-04 — AWS simulator command return observed live
+
+The bounded local AWS cut now proves actual MQTT simulator telemetry, rule/action,
+Event command delivery, trace-matched device receipt with broker ACK, and exact
+authenticated L3 readback. The one observed roundtrip was 13.646645 seconds.
+Four failed attempts remain in the [integration close-out record](plans/2026-10-04_poc_integration_closeout.md):
+a legacy-only Terraform endpoint guard omitted the Six-layer command endpoint;
+the actual SDK exposed a `None` message-callback client and keyword PUBACK argument.
+The fixes are limited to that endpoint and simulator callback; failure diagnostics
+are payload-free and raw simulator errors stay private. No platform redesign.
+
+Every attempt destroyed infrastructure and left zero active scoped resources.
+Inactive IoT deletion tombstones are explicitly not reported as complete null
+inventory. The successful functional attempt therefore is not yet strict cleanup
+green. RQ1 records deployment/configuration defects and retry overhead; RQ2 records
+this local command mechanism only; RQ3 retains actual phase/resource timings and
+pending billed attribution. No earlier telemetry-only result is relabelled.
+
+Local Azure/GCP receipt harnesses and fixed AWS/Azure Event-to-L4 cuts are prepared
+and offline-tested. The latter use exact 33/45-address allowlists and existing
+runtime packages; neither adds a general layer-selection framework or graphical
+L5. The combined focused runner/simulator/L4 group passes 108 tests. Live results
+must be recorded separately for each provider and responsibility.
