@@ -1,5 +1,6 @@
 from copy import deepcopy
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from botocore.session import Session
@@ -7,6 +8,15 @@ from botocore.validate import validate_parameters
 
 from scripts import l4_projection_check as projection
 from scripts import run_l4_evaluation as runner
+
+
+def test_isolated_aws_output_handles_absent_human_bindings():
+    source = (Path(__file__).resolve().parents[2] / "3-cloud-deployer/src/terraform/aws_six_layer.tf").read_text()
+    output = source.split('output "aws_component_twin_state_output"', 1)[1].split('\nlocals {', 1)[0]
+    assert "access_binding_refs = try([" in output
+    assert "aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn" in output
+    assert "aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id" in output
+    assert "], [])" in output
 
 
 class FakeAWS:

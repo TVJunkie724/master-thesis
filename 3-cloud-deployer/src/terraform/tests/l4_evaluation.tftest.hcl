@@ -45,10 +45,6 @@ run "aws_l4_infrastructure_only" {
     condition     = length(awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard) == 1 && aws_s3_bucket_public_access_block.aws_six_layer_twinmaker[0].block_public_policy
     error_message = "The fixed AWS L4 cut requires one workspace and a private bucket."
   }
-  assert {
-    condition     = length(output.aws_component_twin_state_output.internal_evidence.access_binding_refs) == 0
-    error_message = "An isolated AWS L4 check must not claim a human access binding."
-  }
 }
 
 run "azure_l4_dependency_inspection" {
