@@ -5,7 +5,6 @@ Actual stored fixture points, authenticated cloud-generated SVG, immediate
 Destroy and independent inventory. All responses/state remain private.
 """
 import argparse
-from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -20,7 +19,7 @@ import uuid
 
 from scripts.prepare_core_runtime import ROOT
 from scripts.run_core_evaluation import Terraform, reserve, save, terraform_resource_timings, utc_now
-from scripts.run_l4_evaluation import absent, deadline, lifecycle
+from scripts.run_l4_evaluation import deadline, lifecycle
 from src.core.secure_files import atomic_write_private_bytes
 from src.providers.terraform.package_builders.aws_six_layer import build_aws_six_layer_domain_app
 from src.providers.terraform.package_builders.azure_six_layer import build_azure_six_layer_graph_apps
@@ -143,6 +142,7 @@ class Experiment:
         self.tf.sequence = max((int(p.stem.split('-')[-1]) for p in self.tf.folder.glob('command-*.log')), default=0)
         self.report = {'provider': self.provider, 'scope': 'isolated-l3-to-l5-stored-fixture',
                        'source_revision': self.manifest['source_revision'], 'started_at': utc_now(),
+                       'runner_source_revision': os.getenv('L5_SOURCE_REVISION', self.manifest['source_revision']),
                        'plan_sha256': self.manifest['plan_sha256'], 'package_sha256': self.manifest['package_sha256']}
         if self.provider == 'aws':
             import boto3
@@ -160,7 +160,8 @@ class Experiment:
             from azure.mgmt.resource.resources import ResourceManagementClient
             value = self.credentials['azure']
             self.credential = ClientSecretCredential(value['azure_tenant_id'], value['azure_client_id'], value['azure_client_secret'])
-            self.resource = ResourceManagementClient(self.credential, value['azure_subscription_id'])
+            self.resource = ResourceManagementClient(self.credential, value['azure_subscription_id'],
+                                                     retry_total=1, connection_timeout=10, read_timeout=20)
             self.subscription = value['azure_subscription_id']
 
     def phase(self, name, action):

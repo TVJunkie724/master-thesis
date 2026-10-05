@@ -51,3 +51,11 @@ def test_reader_failure_propagates():
         raise PermissionError('denied')
     with pytest.raises(PermissionError):
         module.page(fetch, 'device', 'temperature')
+
+
+def test_azure_response_is_html_without_client_credentials():
+    import azure.functions as func
+    response = func.HttpResponse('<!doctype html>', status_code=200, headers=module.HEADERS)
+    assert response.headers['Content-Type'] == 'text/html; charset=utf-8'
+    assert response.headers['Cache-Control'] == 'no-store'
+    assert "default-src 'none'" in response.headers['Content-Security-Policy']

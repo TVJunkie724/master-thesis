@@ -1248,3 +1248,35 @@ and offline-tested. The latter use exact 33/45-address allowlists and existing
 runtime packages; neither adds a general layer-selection framework or graphical
 L5. The combined focused runner/simulator/L4 group passes 108 tests. Live results
 must be recorded separately for each provider and responsibility.
+
+### 2026-10-05 — Minimal graphical L5 observed on AWS/Azure
+
+The user approved a small provider-hosted L5 consumer instead of the historical
+Managed Grafana experiment. A shared server-rendered SVG view reads the existing
+authenticated L3 contract through a separate Lambda/Function App. L5 has no
+storage permissions or account credentials; readers retain L3 ownership. The
+fixed research Terraform cuts add no Core, Event, L4, VM, GCP visualization,
+Flutter feature or general partial-deployment platform.
+
+Both live cuts passed: three actual stored raw values and three hourly records
+rendered with exact timestamps in two charts; unauthenticated access rejected
+(AWS 403, Azure 401); immediate Destroy and independent null inventory passed.
+AWS deployment/verification/Destroy took 40.512/2.104/15.376 seconds; Azure
+561.910/7.190/711.249 seconds. All 15/20 resource lifecycle timings and immutable
+responses/plans are preserved privately. Browser inspection used byte-identical
+cloud responses after/during cleanup, not a new local-only datasource.
+
+[The evidence record](plans/2026-10-05_minimal_l5_evidence.md) states the limits:
+L3→L5 with a seeded fixture, not simulator→L5, end-user SSO, Managed Grafana
+feature equivalence or full-profile integration/admission. Existing RQs and the
+historical FiveLayer model are unchanged. RQ1 gains bounded deployment/read/
+cleanup observations; RQ2 gains the shared minimal graphical contract; RQ3
+does not attribute this service-mapping change to Eventing. Lagged month billing
+is separately scoped, not claimed as incremental experiment cost.
+
+107 focused offline tests, Ruff and native Terraform validation pass. Preparation
+corrections were limited to the container's missing Git, the installed Azure
+Resource SDK namespace and negative-authentication checks before live execution.
+The previous five AWS command deletion markers also disappeared: a new read-only
+reconciliation found zero active resources and zero markers without repeating
+functional runs. Original results were not overwritten.

@@ -67,7 +67,7 @@ if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
     @app.function_name(name="six-layer-visualization")
     @app.route(route="visualization/v1", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
     def visualization(req: func.HttpRequest) -> func.HttpResponse:
-        """Separate L5 app consumes L3 HTTP with a function-scoped key."""
+        """Separate L5 app consumes the HTTP-only L3 reader with an app key."""
         try:
             def fetch(query):
                 request = Request(os.environ["L3_READER_URL"] + "?" + urlencode(query),

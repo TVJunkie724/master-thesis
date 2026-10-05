@@ -1,5 +1,13 @@
 # Minimal L5 visualization — pre-implementation review
 
+Current decision (2026-10-05): the user approved a minimal AWS/Azure
+server-rendered graphical consumer instead of this Managed Grafana proposal.
+The approved fixed L3→L5 experiment, claim boundaries and results are recorded
+in [the minimal L5 evidence plan](../../plans/2026-10-05_minimal_l5_evidence.md).
+The pricing proposal and execution block below are historical, not the active
+experiment. GCP exclusion, unchanged RQs and the historical FiveLayer reference
+still apply. A stored fixture proof must not be described as simulator→L5.
+
 Status: reviewed offline/public read-only on 2026-09-07; **blocked for execution**.
 This is a resource proposal and feasibility result, not an executable Terraform
 plan, spending approval, or live readiness evidence. No cloud resources were

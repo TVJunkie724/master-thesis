@@ -429,3 +429,16 @@ RQ1 records provisioning, configuration, cleanup and integration defects.
 RQ2 reports each actually verified edge and excluded responsibility separately.
 RQ3 keeps measured timings, technical allowances and later billed attribution
 distinct.
+
+## Subsequent scoped observations (2026-10-05 afternoon)
+
+The read-only AWS reconciliation at 13:46–13:47 UTC found **zero active
+resources and zero deletion markers** for all five local command attempts.
+This closes the formerly pending AWS cleanup observation without repeating
+the functional run or altering original reports.
+
+The user subsequently approved minimal provider-hosted graphical L5 evidence
+on AWS/Azure. Its independent L3→L5 fixture cut, actual observations and explicit
+limits are recorded in [the minimal L5 evidence plan](2026-10-05_minimal_l5_evidence.md).
+This supersedes the pending-decision wording above, not the existing Core,
+Event/L4, local command, RQ or GCP-exclusion boundaries.
