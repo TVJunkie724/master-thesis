@@ -157,7 +157,7 @@ class Experiment:
                         for name in ('dynamodb', 'lambda', 'iam', 'logs')}
         else:
             from azure.identity import ClientSecretCredential
-            from azure.mgmt.resource import ResourceManagementClient
+            from azure.mgmt.resource.resources import ResourceManagementClient
             value = self.credentials['azure']
             self.credential = ClientSecretCredential(value['azure_tenant_id'], value['azure_client_id'], value['azure_client_secret'])
             self.resource = ResourceManagementClient(self.credential, value['azure_subscription_id'])
