@@ -16,6 +16,7 @@ from typing import Any, Iterable, List, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import uuid
+from urllib.parse import urlencode
 
 import azure.functions as func
 from azure.core.exceptions import ResourceNotFoundError
@@ -60,6 +61,26 @@ from core import (
 
 
 app = func.FunctionApp()
+
+if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
+    from phase8_eventing.visualization import HEADERS as VISUALIZATION_HEADERS, page as visualization_page
+    @app.function_name(name="six-layer-visualization")
+    @app.route(route="visualization/v1", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
+    def visualization(req: func.HttpRequest) -> func.HttpResponse:
+        """Separate L5 app consumes L3 HTTP with a function-scoped key."""
+        try:
+            def fetch(query):
+                request = Request(os.environ["L3_READER_URL"] + "?" + urlencode(query),
+                                  headers={"x-functions-key": os.environ["L3_READER_KEY"]})
+                with urlopen(request, timeout=10) as response:
+                    data = response.read(1024 * 1024 + 1)
+                if len(data) > 1024 * 1024:
+                    raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
+                return json.loads(data)
+            body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"])
+            return func.HttpResponse(body, status_code=200, headers=VISUALIZATION_HEADERS)
+        except Exception:
+            return func.HttpResponse("L5 data unavailable", status_code=503, headers=VISUALIZATION_HEADERS)
 DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 REMOTE_TELEMETRY_ENABLED = (
     os.getenv("SIX_LAYER_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"

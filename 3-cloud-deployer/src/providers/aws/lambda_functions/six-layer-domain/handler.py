@@ -14,12 +14,36 @@ import math
 import os
 import re
 import uuid
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Mapping
 
 import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 from botocore.exceptions import ClientError
+
+def visualization(event, _context):
+    """Independent L5 Lambda; IAM-signed HTTP access, never table access."""
+    from phase8_eventing.visualization import HEADERS as VISUALIZATION_HEADERS, page as visualization_page
+    try:
+        def fetch(query):
+            url = os.environ["L3_READER_URL"] + "?" + urlencode(query)
+            signed = AWSRequest(method="GET", url=url)
+            credentials = boto3.Session().get_credentials().get_frozen_credentials()
+            SigV4Auth(credentials, "lambda", os.environ["AWS_REGION"]).add_auth(signed)
+            request = Request(url, headers=dict(signed.headers))
+            with urlopen(request, timeout=10) as response:
+                data = response.read(1024 * 1024 + 1)
+            if len(data) > 1024 * 1024:
+                raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
+            return json.loads(data)
+        body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"])
+        return {"statusCode": 200, "headers": VISUALIZATION_HEADERS, "body": body}
+    except Exception:
+        return {"statusCode": 503, "headers": VISUALIZATION_HEADERS, "body": "L5 data unavailable"}
 
 PROFILE = "six-layer-eventing@1"
 MAX_POINTS = 1000
