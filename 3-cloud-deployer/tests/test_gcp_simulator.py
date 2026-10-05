@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import json
+import ssl
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.iot_device_simulator.google import globals, transmission
+
+
+def test_actual_mqtt_sdk_constructs_tls_client_without_network(monkeypatch):
+    import paho.mqtt.client as mqtt
+    monkeypatch.setattr(mqtt.Client, "connect", lambda *_args, **_kwargs: pytest.fail("network forbidden"))
+    client = transmission._client({"device_id": "offline", "username": "offline",
+                                   "password": "offline", "server_ca_path": None}, suffix="test")
+    assert isinstance(client, mqtt.Client)
+    assert client._ssl_context.verify_mode == ssl.CERT_REQUIRED
+    assert client._ssl_context.check_hostname
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        assert client.callback_api_version == mqtt.CallbackAPIVersion.VERSION2
 
 
 def _config(tmp_path):

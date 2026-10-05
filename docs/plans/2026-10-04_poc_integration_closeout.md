@@ -355,7 +355,23 @@ timing; no cloud-service creation timing was omitted in attempt 08. Derived
 reconciliation preserves original reports and does not require a cloud rerun.
 The focused command/runner regression passes 43 tests.
 
-## Remaining L5 decision
+## GCP command client preparation (2026-10-05)
+
+Attempt 01 created the 109-entry cloud graph and nine staged Kubernetes entries,
+but the local simulator failed before connecting or sending: the shared deployer
+pins Paho MQTT 1.6.1 for `azure-iot-device`, whereas the standalone GCP simulator
+pins 2.1.0. The former has no `CallbackAPIVersion` attribute. This is an evaluation
+client dependency mismatch, not a failed deployed message path.
+
+The client now explicitly selects callback API v2 when available and otherwise
+uses the existing 1.6 callback signatures, which its handlers already accept.
+No dependency pins, TLS checks, QoS, routes or cloud resources change. An actual
+offline TLS-client construction check runs before credential loading or cloud
+work. Regression covers fail-before-cloud ordering and real client construction:
+69 tests pass in the shared image; all 13 GCP simulator tests also pass with the
+standalone pinned Paho 2.1.0 installed separately.
+
+## Remaining L5 decision and interpretation
 
 Graphical L5 needs a user decision, not automatic restoration of the historical
 Grafana proposal. A local view of real authenticated L3 data would be a bounded

@@ -115,8 +115,12 @@ def _active_config(payload: dict | None = None) -> dict:
 def _client(device_config: dict, *, suffix: str):
     import paho.mqtt.client as mqtt
 
+    # The standalone simulator pins Paho 2.1; the shared deployer pins 1.6
+    # for azure-iot-device. Our callbacks accept both existing SDK signatures.
+    callbacks = ({"callback_api_version": mqtt.CallbackAPIVersion.VERSION2}
+                 if hasattr(mqtt, "CallbackAPIVersion") else {})
     client = mqtt.Client(
-        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        **callbacks,
         client_id=f"twin2multicloud-{device_config['device_id']}-{suffix}",
         clean_session=True,
         protocol=mqtt.MQTTv311,

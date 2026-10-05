@@ -9,6 +9,21 @@ from scripts import core_command_receipt as check
 from scripts import core_live_azure_roundtrip, core_live_gcp_roundtrip
 
 
+def test_gcp_client_preflight_fails_before_credentials_or_cloud_work(monkeypatch):
+    from scripts import run_core_evaluation as runner
+    monkeypatch.setattr(runner.os, "umask", lambda *_: None)
+    monkeypatch.setattr(runner.signal, "signal", lambda *_: None)
+    preflight = Mock(side_effect=RuntimeError("OFFLINE_SDK_FAILURE"))
+    monkeypatch.setattr(core_live_gcp_roundtrip, "preflight", preflight)
+    with pytest.raises(RuntimeError, match="OFFLINE_SDK_FAILURE"):
+        runner.run(SimpleNamespace(provider="gcp", command_roundtrip=True))
+    preflight.assert_called_once_with()
+
+
+def test_gcp_preflight_constructs_real_client_offline():
+    core_live_gcp_roundtrip.preflight()
+
+
 @pytest.mark.parametrize("case", ["pass", "missing", "unrelated", "negative", "timeout"])
 def test_receipt_is_correlated_private_and_restores_configuration(case, tmp_path):
     original = object()

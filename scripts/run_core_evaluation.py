@@ -218,6 +218,9 @@ def run(args):
     command_roundtrip = getattr(args, "command_roundtrip", False)
     if command_roundtrip and directed:
         raise ValueError("The bounded command cut supports only local providers")
+    command_ops = importlib.import_module("scripts.core_live_" + provider + "_roundtrip") if command_roundtrip else None
+    if command_ops and hasattr(command_ops, "preflight"):
+        command_ops.preflight()
     scenario = ("core-small-azure-to-aws" if azure_to_aws else
                 "core-small-aws-to-azure" if aws_to_azure else
                 "core-small-aws-to-gcp" if aws_to_gcp else
@@ -249,7 +252,6 @@ def run(args):
     values["digital_twin_name"] = run_id
     save(root / "runtime/config.json", {"digital_twin_name": run_id})
     if command_roundtrip:
-        command_ops = importlib.import_module("scripts.core_live_" + provider + "_roundtrip")
         command_ops.configure(values, root / "runtime")
     credentials = json.loads(args.credentials.read_text())
     aws = credentials["aws"]

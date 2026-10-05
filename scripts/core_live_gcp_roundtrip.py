@@ -13,6 +13,13 @@ stop_builds = core.stop_builds
 diagnostics = core.diagnostics
 
 
+def preflight():
+    """Construct the actual simulator client offline before any cloud work."""
+    from src.iot_device_simulator.google import transmission
+    transmission._client({"device_id": "offline-preflight", "username": "offline",
+                          "password": "offline", "server_ca_path": None}, suffix="preflight")
+
+
 def smoke(values, outputs):
     from src.iot_device_simulator.google import transmission
     endpoint = urlparse(outputs["gcp_six_layer_mqtt_endpoint"])
