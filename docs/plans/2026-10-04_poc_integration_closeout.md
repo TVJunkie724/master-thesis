@@ -316,6 +316,9 @@ began. Thus this absence is not an effect of Destroy. No command receipt was
 observed. A successful ARM deployment record for the reserved `$Default` child
 had not established a usable subscription filter; the precise service-side
 reason for its absence is not established by these observations.
+Attempt 07 measured 621.092 s deployment, 332.624 s verification and 898.958 s
+Destroy (1985.731 s total). Destroy, including the diagnostic component, and
+independent zero resource-group inventory passed.
 
 The correction replaces the two analogous reserved-rule ARM templates with
 native Terraform subscription-rule resources, named `domain-events` and
