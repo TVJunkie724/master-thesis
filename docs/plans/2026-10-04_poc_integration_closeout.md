@@ -371,6 +371,16 @@ work. Regression covers fail-before-cloud ordering and real client construction:
 69 tests pass in the shared image; all 13 GCP simulator tests also pass with the
 standalone pinned Paho 2.1.0 installed separately.
 
+Attempt 01 measured 27.779 s image foundation, 209.392 s image publication,
+756.050 s main deployment and 126.836 s staged Kubernetes deployment.
+Verification failed in 0.007 s before any network send. Staged Kubernetes
+removal took 76.838 s and Terraform Destroy 561.884 s; total elapsed time was
+1821.885 s. Destroy and independent zero **active** inventory passed, including
+GKE-generated compute children and project IAM bindings. One inactive Logging
+bucket remains `DELETE_REQUESTED`, so this is not strict zero inventory.
+Google documents a [seven-day deletion grace period](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/projects.locations.buckets/delete).
+Do not repeat functional tests to remove that provider-managed marker.
+
 ## Remaining L5 decision and interpretation
 
 Graphical L5 needs a user decision, not automatic restoration of the historical
