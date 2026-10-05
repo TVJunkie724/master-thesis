@@ -330,7 +330,32 @@ rules fail closed. This is a fresh-deployment correction; no surviving deploymen
 or state is migrated. The historical telemetry passes do not imply that these
 previously untested control routes passed.
 
-## L5 and interpretation
+## Azure command observation (2026-10-05)
+
+Attempt 08, source `c806f1344f081f40ab7a545c0b4b230b55d6409c`, passed
+the actual MQTT/TLS simulator, rule/action/Event control path and device receipt,
+followed by authenticated L3 readback of the exact input timestamp and value.
+The live subscription preflight verified exactly one matching `domain-events`
+SQL rule before sending the fixture. One message produced one trace-correlated
+command receipt in **38.264408 s**; L3 matched on the fourth readback poll.
+Function registration was ready on the first check. This establishes the missing
+filter as a blocking configuration defect, not the unproven cause of its earlier
+service-side disappearance. The bounded warm configuration remains part of the
+observation; this is not a cold-start benchmark or directed command result.
+
+The 99-entry deployment took 604.953 s, verification 74.013 s and Destroy
+899.733 s (1714.743 s total, including image preparation/publication and other
+phases). Destroy and independent zero resource-group inventory passed. The
+Application Insights component and simulator device were removed with the owned
+resource group/IoT Hub. Earlier failed attempts remain failed.
+
+A subsequent offline parser correction accepts `@` in versioned package-check
+addresses. The original logs retain the previously omitted `terraform_data`
+timing; no cloud-service creation timing was omitted in attempt 08. Derived
+reconciliation preserves original reports and does not require a cloud rerun.
+The focused command/runner regression passes 43 tests.
+
+## Remaining L5 decision
 
 Graphical L5 needs a user decision, not automatic restoration of the historical
 Grafana proposal. A local view of real authenticated L3 data would be a bounded

@@ -30,6 +30,16 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Azure command closure (2026-10-05):** Execution logs and the live subscription
+rules API isolated a missing Service Bus filter after successful telemetry,
+history and rule evaluation. Native named Terraform rules replace the reserved
+child-rule ARM templates without widening event filters. A pre-send live-rule
+check and the actual simulator receipt then passed, as did exact L3 readback,
+Destroy and independent zero inventory. Retain the explicit warm test condition;
+do not recast previous timeouts as cold-start evidence or extend this local
+result to directed command paths. See the
+[integration close-out](plans/2026-10-04_poc_integration_closeout.md).
+
 **Azure deployed Event-to-L4 observation (2026-10-05):** The fixed 45-resource
 cut passed with real Event Hubs delivery, deployed runtime identities and exact
 Digital Twins readback. Destroy and independent zero inventory passed. Local

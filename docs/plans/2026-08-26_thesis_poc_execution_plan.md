@@ -43,7 +43,8 @@ authenticated readback, Destroy and independent zero-active-resource inventory.
 The deployed AWS and Azure Event-to-L4 edges also passed, including Destroy and independent
 zero inventory. The real AWS simulator/command roundtrip passed functionally;
 inactive IoT Command deletion markers still prevent a strict zero-inventory
-claim for those attempts. Azure/GCP command return and graphical L5 remain open.
+claim for those attempts. The Azure simulator/command and exact L3 check also passed,
+including Destroy and independent zero inventory. GCP command return and graphical L5 remain open.
 No Core reruns or new dashboard platform are
 implied. The [integration close-out](2026-10-04_poc_integration_closeout.md)
 records successful and failed attempts, actual coverage, lifecycle measurements
