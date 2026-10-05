@@ -119,7 +119,11 @@ def prepare(args):
         tf.run('plan', '-input=false', '-no-color', '-out=reviewed.tfplan')
         plan = json.loads(tf.run('show', '-json', 'reviewed.tfplan').read_text())
     count = review(plan, args.provider)
-    source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    source = os.getenv('L5_SOURCE_REVISION', '')
+    if not source and shutil.which('git'):
+        source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    if not re.fullmatch('[0-9a-f]{40}', source):
+        raise ValueError('L5_SOURCE_REVISION_REQUIRED')
     manifest = {'provider': args.provider, 'prefix': prefix, 'source_revision': source, 'planned_creates': count,
                 'plan_sha256': hashlib.sha256((tfdir / 'reviewed.tfplan').read_bytes()).hexdigest(),
                 'package_sha256': hashlib.sha256(package.read_bytes()).hexdigest(), 'values': values}
@@ -313,7 +317,12 @@ def main():
                 raise ValueError('L5_EXECUTION_ALLOWANCE_REQUIRED')
             Experiment(args).run()
     except BaseException as error:
-        print(json.dumps({'provider': args.provider, 'error_type': type(error).__name__}))
+        trace = error.__traceback__
+        while trace and trace.tb_next:
+            trace = trace.tb_next
+        print(json.dumps({'provider': args.provider, 'error_type': type(error).__name__,
+                          'error_location': {'file': Path(trace.tb_frame.f_code.co_filename).name,
+                                             'line': trace.tb_lineno} if trace else None}))
         raise SystemExit(1)
 
 
