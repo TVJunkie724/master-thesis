@@ -41,10 +41,12 @@ approved [bounded AWS/Azure L4 checks](2026-10-04_poc_l4_evaluation.md) now also
 passed live: real service/model creation, local-adapter state update/replay,
 authenticated readback, Destroy and independent zero-active-resource inventory.
 The deployed AWS and Azure Event-to-L4 edges also passed, including Destroy and independent
-zero inventory. The real AWS simulator/command roundtrip passed functionally;
-inactive IoT Command deletion markers still prevent a strict zero-inventory
-claim for those attempts. The Azure simulator/command and exact L3 check also passed,
-including Destroy and independent zero inventory. GCP command return and graphical L5 remain open.
+zero inventory. The real simulator/command roundtrip and exact authenticated L3
+readback now passed on all three local providers. Destroy and independent zero
+active inventory passed; inactive AWS IoT Command and GCP Logging deletion markers
+still prevent strict zero-inventory claims for those attempts. Azure also passed
+strict zero inventory. Graphical L5 remains an open decision; no directed command
+or complete-profile result is inferred from these local checks.
 No Core reruns or new dashboard platform are
 implied. The [integration close-out](2026-10-04_poc_integration_closeout.md)
 records successful and failed attempts, actual coverage, lifecycle measurements

@@ -275,7 +275,7 @@ one integration observation, not a latency distribution or a cold-start estimate
 This closes the deployed Azure Event/L4 edge only, not simulator command return,
 cross-cloud L4, replay or graphical L5.
 
-## Next bounded Azure command diagnosis
+## Azure command diagnosis (attempts 06–07)
 
 Command attempt 06 again timed out despite exact authenticated L3 readback.
 All required functions were indexed on the first check, their admin status
@@ -380,6 +380,41 @@ GKE-generated compute children and project IAM bindings. One inactive Logging
 bucket remains `DELETE_REQUESTED`, so this is not strict zero inventory.
 Google documents a [seven-day deletion grace period](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/projects.locations.buckets/delete).
 Do not repeat functional tests to remove that provider-managed marker.
+
+## GCP command observation (2026-10-05)
+
+Attempt 02, source `13fbdb992a1031b1e193ea6a90aab994468e81de`, passed the
+real MQTT/TLS simulator, rule/action/Event control path and trace-correlated
+device receipt. One telemetry message produced one command receipt in
+**28.965664 s**. Authenticated L3 readback matched the exact input timestamp and
+value on the first poll. The offline actual-client preflight passed before cloud
+work. No cloud-runtime or resource graph change was needed for this correction.
+
+Image foundation took 42.214 s, image publication 215.129 s, main deployment
+774.725 s, staged Kubernetes deployment 86.071 s and verification 31.548 s.
+Kubernetes removal took 77.750 s and Terraform Destroy 557.346 s; total elapsed
+time was 1845.365 s. Destroy and independent zero active inventory passed,
+including GKE-generated compute children and IAM bindings. Each of the two
+attempts retains one inactive Logging-bucket deletion marker; strict runner
+`green=false` is preserved, not overwritten as a full cleanup pass.
+
+The three local functional observations are now complete:
+
+| Provider / successful attempt | Simulator send-to-command receipt s | Exact authenticated L3 | Cleanup observation |
+|---|---:|---|---|
+| AWS / 05 | 13.646645 | Passed | Zero active; inactive IoT Command marker |
+| Azure / 08 | 38.264408 | Passed | Strict zero inventory |
+| GCP / 02 | 28.965664 | Passed | Zero active; inactive Logging-bucket marker |
+
+These are single samples under the documented test conditions, not a latency
+distribution or a cross-provider performance ranking. Directed command paths,
+combined full-profile deployment and graphical L5 remain outside this evidence.
+The additional simulator-package/configuration regression passes 22 tests.
+The final read-only AWS reconciliation at 03:10 UTC on 2026-10-05 confirmed zero
+active resources for all five command attempts and the same five inactive
+command markers. Original reports remain immutable. Month-to-date billing
+snapshots were separately refreshed; account/subscription scope and billing lag
+prevent treating those totals as measured per-run cost attribution.
 
 ## Remaining L5 decision and interpretation
 

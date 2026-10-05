@@ -30,6 +30,18 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Local command observations complete (2026-10-05):** AWS, Azure and GCP now
+have real simulator-to-rule/action/Event-to-device receipt and exact authenticated
+L3 evidence. GCP's remaining blocker was the local simulator client's use of a
+Paho 2-only constructor in the shared Paho 1.6 environment required by the Azure
+SDK. Accept the two existing callback APIs and construct the actual client offline
+before cloud work; do not change the cloud graph or provider dependency pins.
+All successful attempts have Destroy and independent zero active inventory.
+Keep AWS/GCP provider-managed inactive deletion markers distinct from strict
+zero inventory and retain the original failed attempts. These single local
+observations do not establish directed command or complete-profile coverage.
+See the [integration close-out](plans/2026-10-04_poc_integration_closeout.md).
+
 **Azure command closure (2026-10-05):** Execution logs and the live subscription
 rules API isolated a missing Service Bus filter after successful telemetry,
 history and rule evaluation. Native named Terraform rules replace the reserved
