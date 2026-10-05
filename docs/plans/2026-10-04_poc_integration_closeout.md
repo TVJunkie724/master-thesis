@@ -277,6 +277,20 @@ cross-cloud L4, replay or graphical L5.
 
 ## Next bounded Azure command diagnosis
 
+Command attempt 06 again timed out despite exact authenticated L3 readback.
+All required functions were indexed on the first check, their admin status
+reported no function-definition errors, and the deployed rule and consumer-group
+bindings matched the intended configuration. All three telemetry consumers had
+sequence-0 checkpoints. A later broker sample recorded one control-topic ingress
+message; earlier zero observations were premature because metrics arrived with
+delay. No outgoing series was yet available, which is not proof of zero receives.
+Execution logs did not establish the failing control/action boundary. The failed
+receipt is retained, not reclassified as success from those indirect observations.
+Azure Monitor rejected the initial timestamp format; the read-only metric query
+now uses second-precision UTC `Z` timestamps, verified with HTTP 200 responses.
+Deploy took 630.655 s, verification 313.877 s and Destroy 961.569 s (2048.393 s
+total); Destroy and independent zero resource-group inventory passed.
+
 The command-only research cut adds one workspace-based Application Insights
 component to the existing Log Analytics workspace: 99 managed creates instead
 of 98. Only the Event runtime, processing domain and action apps receive its
