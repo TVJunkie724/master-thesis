@@ -160,6 +160,8 @@ def test_azure_broker_diagnostics_are_read_only_private_and_non_blocking(tmp_pat
         parsed = urlsplit(call.args[2])
         assert parsed.path == scope + "/providers/microsoft.insights/metrics"
         assert parse_qs(parsed.query)["metricnames"] == ["IncomingMessages,OutgoingMessages"]
+        stamps = parse_qs(parsed.query)["timespan"][0].split("/")
+        assert all(datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ") for stamp in stamps)
     for label in ("control", "telemetry"):
         path = tmp_path / ("broker-metrics-" + label + ".json")
         assert path.stat().st_mode & 0o077 == 0

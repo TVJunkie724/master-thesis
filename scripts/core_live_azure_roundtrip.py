@@ -105,7 +105,8 @@ def broker_metrics(values, outputs):
     query_string = urlencode({
         "api-version": "2018-01-01", "metricnames": "IncomingMessages,OutgoingMessages",
         "aggregation": "Total", "interval": "PT1M", "$filter": "EntityName eq '*'",
-        "timespan": (end - timedelta(minutes=30)).isoformat() + "/" + end.isoformat(),
+        "timespan": (end - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    + "/" + end.strftime("%Y-%m-%dT%H:%M:%SZ"),
     })
     scopes = {
         "control": (outputs.get("azure_event_control_topic_id") or "").split("/topics/")[0],
