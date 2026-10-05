@@ -172,6 +172,7 @@ class AzureEventExperiment(Experiment):
 def run(args):
     # Fail before plan/reservation/mutation if the evaluation SDK is unavailable.
     importlib.import_module('azure.eventhub')
+    importlib.import_module('websocket')
     os.umask(0o077)
     root = args.output_dir.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)

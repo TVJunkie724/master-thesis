@@ -231,7 +231,7 @@ Both runners are plan-only by default, use exact fresh create-only plans, preser
 phase/per-resource timing, attempt cleanup on failure/interrupt and independently
 check inventory. Azure permits only the two known package submodules in its frozen
 state allowlist. Neither cut claims replay, cross-cloud delivery, graphical L5 or
-full-profile admission. The L4 runner group has 59 passing offline tests. A private
+full-profile admission. The L4 runner group has 60 passing offline tests. A private
 execution allowance is not measured provider billing. No general layer-selection
 framework or alternate production architecture is introduced.
 
@@ -252,6 +252,14 @@ expand the research cut. This was an output-evaluation failure, not an observed
 Digital Twins data-permission failure.
 Apply took 728.829 s and Destroy 766.627 s; cleanup and independent zero inventory
 passed. The corrected native mock-plan suite passes without cloud credentials.
+
+Azure attempt 03 provisioned the cut and seeded Digital Twins, but the local
+publisher could not open its AMQP-over-WebSocket transport: `websocket-client`
+was absent from the evaluation image. No processed fixture was sent. Apply took
+711.756 s, seed creation 2.116 s and Destroy 822.284 s; cleanup and independent
+zero inventory passed. The optional transport dependency is now pinned for
+development only and checked before planning or cloud mutation. This was a local
+evaluation-environment failure, not evidence of a deployed Event/L4 defect.
 
 ## L5 and interpretation
 

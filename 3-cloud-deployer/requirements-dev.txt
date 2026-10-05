@@ -10,3 +10,4 @@ ruff
 
 # Bounded live Event-to-L4 evaluation publisher (not a production dependency).
 azure-eventhub
+websocket-client

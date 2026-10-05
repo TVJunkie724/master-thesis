@@ -23,13 +23,18 @@ def test_exact_fixed_cut_has_no_ingress_device_or_l5():
     assert 'azurerm_eventhub_consumer_group.domain_standard["twin-state-update"]' in ALLOWED
 
 
-def test_missing_publisher_sdk_fails_before_output_or_cloud_work(tmp_path, monkeypatch):
+@pytest.mark.parametrize('missing_module', ['azure.eventhub', 'websocket'])
+def test_missing_publisher_sdk_fails_before_output_or_cloud_work(tmp_path, monkeypatch, missing_module):
     output = tmp_path / 'unstarted'
-    missing = Mock(side_effect=ModuleNotFoundError('azure.eventhub'))
+    def import_module(name):
+        if name == missing_module:
+            raise ModuleNotFoundError(name)
+        return Mock()
+    missing = Mock(side_effect=import_module)
     monkeypatch.setattr(runner.importlib, 'import_module', missing)
     with pytest.raises(ModuleNotFoundError):
         runner.run(SimpleNamespace(output_dir=output))
-    missing.assert_called_once_with('azure.eventhub')
+    assert missing.call_args.args == (missing_module,)
     assert not output.exists()
 
 
