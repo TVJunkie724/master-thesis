@@ -261,6 +261,20 @@ zero inventory passed. The optional transport dependency is now pinned for
 development only and checked before planning or cloud mutation. This was a local
 evaluation-environment failure, not evidence of a deployed Event/L4 defect.
 
+Azure attempt 04 passed on 2026-10-05 at source revision
+`974e96b5690fffb4f48ce908633aa4faa9dee39d`: one processed fixture traversed
+the deployed Event Hubs consumer and domain Function using their runtime
+identities. Authenticated Digital Twins readback matched value, source sequence,
+event ID and timestamp. Apply took 706.529 s, seed creation 3.144 s, sender
+readiness plus publication 3.428 s, and projection/readback 13.254 s (five polls).
+Both data-role readiness checks succeeded on their first attempt. Destroy took
+821.951 s, total cleanup 828.534 s and independent inventory 0.999 s. All 45
+managed resources, seed objects and the journaled sender role were removed;
+functional, cleanup and inventory assertions passed. The polling duration is
+one integration observation, not a latency distribution or a cold-start estimate.
+This closes the deployed Azure Event/L4 edge only, not simulator command return,
+cross-cloud L4, replay or graphical L5.
+
 ## L5 and interpretation
 
 Graphical L5 needs a user decision, not automatic restoration of the historical

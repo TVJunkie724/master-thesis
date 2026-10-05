@@ -30,6 +30,14 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Azure deployed Event-to-L4 observation (2026-10-05):** The fixed 45-resource
+cut passed with real Event Hubs delivery, deployed runtime identities and exact
+Digital Twins readback. Destroy and independent zero inventory passed. Local
+publisher dependency failures remain separate failed attempts. This verifies
+the Event/L4 edge, not command return, cross-cloud L4 or graphical L5; timings
+and source revision are retained in the
+[integration close-out](plans/2026-10-04_poc_integration_closeout.md).
+
 **AWS deployed Event-to-L4 observation (2026-10-04):** The bounded 33-resource
 cut passed with a real stream consumer, runtime identity and exact TwinMaker
 readback. Destroy and independent zero inventory passed. This closes that edge,

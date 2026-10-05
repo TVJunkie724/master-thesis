@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-04"
+lastUpdated: "2026-10-05"
 version: "2.0"
 ---
 
@@ -32,7 +32,7 @@ and the
 
 ## Current phase status
 
-Current checkpoint (2026-10-04): all three local and six directed Core telemetry
+Current checkpoint (2026-10-05): all three local and six directed Core telemetry
 cases passed their ten-message assertion. The [compact Core results](../research/evaluation/core-telemetry-results.md)
 consolidate successful phase timings, measurement gaps, dated zero-active-resource
 inventories and inactive provider deletion markers. Actual billed attribution
@@ -40,11 +40,11 @@ remains pending. These are not complete-profile E2E passes. The separately
 approved [bounded AWS/Azure L4 checks](2026-10-04_poc_l4_evaluation.md) now also
 passed live: real service/model creation, local-adapter state update/replay,
 authenticated readback, Destroy and independent zero-active-resource inventory.
-The deployed AWS Event-to-L4 edge also passed, including Destroy and independent
+The deployed AWS and Azure Event-to-L4 edges also passed, including Destroy and independent
 zero inventory. The real AWS simulator/command roundtrip passed functionally;
 inactive IoT Command deletion markers still prevent a strict zero-inventory
-claim for those attempts. Azure/GCP command return, Azure Event-to-L4 delivery
-and graphical L5 remain open. No Core reruns or new dashboard platform are
+claim for those attempts. Azure/GCP command return and graphical L5 remain open.
+No Core reruns or new dashboard platform are
 implied. The [integration close-out](2026-10-04_poc_integration_closeout.md)
 records successful and failed attempts, actual coverage, lifecycle measurements
 and remaining gates. The dated checkpoints below remain historical observations,
