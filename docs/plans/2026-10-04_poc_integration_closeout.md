@@ -46,7 +46,7 @@ before sending. This avoids a listener-start race; the existing manual listener
 and send helpers retain their behavior. These changes are tested offline only.
 The focused simulator, runtime, policy, package and runner regression contains
 117 passing tests; changed Python files pass Ruff.
-Account-bound read-only plans admit 98 Azure and 109 GCP managed creates; GCP's
+Initial account-bound read-only plans admitted 98 Azure and 109 GCP managed creates; GCP's
 existing staged MQTT deployment additionally checks nine Kubernetes addresses.
 These counts include bindings/configuration, not independently billed services.
 Azure/GCP receipt checks still require their own live result, not inference from AWS.
@@ -274,6 +274,24 @@ functional, cleanup and inventory assertions passed. The polling duration is
 one integration observation, not a latency distribution or a cold-start estimate.
 This closes the deployed Azure Event/L4 edge only, not simulator command return,
 cross-cloud L4, replay or graphical L5.
+
+## Next bounded Azure command diagnosis
+
+The command-only research cut adds one workspace-based Application Insights
+component to the existing Log Analytics workspace: 99 managed creates instead
+of 98. Only the Event runtime, processing domain and action apps receive its
+connection setting. Sampling is disabled for this one-message observation and
+the component's daily ingestion limit is 0.1 GB; this is not a hard monetary cap.
+The same Terraform Destroy and independent resource-group inventory cover the
+component. No dashboard, alerts, new workspace, runtime route or data permission
+is added. Telemetry-only Core and full-profile graphs retain their existing
+configuration. This is an execution-diagnostic experiment, not a command fix.
+The existing diagnostic query includes the workspace's AppTraces, AppExceptions
+and AppRequests tables in addition to FunctionAppLogs/AzureDiagnostics. Failed
+or missing queries remain missing evidence, never successful execution.
+See [Functions monitoring](https://learn.microsoft.com/en-us/azure/azure-functions/configure-monitoring).
+The credential-free native-plan suite and four focused wiring assertions pass,
+including absence of the component from all nine telemetry-only Core plans.
 
 ## L5 and interpretation
 

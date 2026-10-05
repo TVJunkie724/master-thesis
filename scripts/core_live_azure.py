@@ -194,7 +194,7 @@ def diagnostics(values, outputs):
         identifier = arm(values, "GET", workspace["id"] + "?api-version=2022-10-01")["properties"]["customerId"]
         response = requests.post(f"https://api.loganalytics.io/v1/workspaces/{identifier}/query",
                                  headers={"Authorization": "Bearer " + token},
-                                 json={"query": "union isfuzzy=true FunctionAppLogs, AzureDiagnostics | take 1000",
+                                 json={"query": "union isfuzzy=true FunctionAppLogs, AzureDiagnostics, AppTraces, AppExceptions, AppRequests | order by TimeGenerated desc | take 1000",
                                        "timespan": "PT30M"}, timeout=20)
         result.append({"status": response.status_code, "data": response.json()})
     return {"workspaces": result}

@@ -422,7 +422,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
     scm_minimum_tls_version = "1.2"
   }
 
-  app_settings = {
+  app_settings = merge({
     ARCHITECTURE_PROFILE                       = "six-layer-eventing@1"
     EVENT_HUBS__fullyQualifiedNamespace        = "${local.azure_event_namespace_name}.servicebus.windows.net"
     EVENT_HUBS__credential                     = "managedidentity"
@@ -446,7 +446,7 @@ resource "azurerm_function_app_flex_consumption" "event_runtime" {
       : azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].default_hostname,
     ) : ""
     EVENT_DOMAIN_DELIVERY_KEY = local.azure_event_domain_target_enabled ? data.azurerm_function_app_host_keys.azure_event_domain_target[0].default_function_key : ""
-  }
+  }, local.azure_command_diagnostic_settings)
 
   tags = local.azure_event_tags
 

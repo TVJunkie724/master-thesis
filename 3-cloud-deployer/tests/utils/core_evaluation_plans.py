@@ -80,6 +80,10 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Core caps stay at one except the two-group Azure command experiment; warm sums must satisfy AzureRM validation."
   }
   assert {
+    condition = length(var.events) > 0 || length(azurerm_application_insights.azure_command_diagnostics) == 0
+    error_message = "Telemetry-only Core must not add command execution diagnostics."
+  }
+  assert {
     condition = length(var.events) > 0 || alltrue([for app in concat(
       azurerm_function_app_flex_consumption.event_runtime,
       azurerm_function_app_flex_consumption.azure_six_layer_extension_action) : length(app.always_ready) == 0])
@@ -256,6 +260,16 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
                 f"    {key} = {json.dumps(value)}" for key, value in command_values.items()
             )
             warm_assertion = """
+  assert {
+    condition = (
+      length(azurerm_application_insights.azure_command_diagnostics) == 1 &&
+      azurerm_application_insights.azure_command_diagnostics[0].daily_data_cap_in_gb == 0.1 &&
+      azurerm_application_insights.azure_command_diagnostics[0].sampling_percentage == 100 &&
+      contains(keys(local.azure_command_diagnostic_settings), "APPLICATIONINSIGHTS_CONNECTION_STRING") &&
+      local.azure_command_diagnostic_settings.AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled == "false"
+    )
+    error_message = "Only the command experiment shares one capped execution-log sink across its three relevant apps."
+  }
   assert {
     condition = (
       azurerm_function_app_flex_consumption.event_runtime[0].maximum_instance_count == 2 &&

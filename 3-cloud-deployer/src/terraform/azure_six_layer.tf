@@ -245,6 +245,29 @@ resource "azurerm_log_analytics_workspace" "azure_azure_log_analytics_shared_wor
   tags                = local.azure_six_layer_tags
 }
 
+# One bounded command experiment needs execution traces, not another dashboard.
+# Telemetry-only Core and full-profile deployments keep their existing graph.
+locals {
+  azure_command_diagnostics_enabled = local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0
+  azure_command_diagnostic_settings = local.azure_command_diagnostics_enabled ? {
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.azure_command_diagnostics[0].connection_string
+    AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
+  } : {}
+}
+
+resource "azurerm_application_insights" "azure_command_diagnostics" {
+  count               = local.azure_command_diagnostics_enabled ? 1 : 0
+  name                = "${local.azure_six_layer_name}-command-traces-${local.deployment_suffix}"
+  location            = azurerm_resource_group.main[0].location
+  resource_group_name = azurerm_resource_group.main[0].name
+  workspace_id        = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id
+  application_type    = "web"
+  retention_in_days   = 30
+  daily_data_cap_in_gb = 0.1
+  sampling_percentage = 100
+  tags                = local.azure_six_layer_tags
+}
+
 resource "azurerm_iothub" "azure_azure_iot_hub" {
   count               = local.azure_six_layer_l1_enabled ? 1 : 0
   name                = "${local.azure_six_layer_name}-six-iot-${local.deployment_suffix}"
@@ -904,7 +927,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     scm_minimum_tls_version = "1.2"
   }
 
-  app_settings = {
+  app_settings = merge({
     ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(local.azure_six_layer_embedded_event_enabled)
@@ -944,7 +967,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     SIX_LAYER_COSMOS_CONTAINER                              = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     SIX_LAYER_HOT_BOUNDARY_DAYS                             = tostring(var.layer_3_hot_to_cold_interval_days)
     SIX_LAYER_STORAGE_TASK_COUNT                            = tostring(local.azure_six_layer_storage_task_count)
-  }
+  }, local.azure_command_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 
@@ -1052,14 +1075,14 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
     scm_minimum_tls_version = "1.2"
   }
 
-  app_settings = {
+  app_settings = merge({
     ARCHITECTURE_PROFILE               = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     SIX_LAYER_ACTION_ENDPOINT_ENABLED  = "true"
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED  = "false"
     SIX_LAYER_IOT_PROCESSOR_ENABLED    = "false"
     SIX_LAYER_REMOTE_TELEMETRY_ENABLED = "false"
     SIX_LAYER_RAW_HISTORY_ENABLED      = "false"
-  }
+  }, local.azure_command_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 
