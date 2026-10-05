@@ -44,7 +44,7 @@ GCP_MQTT_KUBERNETES_ADDRESSES = {
     )
 }
 TERRAFORM_COMPLETION = re.compile(
-    r"^(?P<resource>[A-Za-z0-9_.\[\]\"'/-]+): "
+    r"^(?P<resource>[A-Za-z0-9_.\[\]\"'@/-]+): "
     r"(?P<operation>Creation|Modifications|Destruction) complete after "
     r"(?P<duration>(?:(?:\d+)h)?(?:(?:\d+)m)?(?:\d+(?:\.\d+)?)s)(?: |$)",
     re.MULTILINE,

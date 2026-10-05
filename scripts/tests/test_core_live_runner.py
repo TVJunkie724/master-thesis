@@ -73,12 +73,14 @@ def test_terraform_resource_timings_are_secret_free_and_structured(tmp_path):
         'azurerm_resource_group.core: Creation complete after 1m33s [id=/secret/id]\n'
         'module.core.google_cloud_run_v2_service.reader[0]: Modifications complete after 4.5s [id=x]\n'
         'aws_s3_bucket.core: Destruction complete after 2s [id=secret]\n'
+        'terraform_data.validated_extension_package["poc-action@1.0.0"]: Creation complete after 0s [id=secret]\n'
     )
 
     assert terraform_resource_timings(log) == [
         {"resource": "azurerm_resource_group.core", "operation": "create", "duration_seconds": 93.0},
         {"resource": "module.core.google_cloud_run_v2_service.reader[0]", "operation": "update", "duration_seconds": 4.5},
         {"resource": "aws_s3_bucket.core", "operation": "destroy", "duration_seconds": 2.0},
+        {"resource": 'terraform_data.validated_extension_package["poc-action@1.0.0"]', "operation": "create", "duration_seconds": 0.0},
     ]
     assert "/secret/id" not in json.dumps(terraform_resource_timings(log))
 
