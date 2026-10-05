@@ -262,6 +262,15 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
             warm_assertion = """
   assert {
     condition = (
+      length(azurerm_servicebus_subscription_rule.domain_control_filter) == 1 &&
+      azurerm_servicebus_subscription_rule.domain_control_filter[0].name == "domain-events" &&
+      azurerm_servicebus_subscription_rule.domain_control_filter[0].filter_type == "SqlFilter" &&
+      azurerm_servicebus_subscription_rule.domain_control_filter[0].sql_filter == local.azure_event_control_filter
+    )
+    error_message = "Azure command delivery needs one Terraform-owned, refreshable subscription rule."
+  }
+  assert {
+    condition = (
       length(azurerm_application_insights.azure_command_diagnostics) == 1 &&
       azurerm_application_insights.azure_command_diagnostics[0].daily_data_cap_in_gb == 0.1 &&
       azurerm_application_insights.azure_command_diagnostics[0].sampling_percentage == 100 &&

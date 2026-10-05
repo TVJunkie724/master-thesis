@@ -277,26 +277,14 @@ resource "azurerm_servicebus_subscription" "domain_control" {
   lock_duration                             = "PT1M"
 }
 
-# Azure creates $Default with the subscription. Update that owned child instead
-# of trying to create it again; subscription destruction also removes the rule.
-resource "azurerm_resource_group_template_deployment" "domain_control_filter" {
-  count               = local.azure_event_enabled ? 1 : 0
-  name                = "${local.azure_event_name}-domain-filter"
-  resource_group_name = azurerm_resource_group.main[0].name
-  deployment_mode     = "Incremental"
-  template_content = jsonencode({
-    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
-    contentVersion = "1.0.0.0"
-    resources = [{
-      type       = "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules"
-      apiVersion = "2024-01-01"
-      name       = "${azurerm_servicebus_namespace.eventing[0].name}/${azurerm_servicebus_topic.domain_control[0].name}/${azurerm_servicebus_subscription.domain_control[0].name}/$Default"
-      properties = {
-        filterType = "SqlFilter"
-        sqlFilter  = { sqlExpression = local.azure_event_control_filter }
-      }
-    }]
-  })
+# Own a real, refreshable child rule; a successful ARM deployment record did not
+# establish that its reserved $Default rule existed in the live subscription.
+resource "azurerm_servicebus_subscription_rule" "domain_control_filter" {
+  count           = local.azure_event_enabled ? 1 : 0
+  name            = "domain-events"
+  subscription_id = azurerm_servicebus_subscription.domain_control[0].id
+  filter_type     = "SqlFilter"
+  sql_filter      = local.azure_event_control_filter
 }
 
 resource "azurerm_servicebus_subscription" "event_bridge_control" {
@@ -311,24 +299,12 @@ resource "azurerm_servicebus_subscription" "event_bridge_control" {
   lock_duration                             = "PT1M"
 }
 
-resource "azurerm_resource_group_template_deployment" "event_bridge_control_filter" {
-  count               = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
-  name                = "${local.azure_event_name}-bridge-filter"
-  resource_group_name = azurerm_resource_group.main[0].name
-  deployment_mode     = "Incremental"
-  template_content = jsonencode({
-    "$schema"      = "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
-    contentVersion = "1.0.0.0"
-    resources = [{
-      type       = "Microsoft.ServiceBus/namespaces/topics/subscriptions/rules"
-      apiVersion = "2024-01-01"
-      name       = "${azurerm_servicebus_namespace.eventing[0].name}/${azurerm_servicebus_topic.domain_control[0].name}/${azurerm_servicebus_subscription.event_bridge_control[0].name}/$Default"
-      properties = {
-        filterType = "SqlFilter"
-        sqlFilter  = { sqlExpression = local.azure_event_bridge_control_filter }
-      }
-    }]
-  })
+resource "azurerm_servicebus_subscription_rule" "event_bridge_control_filter" {
+  count           = local.azure_event_enabled && local.azure_six_layer_event_remote_control_outbound ? 1 : 0
+  name            = "bridge-events"
+  subscription_id = azurerm_servicebus_subscription.event_bridge_control[0].id
+  filter_type     = "SqlFilter"
+  sql_filter      = local.azure_event_bridge_control_filter
 }
 
 resource "azurerm_servicebus_queue" "event_bridge_control_failure" {

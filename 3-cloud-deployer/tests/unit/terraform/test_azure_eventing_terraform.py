@@ -75,14 +75,16 @@ def test_azure_event_layer_uses_reviewed_tiers_and_failure_paths():
     assert '"twin-state-update"' in source
     assert '"rule-evaluator"' in source
     assert (
-        'resource "azurerm_resource_group_template_deployment" '
+        'resource "azurerm_servicebus_subscription_rule" '
         '"domain_control_filter"' in source
     )
     assert (
-        'resource "azurerm_resource_group_template_deployment" '
+        'resource "azurerm_servicebus_subscription_rule" '
         '"event_bridge_control_filter"' in source
     )
-    assert '/$Default"' in source
+    assert 'name            = "domain-events"' in source
+    assert 'name            = "bridge-events"' in source
+    assert '/$Default"' not in source
     assert "max_delivery_count" in source
     assert "EVENT_FAILURE_HUB_NAME" in source
     assert "EVENT_DOMAIN_DELIVERY_KEY" in source

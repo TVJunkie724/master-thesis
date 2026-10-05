@@ -21,6 +21,25 @@ EXPECTED_FUNCTIONS = {
     "event-runtime": {"event-telemetry-processor", "event-historical-persistence", "event-rule-evaluator", "event-control-router"},
 }
 
+CONTROL_TYPES = (
+    "event.matched.v1", "notification.requested.v1", "extension.action.outcome.v1",
+    "notification.workflow.outcome.v1", "device.command.outcome.v1", "device.command.requested.v1",
+)
+
+
+def control_route_ready(values, outputs):
+    topic = outputs["azure_event_control_topic_id"]
+    data = core.arm(values, "GET", topic + "/subscriptions/local-domain-consumer/rules?api-version=2024-01-01")
+    rules = data.get("value", [])
+    expected = "event_type IN ('" + "','".join(CONTROL_TYPES) + "')"
+    valid = (len(rules) == 1 and str(rules[0].get("name", "")).split("/")[-1] == "domain-events"
+             and rules[0].get("properties", {}).get("filterType") == "SqlFilter"
+             and rules[0].get("properties", {}).get("sqlFilter", {}).get("sqlExpression") == expected)
+    save(Path(values["project_path"]) / "control-route-readiness.json", {"rule_count": len(rules), "verified": valid})
+    if not valid:
+        raise RuntimeError("COMMAND_CONTROL_RULE_NOT_READY")
+    return {"control_route_verified": True}
+
 
 def functions_ready(values, outputs, attempts=18, pause_seconds=5):
     group = outputs["azure_six_layer_resource_group_name"]
@@ -55,6 +74,7 @@ def functions_ready(values, outputs, attempts=18, pause_seconds=5):
 def smoke(values, outputs):
     from src.iot_device_simulator.azure import transmission
     readiness = functions_ready(values, outputs)
+    readiness.update(control_route_ready(values, outputs))
     started = time.monotonic()
     hostname, key = core.register_simulator(values, outputs)
     registration_seconds = time.monotonic() - started

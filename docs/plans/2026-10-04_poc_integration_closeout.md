@@ -307,6 +307,26 @@ See [Functions monitoring](https://learn.microsoft.com/en-us/azure/azure-functio
 The credential-free native-plan suite and four focused wiring assertions pass,
 including absence of the component from all nine telemetry-only Core plans.
 
+Attempt 07 supplied the previously missing execution evidence: the telemetry
+processor, historical consumer and rule evaluator each completed successfully,
+with three successful domain-delivery calls and one L3 persistence checkpoint.
+The read-only Service Bus rules API returned an empty rule list at
+2026-10-05 01:29:57 UTC, before verification ended at 01:30:28 and before cleanup
+began. Thus this absence is not an effect of Destroy. No command receipt was
+observed. A successful ARM deployment record for the reserved `$Default` child
+had not established a usable subscription filter; the precise service-side
+reason for its absence is not established by these observations.
+
+The correction replaces the two analogous reserved-rule ARM templates with
+native Terraform subscription-rule resources, named `domain-events` and
+`bridge-events`, retaining the same SQL event-type filters. This exchanges one
+resource type for another without adding a routing service or widening delivery.
+The local command harness now checks the real rule name, SQL expression and
+absence of extra rules before registering/sending the fixture. Missing or broad
+rules fail closed. This is a fresh-deployment correction; no surviving deployment
+or state is migrated. The historical telemetry passes do not imply that these
+previously untested control routes passed.
+
 ## L5 and interpretation
 
 Graphical L5 needs a user decision, not automatic restoration of the historical

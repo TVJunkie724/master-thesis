@@ -74,6 +74,7 @@ def test_provider_smoke_uses_real_simulator_and_authenticated_reader(provider, s
     monkeypatch.setattr(provider.core.requests, "get", request)
     if provider is core_live_azure_roundtrip:
         monkeypatch.setattr(provider, "functions_ready", lambda *_: {"function_readiness_attempts": 1})
+        monkeypatch.setattr(provider, "control_route_ready", lambda *_: {"control_route_verified": True})
         monkeypatch.setattr(provider.core, "register_simulator", lambda *_: ("hub.test", "test-key"))
         monkeypatch.setattr(provider.core, "arm", Mock(side_effect=[
             {"value": [{"name": "reader", "id": "/test/reader"}]}, {"functionKeys": {"default": "reader-key"}}]))
@@ -167,3 +168,32 @@ def test_azure_broker_diagnostics_are_read_only_private_and_non_blocking(tmp_pat
         assert path.stat().st_mode & 0o077 == 0
         data = json.loads(path.read_text())
         assert data == ({"error_type": "RuntimeError"} if failed else {"value": []})
+
+
+@pytest.mark.parametrize("case", ["valid", "missing", "extra", "wrong_name", "wrong_type", "wrong_sql"])
+def test_azure_command_checks_the_actual_control_rule_before_sending(tmp_path, monkeypatch, case):
+    provider = core_live_azure_roundtrip
+    rule = {"name": "domain-events", "properties": {"filterType": "SqlFilter",
+            "sqlFilter": {"sqlExpression": "event_type IN ('" + "','".join(provider.CONTROL_TYPES) + "')"}}}
+    rules = [rule]
+    if case == "missing":
+        rules = []
+    elif case == "extra":
+        rules.append({"name": "$Default"})
+    elif case == "wrong_name":
+        rule["name"] = "$Default"
+    elif case == "wrong_type":
+        rule["properties"]["filterType"] = "CorrelationFilter"
+    elif case == "wrong_sql":
+        rule["properties"]["sqlFilter"]["sqlExpression"] = "1=1"
+    arm = Mock(return_value={"value": rules})
+    monkeypatch.setattr(provider.core, "arm", arm)
+    values = {"project_path": str(tmp_path)}
+    outputs = {"azure_event_control_topic_id": "/owned/topic"}
+    if case == "valid":
+        assert provider.control_route_ready(values, outputs) == {"control_route_verified": True}
+    else:
+        with pytest.raises(RuntimeError, match="COMMAND_CONTROL_RULE_NOT_READY"):
+            provider.control_route_ready(values, outputs)
+    arm.assert_called_once_with(values, "GET", "/owned/topic/subscriptions/local-domain-consumer/rules?api-version=2024-01-01")
+    assert (tmp_path / "control-route-readiness.json").stat().st_mode & 0o077 == 0
