@@ -2,14 +2,15 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-05"
+lastUpdated: "2026-10-06"
 version: "2.0"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
-Status: active execution source; nine Core telemetry paths and two isolated L4
-checks passed live; integration close-out and full-profile evaluation pending
+Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
+and minimal L5 observations passed. Regular L5 integration, one representative
+application workflow and thesis analysis remain open; see the completion plan below.
 
 ## 1. Purpose
 
@@ -32,7 +33,7 @@ and the
 
 ## Current phase status
 
-Current checkpoint (2026-10-05): all three local and six directed Core telemetry
+Current checkpoint (reconciled 2026-10-06, observations through 2026-10-05): all three local and six directed Core telemetry
 cases passed their ten-message assertion. The [compact Core results](../research/evaluation/core-telemetry-results.md)
 consolidate successful phase timings, measurement gaps, dated zero-active-resource
 inventories and inactive provider deletion markers. Actual billed attribution
@@ -43,17 +44,22 @@ authenticated readback, Destroy and independent zero-active-resource inventory.
 The deployed AWS and Azure Event-to-L4 edges also passed, including Destroy and independent
 zero inventory. The real simulator/command roundtrip and exact authenticated L3
 readback now passed on all three local providers. Destroy and independent zero
-active inventory passed; inactive AWS IoT Command and GCP Logging deletion markers
-still prevent strict zero-inventory claims for those attempts. Azure also passed
-strict zero inventory. Graphical L5 remains an open decision; no directed command
-or complete-profile result is inferred from these local checks.
+active inventory passed. A later read-only reconciliation found zero AWS command
+deletion markers across all five attempts; GCP's inactive Logging deletion markers
+remain a dated open observation. Azure passed strict zero inventory.
+The [minimal AWS/Azure graphical L5 checks](2026-10-05_minimal_l5_evidence.md)
+also passed: actual stored fixtures, authenticated L3 reads, two rendered curves,
+unauthenticated-access rejection, Destroy and independent null inventory.
+Those fixed Terraform research cuts do not yet integrate L5 into the normal
+Management/Deployer graph or establish simulator-to-L5 delivery. No directed
+command or complete-profile result is inferred from these local checks.
 No Core reruns or new dashboard platform are
 implied. The [integration close-out](2026-10-04_poc_integration_closeout.md)
 records successful and failed attempts, actual coverage, lifecycle measurements
 and remaining gates. The dated checkpoints below remain historical observations,
 not current coverage counts.
 
-Supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
+Historical supervised Core checkpoint (2026-09-19): AWS, Azure and GCP have passed the real
 ten-message provider-local L1–L3/Event-Layer telemetry path. AWS/Azure independent
 inventories are empty. GCP Destroy succeeded with zero active residuals; its
 provider-managed pending Logging-bucket deletion remains explicitly open.
@@ -64,7 +70,7 @@ attempts and the older AWS per-message-latency evidence gap are recorded in the
 not establish command roundtrip, storage-tier transitions, directed Core cases,
 L4/L5 or a complete-profile deployment, and does not authorize those runs.
 
-First separately authorized directed Core slice (Azure to AWS, 2026-09-19):
+Historical first separately authorized directed Core slice (Azure to AWS, 2026-09-19):
 passed with all ten messages at authenticated AWS readback and ten matching
 received/processed events. The corrected source Event Hubs receiver permission
 is live-validated. Destroy succeeded with zero independent AWS/Azure/active-Entra
@@ -73,7 +79,7 @@ message-latency samples are retained. The other five directed Core cases remain
 unrun; no command-roundtrip or L4/L5 result is implied. See the Core evaluation
 plan for successful and failed-attempt measurements and their limitations.
 
-Scope revision (2026-09-16): the [bounded separation plan](2026-09-16_poc_l3_read_access_separation.md)
+Historical scope revision (2026-09-16): the [bounded separation plan](2026-09-16_poc_l3_read_access_separation.md)
 assigns authenticated history readers, lifecycle and charges to L3. L5 is an
 independent consumer, with graphical implementation still pending. No remote
 L5-to-L3 authentication adapter is claimed. GCP L4/L5 are excluded without
@@ -87,7 +93,7 @@ admission. This does not make a complete-profile Management deployment ready.
 The dated checkpoints below are historical and do not clear the new graph's
 implementation gate or authorize reusing old candidate/budget/image approvals.
 
-Current L5 exception (2026-09-07): the
+Historical L5 exception (2026-09-07; experiment superseded by the approved October 5 minimal L5 cut): the
 [minimal visualization feasibility review](../research/evaluation/l5-visualization-feasibility.md)
 is complete as a pre-implementation cost/integration check, not as live
 readiness. AWS Managed Grafana restoration violates the unchanged technical
@@ -108,6 +114,144 @@ to bypass this blocker.
 | 10 | Offline preparation complete; results pending live evidence | chapter structure, RQ framing, limitations, and repository cleanup aligned; empirical answers remain pending |
 
 No row in this table upgrades offline fixtures or mocks to live-cloud evidence.
+
+## Completion plan — 2026-10-06
+
+This is the proposed implementation and evaluation sequence for the four
+remaining points. This planning change performs no cloud action and does not
+mark the broader complete-profile matrix later in this document as executed.
+The existing separate live observations remain valid within their recorded
+revision, placement and workload. RQ1–RQ3 and the historical FiveLayer reference
+remain unchanged; GCP L4/L5 stay excluded.
+
+### 1. Integrate the proven minimal L5 into the regular workflow
+
+First align the active status and acceptance wording in this plan, the live
+protocol and scenario matrix with the agreed split evaluation. Preserve the
+original evidence and distinguish implemented, live-verified and excluded scope.
+Retain one active completion checklist here.
+
+Reuse the existing renderer and AWS/Azure handlers from the successful L5 cut.
+Move their small resource definitions into the ordinary graph-selected Terraform
+path and existing package builders. Readers, storage lifecycle and read charges
+stay in L3; L5 owns its consumer, hosting and invocation permissions. Admit only
+the implemented provider-local AWS/Azure L3-to-L5 combinations.
+
+Update the authoritative component/service mapping and cost terms to match the
+actual Lambda/Functions consumer, including any explicitly selected Azure warm
+capacity. Regenerate dependent contracts through the existing process. A cost
+estimate must describe the deployed mapping; the old dashboard-service pricing
+cannot label the new consumer.
+
+Wire real L5 outputs, graphical runtime verification and access handoff through
+the existing Deployer and Management services. Verify how the authenticated user
+opens the result: an unsigned AWS IAM URL alone is insufficient. Reuse the
+existing owner-scoped Management access path; if an adapter is necessary, limit
+it to the fixed L5 HTML response. Keep credentials server-side. Flutter continues
+to call Management only and uses the existing result/access surface.
+
+Relevant implementation points include the optimizer's
+`backend/deployment_specification/six_layer_builder.py`, canonical component
+definitions, `3-cloud-deployer/src/terraform/{aws,azure}_six_layer.tf`, provider
+verification and `src/deployment_access/{runtime_evidence,projector}.py`.
+Replace `gate.implementation.l5-visualization-pending` only for supported,
+fully wired combinations; retain rejection of unsupported combinations and
+L3 JSON falsely labelled as graphical evidence.
+
+**Done when:** focused contract/cost/graph/access tests and native Terraform
+plans pass for both AWS and Azure; unauthorized and wrong-owner access fail;
+L5 adds no resources to the existing Core-only cut; generated contracts agree;
+the ordinary deployment path emits a usable graphical access result. Commit
+this implementation before the representative live run.
+
+### 2. Verify one representative complete application workflow
+
+Prefer an AWS-local Small case, given the measured provisioning/cleanup times;
+confirm its actual graph, current provider prerequisites and cost before Apply.
+Use the regular UI → Management → Deployer operation path. The isolated L5
+research script cannot substitute for this observation.
+
+Before mutation, record the exact resource plan, artifact/graph revisions,
+expected charges, cumulative allowance remaining, functional deadline and
+cleanup allowance. Prior session authorization applies within its scope;
+planning this run does not reset the cumulative allowance. Keep personal
+financial constraints and credentials out of repository documentation.
+
+During that one deployment:
+
+1. Start through the application and retain operation/candidate references.
+2. Reconnect once during a running operation. Confirm persisted progress resumes
+   and that no duplicate Apply or other cost-incurring action is started.
+3. Send one uniquely identifiable simulator sample after listeners are ready.
+   Verify the existing Core/Event path, correlated command receipt and exact L3
+   readback, then the deployed Event-to-L4 update and the matching L5 raw point.
+4. Verify the second L5 panel against a real persisted hourly record. If the
+   normal aggregation cannot finish in the bounded window, report that stage as
+   incomplete; a separately seeded record is not simulator-to-rollup evidence.
+5. Open the graph through the authenticated application access path. Preserve
+   the minimal rendered observation and exact data assertions.
+6. Destroy immediately and independently query the run-owned inventory.
+
+Record readiness, packaging/publication where applicable, Apply, individual
+resource creation, functional stages, message/command latency, Destroy and
+inventory timings in the existing metrics format. Keep failed attempts and
+retry cost distinct from the successful sample.
+
+**Done when:** the representative workflow, reconnect, simulator assertions,
+graphical access and cleanup have actual evidence. One successful local case
+does not turn the other provider or directed cases into complete-profile passes.
+Repeat only a failed or materially affected check; rerunning all nine successful
+Core cases is not a default requirement.
+
+### 3. Complete the evaluation against RQ1–RQ3
+
+Create one compact coverage/claim table using the existing nine Core results,
+three local command observations, AWS/Azure L4 and L5 observations, and the new
+application run. Bind observations to their actual revisions and test conditions.
+Keep unknown measurements empty. In particular, the older AWS Core run lacks
+individual latency samples, and the successful attempts are not benchmark trials.
+
+- RQ1: trace configuration through the normal application deployment; summarize
+  provisioning defects, reconnect behavior, lifecycle timings and cleanup.
+- RQ2: state which contracts and provider combinations were actually exercised;
+  describe the reduced graphical responsibility and GCP exclusions explicitly.
+- RQ3: reconcile available provider billing against run windows/resources, include
+  failed-attempt overhead, and separate estimates, reservations and billed totals.
+  Where attribution is unavailable, record that limitation. Use reproducible
+  model calculations for the defined comparisons/sensitivity checks and label
+  them as modeled; the current evidence does not isolate a causal Event-Layer
+  cost effect or establish a paired live FiveLayer comparison.
+
+Directed command return, cross-cloud L4 projection and storage-tier transitions
+remain explicitly unverified unless a named final thesis claim requires one.
+For such a claim, define the smallest targeted check and its acceptance condition
+before extending execution. Otherwise constrain the conclusion to the evidence.
+Do not expand the test matrix merely to remove an honest limitation.
+
+**Done when:** each research conclusion has a traceable evidence/model reference
+and stated limits; delayed billing and inactive provider deletion markers have
+dated reconciliation or an explicit unresolved status. No functional rerun is
+needed solely to await billing or deletion-marker expiry.
+
+### 4. Close documentation and the repository
+
+Reconcile current plan/protocol/matrix status with the final coverage table;
+historical checkpoints remain recognizable as historical. Update the thesis
+results/discussion and provider-service deviations, keeping RQ wording intact.
+Use the existing documentation and thesis structure. Consolidate completed
+implementation notes into durable method, decisions and results instead of
+creating another roadmap.
+
+Run the relevant final documentation/LaTeX and affected contract checks, inspect
+the resulting thesis output, and make clean intermediate/final commits. Preserve
+the original checkout's user files; keep credentials and raw private evidence
+ignored. Push/merge only when requested.
+
+**Completion condition:** the scoped application workflow works, required claims
+are supported, remaining exclusions are explicit, run-owned active cloud resources
+are removed, and the thesis/repository tell the same evidence-backed story.
+Unexecuted complete-profile permutations are not labelled successful. Once these
+conditions hold, stop feature work and finalize the thesis.
 
 ## 2. Dependency order
 
