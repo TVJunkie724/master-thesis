@@ -49,14 +49,35 @@ other build/cache directories remain ignored. Both fixes have regression tests.
 The existing isolated observations are preserved; these changes alone do not
 establish a successful normal application deployment.
 
-The read-only normal AWS plan also fails at initialization of the unselected
+The initial read-only normal AWS plan also failed at initialization of the unselected
 AzureRM/AzAPI providers. The existing Core harness explicitly supplied Azure
 credentials even for AWS-local runs; their successful runtime observations
 remain valid but did not establish provider-independent application credentials.
 The normal package does not silently acquire credentials outside its graph.
-Keep this integration blocker separate from runtime L5 evidence and resolve
-the authentication-versus-provider-isolation decision before any application
-Apply. No cloud mutation occurred in this checkpoint.
+
+**Approved PoC simplification (2026-10-08):** retain the shared Terraform root;
+do not refactor provider modules. The isolated single-user Deployer may explicitly
+opt into `TF_AZURE_PROVIDER_AUTH_FILE`, an ignored, read-only local credential
+file. Only subscription, tenant, client ID and client secret are projected into
+private Terraform inputs when Azure is not selected and the operation does not
+already supply Azure credentials. Selected Azure deployments still require
+their normal CloudConnection; this is not a fallback for missing deployment
+authority. No Azure resource, region choice, optimizer assignment, UI feature or
+portable credential artifact is added. Missing/invalid opt-in files fail with a
+value-free error. Apply and Destroy require the same runtime configuration.
+
+This accepts an authentication dependency, not a claim of provider-independent
+deployment or production multi-tenancy. Keep it explicit under RQ1 limitations;
+RQ wording and runtime evidence boundaries stay unchanged. Verify the native
+AWS plan contains no Azure creations before Apply. No cloud mutation occurred
+in the initial checkpoint.
+
+Verification of the approved accommodation: 72 focused tests, the full safe
+Deployer suite (2187 passed, 1 skipped), seven native Terraform mock-plan tests
+and the strict documentation build pass. The real, non-targeted AWS resource
+plan passes with 110 managed creates and no Azure/GCP resource creations.
+Its placeholder image digest makes this a plan-shape check only; no Apply or
+complete application success is inferred.
 
 **Local command observations complete (2026-10-05):** AWS, Azure and GCP now
 have real simulator-to-rule/action/Event-to-device receipt and exact authenticated

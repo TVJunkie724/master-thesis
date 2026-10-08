@@ -94,7 +94,7 @@ does not prove their composition through the ordinary application workflow.
 | Event→L4 | AWS 03 (`86d46701`), Azure 04 (`974e96b5`) | Actual deployed consumers and authenticated state readback; local edges only |
 | Graphical L3→L5 | AWS/Azure 03 (`1d82debe`; Azure runner `f6b426bb`) | Three exact seeded raw and hourly points, two panels, unauthorized access rejected; not simulator→L5 |
 | Normal L5 application implementation | `49fa9fc0`; offline contracts, API, UI, native mock plans and builds | Implemented and offline-tested, not a live application pass |
-| Normal application deploy/reconnect/composed roundtrip | Read-only AWS plan failed before Apply | Unselected Azure provider initialization requires resolution; no claimed pass |
+| Normal application deploy/reconnect/composed roundtrip | Native AWS plan passed after explicit auxiliary Azure authentication; 110 managed creates, no Azure resources | Approved PoC authentication dependency; Apply/reconnect/roundtrip not yet observed |
 | Directed command return / cross-cloud L4 / tier transitions | No scoped successful observation | Explicitly unverified, no inferred equivalence |
 | GCP L4/L5 | Deliberately excluded | Scope finding, not a negative service-capability proof |
 | Costs | Dated account/subscription billing and frozen model | No per-run attribution, paired live FiveLayer comparison or causal Event-Layer savings claim |

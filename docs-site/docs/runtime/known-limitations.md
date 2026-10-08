@@ -16,9 +16,10 @@
 - one standalone Six-layer architecture and one cost objective;
 - one single-user/single-node PoC runtime;
 - pre-existing deployment administrator credentials;
-- the shared Terraform root currently attempts Azure authentication even for
-  an AWS-only plan; the research runner supplied those additional credentials,
-  while the graph-scoped application path exposes this unresolved dependency;
+- the shared Terraform root requires Azure authentication even for an AWS-only
+  plan; the approved PoC retains this dependency through an explicit local
+  Deployer secret-file opt-in, without adding Azure resources. This is not
+  provider-independent deployment or production multi-tenancy;
 - bounded confirmed preparation, not general account administration;
 - provider preflight and bounded preparation/repair are represented in Flutter,
   but remain offline contract evidence until supervised provider evaluation;

@@ -235,10 +235,21 @@ dependency: the shared Terraform root initializes AzureRM/AzAPI even for an
 AWS-only selection. Its zero-UUID fallback cannot authenticate. The historical
 Core runner supplied Azure credentials explicitly for this reason; the normal
 graph-scoped application package correctly contains AWS credentials only.
-No Apply occurred. A decision between a documented PoC authentication dependency
-and structural provider isolation is pending; neither a targeted plan nor mock
-credentials may be labelled a successful full native application plan.
+No Apply occurred. The user subsequently approved the documented PoC
+authentication dependency without structural provider isolation. An explicitly
+enabled local Deployer credential file supplies only the unused Azure provider's
+four authentication fields, never credentials for graph-selected Azure resources.
+Verify the full native AWS plan contains no Azure resource creations; neither a
+targeted plan nor mock credentials count as that verification.
 The live workflow/reconnect/rendering audit therefore remains open.
+
+The subsequent complete, non-targeted native AWS plan passed with the approved
+auxiliary authentication: 110 managed creation entries and no Azure or GCP
+resource creations. This includes the normal AWS L4/L5, eventing and image-build
+foundations. The read-only resource-shape plan deliberately uses a non-deployable
+placeholder storage-mover image digest; it must never be applied. The normal
+lifecycle must publish its actual immutable image and create a fresh plan.
+This is provider-authentication and resource-shape evidence, not runtime evidence.
 
 ### 2. Verify one representative complete application workflow
 
