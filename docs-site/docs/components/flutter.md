@@ -47,9 +47,12 @@ Unselected external steps remain pending.
 ## Deployment behavior
 
 The client catches up persisted operation events before reconnecting SSE. A
-refresh cannot trigger a second provider command. Access cards open real
-provider-managed L4/L5 URLs and show the required identity/authentication
-method. Only a service-local one-time Viewer value may enter transient state.
+refresh cannot trigger a second provider command. L4 cards open the provider
+surface. AWS/Azure L5 Open fetches a fresh, bounded HTML/SVG snapshot through
+owner-scoped Management authentication; provider keys remain server-side.
+No auto-refresh, extra sign-in or chart editor is added. Empty panels indicate
+no measurements, not verified data delivery. Only an existing service-local
+one-time Viewer value may enter transient state.
 
 ## Safe verification
 

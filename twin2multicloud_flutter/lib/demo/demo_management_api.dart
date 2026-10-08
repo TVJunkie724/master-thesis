@@ -28,6 +28,10 @@ import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
+  @override
+  Future<String> getVisualization(String twinId) async =>
+      '<!doctype html><html><meta charset="utf-8"><title>Offline demo</title>'
+      '<h1>Offline L5 demo</h1><p>No live measurements. This is not cloud evidence.</p></html>';
   static const double _sixLayerEurPerUsd = 0.865948;
   static const _demoGraphDigest =
       'sha256:1111111111111111111111111111111111111111111111111111111111111111';
@@ -2718,14 +2722,14 @@ Map<String, dynamic> _demoAccessSurface(
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_raw_history_reader',
+      'aws_l5_visualization',
       'AWS Raw-history Reader',
       'aws_sigv4',
       'demo@twin2multicloud.local',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.azure) => (
-      'azure_raw_history_reader',
+      'azure_l5_visualization',
       'Azure Raw-history Reader',
       'azure_function_key',
       'demo@twin2multicloud.local',

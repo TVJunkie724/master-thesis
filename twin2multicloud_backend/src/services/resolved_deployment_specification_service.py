@@ -518,6 +518,7 @@ def _validate_v2_selections(
         and specification["readiness"]["status"] == "offline_contract_fixture"
         and "gate.implementation.l5-visualization-pending"
         in specification["readiness"]["blocking_gate_ids"]
+        and not selected_components.get("component.visualization")
     ):
         expected_selected_logical.discard("component.visualization")
     if expected_selected_logical != {
@@ -531,9 +532,9 @@ def _validate_v2_selections(
     for logical, assignment in expected_assignments.items():
         if assignment.get("provider") != expected_provider[
             logical
-        ] or selected_components[logical] != assignment.get(
-            "deployment_specification_component_ids"
-        ):
+        ] or sorted(selected_components[logical]) != sorted(assignment.get(
+            "deployment_specification_component_ids", []
+        )):
             _fail(
                 "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
                 f"resolvedDeploymentSpecification.component_selections.{logical}",

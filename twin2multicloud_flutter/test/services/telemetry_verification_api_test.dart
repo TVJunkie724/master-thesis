@@ -8,6 +8,52 @@ import 'package:twin2multicloud_flutter/models/deployment_verification.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 void main() {
+  test('L5 requests only the owner-scoped Management HTML route', () async {
+    final api = ApiService(
+      dio: _dio((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/twins/twin-1/deployment-access/visualization');
+        expect(request.queryParameters, isEmpty);
+        return ResponseBody.fromString(
+          '<html>chart</html>',
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['text/html; charset=utf-8'],
+          },
+        );
+      }),
+    );
+    expect(await api.getVisualization('twin-1'), '<html>chart</html>');
+  });
+
+  for (final body in ['', 'x' * (1024 * 1024 + 1)]) {
+    test('L5 rejects invalid HTML response size ${body.length}', () async {
+      final api = ApiService(
+        dio: _dio(
+          (_) => ResponseBody.fromString(
+            body,
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['text/html'],
+            },
+          ),
+        ),
+      );
+      await expectLater(
+        api.getVisualization('twin-1'),
+        throwsA(isA<AppException>()),
+      );
+    });
+  }
+
+  test('L5 rejects JSON masquerading as a visualization', () async {
+    final api = ApiService(dio: _dio((_) => _json({})));
+    await expectLater(
+      api.getVisualization('twin-1'),
+      throwsA(isA<AppException>()),
+    );
+  });
+
   test('uses typed start, history, and record Management routes', () async {
     final requests = <RequestOptions>[];
     final api = ApiService(

@@ -308,8 +308,10 @@ def _dimension_value(
         * month_seconds
     ) + int(derived["l4_inspection_reads_per_month"])
     request_count = (
-        dashboard_requests
-        if "reader" in component_id or logical == "component.visualization"
+        dashboard_requests * 2
+        if "reader" in component_id
+        else dashboard_requests
+        if logical == "component.visualization"
         else event_attempts
         if any(
             token in component_id
@@ -329,7 +331,8 @@ def _dimension_value(
     rollup_document_count = int(workload["numberOfDevices"]) * int(
         derived["maximum_aggregate_rollup_points"]
     )
-    dashboard_point_reads = dashboard_requests * int(
+    # Each server-rendered view queries raw and hourly history through L3.
+    dashboard_point_reads = dashboard_requests * 2 * int(
         derived["maximum_aggregate_rollup_points"]
     )
     rollup_storage_gib = (
@@ -517,11 +520,16 @@ def _dimension_value(
         "gib_seconds": (
             str(event_delivery["aws_gib_seconds"])
             if component_id == "aws.lambda-event-worker"
+            # L5 model assumption: 2 seconds at 512 MiB per HTML request.
+            else str(request_count)
+            if component_id == "aws.lambda-visualization"
             else str(Decimal(request_count) * Decimal("0.125"))
         ),
         "execution_seconds": (
             int(event_delivery["azure_execution_seconds"])
             if component_id == "azure.functions-flex-event-worker"
+            else request_count * 2
+            if component_id == "azure.functions-flex-visualization"
             else request_count
         ),
         "vcpu_seconds": (
@@ -1160,9 +1168,11 @@ def _build_deployment_specification(
     if missing_azure_large_measurement:
         live_blockers.append("gate.live-capacity.azure.cosmos-autoscale-ru")
     blockers = sorted(set(live_blockers) - set(satisfied_live_gate_ids))
-    # Storage readback is not a graphical L5 implementation. This is an
-    # implementation gap, not an operator-acknowledgeable capacity gate.
-    blockers.append("gate.implementation.l5-visualization-pending")
+    # Only the implemented provider-local HTML consumers are admissible.
+    # Storage readback alone and unimplemented placements remain blocked.
+    if (assignment["component.visualization"] not in {"aws", "azure"}
+            or assignment["component.visualization"] != assignment["component.hot-storage"]):
+        blockers.append("gate.implementation.l5-visualization-pending")
     if (
         assignment["component.twin-state"] == "gcp"
         or assignment["component.visualization"] == "gcp"

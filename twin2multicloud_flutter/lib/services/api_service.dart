@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -979,7 +980,31 @@ class ApiService implements ManagementApi {
     );
   }
 
-  /// Download IoT simulator package (L1 provider determined by backend).
+  /// Fetch the fixed L5 snapshot through owner-scoped Management authentication.
+  @override
+  Future<String> getVisualization(String twinId) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get<List<int>>(
+      '/twins/$id/deployment-access/visualization',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    final bytes = response.data;
+    if (bytes == null ||
+        bytes.isEmpty ||
+        bytes.length > 1024 * 1024 ||
+        response.headers.value(Headers.contentTypeHeader)?.split(';').first !=
+            'text/html') {
+      throw const AppException(
+        'Invalid L5 visualization response.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      );
+    }
+    return utf8.decode(bytes);
+  }
+
   @override
   Future<BinaryDownload> downloadSimulator(String twinId) async {
     final response = await _dio.get(

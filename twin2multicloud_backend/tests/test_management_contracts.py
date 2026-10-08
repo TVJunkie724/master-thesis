@@ -145,6 +145,7 @@ def test_downstream_client_contract_surface_is_explicit():
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
+        "get_visualization",
         "get_provider_capabilities",
         "inspect_deployment_requirements",
         "prepare_deployment_account",

@@ -77,8 +77,8 @@
             "aws_iot_twinmaker",
             "azure_digital_twins",
             "gcp_twin_explorer",
-            "aws_raw_history_reader",
-            "azure_raw_history_reader",
+            "aws_l5_visualization",
+            "azure_l5_visualization",
             "gcp_raw_history_reader"
           ]
         },

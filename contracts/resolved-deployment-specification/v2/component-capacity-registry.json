@@ -3,10 +3,10 @@
   "package_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab"
+    "digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90"
   },
   "capacity_evidence_digest": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
-  "pricing_ownership_digest": "sha256:fb6db62c9bb61cfb928f25ac88de1a862ab83bc4fb18b1fbc8ed87a2b5132dc7",
+  "pricing_ownership_digest": "sha256:d991c3635456589917ee7bcd692a211bbec51bb12c6c824ca14629686235dbfb",
   "price_value_policy": "live_versioned_optimizer_catalog_only_no_static_fallback",
   "same_provider_rule": {
     "bridge_component_count": 0,
@@ -46,7 +46,9 @@
         "l4_twin": [
           "aws.iot-twinmaker-standard"
         ],
-        "l5_visualization": []
+        "l5_visualization": [
+          "aws.lambda-visualization"
+        ]
       },
       "support_components": [
         "aws.eventbridge-scheduler",
@@ -99,7 +101,9 @@
         "l4_twin": [
           "azure.digital-twins"
         ],
-        "l5_visualization": []
+        "l5_visualization": [
+          "azure.functions-flex-visualization"
+        ]
       },
       "support_components": [
         "azure.container-apps-scheduled-storage-job",
@@ -1438,6 +1442,38 @@
       "pricing_owner_id": "cost::gcp.workflows",
       "pricing_catalog_key": "gcp.workflows",
       "deduplication_key": "gcp.workflows"
+    },
+    {
+      "component_id": "aws.lambda-visualization",
+      "component_digest": "sha256:f0b426d31666ae71fbeaf8d45e18ba19baae352271a133dca5e4eca7b34074c4",
+      "provider": "aws",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "pricing_owner_id": "cost::aws.lambda-visualization",
+      "pricing_catalog_key": "aws.lambda-visualization",
+      "deduplication_key": "aws.lambda-visualization"
+    },
+    {
+      "component_id": "azure.functions-flex-visualization",
+      "component_digest": "sha256:be3fffe7ad2ffcf00427aa4c90b65dea554329d2344310f18f77dc35e830c8e5",
+      "provider": "azure",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "pricing_owner_id": "cost::azure.functions-flex-visualization",
+      "pricing_catalog_key": "azure.functions-flex-visualization",
+      "deduplication_key": "azure.functions-flex-visualization"
     }
   ],
   "route_owners": [
@@ -1754,5 +1790,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:844af2cde4f954cbf79bb3760c520d3b37a2ebadf52e339671921bdab01fcc9b"
+  "content_digest": "sha256:93c9e204a474920a9568d4d0251f198b22506f26e6472ff9e7b4075119ac3220"
 }

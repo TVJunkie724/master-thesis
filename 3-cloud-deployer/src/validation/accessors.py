@@ -93,8 +93,12 @@ class DirectoryAccessor:
             root_path = Path(root)
             if any((root_path / directory).is_symlink() for directory in dirs):
                 raise ValueError("Project validation does not allow symbolic links")
-            # Skip hidden directories and __pycache__
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+            # Source extensions are part of the signed package inventory, even
+            # though their canonical root is hidden. Build/cache dirs are not.
+            dirs[:] = [d for d in dirs if (
+                not d.startswith('.') or
+                (root_path == self._path and d == '.twin2multicloud')
+            ) and d != '__pycache__']
             for filename in filenames:
                 full_path = os.path.join(root, filename)
                 if Path(full_path).is_symlink():

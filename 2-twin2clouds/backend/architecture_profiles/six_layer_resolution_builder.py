@@ -302,6 +302,7 @@ class SixLayerResolutionBuilder:
             and readiness.get("status") == "offline_contract_fixture"
             and "gate.implementation.l5-visualization-pending"
             in readiness.get("blocking_gate_ids", [])
+            and "assignment.visualization" not in selected_assignment_ids
         ):
             # Model the outstanding consumer without inventing an atomic
             # resource or charging the L3 reader a second time to L5.

@@ -3198,6 +3198,57 @@
         ]
       }
     },
+    "/projects/{project_name}/visualization": {
+      "get": {
+        "operationId": "get_visualization_projects__project_name__visualization_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Visualization",
+        "tags": [
+          "Layer Access"
+        ]
+      }
+    },
     "/validate/config/{config_type}": {
       "post": {
         "description": "**Purpose:** Validates a specific configuration file against its JSON schema.\n\n**When to call:** To validate individual config files (config.json, config_iot_devices.json, etc).\n\n**Path param:** config_type = config|iot|events|providers|optimization|credentials|aws_hierarchy|azure_hierarchy",

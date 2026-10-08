@@ -44,8 +44,8 @@ SURFACE_MATRIX = {
     ("l4", "aws"): ("aws_iot_twinmaker", "aws_identity_center", "none"),
     ("l4", "azure"): ("azure_digital_twins", "azure_entra", "none"),
     ("l4", "gcp"): ("gcp_twin_explorer", "gcp_iap", "none"),
-    ("l5", "aws"): ("aws_raw_history_reader", "aws_sigv4", "none"),
-    ("l5", "azure"): ("azure_raw_history_reader", "azure_function_key", "none"),
+    ("l5", "aws"): ("aws_l5_visualization", "aws_sigv4", "none"),
+    ("l5", "azure"): ("azure_l5_visualization", "azure_function_key", "none"),
     ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 EVIDENCE_PROFILES = (("six-layer-eventing", "1"),)

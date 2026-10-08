@@ -404,6 +404,12 @@ class TwinOverviewView extends ConsumerWidget {
       _showLayerLaunchFailure(context, surface);
       return;
     }
+    if (surface.serviceId.endsWith('_l5_visualization')) {
+      context.read<TwinOverviewBloc>().add(
+        TwinOverviewOpenVisualization(handle),
+      );
+      return;
+    }
     unawaited(_navigateLayerAccess(context, handle, surface));
   }
 

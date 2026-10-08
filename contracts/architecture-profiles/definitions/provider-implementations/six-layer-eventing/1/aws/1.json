@@ -261,7 +261,7 @@
         "capability.visualization"
       ],
       "service_model_refs": [
-        "service-model.aws.aws.lambda-raw-history-reader",
+        "service-model.aws.aws.lambda-visualization",
         "service-model.aws.aws.cloudwatch"
       ],
       "formula_refs": [
@@ -271,7 +271,7 @@
         "region.aws.eu-central-1"
       ],
       "deployment_specification_component_ids": [
-        "aws.lambda-raw-history-reader",
+        "aws.lambda-visualization",
         "aws.cloudwatch"
       ],
       "deployment_specification_slot_ids": [
@@ -573,5 +573,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d2de43f5041ef0446607675e16470a5903beda1a41177c54bd3a334d3a48831f"
+  "content_digest": "sha256:a9d70802a8ca424a7140831278edcfde921390f8deea970ccd39872c51e14191"
 }

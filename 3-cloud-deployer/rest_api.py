@@ -26,6 +26,7 @@ from src.api import (
     status,
     validation,
     verify,
+    visualization,
 )
 
 # --------- Lifespan context manager ----------
@@ -101,4 +102,5 @@ app.include_router(credentials.router)
 app.include_router(functions.router)
 app.include_router(logs.router)
 app.include_router(verify.router)
+app.include_router(visualization.router)
 app.include_router(capabilities.router)

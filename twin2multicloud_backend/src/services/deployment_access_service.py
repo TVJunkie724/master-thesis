@@ -26,9 +26,32 @@ class DeploymentAccessService:
         self,
         twin_repository: TwinRepository,
         deployment_repository: DeploymentRepository,
+        *,
+        project_preparer=None,
+        deployer_client=None,
     ):
         self._twins = twin_repository
         self._deployments = deployment_repository
+        self._project_preparer = project_preparer
+        self._deployer_client = deployer_client
+
+    async def get_visualization(self, twin_id: str, user_id: str) -> bytes:
+        """Authorize before staging credentials; never accept a client URL."""
+        snapshot = self.get_access(twin_id, user_id)
+        surface = next(item for item in snapshot.surfaces if item.layer == "l5")
+        if surface.provider not in {"aws", "azure"} or surface.readiness.content != "ready":
+            raise ConflictError("DEPLOYMENT_VISUALIZATION_NOT_READY")
+        from src.clients.deployer_client import DeployerClient
+        from src.services.deployment_service import prepare_project_for_deployment
+        from src.services.service_errors import DownstreamServiceError
+        twin = self._twins.get_active_for_user(twin_id, user_id)
+        try:
+            prepare = self._project_preparer or prepare_project_for_deployment
+            prepared = await prepare(twin, user_id)
+            client = self._deployer_client or DeployerClient()
+            return await client.get_visualization(prepared.resource_name, prepared.operation_token)
+        except Exception as exc:
+            raise DownstreamServiceError(status_code=502, public_detail="L5 visualization is unavailable. Retry while the Twin is deployed.") from exc
 
     def get_access(self, twin_id: str, user_id: str) -> DeploymentAccessSnapshot:
         twin = self._twins.get_active_for_user(twin_id, user_id)

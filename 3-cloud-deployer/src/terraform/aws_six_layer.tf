@@ -1664,6 +1664,18 @@ output "aws_component_storage_read_access_output" {
 }
 
 output "aws_component_visualization_output" {
-  description = "Deprecated readback compatibility alias; does not prove graphical L5"
-  value       = local.aws_six_layer_l5_enabled ? local.aws_six_layer_storage_read_access : null
+  description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
+  value = local.aws_six_layer_l5_enabled ? {
+    access_url           = aws_lambda_function_url.aws_six_layer_visualization[0].function_url
+    reader_function_name = aws_lambda_function.aws_six_layer_visualization[0].function_name
+    principal_label      = data.aws_caller_identity.current[0].arn
+    access_role          = "AWS IAM signed read-only visualization"
+    internal_evidence = {
+      resource_ref        = aws_lambda_function.aws_six_layer_visualization[0].arn
+      access_binding_refs = [aws_lambda_function_url.aws_six_layer_visualization[0].function_url]
+      artifact_refs       = [local.aws_six_layer_runtime_package]
+      content_revision    = "graphical-l5.v1"
+      data_probe_revision = "graphical-l5-readiness.v1"
+    }
+  } : null
 }

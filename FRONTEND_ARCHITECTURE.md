@@ -180,7 +180,15 @@ BLoC, confirmation, Management API, durable operation and SSE boundaries.
 L4/L5 cards consume typed Management read models containing provider URL,
 authentication kind, assigned identity, readiness, limitation, and optional
 service-local one-time Viewer credential. Flutter opens provider-owned
-surfaces; it does not embed or administer them. One-time values are transient
+L4 surfaces. AWS/Azure L5 instead uses the existing Open action to request one
+bounded HTML/SVG snapshot through the owner-scoped Management API. Deployer
+authenticates against the fixed deployed endpoint; cloud keys never enter
+Flutter. Each click fetches fresh data; there is no polling, chart editor or
+additional provider sign-in. Web uses a reserved isolated tab and a temporary
+Blob URL; Desktop opens a temporary HTML file with best-effort delayed cleanup.
+Neither implementation keeps HTML in BLoC state. Duplicate and stale requests
+(Twin change or Destroy) cannot open a new snapshot. Flutter does not administer
+these surfaces. One-time values are transient
 and cleared after use, cancel, failure, Destroy, or Twin change.
 
 ## Portability

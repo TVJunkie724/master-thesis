@@ -57,6 +57,10 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Core must not start recurring storage work and must bound builds/jobs without retained build objects."
   }
   assert {
+    condition = length(aws_lambda_function.aws_six_layer_visualization) == 0 && length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 0
+    error_message = "Core-only plans must never create L5 visualization consumers."
+  }
+  assert {
     condition = (
       alltrue([for app in concat(
         azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter,

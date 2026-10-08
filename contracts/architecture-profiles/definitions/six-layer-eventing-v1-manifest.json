@@ -11,13 +11,13 @@
       "provider": "aws",
       "id": "provider-profile.aws.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:d2de43f5041ef0446607675e16470a5903beda1a41177c54bd3a334d3a48831f"
+      "digest": "sha256:a9d70802a8ca424a7140831278edcfde921390f8deea970ccd39872c51e14191"
     },
     {
       "provider": "azure",
       "id": "provider-profile.azure.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170"
+      "digest": "sha256:18383ac476c623def5f25d2adbc48d0831e95d2c274a80ab7b34db974436dd3f"
     },
     {
       "provider": "gcp",
@@ -29,7 +29,7 @@
   "catalog_ref": {
     "id": "six-layer-eventing-component-catalog",
     "version": "1",
-    "digest": "sha256:5fd43bc20a800ce66dbe29af9718994d09cca1c7775b291a1bd50e536a11d6a7"
+    "digest": "sha256:69099c2ea652ac5a4c551a03f02ce82d1b7399d7f7938097b666ca490d9b198c"
   },
   "eventing_decision_ref": {
     "id": "phase-08-eventing-decision",
@@ -44,7 +44,7 @@
   "service_decision_ref": {
     "id": "phase-08-complete-service-bundles",
     "version": "1",
-    "digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab"
+    "digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90"
   },
   "topology_cost_registry_ref": {
     "id": "six-layer-eventing-topology-cost-registry",
@@ -69,5 +69,5 @@
     "gcp-to-aws",
     "gcp-to-azure"
   ],
-  "content_digest": "sha256:cc745d4e3c37b6ae017ca95e23126a5e6c2e482a7cdf5ddc63b8875fb96226aa"
+  "content_digest": "sha256:fe47b06471c8521a4089e1bf786e55a7bcb619667d1ca539126474fee23ba405"
 }

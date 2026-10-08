@@ -56,14 +56,13 @@ def test_other_provider_cannot_claim_gcp_scope_exception():
 
 def test_empty_visualization_fixture_cannot_be_relabelled_publishable():
     architecture = contracts._read(contracts.RTA_PATH)
-    assert (
-        next(
+    visualization = next(
             item
             for item in architecture["component_assignments"]
             if item["logical_component_id"] == "component.visualization"
-        )["deployment_specification_component_ids"]
-        == []
     )
+    assert visualization["deployment_specification_component_ids"]
+    visualization["deployment_specification_component_ids"] = []
     architecture["resolution_status"] = "publishable"
     architecture["resolution_id"] = contracts.RUNTIME.calculate_resolution_id(
         architecture

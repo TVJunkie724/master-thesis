@@ -250,22 +250,22 @@ resource "azurerm_log_analytics_workspace" "azure_azure_log_analytics_shared_wor
 locals {
   azure_command_diagnostics_enabled = local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0
   azure_command_diagnostic_settings = local.azure_command_diagnostics_enabled ? {
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.azure_command_diagnostics[0].connection_string
+    APPLICATIONINSIGHTS_CONNECTION_STRING                                            = azurerm_application_insights.azure_command_diagnostics[0].connection_string
     AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
   } : {}
 }
 
 resource "azurerm_application_insights" "azure_command_diagnostics" {
-  count               = local.azure_command_diagnostics_enabled ? 1 : 0
-  name                = "${local.azure_six_layer_name}-command-traces-${local.deployment_suffix}"
-  location            = azurerm_resource_group.main[0].location
-  resource_group_name = azurerm_resource_group.main[0].name
-  workspace_id        = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id
-  application_type    = "web"
-  retention_in_days   = 30
+  count                = local.azure_command_diagnostics_enabled ? 1 : 0
+  name                 = "${local.azure_six_layer_name}-command-traces-${local.deployment_suffix}"
+  location             = azurerm_resource_group.main[0].location
+  resource_group_name  = azurerm_resource_group.main[0].name
+  workspace_id         = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id
+  application_type     = "web"
+  retention_in_days    = 30
   daily_data_cap_in_gb = 0.1
-  sampling_percentage = 100
-  tags                = local.azure_six_layer_tags
+  sampling_percentage  = 100
+  tags                 = local.azure_six_layer_tags
 }
 
 resource "azurerm_iothub" "azure_azure_iot_hub" {
@@ -634,10 +634,10 @@ resource "azurerm_servicebus_topic" "azure_azure_service_bus_standard" {
 }
 
 resource "azurerm_servicebus_subscription" "azure_azure_service_bus_standard" {
-  count                                     = local.azure_six_layer_embedded_event_enabled ? 1 : 0
-  name                                      = "domain-consumer"
-  topic_id                                  = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
-  max_delivery_count                        = 5
+  count              = local.azure_six_layer_embedded_event_enabled ? 1 : 0
+  name               = "domain-consumer"
+  topic_id           = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
+  max_delivery_count = 5
   # Autoforwarding sources cannot require sessions; the destination queue does.
   requires_session                          = false
   dead_lettering_on_message_expiration      = true
@@ -765,6 +765,7 @@ resource "azurerm_service_plan" "azure_six_layer_flex" {
     local.azure_six_layer_l2_enabled ? "extension" : "",
     local.azure_six_layer_l2_enabled ? "action" : "",
     local.azure_six_layer_hot_enabled ? "reader" : "",
+    local.azure_six_layer_l5_enabled ? "visualization" : "",
     local.azure_event_enabled ? "eventing" : "",
   ]))
   name                = "${local.azure_six_layer_name}-flex-${each.key}"
@@ -1485,7 +1486,7 @@ output "azure_component_twin_state_output" {
     principal_label = var.azure_layer_access_principal_label
     access_role     = "Azure Digital Twins Data Reader"
     internal_evidence = {
-      resource_ref        = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+      resource_ref = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
       # A targeted research plan may omit human access; never invent its binding.
       access_binding_refs = try([azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id], [])
       artifact_refs       = ["dtmi:twin2multicloud:poc:TwinNode;1"]
@@ -1517,6 +1518,19 @@ output "azure_component_storage_read_access_output" {
 }
 
 output "azure_component_visualization_output" {
-  description = "Deprecated readback compatibility alias; does not prove graphical L5"
-  value       = local.azure_six_layer_l5_enabled ? local.azure_six_layer_storage_read_access : null
+  description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
+  value = local.azure_six_layer_l5_enabled ? {
+    access_url           = "https://${azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].default_hostname}/api/visualization/v1"
+    reader_function_name = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].name
+    principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
+    access_role          = "Function key resolved server-side by deployment principal"
+    internal_evidence = {
+      resource_ref        = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id
+      access_binding_refs = [azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id]
+      artifact_refs       = [local.azure_six_layer_runtime_package]
+      content_revision    = "graphical-l5.v1"
+      data_probe_revision = "graphical-l5-readiness.v1"
+    }
+  } : null
+  depends_on = [module.azure_six_layer_visualization_package]
 }

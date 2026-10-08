@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -153,6 +153,28 @@ async def get_deployment_access(
         )
     except (EntityNotFoundError, ValidationError, ConflictError) as exc:
         _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/deployment-access/visualization",
+    response_class=HTMLResponse,
+    operation_id="getTwinVisualization",
+    summary="Read the deployed L5 HTML through owner-scoped server authentication",
+)
+async def get_visualization(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        html = await _deployment_access_service(db).get_visualization(twin_id, current_user.id)
+    except (EntityNotFoundError, ValidationError, ConflictError, DownstreamServiceError) as exc:
+        _raise_service_http_error(exc)
+    return Response(content=html, media_type="text/html", headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.post(

@@ -183,8 +183,8 @@
       "aws",
       "azure"
     ],
-    "gcp_core_only": "L1-L3 and Event Layer remain in scope; a separate core-only deployment path is not yet implemented.",
-    "visualization_status": "Graphical L5 and remote L5-to-L3 consumer integration are not implemented. Reader costs belong to L3; an empty L5 cost slot is not a free visualization.",
+    "gcp_core_only": "L1-L3 and Event Layer passed in the separate nine-case Core evaluation. GCP L4/L5 remain excluded.",
+    "visualization_status": "Provider-local AWS/Azure graphical consumers are integrated with separate L5 cost terms (2026-10-08); their isolated live checks passed, normal application evidence remains pending. Remote L5-to-L3 consumers remain blocked. Readers and storage reads belong to L3.",
     "prior_candidate_evidence": "Historical digests do not authorize this revised graph."
   }
 }

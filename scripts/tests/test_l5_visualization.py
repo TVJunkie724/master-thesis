@@ -53,6 +53,30 @@ def test_reader_failure_propagates():
         module.page(fetch, 'device', 'temperature')
 
 
+def test_fresh_deployment_reports_empty_without_claiming_data():
+    html = module.page(lambda q: payload(q['bucket_seconds']) | {'points': []},
+                       'device', 'temperature', allow_empty=True)
+    assert html.count('data-state="empty"') == 2
+    assert html.count('data-point-count="0"') == 2
+    assert '<svg' not in html
+
+
+def test_normal_view_discloses_bounded_results_without_exposing_cursor():
+    html = module.page(lambda q: payload(q['bucket_seconds']) |
+                       {'truncated': True, 'next_cursor': 'private-pagination-token'},
+                       'device', 'temperature', allow_empty=True)
+    assert html.count('additional records are not shown') == 2
+    assert 'private-pagination-token' not in html
+
+
+@pytest.mark.parametrize('change', [{'schema_version': 'bad'}, {'truncated': 'false'},
+                                   {'points': [], 'truncated': True, 'next_cursor': 'cursor'}])
+def test_empty_mode_still_rejects_invalid_reader_contract(change):
+    with pytest.raises(ValueError):
+        module.page(lambda q: payload(q['bucket_seconds']) | change,
+                    'device', 'temperature', allow_empty=True)
+
+
 def test_azure_response_is_html_without_client_credentials():
     import azure.functions as func
     response = func.HttpResponse('<!doctype html>', status_code=200, headers=module.HEADERS)

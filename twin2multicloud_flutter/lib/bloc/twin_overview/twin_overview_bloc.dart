@@ -37,6 +37,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   int _overviewRequestGeneration = 0;
   int _twinContextGeneration = 0;
   int _layerAccessRequestGeneration = 0;
+  bool _visualizationBusy = false;
 
   static const _maxReconnectAttempts = 3;
 
@@ -57,6 +58,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewRunDeploymentPreflight>(_onRunDeploymentPreflight);
     on<TwinOverviewPrepareDeployment>(_onPrepareDeployment);
     on<TwinOverviewRetryLayerAccess>(_onRetryLayerAccess);
+    on<TwinOverviewOpenVisualization>(_onOpenVisualization);
     on<TwinOverviewDeploy>(_onDeploy);
     on<TwinOverviewDestroy>(_onDestroy);
     on<TwinOverviewDelete>(_onDelete);
@@ -77,6 +79,66 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     on<TwinOverviewSimulatorSaveCompleted>(_onSimulatorSaveCompleted);
     on<TwinOverviewSimulatorSaveCancelled>(_onSimulatorSaveCancelled);
     on<TwinOverviewSimulatorSaveFailed>(_onSimulatorSaveFailed);
+  }
+
+  Future<void> _onOpenVisualization(
+    TwinOverviewOpenVisualization event,
+    Emitter<TwinOverviewState> emit,
+  ) async {
+    final initial = state;
+    if (_visualizationBusy ||
+        initial is! TwinOverviewLoaded ||
+        initial.twinState != 'deployed' ||
+        initial.deploymentOperation.isActive) {
+      await event.handle.close();
+      return;
+    }
+    final generation = _twinContextGeneration;
+    _visualizationBusy = true;
+    emit(
+      initial.copyWith(
+        infoMessage: 'Loading L5 visualization...',
+        clearError: true,
+      ),
+    );
+    try {
+      final html = await _api.getVisualization(initial.twinId);
+      final current = state;
+      if (emit.isDone ||
+          generation != _twinContextGeneration ||
+          current is! TwinOverviewLoaded ||
+          current.twinId != initial.twinId ||
+          current.twinState != 'deployed' ||
+          current.deploymentOperation.isActive) {
+        await event.handle.close();
+        return;
+      }
+      if (!await event.handle.renderHtml(html)) {
+        throw StateError('The browser refused the L5 snapshot.');
+      }
+      final latest = state;
+      if (!emit.isDone &&
+          latest is TwinOverviewLoaded &&
+          generation == _twinContextGeneration) {
+        emit(latest.copyWith(clearInfo: true));
+      }
+    } catch (_) {
+      await event.handle.close();
+      final current = state;
+      if (!emit.isDone &&
+          current is TwinOverviewLoaded &&
+          generation == _twinContextGeneration) {
+        emit(
+          current.copyWith(
+            clearInfo: true,
+            errorMessage:
+                'Could not open L5 visualization. Retry while the Twin is deployed.',
+          ),
+        );
+      }
+    } finally {
+      _visualizationBusy = false;
+    }
   }
 
   Future<void> _onLoad(

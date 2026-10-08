@@ -409,7 +409,9 @@ def _validate_v4_architecture_specification(
             item["implementation_component_id"]
             for item in selected_by_assignment[assignment_id]
         ]
-        if actual_ids != assignment["deployment_specification_component_ids"]:
+        # Canonical architecture serialization sorts these IDs; RDS preserves
+        # bundle order. Ownership is the same only when the full multisets match.
+        if sorted(actual_ids) != sorted(assignment["deployment_specification_component_ids"]):
             _fail(
                 "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
                 f"deployment_manifest.resolved_twin_architecture.{assignment_id}",
@@ -755,6 +757,7 @@ def _validate_v2_component_selections(
             readiness["status"] == "offline_contract_fixture"
             and "gate.implementation.l5-visualization-pending"
             in readiness["blocking_gate_ids"]
+            and "component.visualization" not in provider_by_logical
         ):
             expected_logical_ids.discard("component.visualization")
     if set(provider_by_logical) != expected_logical_ids:

@@ -37,7 +37,9 @@
         "l4_twin": [
           "aws.iot-twinmaker-standard"
         ],
-        "l5_visualization": []
+        "l5_visualization": [
+          "aws.lambda-visualization"
+        ]
       },
       "support_components": [
         "aws.eventbridge-scheduler",
@@ -90,7 +92,9 @@
         "l4_twin": [
           "azure.digital-twins"
         ],
-        "l5_visualization": []
+        "l5_visualization": [
+          "azure.functions-flex-visualization"
+        ]
       },
       "support_components": [
         "azure.container-apps-scheduled-storage-job",

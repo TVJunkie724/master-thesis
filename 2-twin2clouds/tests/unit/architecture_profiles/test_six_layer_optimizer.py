@@ -365,10 +365,14 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     ]
     assert len(readers) == 1
     assert readers[0]["logical_component_id"] == "component.hot-storage"
-    assert result.cost_evaluation.component_totals["component.visualization"] == 0
+    assert result.cost_evaluation.component_totals["component.visualization"] > 0
+    visualizations = [item for item in result.deployment_specification["component_selections"]
+                      if item["implementation_component_id"].endswith("-visualization")]
+    assert len(visualizations) == 1
+    assert visualizations[0]["logical_component_id"] == "component.visualization"
     assert (
         "gate.implementation.l5-visualization-pending"
-        in (result.deployment_specification["readiness"]["blocking_gate_ids"])
+        not in (result.deployment_specification["readiness"]["blocking_gate_ids"])
     )
     assert result.cost_ledger["route_costs"] == []
     assert len(result.resolved_architecture["component_assignments"]) == 8
@@ -411,8 +415,22 @@ def test_gcp_reader_remains_storage_owned_but_full_gcp_profile_is_excluded():
         )
 
 
-@pytest.mark.parametrize("size", ("small", "medium"))
-def test_graphical_l5_pending_blocks_publication_even_with_acknowledged_gate(size):
+@pytest.mark.parametrize("provider", ("aws", "azure"))
+def test_provider_local_small_graphical_l5_is_publishable(provider):
+    pricing, evidence = _pricing()
+    registry = _registry()
+    result = optimize_six_layer_eventing_v1(
+        calculation_run_id=RUN_ID, architecture_profile=_profile_ref(registry),
+        extension_bindings=_extension_bindings(), workload=_workload("small"),
+        pricing_evidence_refs={provider: evidence[provider]},
+        pricing_by_provider={provider: pricing[provider]}, providers=(provider,),
+        registry=registry, resolution_status="publishable",
+    )
+    assert result.resolved_architecture["resolution_status"] == "publishable"
+    assert result.deployment_specification["readiness"] == {"status": "deployment_ready", "blocking_gate_ids": []}
+
+
+def test_medium_still_requires_its_capacity_gates():
     pricing, evidence = _pricing()
     registry = _registry()
     with pytest.raises(
@@ -423,7 +441,7 @@ def test_graphical_l5_pending_blocks_publication_even_with_acknowledged_gate(siz
             calculation_run_id=RUN_ID,
             architecture_profile=_profile_ref(registry),
             extension_bindings=_extension_bindings(),
-            workload=_workload(size),
+            workload=_workload("medium"),
             pricing_evidence_refs={"aws": evidence["aws"]},
             pricing_by_provider={"aws": pricing["aws"]},
             providers=("aws",),
@@ -501,7 +519,7 @@ def test_evaluation_hook_materializes_an_admissible_costed_candidate_without_cal
     )
     assert result.deployment_specification["readiness"] == {
         "status": "offline_contract_fixture",
-        "blocking_gate_ids": ["gate.implementation.l5-visualization-pending"],
+        "blocking_gate_ids": [],
     }
     with pytest.raises(RuntimeError, match="not the cost winner"):
         _ = result.winning_candidate_id

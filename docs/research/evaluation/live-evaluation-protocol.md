@@ -57,11 +57,14 @@ are absent, not merely checked later inside a complete Apply.
 Research questions remain unchanged; this is an implementation finding and a
 limit on the available functional comparison, not a measured negative result.
 
-Graphical L5 is currently unimplemented for the active profile. All newly
-materialized candidates therefore retain a non-overridable implementation
-gate. Their L5 atomic cost subtotal is empty, **not a zero-cost visualization**;
-the offline budget proposal cannot authorize a dashboard or a complete E2E run.
-Reader outputs retained under old L5 names are compatibility aliases only.
+**Integration checkpoint (2026-10-08):** the isolated AWS/Azure graphical L5
+experiment passed on 2026-10-05. Its provider-local Lambda/Flex consumers are
+now wired into the normal Terraform graph, with separate L5 cost terms and
+owner-scoped Management HTML access. Empty panels prove readiness, not data
+delivery. A representative normal application run is still required; the
+isolated seeded-data observations do not establish simulator-to-L5 delivery.
+Unsupported remote consumers remain blocked. The previous empty L5 subtotal
+and reader-only outputs are superseded, not evidence of a free visualization.
 Old candidate, image and budget digests cannot approve the revised graphs.
 
 Core inputs are a bounded research lane, not deployment-ready Management
@@ -71,7 +74,7 @@ both directed identity bindings. Their coverage and costs must be recorded
 separately from the different full-profile focus cases. Retained delivery sizing
 is conservative; no new cost quote or live readiness follows from mock plans.
 
-**Current L5 blocker (2026-09-07):** JSON readback does not establish graphical
+**Historical L5 blocker (2026-09-07):** JSON readback does not establish graphical
 equivalence. The [minimal visualization review](l5-visualization-feasibility.md)
 finds that restoring AWS Managed Grafana exceeds the unchanged technical caps
 without verified credits; Azure billing still needs resolution. The earlier
@@ -336,7 +339,9 @@ proposal, that scenario is blocked; its cap is not raised automatically.
 The provider-terms review on 2026-09-06 originally found two unresolved
 pre-authorization boundaries. The 2026-09-07 PoC simplification removed all
 managed and self-hosted Grafana resources from the active Six-layer profile;
-L5 now reuses the provider-local raw-history runtime and therefore has no
+The initial reader-only shortcut was not graphical L5. The 2026-10-08 mapping
+instead uses a separate Lambda/Flex consumer of the provider-local L3 reader,
+with no
 dashboard seat, workspace, cluster, disk, or load-balancer minimum. GCP image
 publication is reduced to at most four content-addressed images and uses the
 default-pool `e2-standard-2` worker. [Cloud Build pricing](https://cloud.google.com/build/pricing)

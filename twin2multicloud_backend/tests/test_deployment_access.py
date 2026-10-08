@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import asyncio
+from copy import deepcopy
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -22,12 +26,62 @@ from src.services.service_errors import (
 
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
+
+
+def _ready_seed(db, **kwargs):
+    user, twin, deployment = _seed(db, **kwargs)
+    evidence = deepcopy(deployment.deployment_access_evidence)
+    evidence["surfaces"][1]["readiness"]["content"] = "ready"
+    deployment.deployment_access_evidence = evidence
+    db.commit()
+    return user, twin, deployment
+
+
+@pytest.mark.parametrize("provider", ["aws", "azure"])
+def test_visualization_owner_gets_fixed_html_without_provider_secrets(db, provider):
+    user, twin, _ = _ready_seed(db, l5=provider)
+    prepare = AsyncMock(return_value=SimpleNamespace(resource_name="twin-resource", operation_token="test-token"))
+    client = SimpleNamespace(get_visualization=AsyncMock(return_value=b"<html>chart</html>"))
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db),
+                                      project_preparer=prepare, deployer_client=client)
+    assert asyncio.run(service.get_visualization(twin.id, user.id)) == b"<html>chart</html>"
+    prepare.assert_awaited_once_with(twin, user.id)
+    client.get_visualization.assert_awaited_once_with("twin-resource", "test-token")
+
+
+def test_visualization_wrong_owner_does_not_stage_credentials(db):
+    _, twin, _ = _seed(db)
+    prepare = AsyncMock()
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db), project_preparer=prepare)
+    with pytest.raises(EntityNotFoundError):
+        asyncio.run(service.get_visualization(twin.id, "different-owner"))
+    prepare.assert_not_awaited()
+
+
+@pytest.mark.parametrize("state", [TwinState.DRAFT, TwinState.DESTROYED, TwinState.ERROR])
+def test_visualization_non_deployed_twin_does_not_stage_credentials(db, state):
+    user, twin, _ = _seed(db, state=state)
+    prepare = AsyncMock()
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db), project_preparer=prepare)
+    with pytest.raises(ConflictError):
+        asyncio.run(service.get_visualization(twin.id, user.id))
+    prepare.assert_not_awaited()
+
+
+def test_visualization_upstream_errors_are_not_exposed(db):
+    from src.services.service_errors import DownstreamServiceError
+    user, twin, _ = _ready_seed(db)
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db),
+        project_preparer=AsyncMock(side_effect=RuntimeError("client_secret=must-not-leak")))
+    with pytest.raises(DownstreamServiceError) as error:
+        asyncio.run(service.get_visualization(twin.id, user.id))
+    assert "must-not-leak" not in error.value.public_detail
 SURFACES = {
     ("l4", "aws"): ("aws_iot_twinmaker", "aws_identity_center", "none"),
     ("l4", "azure"): ("azure_digital_twins", "azure_entra", "none"),
     ("l4", "gcp"): ("gcp_twin_explorer", "gcp_iap", "none"),
-    ("l5", "aws"): ("aws_raw_history_reader", "aws_sigv4", "none"),
-    ("l5", "azure"): ("azure_raw_history_reader", "azure_function_key", "none"),
+    ("l5", "aws"): ("aws_l5_visualization", "aws_sigv4", "none"),
+    ("l5", "azure"): ("azure_l5_visualization", "azure_function_key", "none"),
     ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 
@@ -255,3 +309,15 @@ def test_owner_scoped_endpoint_returns_contract(auth_client, db) -> None:
     assert payload["schema_version"] == "deployment-access.v1"
     assert [item["provider"] for item in payload["surfaces"]] == ["azure", "gcp"]
     assert payload["reason_code"] is None
+
+
+def test_visualization_endpoint_requires_auth(client):
+    assert client.get('/twins/unknown/deployment-access/visualization').status_code == 401
+
+
+def test_visualization_endpoint_rejects_other_owner(auth_client, db, monkeypatch):
+    _, twin, _ = _ready_seed(db)
+    prepare = AsyncMock()
+    monkeypatch.setattr('src.services.deployment_service.prepare_project_for_deployment', prepare)
+    assert auth_client.get(f'/twins/{twin.id}/deployment-access/visualization').status_code == 404
+    prepare.assert_not_awaited()

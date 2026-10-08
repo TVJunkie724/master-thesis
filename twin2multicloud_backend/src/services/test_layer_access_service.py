@@ -38,13 +38,13 @@ _SURFACE_MATRIX = {
         "none",
     ),
     ("l5", "aws"): (
-        "aws_raw_history_reader",
+        "aws_l5_visualization",
         "AWS Raw-history Reader",
         "aws_sigv4",
         "none",
     ),
     ("l5", "azure"): (
-        "azure_raw_history_reader",
+        "azure_l5_visualization",
         "Azure Raw-history Reader",
         "azure_function_key",
         "none",

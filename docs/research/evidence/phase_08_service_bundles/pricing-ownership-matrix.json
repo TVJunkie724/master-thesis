@@ -233,6 +233,19 @@
       "deduplication_key": "aws.lambda-raw-history-reader"
     },
     {
+      "cost_owner_id": "cost::aws.lambda-visualization",
+      "component_id": "aws.lambda-visualization",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "pricing_catalog_key": "aws.lambda-visualization",
+      "dimensions": [
+        "resource_count",
+        "requests",
+        "gib_seconds"
+      ],
+      "deduplication_key": "aws.lambda-visualization"
+    },
+    {
       "cost_owner_id": "cost::aws.s3-event-failure-store",
       "component_id": "aws.s3-event-failure-store",
       "provider": "aws",
@@ -498,6 +511,19 @@
         "execution_seconds"
       ],
       "deduplication_key": "azure.functions-flex-raw-history-reader"
+    },
+    {
+      "cost_owner_id": "cost::azure.functions-flex-visualization",
+      "component_id": "azure.functions-flex-visualization",
+      "provider": "azure",
+      "region": "westeurope",
+      "pricing_catalog_key": "azure.functions-flex-visualization",
+      "dimensions": [
+        "resource_count",
+        "requests",
+        "execution_seconds"
+      ],
+      "deduplication_key": "azure.functions-flex-visualization"
     },
     {
       "cost_owner_id": "cost::azure.iot-hub",

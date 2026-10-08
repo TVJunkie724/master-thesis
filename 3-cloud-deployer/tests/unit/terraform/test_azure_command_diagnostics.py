@@ -23,7 +23,8 @@ def test_command_apps_share_only_the_bounded_diagnostic_settings(filename, name)
 def test_command_diagnostics_reuse_workspace_and_are_experiment_only():
     source = (TF / "azure_six_layer.tf").read_text()
     block = source.split('resource "azurerm_application_insights" "azure_command_diagnostics" {', 1)[1].split('\n}', 1)[0]
-    assert "workspace_id        = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id" in block
-    assert "count               = local.azure_command_diagnostics_enabled ? 1 : 0" in block
+    normalized = " ".join(block.split())
+    assert "workspace_id = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id" in normalized
+    assert "count = local.azure_command_diagnostics_enabled ? 1 : 0" in normalized
     assert "local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0" in source
-    assert "APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.azure_command_diagnostics[0].connection_string" in source
+    assert "APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.azure_command_diagnostics[0].connection_string" in " ".join(source.split())

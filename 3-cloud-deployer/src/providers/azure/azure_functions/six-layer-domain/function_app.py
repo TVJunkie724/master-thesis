@@ -77,7 +77,8 @@ if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
                 if len(data) > 1024 * 1024:
                     raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
                 return json.loads(data)
-            body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"])
+            body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
+                                      allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
             return func.HttpResponse(body, status_code=200, headers=VISUALIZATION_HEADERS)
         except Exception:
             return func.HttpResponse("L5 data unavailable", status_code=503, headers=VISUALIZATION_HEADERS)

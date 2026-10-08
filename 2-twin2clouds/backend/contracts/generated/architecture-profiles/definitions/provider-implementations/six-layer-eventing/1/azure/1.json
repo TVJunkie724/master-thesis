@@ -257,7 +257,7 @@
         "capability.visualization"
       ],
       "service_model_refs": [
-        "service-model.azure.azure.functions-flex-raw-history-reader",
+        "service-model.azure.azure.functions-flex-visualization",
         "service-model.azure.azure.monitor",
         "service-model.azure.azure.log-analytics-shared-workspace"
       ],
@@ -268,7 +268,7 @@
         "region.azure.westeurope"
       ],
       "deployment_specification_component_ids": [
-        "azure.functions-flex-raw-history-reader",
+        "azure.functions-flex-visualization",
         "azure.monitor",
         "azure.log-analytics-shared-workspace"
       ],
@@ -569,5 +569,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d3d908aa2149620b01cef873e8ec21da00687877207e6dfbc5e4730c8ab9e170"
+  "content_digest": "sha256:18383ac476c623def5f25d2adbc48d0831e95d2c274a80ab7b34db974436dd3f"
 }

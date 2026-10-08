@@ -15,6 +15,30 @@ def _client_with_handler(handler):
     )
 
 
+@pytest.mark.asyncio
+async def test_visualization_fixed_route_and_one_shot_header():
+    def handler(request):
+        assert request.url.path == '/projects/twin/visualization'
+        assert request.headers['X-Operation-Package'] == 'one-shot'
+        return httpx.Response(200, content=b'<html>chart</html>', headers={'Content-Type': 'text/html'})
+    assert await _client_with_handler(handler).get_visualization('twin', 'one-shot') == b'<html>chart</html>'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('body,mime', [(b'{}', 'application/json'), (b'', 'text/html')])
+async def test_visualization_rejects_non_html_or_empty(body, mime):
+    client = _client_with_handler(lambda request: httpx.Response(200, content=body, headers={'Content-Type': mime}))
+    with pytest.raises(ValueError, match='invalid L5'):
+        await client.get_visualization('twin', 'one-shot')
+
+
+@pytest.mark.asyncio
+async def test_visualization_rejects_oversized_html():
+    client = _client_with_handler(lambda request: httpx.Response(200, content=b'x' * (1024 * 1024 + 1), headers={'Content-Type': 'text/html'}))
+    with pytest.raises(ExternalServiceError):
+        await client.get_visualization('twin', 'one-shot')
+
+
 def _zip_bytes() -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

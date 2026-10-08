@@ -27,13 +27,14 @@ def _management_token(provider: "AzureProvider") -> str:
 
 
 def _function_url(
-    provider: "AzureProvider", function_app_name: str, suffix: str
+    provider: "AzureProvider", function_app_name: str, suffix: str,
+    function_name: str = FUNCTION_NAME,
 ) -> str:
     return (
         "https://management.azure.com/subscriptions/"
         f"{provider.subscription_id}/resourceGroups/{provider.naming.resource_group()}"
         f"/providers/Microsoft.Web/sites/{function_app_name}"
-        f"/functions/{FUNCTION_NAME}/{suffix}"
+        f"/functions/{function_name}/{suffix}"
     )
 
 
@@ -42,7 +43,8 @@ def _require_status(response, allowed: tuple[int, ...], operation: str) -> None:
         raise RuntimeError(f"{operation} returned HTTP {response.status_code}")
 
 
-def _reader_key(provider: "AzureProvider", function_app_name: str) -> str:
+def _reader_key(provider: "AzureProvider", function_app_name: str,
+                function_name: str = FUNCTION_NAME, *, create_missing: bool = True) -> str:
     """Create once or reuse the single evaluation-scoped Function key."""
 
     headers = {
@@ -50,7 +52,7 @@ def _reader_key(provider: "AzureProvider", function_app_name: str) -> str:
         "Content-Type": "application/json",
     }
     response = requests.post(
-        _function_url(provider, function_app_name, "listkeys")
+        _function_url(provider, function_app_name, "listkeys", function_name)
         + f"?api-version={APP_SERVICE_API_VERSION}",
         headers=headers,
         timeout=30,
@@ -60,10 +62,12 @@ def _reader_key(provider: "AzureProvider", function_app_name: str) -> str:
     existing = properties.get(KEY_NAME) if isinstance(properties, dict) else None
     if isinstance(existing, str) and existing:
         return existing
+    if not create_missing:
+        raise RuntimeError("Azure Function access key has not been provisioned")
 
     value = secrets.token_urlsafe(32)
     response = requests.put(
-        _function_url(provider, function_app_name, f"keys/{KEY_NAME}")
+        _function_url(provider, function_app_name, f"keys/{KEY_NAME}", function_name)
         + f"?api-version={APP_SERVICE_API_VERSION}",
         headers=headers,
         json={"name": KEY_NAME, "value": value},

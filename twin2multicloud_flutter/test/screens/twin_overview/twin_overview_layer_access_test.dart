@@ -85,6 +85,32 @@ void main() {
     ).called(1);
   });
 
+  testWidgets('Open L5 dispatches authenticated HTML instead of cloud URL', (
+    tester,
+  ) async {
+    final bloc = _MockTwinOverviewBloc();
+    final launcher = _MockExternalAuthLauncher();
+    final handle = _MockExternalAuthLaunchHandle();
+    when(() => launcher.reserve()).thenReturn(handle);
+    await _pumpView(
+      tester,
+      bloc: bloc,
+      state: _loadedState(),
+      launcher: launcher,
+    );
+    await tester.ensureVisible(find.byKey(const Key('open-layer-l5')));
+    await tester.tap(find.byKey(const Key('open-layer-l5')));
+    await tester.pump();
+    verify(() => bloc.add(TwinOverviewOpenVisualization(handle))).called(1);
+    verifyNever(
+      () => handle.navigate(
+        _loadedState().layerAccess.snapshot!
+            .surfaceFor(DeploymentLayer.l5)!
+            .url,
+      ),
+    );
+  });
+
   testWidgets('rapid Open clicks create one isolated launch per click', (
     tester,
   ) async {
@@ -262,7 +288,7 @@ Map<String, dynamic> _surface(DeploymentLayer layer, CloudProvider provider) {
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_raw_history_reader',
+      'aws_l5_visualization',
       'AWS Raw-history Reader',
       'aws_sigv4',
       'none',

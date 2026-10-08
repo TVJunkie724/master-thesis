@@ -427,11 +427,11 @@ void _validateSurfaceCombination(
           auth.mode == DeploymentAccessAuthMode.gcpIap &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.aws) =>
-      serviceId == 'aws_raw_history_reader' &&
+      serviceId == 'aws_l5_visualization' &&
           auth.mode == DeploymentAccessAuthMode.awsSigv4 &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.azure) =>
-      serviceId == 'azure_raw_history_reader' &&
+      serviceId == 'azure_l5_visualization' &&
           auth.mode == DeploymentAccessAuthMode.azureFunctionKey &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.gcp) =>

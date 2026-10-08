@@ -8,8 +8,15 @@ from scripts import materialize_live_evaluation_candidate as materializer
 from scripts import verify_live_evaluation_image_readiness as verifier
 
 
-def test_tracked_image_readiness_record_is_valid() -> None:
-    record = verifier.verify(verifier.DEFAULT_RECORD, verifier.DEFAULT_SCHEMA)
+def _historical_record():
+    record = verifier._load(verifier.DEFAULT_RECORD)
+    verifier.Draft202012Validator(verifier._load(verifier.DEFAULT_SCHEMA)).validate(record)
+    assert record["record_digest"] == verifier._digest({k: v for k, v in record.items() if k != "record_digest"})
+    return record
+
+
+def test_historical_image_readiness_record_remains_intact() -> None:
+    record = _historical_record()
 
     assert record["execution_enabled"] is False
     assert record["cloud_mutation_performed"] is False
@@ -20,7 +27,7 @@ def test_tracked_image_readiness_record_is_valid() -> None:
 
 
 def test_dynamic_processor_image_is_bound_to_gcp_processing_scenarios() -> None:
-    record = verifier.verify(verifier.DEFAULT_RECORD, verifier.DEFAULT_SCHEMA)
+    record = _historical_record()
     dynamic = record["dynamic_runtime_images"][0]
 
     assert set(dynamic["applicable_scenarios"]) == {
@@ -34,13 +41,15 @@ def test_dynamic_processor_image_is_bound_to_gcp_processing_scenarios() -> None:
     )
 
 
-def test_record_is_bound_to_current_candidate_pack(tmp_path) -> None:
+def test_historical_record_cannot_admit_current_candidate_pack(tmp_path) -> None:
     output = tmp_path / "candidate-pack"
     materializer.materialize_plan(output)
     manifest = verifier._load(output / "candidate-pack-manifest.json")
     record = verifier._load(verifier.DEFAULT_RECORD)
 
-    assert record["candidate_pack_manifest_digest"] == manifest["manifest_digest"]
+    assert record["candidate_pack_manifest_digest"] != manifest["manifest_digest"]
+    with pytest.raises(ValueError, match="scenario binding drifted"):
+        verifier.verify(verifier.DEFAULT_RECORD, verifier.DEFAULT_SCHEMA)
 
 
 def test_record_digest_mutation_fails_closed(tmp_path) -> None:

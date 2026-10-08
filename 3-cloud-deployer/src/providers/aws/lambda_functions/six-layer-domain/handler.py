@@ -40,7 +40,8 @@ def visualization(event, _context):
             if len(data) > 1024 * 1024:
                 raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
             return json.loads(data)
-        body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"])
+        body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
+                                  allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
         return {"statusCode": 200, "headers": VISUALIZATION_HEADERS, "body": body}
     except Exception:
         return {"statusCode": 503, "headers": VISUALIZATION_HEADERS, "body": "L5 data unavailable"}

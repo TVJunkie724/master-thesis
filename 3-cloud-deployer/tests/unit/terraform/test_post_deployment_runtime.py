@@ -95,17 +95,18 @@ def test_gcp_l3_reader_is_authenticated_cloud_run_without_dashboard_resources():
 
 
 @pytest.mark.parametrize("provider", ("aws", "azure", "gcp"))
-def test_reader_lifecycle_is_l3_owned_with_only_a_deprecated_l5_output_alias(provider):
+def test_reader_lifecycle_remains_l3_owned(provider):
     terraform = (TERRAFORM_ROOT / f"{provider}_six_layer.tf").read_text("utf-8")
     assert f'output "{provider}_component_storage_read_access_output"' in terraform
-    # L5 may select only the deprecated output alias, never reader resources.
-    lines = [
-        line.strip()
-        for line in terraform.splitlines()
-        if f"local.{provider}_six_layer_l5_enabled" in line
-    ]
-    assert len(lines) == 1
-    assert lines[0].startswith("value =") or lines[0].startswith("value  ")
+    if provider in {"aws", "azure"}:
+        assert 'content_revision    = "graphical-l5.v1"' in terraform
+        visualization = (TERRAFORM_ROOT / "six_layer_visualization.tf").read_text("utf-8")
+        assert f"local.{provider}_six_layer_l5_enabled ? 1 : 0" in visualization
+        assert 'L5_ALLOW_EMPTY' in visualization
+        assert 'aws_dynamodb_table' not in visualization
+        assert 'azurerm_cosmosdb' not in visualization
+    else:
+        assert "Deprecated readback compatibility alias" in terraform
 
 
 @pytest.mark.parametrize("provider", ("aws", "azure"))
@@ -117,7 +118,7 @@ def test_raw_history_verification_cannot_complete_graphical_l5(provider):
         ),
     )
     module = aws_deployer if provider == "aws" else azure_deployer
-    with pytest.raises(RuntimeError, match="Graphical L5 implementation is pending"):
+    with pytest.raises(ValueError, match="Graphical L5 output is required"):
         getattr(module, f"configure_{provider}_visualization")(context, {})
 
 

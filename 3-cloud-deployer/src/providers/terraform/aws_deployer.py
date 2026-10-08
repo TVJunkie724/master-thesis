@@ -813,9 +813,9 @@ def configure_aws_visualization(
     """Verify active-profile L5 or configure the historical Grafana path."""
     _require_aws_provider(context)
     if _is_active_phase8_profile(context):
-        raise RuntimeError(
-            "Graphical L5 implementation is pending; L3 readback is not L5"
-        )
+        from src.deployment_access.visualization import fetch_visualization
+        fetch_visualization("aws", _require_aws_provider(context), terraform_outputs, verify_auth=True)
+        return
 
     import requests
 

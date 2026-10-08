@@ -2,7 +2,7 @@
   "catalogs": {
     "aws": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:95177e4a02b65ba3e865ee639bcdfeba867583e06077dbe519de9dc355255ec9",
+      "content_digest": "sha256:dcfcd05eed995fe49bf649f737d16dc3c378dbe6ab83d9794bf16cdc267e01a7",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-08-25T16:58:12Z",
       "mapping_versions": [
@@ -16,12 +16,12 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_1781c618eadf4fa08e00c1f92c2d862ef013bd6fbaa767cb03cd4464fe8437fa",
+      "snapshot_id": "pcs_64d03bdcd7497aaadec367b9464a7441ca81b4d3717b77e79b185f7fd45e222e",
       "source": "reviewed_baseline"
     },
     "azure": {
       "calculation_source": "reviewed_baseline",
-      "content_digest": "sha256:1a1f8220a54fb081c3fd7f04dcc6676371b87b260b14b6aaff9d8e400cb81a84",
+      "content_digest": "sha256:3f55b240a7adc76e45c6d342a3dbecfced3b9b9e750eb32bfc2d97fe0e6cc774",
       "contract_version": "2026.07.18",
       "fetched_at": "2026-08-25T16:58:12Z",
       "mapping_versions": [
@@ -36,7 +36,7 @@
       "registry_version": "2026.07.17",
       "review_status": "reviewed",
       "schema_version": "pricing-catalog-reference.v1",
-      "snapshot_id": "pcs_c8282fd001ae9c4854746a2372fe43a1b49c460f0c51354ff18c81cd1aa285ab",
+      "snapshot_id": "pcs_9e4ee3934632ea0ce82fcc4331473131a2a33cf0afb944c5cf9b65836722b33d",
       "source": "reviewed_baseline"
     },
     "gcp": {

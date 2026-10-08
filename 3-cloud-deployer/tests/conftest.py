@@ -8,7 +8,7 @@ import pytest
 def offline_graph_mechanics(monkeypatch):
     """Isolate execution admission ONLY for opted-in packaging/path unit tests.
 
-    The fixture stays offline and its L5 blocker stays present. All structural,
+    The fixture stays offline. All structural,
     digest, ownership and provider checks still run. These tests are not proof
     of deployment readiness; real admission is tested separately without this
     mock. No production validator is relaxed.
@@ -23,8 +23,6 @@ def offline_graph_mechanics(monkeypatch):
             and architecture.get("resolution_status") == "offline_contract_fixture"
             and specification.get("readiness", {}).get("status")
             == "offline_contract_fixture"
-            and "gate.implementation.l5-visualization-pending"
-            in specification.get("readiness", {}).get("blocking_gate_ids", [])
         ):
             return check(
                 manifest,

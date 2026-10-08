@@ -83,8 +83,8 @@ def build() -> dict[str, Any]:
             "activated_or_deployed_before_refreeze": False,
         },
         "scope_revision": {
-            "date": "2026-09-16",
-            "reason": "assign raw-history reader resources and costs to L3; graphical L5 remains unimplemented",
+            "date": "2026-10-08",
+            "reason": "retain L3 reader ownership; add provider-local AWS Lambda and Azure Flex graphical L5 consumers and owner-scoped fixed HTML access; integrated live evidence remains separate from implementation admission",
             "cloud_execution_authorized": False,
             "historical_reviews_do_not_verify_current_graphical_l5": True,
         },

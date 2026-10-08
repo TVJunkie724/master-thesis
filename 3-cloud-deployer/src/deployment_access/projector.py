@@ -109,15 +109,15 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
             "principal_label",
             "access_role",
         },
-        "service_id": "aws_raw_history_reader",
-        "display_name": "AWS Raw-history Reader",
+        "service_id": "aws_l5_visualization",
+        "display_name": "AWS L5 Visualization",
         "auth_mode": "aws_sigv4",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
+        "capabilities": ["recent-raw", "hourly-rollups", "svg-charts", "no-data-state"],
         "limitations": [
-            "read-only-json",
+            "read-only-html",
             "bounded-queries",
-            "programmatic-access-only",
+            "application-authenticated-snapshot",
         ],
     },
     ("l5", "azure"): {
@@ -130,15 +130,15 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
             "principal_label",
             "access_role",
         },
-        "service_id": "azure_raw_history_reader",
-        "display_name": "Azure Raw-history Reader",
+        "service_id": "azure_l5_visualization",
+        "display_name": "Azure L5 Visualization",
         "auth_mode": "azure_function_key",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
+        "capabilities": ["recent-raw", "hourly-rollups", "svg-charts", "no-data-state"],
         "limitations": [
-            "read-only-json",
+            "read-only-html",
             "bounded-queries",
-            "programmatic-access-only",
+            "application-authenticated-snapshot",
         ],
     },
     ("l5", "gcp"): {
@@ -302,7 +302,10 @@ def _surface(
             "resource": "ready",
             "access_binding": "ready",
             "content": "ready" if runtime_ready else "pending",
-            "data_probe": "ready" if runtime_ready else "pending",
+            "data_probe": (
+                "ready" if runtime_ready and output_evidence.data_probe_revision != "graphical-l5-readiness.v1"
+                else "pending"
+            ),
             "browser_sign_in": "unverified",
         },
         "capabilities": list(definition["capabilities"]),

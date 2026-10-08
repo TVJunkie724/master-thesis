@@ -3281,8 +3281,8 @@
               "aws_iot_twinmaker",
               "azure_digital_twins",
               "gcp_twin_explorer",
-              "aws_raw_history_reader",
-              "azure_raw_history_reader",
+              "aws_l5_visualization",
+              "azure_l5_visualization",
               "gcp_raw_history_reader"
             ],
             "title": "Service Id",
@@ -11765,6 +11765,64 @@
           }
         },
         "summary": "Get secret-free L4 and L5 access surfaces",
+        "tags": [
+          "twins"
+        ]
+      }
+    },
+    "/twins/{twin_id}/deployment-access/visualization": {
+      "get": {
+        "operationId": "getTwinVisualization",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read the deployed L5 HTML through owner-scoped server authentication",
         "tags": [
           "twins"
         ]

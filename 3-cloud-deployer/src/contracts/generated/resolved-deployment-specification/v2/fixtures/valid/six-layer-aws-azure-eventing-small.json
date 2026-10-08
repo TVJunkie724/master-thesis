@@ -330,6 +330,42 @@
       "value_type": "integer"
     },
     {
+      "binding_id": "binding.azure.azure.functions-flex-visualization.resource_count",
+      "compatibility_version": "1",
+      "destination_input_id": "input.capacity.resource_count",
+      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "resolution_stage": "preplan",
+      "sensitivity": "internal",
+      "source_kind": "deployment_dimension",
+      "source_ref": "dimension.azure.azure.functions-flex-visualization.resource_count",
+      "validator_id": "validator.non-negative-integer.v1",
+      "value_type": "integer"
+    },
+    {
+      "binding_id": "binding.azure.azure.functions-flex-visualization.requests",
+      "compatibility_version": "1",
+      "destination_input_id": "input.usage.requests",
+      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "resolution_stage": "preplan",
+      "sensitivity": "internal",
+      "source_kind": "deployment_dimension",
+      "source_ref": "dimension.azure.azure.functions-flex-visualization.requests",
+      "validator_id": "validator.non-negative-integer.v1",
+      "value_type": "integer"
+    },
+    {
+      "binding_id": "binding.azure.azure.functions-flex-visualization.execution_seconds",
+      "compatibility_version": "1",
+      "destination_input_id": "input.usage.execution_seconds",
+      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "resolution_stage": "preplan",
+      "sensitivity": "internal",
+      "source_kind": "deployment_dimension",
+      "source_ref": "dimension.azure.azure.functions-flex-visualization.execution_seconds",
+      "validator_id": "validator.non-negative-integer.v1",
+      "value_type": "integer"
+    },
+    {
       "binding_id": "binding.azure.azure.event-hubs-standard-small-medium.resource_count",
       "compatibility_version": "1",
       "destination_input_id": "input.capacity.resource_count",
@@ -961,7 +997,7 @@
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "unit": "RU/month",
-          "value": 45619200
+          "value": 45878400
         },
         {
           "classification": "usage",
@@ -1013,7 +1049,7 @@
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "unit": "requests/month",
-          "value": 360
+          "value": 720
         },
         {
           "classification": "usage",
@@ -1021,7 +1057,7 @@
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "unit": "seconds/month",
-          "value": 360
+          "value": 720
         }
       ],
       "implementation_component_digest": "sha256:6ba2697ec28689fdc542446b2bb401487e62d2af3934f6fd59b7cb8ef832bc80",
@@ -1123,6 +1159,42 @@
       "region": "westeurope",
       "required": true,
       "selection_id": "selection.azure.azure.digital-twins"
+    },
+    {
+      "architecture_assignment_id": "assignment.visualization",
+      "dimensions": [
+        {
+          "classification": "capacity",
+          "dimension_id": "dimension.azure.azure.functions-flex-visualization.resource_count",
+          "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+          "formula_reference": "formula.phase-08-complete-service-bundles",
+          "unit": "count",
+          "value": 1
+        },
+        {
+          "classification": "usage",
+          "dimension_id": "dimension.azure.azure.functions-flex-visualization.requests",
+          "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+          "formula_reference": "formula.phase-08-complete-service-bundles",
+          "unit": "requests/month",
+          "value": 360
+        },
+        {
+          "classification": "usage",
+          "dimension_id": "dimension.azure.azure.functions-flex-visualization.execution_seconds",
+          "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+          "formula_reference": "formula.phase-08-complete-service-bundles",
+          "unit": "seconds/month",
+          "value": 720
+        }
+      ],
+      "implementation_component_digest": "sha256:be3fffe7ad2ffcf00427aa4c90b65dea554329d2344310f18f77dc35e830c8e5",
+      "implementation_component_id": "azure.functions-flex-visualization",
+      "logical_component_id": "component.visualization",
+      "provider": "azure",
+      "region": "westeurope",
+      "required": true,
+      "selection_id": "selection.azure.azure.functions-flex-visualization"
     },
     {
       "architecture_assignment_id": "assignment.eventing",
@@ -1606,7 +1678,7 @@
     }
   ],
   "currency": "USD",
-  "digest": "sha256:4f7c14a08446258b711a1c587375478bf9eeea447c1d46cb07051b6f731b7ce6",
+  "digest": "sha256:60542c22414f8d15c2ba5455c9b9248a32c45a336ad0d91ee22340a6651b0187",
   "fixed_dimensions": {
     "azure_mover_max_device_partitions_per_task": 1000,
     "l4_inspection_sessions_per_month": 12,
@@ -1623,7 +1695,7 @@
   },
   "optimization_context": {
     "component_catalog_ref": {
-      "digest": "sha256:5fd43bc20a800ce66dbe29af9718994d09cca1c7775b291a1bd50e536a11d6a7",
+      "digest": "sha256:69099c2ea652ac5a4c551a03f02ce82d1b7399d7f7938097b666ca490d9b198c",
       "id": "six-layer-eventing-component-catalog",
       "version": "1"
     },
@@ -1633,22 +1705,22 @@
       "version": "1"
     },
     "formula_set_ref": {
-      "digest": "sha256:fb6db62c9bb61cfb928f25ac88de1a862ab83bc4fb18b1fbc8ed87a2b5132dc7",
+      "digest": "sha256:d991c3635456589917ee7bcd692a211bbec51bb12c6c824ca14629686235dbfb",
       "id": "phase-08-complete-service-bundles",
       "version": "1"
     },
     "pricing_evidence_refs": [
       {
-        "digest": "sha256:95177e4a02b65ba3e865ee639bcdfeba867583e06077dbe519de9dc355255ec9",
+        "digest": "sha256:dcfcd05eed995fe49bf649f737d16dc3c378dbe6ab83d9794bf16cdc267e01a7",
         "provider": "aws"
       },
       {
-        "digest": "sha256:1a1f8220a54fb081c3fd7f04dcc6676371b87b260b14b6aaff9d8e400cb81a84",
+        "digest": "sha256:3f55b240a7adc76e45c6d342a3dbecfced3b9b9e750eb32bfc2d97fe0e6cc774",
         "provider": "azure"
       }
     ],
     "service_decision_ref": {
-      "digest": "sha256:40ec551250a3536daa50c383d99efab975484f4053975f5ac15622c1cc1362ab",
+      "digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90",
       "id": "phase-08-complete-service-bundles",
       "version": "1"
     },
@@ -1659,9 +1731,7 @@
     }
   },
   "readiness": {
-    "blocking_gate_ids": [
-      "gate.implementation.l5-visualization-pending"
-    ],
+    "blocking_gate_ids": [],
     "status": "offline_contract_fixture"
   },
   "schema_version": "resolved-deployment-specification.v2"

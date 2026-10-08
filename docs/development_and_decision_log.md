@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-05"
-version: "2.10"
+lastUpdated: "2026-10-08"
+version: "2.11"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -29,6 +29,34 @@ maintained in `docs/research/architecture_evolution.md`.
 5. Git history is the archive for superseded implementation plans.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
+
+**Normal L5 integration (2026-10-08):** reuse the proven AWS/Azure HTML/SVG
+renderer as an independent provider-local consumer in the normal graph. L3
+retains reader/storage ownership; L5 owns its invocation, hosting and read
+permission. Fixed owner-scoped Management access signs server-side and returns
+one bounded snapshot to the existing Flutter Open action. No Grafana, custom
+dashboard client, auto-refresh or new login is introduced. Empty panels prove
+reachability only; data evidence remains a separate assertion. GCP L4/L5 and
+remote L5 readers stay excluded. The cost model now includes L5 execution and
+two L3 reads per snapshot; assumed durations are not live measurements.
+
+The first normal application preflight exposed a representation mismatch:
+canonical architecture serialization sorts atomic component IDs whereas RDS
+retains bundle order. Compare their complete sorted lists, retaining duplicate
+and missing-component rejection. Directory validation also now includes the
+canonical hidden extension source root, which ZIP validation already covered;
+other build/cache directories remain ignored. Both fixes have regression tests.
+The existing isolated observations are preserved; these changes alone do not
+establish a successful normal application deployment.
+
+The read-only normal AWS plan also fails at initialization of the unselected
+AzureRM/AzAPI providers. The existing Core harness explicitly supplied Azure
+credentials even for AWS-local runs; their successful runtime observations
+remain valid but did not establish provider-independent application credentials.
+The normal package does not silently acquire credentials outside its graph.
+Keep this integration blocker separate from runtime L5 evidence and resolve
+the authentication-versus-provider-isolation decision before any application
+Apply. No cloud mutation occurred in this checkpoint.
 
 **Local command observations complete (2026-10-05):** AWS, Azure and GCP now
 have real simulator-to-rule/action/Event-to-device receipt and exact authenticated

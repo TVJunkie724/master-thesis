@@ -29,6 +29,7 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.s3-glacier-deep-archive": ["aws_s3_bucket_lifecycle_configuration"],
     "aws.iot-twinmaker-standard": ["awscc_iottwinmaker_workspace"],
     "aws.lambda-raw-history-reader": ["aws_lambda_function", "aws_lambda_function_url"],
+    "aws.lambda-visualization": ["aws_lambda_function", "aws_lambda_function_url", "aws_iam_role", "aws_iam_role_policy"],
     "aws.eventbridge-scheduler": ["aws_scheduler_schedule"],
     "aws.ecs-fargate-storage-mover": ["aws_ecs_cluster", "aws_ecs_task_definition"],
     "aws.ecr-if-container-selected": [
@@ -76,6 +77,7 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "azure.functions-flex-raw-history-reader": [
         "azurerm_function_app_flex_consumption"
     ],
+    "azure.functions-flex-visualization": ["azurerm_function_app_flex_consumption", "azurerm_service_plan", "azurerm_storage_container"],
     "azure.container-apps-scheduled-storage-job": [
         "azurerm_container_app_environment",
         "azurerm_container_app_job",
@@ -337,13 +339,23 @@ def contracts(responsibility: str, component_id: str = "") -> tuple[list[str], l
 def network_ports(component_id: str) -> list[int]:
     if "bifromq" in component_id or "mqtt" in component_id:
         return [1883, 8883]
-    if any(token in component_id for token in ("reader", "twin-api", "twin-explorer")):
+    if any(token in component_id for token in ("reader", "visualization", "twin-api", "twin-explorer")):
         return [443]
     return []
 
 
 def file_targets(provider: str, component_id: str) -> list[str]:
     exact = {
+        "aws.lambda-visualization": [
+            "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
+            "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/handler.py",
+            "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py",
+        ],
+        "azure.functions-flex-visualization": [
+            "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
+            "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain/function_app.py",
+            "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py",
+        ],
         "aws.ecr-if-container-selected": [
             "3-cloud-deployer/src/terraform/aws_six_layer.tf",
             "3-cloud-deployer/src/providers/terraform/aws_v2_image_publisher.py",

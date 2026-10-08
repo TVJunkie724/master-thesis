@@ -313,13 +313,13 @@ Map<String, dynamic> _surface(
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_raw_history_reader',
+      'aws_l5_visualization',
       'AWS Raw-history Reader',
       'aws_sigv4',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.azure) => (
-      'azure_raw_history_reader',
+      'azure_l5_visualization',
       'Azure Raw-history Reader',
       'azure_function_key',
       'none',

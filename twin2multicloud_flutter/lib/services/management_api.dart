@@ -208,6 +208,8 @@ abstract interface class DeploymentLifecycleApi {
   Future<LogTraceStartResult> startLogTrace(String twinId);
 
   Future<BinaryDownload> downloadSimulator(String twinId);
+
+  Future<String> getVisualization(String twinId);
 }
 
 abstract interface class VerificationApi {

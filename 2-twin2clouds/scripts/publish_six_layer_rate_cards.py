@@ -536,6 +536,10 @@ def _azure_component(
                 )
             )
         return variants
+    elif component_id == "azure.functions-flex-visualization":
+        # Normal L5 uses a 2-GiB on-demand Flex instance, no warm capacity.
+        meters = [_meter("requests", pricing["functions"]["requestPrice"]),
+                  _meter("execution_seconds", _decimal(pricing["functions"]["durationPrice"]) * Decimal("2"))]
     elif component_id.startswith("azure.functions-flex"):
         meters = _azure_function_meters(pricing)
     elif component_id == "azure.logic-apps-consumption":

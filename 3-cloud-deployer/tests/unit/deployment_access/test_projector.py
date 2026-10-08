@@ -23,6 +23,18 @@ from src.deployment_access.runtime_evidence import DeploymentAccessRuntimeEviden
 FIXED_TIME = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
 
 
+def test_graphical_readiness_does_not_claim_simulator_data_proof():
+    context = _context("aws", "aws")
+    outputs = _outputs()
+    internal = outputs["aws_component_visualization_output"]["internal_evidence"]
+    internal.update(content_revision="graphical-l5.v1", data_probe_revision="graphical-l5-readiness.v1")
+    context.deployment_access_runtime_evidence = collect_deployment_access_runtime_evidence(context, outputs)
+    result = project_deployment_access_evidence(context, outputs)
+    l5 = next(item for item in result["surfaces"] if item["layer"] == "l5")
+    assert l5["readiness"]["content"] == "ready"
+    assert l5["readiness"]["data_probe"] == "pending"
+
+
 class _Config:
     def __init__(self, l4: str, l5: str):
         self.providers = {"layer_4_provider": l4, "layer_5_provider": l5}

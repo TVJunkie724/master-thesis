@@ -2027,12 +2027,12 @@ DeploymentAccessSnapshot _accessSnapshot({
         'none',
       ),
       (DeploymentLayer.l5, CloudProvider.aws) => (
-        'aws_raw_history_reader',
+        'aws_l5_visualization',
         'aws_sigv4',
         'none',
       ),
       (DeploymentLayer.l5, CloudProvider.azure) => (
-        'azure_raw_history_reader',
+        'azure_l5_visualization',
         'azure_function_key',
         'none',
       ),

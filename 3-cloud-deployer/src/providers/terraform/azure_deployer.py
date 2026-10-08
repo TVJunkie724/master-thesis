@@ -108,9 +108,9 @@ def configure_azure_visualization(
     """Verify active-profile L5 or configure the historical Grafana path."""
     provider = _require_azure_provider(context)
     if _is_active_phase8_profile(context):
-        raise RuntimeError(
-            "Graphical L5 implementation is pending; L3 readback is not L5"
-        )
+        from src.deployment_access.visualization import fetch_visualization
+        fetch_visualization("azure", provider, terraform_outputs, verify_auth=True)
+        return
     logger.info("  Configuring Azure Grafana...")
     from src.providers.azure.layers.layer_5_grafana import configure_grafana_datasource
 

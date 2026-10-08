@@ -65,7 +65,7 @@
   "l5:aws": {
     "layer": "l5",
     "provider": "aws",
-    "service_id": "aws_raw_history_reader",
+    "service_id": "aws_l5_visualization",
     "display_name": "AWS Raw-history Reader",
     "url": "https://example.lambda-url.eu-central-1.on.aws/",
     "auth": {
@@ -86,7 +86,7 @@
   "l5:azure": {
     "layer": "l5",
     "provider": "azure",
-    "service_id": "azure_raw_history_reader",
+    "service_id": "azure_l5_visualization",
     "display_name": "Azure Raw-history Reader",
     "url": "https://t2mc-example.azurewebsites.net/api/raw-history/v1",
     "auth": {

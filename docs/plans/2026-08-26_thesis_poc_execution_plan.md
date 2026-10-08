@@ -164,6 +164,82 @@ L5 adds no resources to the existing Core-only cut; generated contracts agree;
 the ordinary deployment path emits a usable graphical access result. Commit
 this implementation before the representative live run.
 
+#### Fixed HTML access implementation detail (2026-10-08)
+
+This is the bounded adapter already included in the approved completion scope;
+all items below are required. No new screen or dashboard administration is added.
+
+0. **Git:** continue `codex/gcp-l4-iap-bootstrap`, base `07bed2a5`; no push or merge.
+1. **Purpose:** make the existing L5 action usable without exposing provider
+   credentials. The result is a static, newly fetched HTML/SVG snapshot, not an
+   auto-refreshing dashboard or provider SSO session.
+2. **Layout:** preserve the existing Desktop/Web layout and compact boundary:
+
+   ```text
+   Verify and access
+   + L4 semantic state +  + L5 raw and hourly history +
+   | existing Open    |  | existing Open -> snapshot |
+   +------------------+  +---------------------------+
+   Compact (< AppSpacing.twinOverviewCompactBreakpoint): same cards stacked.
+   ```
+3. **Tree:** `[REUSE] TwinOverviewView -> TwinOverviewContent -> LayerAccessPanel
+   -> LayerAccessCard -> Open`. Only the existing L5 action dispatch changes;
+   no constructor, layout or route addition is required.
+4. **Components:** add `ManagementApi.getVisualization(twinId): Future<String>`
+   and `ExternalAuthLaunchHandle.renderHtml(html): Future<bool>`. Reserve the
+   existing external window at the user gesture, then pass its service handle
+   to a `TwinOverviewOpenVisualization` event. No widget performs HTTP.
+5. **Responsive behavior:** retain current card widths, stacking, wrapping and
+   high-text-scale behavior on all supported targets.
+6. **State:** `TwinOverviewBloc` owns the request, duplicate suppression, existing
+   loading/error banner and stale-Twin rejection. It closes a reserved window on
+   failure/cancellation; successful HTML is not retained in application state.
+7. **Tokens:** reuse existing spacing, theme, Material icons and focus styles;
+   no new visual tokens or dependencies.
+8. **Interaction:** L4 keeps its existing external URL action. L5 obtains one
+   bounded HTML response through Management. Web opens a blob in the reserved
+   window; Desktop opens a temporary self-contained HTML file. Cleanup releases
+   these local artifacts after opening. No extra animation or automatic polling.
+9. **Accessibility:** preserve card semantics, ordered keyboard traversal and
+   Enter activation; failures use the existing dismissible message banner.
+10. **Boundary:** `GET /twins/{id}/deployment-access/visualization`, bearer/owner/
+    deployed-state checks, returns at most 1 MiB `text/html`, no-store, restrictive
+    CSP. Management stages the existing one-request credential package; Deployer
+    reads only its own persisted L5 URL, signs server-side, rejects redirects
+    and non-HTML responses. Neither API accepts an arbitrary destination URL.
+11. **Tests:** AWS/Azure success; wrong owner, unauthenticated, non-deployed and
+    upstream failure; empty panels, oversized response, malformed HTML, duplicate
+    clicks, stale Twin/Destroy and blocked popup. Existing unit/widget tests
+    cover unchanged layout; the representative real Management run covers the
+    integrated action and reconnect. Run analysis, focused/full Flutter tests,
+    Web/macOS builds and the architecture checker; no mock counts as live proof.
+12. **Done:** all above checks pass, server-side credentials remain private,
+    data readiness stays pending until separately verified, current architecture
+    and handbook reflect snapshots, and no unrelated screen changes are present.
+
+Architect/builder review: this reuses the existing action and browser adapter;
+the only new API returns fixed HTML. Existing loading/failure/lifecycle handling
+is retained. Provider login, arbitrary proxying and embedded dashboard state are
+outside the approved scope.
+
+**Offline implementation checkpoint (2026-10-08):** the normal AWS/Azure L5
+resources, cost mapping and fixed owner-scoped HTML adapter are implemented.
+Verification: Optimizer 470 passed / 5 skipped; Deployer 2106 passed / 63 skipped;
+Management 695 passed; Flutter 778 passed plus four new transport assertions;
+script regressions 373 passed plus 37 subtests. Subsequent package/accessor
+regressions passed 101 tests. Flutter analysis, Web/macOS builds, native mock
+plans and generated-contract checks passed. These checks are not live evidence.
+
+The first read-only native AWS application plan exposed an additional integration
+dependency: the shared Terraform root initializes AzureRM/AzAPI even for an
+AWS-only selection. Its zero-UUID fallback cannot authenticate. The historical
+Core runner supplied Azure credentials explicitly for this reason; the normal
+graph-scoped application package correctly contains AWS credentials only.
+No Apply occurred. A decision between a documented PoC authentication dependency
+and structural provider isolation is pending; neither a targeted plan nor mock
+credentials may be labelled a successful full native application plan.
+The live workflow/reconnect/rendering audit therefore remains open.
+
 ### 2. Verify one representative complete application workflow
 
 Prefer an AWS-local Small case, given the measured provisioning/cleanup times;

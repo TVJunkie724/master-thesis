@@ -195,6 +195,17 @@ class DeployerClient(ExternalServiceClient):
         )
         return _parse_simulator_archive(response, requested_provider=provider)
 
+    async def get_visualization(self, project_name: str, operation_token: str) -> bytes:
+        response = await self._request_bounded_response(
+            "GET", f"/projects/{project_name}/visualization",
+            max_bytes=1024 * 1024,
+            size_error_detail="Deployer returned an invalid L5 response size.",
+            headers={"X-Operation-Package": operation_token}, timeout=60.0,
+        )
+        if response.headers.get("content-type", "").split(";")[0] != "text/html" or not response.content:
+            raise ValueError("Deployer returned an invalid L5 response")
+        return response.content
+
     async def stage_operation_package(
         self,
         project_name: str,

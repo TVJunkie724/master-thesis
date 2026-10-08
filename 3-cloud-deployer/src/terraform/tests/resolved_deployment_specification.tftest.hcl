@@ -128,6 +128,16 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
     )
     error_message = "Single-cloud AWS must use only the independent Event Layer transport and omit embedded transport and every cross-cloud bridge."
   }
+  assert {
+    condition = (
+      length(aws_lambda_function.aws_six_layer_visualization) == 1 &&
+      aws_lambda_function.aws_six_layer_visualization[0].handler == "handler.visualization" &&
+      aws_lambda_function.aws_six_layer_visualization[0].memory_size == 512 &&
+      aws_lambda_function_url.aws_six_layer_visualization[0].authorization_type == "AWS_IAM" &&
+      length(aws_lambda_function.aws_aws_lambda_raw_history_reader) == 1
+    )
+    error_message = "Normal AWS L5 must be a separate authenticated graphical consumer, retaining the L3 reader."
+  }
 }
 
 run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
@@ -218,6 +228,16 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
       azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.SIX_LAYER_EVENTING_DELIVERY_ENDPOINT_ENABLED == "true"
     )
     error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
+  }
+  assert {
+    condition = (
+      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 1 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].instance_memory_in_mb == 2048 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].maximum_instance_count == 1 &&
+      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].always_ready) == 0 &&
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
+    )
+    error_message = "Normal Azure L5 must be a separate scale-to-zero graphical consumer, retaining the L3 reader."
   }
 
   assert {

@@ -2,6 +2,7 @@
 // Events for the twin overview BLoC
 
 import 'package:equatable/equatable.dart';
+import '../../services/external_auth_launcher.dart';
 
 import '../../models/deployment_readiness.dart';
 
@@ -45,6 +46,11 @@ class TwinOverviewPrepareDeployment extends TwinOverviewEvent {
 /// Retry the independently loaded L4/L5 access read model.
 class TwinOverviewRetryLayerAccess extends TwinOverviewEvent {
   const TwinOverviewRetryLayerAccess();
+}
+
+class TwinOverviewOpenVisualization extends TwinOverviewEvent {
+  final ExternalAuthLaunchHandle handle;
+  const TwinOverviewOpenVisualization(this.handle);
 }
 
 /// Trigger deployment
