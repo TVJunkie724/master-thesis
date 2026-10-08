@@ -4,9 +4,10 @@
 
 - Offline tests prove contract, calculation, state-machine, redaction,
   packaging, and deterministic provider-adapter behavior—not real deployment.
-- Live regional capacity, quotas, provider policy, identity federation,
-  browser access, telemetry delivery, and cleanup remain pending until the
-  supervised evaluation records them.
+- Nine Core telemetry cases, three local command cases, and separate AWS/Azure
+  Event-to-L4 and graphical L3-to-L5 cuts have supervised evidence. These are
+  not nine complete-profile application passes. The normal application
+  deploy/reconnect/simulator-to-L5 workflow remains unverified.
 - Estimated costs use frozen snapshots and assumptions; they are not invoices
   or a FinOps reconciliation.
 
@@ -15,14 +16,17 @@
 - one standalone Six-layer architecture and one cost objective;
 - one single-user/single-node PoC runtime;
 - pre-existing deployment administrator credentials;
+- the shared Terraform root currently attempts Azure authentication even for
+  an AWS-only plan; the research runner supplied those additional credentials,
+  while the graph-scoped application path exposes this unresolved dependency;
 - bounded confirmed preparation, not general account administration;
 - provider preflight and bounded preparation/repair are represented in Flutter,
   but remain offline contract evidence until supervised provider evaluation;
 - typed Twin interchange and bounded user functions, not arbitrary projects;
 - immutable deployed definitions, no update/migration/rollback;
 - access links and one telemetry roundtrip, no dashboard administration;
-- three provider-local plus six directed Small live scenarios, not every layer
-  permutation.
+- three provider-local plus six directed Small **Core** scenarios, not every
+  layer permutation; GCP L4/L5 are excluded from complete-profile evaluation.
 
 ## Security and operational limitations
 
