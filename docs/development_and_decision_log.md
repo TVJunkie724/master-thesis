@@ -1349,3 +1349,9 @@ files remain visible to the strict manifest comparison. Twenty-one focused
 operation/accessor tests and an offline acquisition/validation of the actual
 Management-built package pass. ZIP validation is unchanged. The failed request
 remains in the application history and is not a successful cloud observation.
+
+Cleanup additionally exposed an invalid `terraform show -state=...` invocation.
+The runner now passes the isolated state file positionally, as required by
+`show`, while keeping other commands' state flags unchanged. Twenty focused
+runner/destruction tests pass (with the application's normal `src.core` import
+order); direct isolated collection exposes a pre-existing circular import.
