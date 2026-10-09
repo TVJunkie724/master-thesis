@@ -105,7 +105,18 @@ class DirectoryAccessor:
                     raise ValueError("Project validation does not allow symbolic links")
                 rel_path = os.path.relpath(full_path, self._path)
                 # Normalize to forward slashes for consistency
-                files.append(rel_path.replace('\\', '/'))
+                relative = rel_path.replace('\\', '/')
+                # Operation-owned metadata/state are restored after the ZIP is
+                # validated. They are not members of its immutable inventory.
+                if relative in {
+                    '.operation-package.json', '.operation-package.lock',
+                    'terraform/terraform.tfstate', 'terraform/terraform.tfstate.backup',
+                } or relative.startswith('iot_devices_auth/'):
+                    continue
+                if (relative.startswith('iot_device_simulator/') and
+                        Path(relative).match('**/config_generated*.json')):
+                    continue
+                files.append(relative)
         return files
     
     def list_files(self) -> List[str]:

@@ -1340,3 +1340,12 @@ trailing-slash route. OpenAPI and Flutter layout remain unchanged. Fourteen
 focused route/contract tests pass; the release web application now reaches
 the ready-to-deploy lifecycle screen. This is a local integration correction,
 not cloud deployment or functional runtime evidence.
+
+The first normal Deploy request then failed at package validation before any
+Terraform execution: operation metadata and restored runtime files were counted
+as uploaded source. Directory inventory now excludes only the operation marker,
+lock, Terraform state and generated simulator/auth outputs; unexpected source
+files remain visible to the strict manifest comparison. Twenty-one focused
+operation/accessor tests and an offline acquisition/validation of the actual
+Management-built package pass. ZIP validation is unchanged. The failed request
+remains in the application history and is not a successful cloud observation.

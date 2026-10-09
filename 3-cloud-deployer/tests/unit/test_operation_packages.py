@@ -27,6 +27,7 @@ from src.providers.terraform.package_builder import build_all_packages
 from src.runtime_state import RuntimeStateStore
 from src.tfvars_generator import generate_tfvars
 from src.user_function_extensions.contracts import runtime as extension_runtime
+from src.validation.accessors import DirectoryAccessor
 from tests.utils.deployment_specification import deployment_manifest
 
 
@@ -198,6 +199,25 @@ def _store(tmp_path: Path) -> tuple[OperationPackageStore, Path, RuntimeStateSto
         durable,
         runtime_state_store,
     )
+
+
+def test_acquired_manifest_excludes_only_operation_owned_outputs(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        'file_manager.validator.validate_project_zip', lambda _archive, **_kwargs: []
+    )
+    store, _, runtime = _store(tmp_path)
+    staged = store.stage('factory', _archive())
+    state = runtime.project_path('factory')
+    for name in ('iot_devices_auth/device/cert.pem',
+                 'iot_device_simulator/aws/core/config_generated.json'):
+        path = state / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('fixture')
+    with store.acquire('factory', staged.token) as acquired:
+        expected = {'config.json', 'config_credentials.json'}
+        assert set(DirectoryAccessor(acquired).list_files()) == expected
+        (acquired / 'unexpected.json').write_text('{}')
+        assert set(DirectoryAccessor(acquired).list_files()) == expected | {'unexpected.json'}
 
 
 def test_stage_is_private_and_acquire_is_one_shot(monkeypatch, tmp_path):
