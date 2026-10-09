@@ -198,6 +198,16 @@ def test_disabled_azure_platform_user_assignments_remain_provider_valid():
     )
 
 
+def test_six_layer_twinmaker_waits_for_workspace_role_propagation():
+    source = (TERRAFORM_SOURCE / 'aws_six_layer.tf').read_text()
+    wait = source.split('resource "time_sleep" "aws_six_layer_twinmaker_iam" {', 1)[1].split('\n}', 1)[0]
+    workspace = source.split('resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {', 1)[1].split('\n}', 1)[0]
+    assert 'count           = local.aws_six_layer_l4_enabled ? 1 : 0' in wait
+    assert 'create_duration = "30s"' in wait
+    assert '[aws_iam_role_policy.aws_six_layer_twinmaker]' in wait
+    assert '[time_sleep.aws_six_layer_twinmaker_iam]' in workspace
+
+
 def test_aws_six_layer_storage_mover_uses_only_digest_input_and_exact_task_dimension():
     terraform_source = (TERRAFORM_SOURCE / "aws_six_layer.tf").read_text(
         encoding="utf-8"

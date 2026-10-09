@@ -336,6 +336,7 @@ class DestructionLifecycleMixin:
             context,
             self._load_providers_config(),
             dry_run=dry_run,
+            state_path=self.runner.state_path,
         )
 
     def destroy_all(

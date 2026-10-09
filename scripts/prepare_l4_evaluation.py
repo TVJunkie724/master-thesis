@@ -19,6 +19,7 @@ AWS_ROOTS = (
     'aws_s3_bucket_public_access_block.aws_six_layer_twinmaker[0]',
     'aws_iam_role.aws_six_layer_twinmaker[0]',
     'aws_iam_role_policy.aws_six_layer_twinmaker[0]',
+    'time_sleep.aws_six_layer_twinmaker_iam[0]',
     'awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0]',
 )
 AZURE_ROOTS = (

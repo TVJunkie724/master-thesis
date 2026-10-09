@@ -1373,3 +1373,20 @@ teardown regression (seven Python tests). The live failed foundation was
 destroyed, and an independent 23-category namespace inventory found zero
 active resources and zero deletion markers. AWS TwinMaker pricing mode was
 also read-only verified as STANDARD before the next attempt.
+
+The following normal Apply completed image publication but TwinMaker rejected
+its freshly created role with the same propagation signature seen in the
+isolated L4 record. The Six-layer workspace now waits 30 seconds after its
+role policy, matching the predecessor's bounded approach. This adds one local
+Terraform timing resource, not a cloud service (111 rather than 110 managed
+entries). Eight native-test wrappers and 19 scoped L4 runner tests pass; prior
+live observations and their original resource counts are not rewritten.
+
+Cleanup also identified an archived SNS topic that Terraform could not delete.
+The normal pre-destroy hook now disables ArchivePolicy only on archived SNS
+topics listed in the exact project state and matching its owned namespace.
+Dry-run performs no mutation. Nineteen focused cleanup/lifecycle tests pass.
+The independent inventory correctly detected this active residual despite the
+older SDK fallback's empty inventory, so SDK-only emptiness is not sufficient
+evidence. The separately observed inactive IoT deletion marker is not counted
+as an active resource.

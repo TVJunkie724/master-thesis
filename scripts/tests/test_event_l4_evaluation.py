@@ -15,7 +15,7 @@ def plan():
 
 
 def test_exact_research_cut_has_no_image_cluster_or_graphical_resources():
-    assert len(ALLOWED) == 33
+    assert len(ALLOWED) == 34  # Includes the bounded local IAM propagation wait.
     review(plan())
     assert not any(a.startswith(('azurerm_', 'google_', 'aws_grafana_', 'aws_ecr_', 'aws_ecs_')) for a in ALLOWED)
 

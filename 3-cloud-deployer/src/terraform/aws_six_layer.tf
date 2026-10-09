@@ -1413,6 +1413,12 @@ resource "aws_iam_role_policy" "aws_six_layer_twinmaker" {
   })
 }
 
+resource "time_sleep" "aws_six_layer_twinmaker_iam" {
+  count           = local.aws_six_layer_l4_enabled ? 1 : 0
+  create_duration = "30s"
+  depends_on      = [aws_iam_role_policy.aws_six_layer_twinmaker]
+}
+
 resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
   count        = local.aws_six_layer_l4_enabled ? 1 : 0
   workspace_id = "${local.aws_six_layer_name}-${local.deployment_suffix}"
@@ -1420,7 +1426,7 @@ resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
   role         = aws_iam_role.aws_six_layer_twinmaker[0].arn
   s3_location  = aws_s3_bucket.aws_six_layer_twinmaker[0].arn
   tags         = local.aws_six_layer_tags
-  depends_on   = [aws_iam_role_policy.aws_six_layer_twinmaker]
+  depends_on   = [time_sleep.aws_six_layer_twinmaker_iam]
 }
 
 # -----------------------------------------------------------------------------

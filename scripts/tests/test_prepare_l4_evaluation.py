@@ -11,7 +11,7 @@ def plan(provider):
                                 for a in EXPECTED[provider]]}
 
 
-@pytest.mark.parametrize('provider,count', [('aws', 6), ('azure', 2)])
+@pytest.mark.parametrize('provider,count', [('aws', 7), ('azure', 2)])
 def test_exact_infrastructure_cut(provider, count):
     assert review(provider, plan(provider)) == count
 
