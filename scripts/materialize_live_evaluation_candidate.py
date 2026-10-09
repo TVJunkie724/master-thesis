@@ -134,7 +134,9 @@ def _source_registry() -> ArchitectureProfileRegistry:
     )
 
 
-def materialize(scenario_id: str) -> dict[str, Any]:
+def materialize(
+    scenario_id: str, *, workload_override: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     """Cost and materialize one exact, admissible planned candidate offline."""
 
     plan = _read(PLAN_PATH)
@@ -148,7 +150,9 @@ def materialize(scenario_id: str) -> dict[str, Any]:
     )
 
     workload_path = ROOT / str(plan["workload_fixture"])
-    workload = _read(workload_path)
+    workload = (
+        _read(workload_path) if workload_override is None else dict(workload_override)
+    )
     registry = _source_registry()
     repository = get_pricing_catalog_repository()
     context = PricingCatalogContext(
@@ -176,7 +180,11 @@ def materialize(scenario_id: str) -> dict[str, Any]:
     }
     result = optimize_six_layer_eventing_v1(
         calculation_run_id=str(
-            uuid5(NAMESPACE_URL, f"twin2multicloud-evaluation:{scenario_id}")
+            uuid5(
+                NAMESPACE_URL,
+                f"twin2multicloud-evaluation:{scenario_id}"
+                + (f":{_digest(workload)}" if workload_override is not None else ""),
+            )
         ),
         architecture_profile={
             "profileId": registry.profile["profile_id"],

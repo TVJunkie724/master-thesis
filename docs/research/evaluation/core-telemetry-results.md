@@ -97,7 +97,7 @@ does not prove their composition through the ordinary application workflow.
 | Normal application deploy/reconnect/composed roundtrip | Native AWS plan passed after explicit auxiliary Azure authentication; 110 managed creates, no Azure resources | Approved PoC authentication dependency; Apply/reconnect/roundtrip not yet observed |
 | Directed command return / cross-cloud L4 / tier transitions | No scoped successful observation | Explicitly unverified, no inferred equivalence |
 | GCP L4/L5 | Deliberately excluded | Scope finding, not a negative service-capability proof |
-| Costs | Dated account/subscription billing and frozen model | No per-run attribution, paired live FiveLayer comparison or causal Event-Layer savings claim |
+| Costs | Dated account/subscription billing and [reproduced frozen model](poc-cost-model-results.md): eight placements, three workload sizes | Conditional modeled ranking/scale sensitivity; no per-run attribution, paired live FiveLayer comparison or causal Event-Layer savings claim |
 
 Detailed revisions, failed attempts and timings remain in the
 [integration record](../../plans/2026-10-04_poc_integration_closeout.md) and

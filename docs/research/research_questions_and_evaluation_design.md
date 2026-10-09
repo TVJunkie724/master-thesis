@@ -737,10 +737,11 @@ The Eventing bridge and provider-local storage-transition job are separate
 evaluated components. Following the 2026-09-16 scope finding, the supervised
 Small planning set contains two complete provider-local baselines (AWS/Azure)
 and six multi-cloud cases, one for every directed AWS/Azure/GCP
-provider pair. The six focus edges jointly exercise the cross-cloud-capable
+provider pair. These complete-profile planning cases select the cross-cloud-capable
 `canonical-domain-event.v1` and `twin_projection.v1` contracts. The
-provider-local paths exercise `storage_transition.v1` and
-`raw_history_query.v1`. L3 hot/cool/archive remain co-located; the bounded
+provider-local paths include `storage_transition.v1` and
+`raw_history_query.v1`. These are planned contracts, not claims that all complete
+profiles or tier transitions passed live. L3 hot/cool/archive remain co-located; the bounded
 reader belongs to L3. L5 is an independent consumer, but remote reader
 authentication is not implemented and remains blocked. This bounded choice avoids
 claiming a cross-cloud migration path that cannot be observed within the
@@ -752,10 +753,12 @@ redundant scenarios. The checked assignments live in
 evidence boundary live in `evaluation/live-evaluation-protocol.md`.
 
 GCP L4/L5 are excluded without custom replacement infrastructure. GCP
-L1–L3/Eventing remain within the study, but the separate core-only deployment
-path and GCP storage run remain pending. This is a scope limitation discovered
+L1–L3/Eventing remain within the study. The separate Core-only evaluation now
+has nine successful telemetry/readback observations, including local GCP and
+all six directed provider pairs; see the
+[consolidated results](evaluation/core-telemetry-results.md). This is a scope limitation discovered
 during RQ1 operationalization, not a change to RQ1–RQ3 or proof of a negative
-functional result. RQ2 must distinguish unimplemented visualization from a
+functional result. RQ2 must distinguish excluded visualization from a
 verified storage query; RQ3 must assign reader charges once to L3 and must not
 interpret the empty graphical-L5 subtotal as a free equivalent service.
 
@@ -763,11 +766,14 @@ The current implementation exposes an authenticated JSON endpoint with the
 same bounded raw-history and hourly-rollup query contract on AWS, Azure, and
 GCP. This supports RQ1 operationalization and RQ2 query comparison, but is not
 a graphical visualization-equivalence result against the original Five-layer
-responsibility. Minimal dashboard restoration is under
-[cost and integration review](evaluation/l5-visualization-feasibility.md), not
-implemented or live-verified. Until resolved, L5 graphical comparability remains
-an explicit gap. RQ3's current reader-only estimates must not be presented as
-dashboard-inclusive costs. General monitoring and a product analytics UI remain
+responsibility. A minimal AWS/Azure HTML/SVG consumer has since been implemented
+in the normal workflow and separately live-verified with exact seeded raw and
+hourly values, unauthorized-access rejection and cleanup. The
+[L5 evidence record](../plans/2026-10-05_minimal_l5_evidence.md) distinguishes that
+cut from simulator-to-L5 and the still separate normal application acceptance.
+The consumer's hosting/invocation costs and L3 query costs have explicit owners;
+neither a JSON endpoint nor the reduced consumer implies Managed Grafana feature
+equivalence. General monitoring and a product analytics UI remain
 outside scope; the historical Five-layer baseline is not changed.
 
 ## Scope Decisions

@@ -34,6 +34,32 @@ def test_unknown_scenario_is_rejected_before_costing() -> None:
         materializer._scenario(plan, "missing-scenario")
 
 
+def test_offline_workload_override_is_digest_bound_without_changing_default() -> None:
+    plan = materializer._read(materializer.PLAN_PATH)
+    small = materializer._read(materializer.ROOT / plan["workload_fixture"])
+    medium = materializer._read(
+        materializer.ROOT / "contracts/six-layer-workload/v1/fixtures/valid/core-medium.json"
+    )
+    default = materializer.materialize("small-local-aws")
+    same = materializer.materialize("small-local-aws", workload_override=small)
+    scaled = materializer.materialize("small-local-aws", workload_override=medium)
+    assert same["cost_evaluation"] == default["cost_evaluation"]
+    assert same["workload_digest"] == default["workload_digest"]
+    assert scaled["workload_digest"] != default["workload_digest"]
+    assert scaled["cost_evaluation"] != default["cost_evaluation"]
+    assert materializer._read(materializer.ROOT / plan["workload_fixture"]) == small
+
+
+def test_offline_override_does_not_bypass_immutable_workload_contract() -> None:
+    from backend.architecture_profiles.diagnostics import ArchitectureResolutionError
+
+    plan = materializer._read(materializer.PLAN_PATH)
+    workload = materializer._read(materializer.ROOT / plan["workload_fixture"])
+    workload["numberOfDevices"] = 101
+    with pytest.raises(ArchitectureResolutionError, match="ARCH_WORKLOAD_INCOMPATIBLE"):
+        materializer.materialize("small-local-aws", workload_override=workload)
+
+
 def test_complete_plan_materializes_as_digest_bound_pack(tmp_path) -> None:
     output_dir = tmp_path / "candidate-pack"
 

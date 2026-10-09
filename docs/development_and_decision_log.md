@@ -1390,3 +1390,21 @@ The independent inventory correctly detected this active residual despite the
 older SDK fallback's empty inventory, so SDK-only emptiness is not sufficient
 evidence. The separately observed inactive IoT deletion marker is not counted
 as an active resource.
+
+### 2026-10-09 — Frozen cost comparison, without widening live scope
+
+The existing candidate materializer now accepts an explicit offline workload
+override, still validated against the immutable Small/Medium/Large contract.
+Seven materializer tests pass, including unchanged default cost, different
+workload digest and rejection of unsupported inputs. A small research summary
+reuses it for eight fixed placements at three sizes: 22 costed results and two
+Large exclusions, never zero-cost substitutes. `--check` reproduces all 24
+records byte-identically. The historical Eventing calculator also reproduces
+its original result digest. No pricing refresh or provider call was performed.
+
+The current model's cheapest Small placement in this bounded set uses GCP
+Eventing with the remaining responsibilities on AWS (20.73% below AWS local);
+AWS local leads at Medium/Large. Full ledgers and assumptions distinguish
+modeled monthly projections from bills, causal Eventing claims and live capacity.
+The thesis evaluation/discussion now includes the actual nine Core observations,
+separate higher-layer cuts and this model comparison. RQs are unchanged.
