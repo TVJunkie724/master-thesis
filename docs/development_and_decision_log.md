@@ -1329,3 +1329,14 @@ Resource SDK namespace and negative-authentication checks before live execution.
 The previous five AWS command deletion markers also disappeared: a new read-only
 reconciliation found zero active resources and zero markers without repeating
 functional runs. Original results were not overwritten.
+
+### 2026-10-09 — Remove optimizer-config redirect from application read path
+
+The representative application check reached the dashboard but the embedded
+browser stopped loading the Twin after the authenticated optimizer-config GET
+returned HTTP 307. Management now serves the existing slashless client URL
+directly, with the same owner-scoped handler and response model as the canonical
+trailing-slash route. OpenAPI and Flutter layout remain unchanged. Fourteen
+focused route/contract tests pass; the release web application now reaches
+the ready-to-deploy lifecycle screen. This is a local integration correction,
+not cloud deployment or functional runtime evidence.

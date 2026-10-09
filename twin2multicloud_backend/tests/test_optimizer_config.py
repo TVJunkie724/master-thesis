@@ -4,6 +4,16 @@ from tests.conftest import create_test_twin
 
 
 class TestOptimizerConfigRoutes:
+    def test_slashless_read_does_not_redirect(self, authenticated_client):
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        path = f"/twins/{twin_id}/optimizer-config"
+        direct = client.get(path, headers=headers, follow_redirects=False)
+        canonical = client.get(path + "/", headers=headers, follow_redirects=False)
+        assert direct.status_code == canonical.status_code == 200
+        assert direct.json() == canonical.json()
+        assert "location" not in direct.headers
+
     def test_get_optimizer_config_default(self, authenticated_client):
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
