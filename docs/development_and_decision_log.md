@@ -1408,3 +1408,44 @@ AWS local leads at Medium/Large. Full ledgers and assumptions distinguish
 modeled monthly projections from bills, causal Eventing claims and live capacity.
 The thesis evaluation/discussion now includes the actual nine Core observations,
 separate higher-layer cuts and this model comparison. RQs are unchanged.
+
+### 2026-10-09 — Normal AWS application observation and bounded closeout
+
+The ordinary release UI → Management → Deployer path completed one AWS Small
+deployment at runtime revision `cd4e7b39` in 270.536770 seconds. Reconnection kept
+the same operation and exactly one Deploy. The actual downloaded simulator and
+its generated identity delivered a correlated command and exact persisted L3
+raw/hourly values, an ACTIVE TwinMaker projection and matching graphical L5
+content. The first assertion lacked the existing projection marker and remains
+failed; the marked second sample passed within the same deployment. No seeded
+storage, direct L4 write or substitute command injection supplied this result.
+The shared-root auxiliary Azure authentication remains the approved PoC
+simplification, not a root redesign or an Azure resource deployment.
+
+The UI fetched real L5 HTML with HTTP 200. Because the embedded browser did not
+expose the separate blob popup, visual evidence renders an unchanged saved copy
+of that response. Popup behavior is therefore not independently qualified.
+Normal logs preserve 110 creation-completion observations and phase boundaries;
+these are not per-service API benchmarks. Five earlier failed Deploy attempts
+remain part of the evidence and acquisition-cost boundary.
+
+The journaled simulator certificate/policy/Thing required supplementary bounded
+research cleanup. Normal Destroy first failed its state gate (157.246469 s),
+then reconciled absent resources and succeeded (30.976129 s). Final independent
+inventories found zero active resources in both namespaces (24 and 23 categories),
+with one inactive IoT pending-deletion marker each. The original failed namespace
+retains a marker-related Terraform entry: neither marker-free cleanup nor a
+complete ordinary SDK identity-cleanup catalog is claimed.
+
+The [application result](research/evaluation/application-closeout-results.md)
+records metrics, limitations and delayed AWS/Azure month-to-date billing totals.
+Current GCP billing remained unavailable; an older amount is not substituted.
+No further cloud run was started for documentation or browser polishing.
+
+Final verification passed: the frozen live-plan validator, 24 byte-identical
+offline model records, strict MkDocs build, and the 41-page multi-file thesis
+build with visual inspection of changed results/conclusion pages. No unresolved
+references or overfull boxes were reported. Existing template warnings, including
+the draft's empty bibliography, remain: a successful build is not submission
+readiness. The changed-file secret check found no local credential values or
+private evidence paths among files being committed.

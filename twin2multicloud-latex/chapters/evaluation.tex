@@ -170,10 +170,40 @@ RQ1, not changes to the logical architecture. Separate regression tests and
 commits preserve the corrections; their local success does not itself establish
 a live application pass.
 
-The complete application result remains a separate acceptance item until its
-deployment, reconnect, correlated simulator assertions, graphical access, and
-cleanup are all observed. This boundary prevents a set of passing component
-tests from being reported as a successful composed workflow.
+One normal AWS application deployment subsequently succeeded at runtime revision
+\texttt{cd4e7b39} in 270.536770 seconds, including image foundation/publication
+and SDK postapply. The UI reconnect retained the same single operation. The
+downloaded simulator first delivered value 42 and a correlated command in
+30.394552 seconds, but its L4 assertion failed because the test input omitted
+the contract's explicit projection-candidate marker. That observation remains
+failed for the combined assertion, not rewritten as success.
+
+A second marked sample in the same deployment passed exact L3 raw/hourly
+readback, deployed Event-to-L4 value/sequence/timestamp, and both graphical L5
+panels; its command receipt took 2.389944 seconds and combined verification
+9.381697 seconds. No seeded record or direct Twin update supplied this result.
+The normal L5 action fetched HTTP 200; browser automation did not expose its
+separate blob popup, so visual inspection rendered an unchanged saved copy of
+the returned HTML. Universal popup behavior is not claimed.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.68\textwidth]{application-l5-2026-10-09.jpg}
+\caption{Actual L5 snapshot: two simulator raw points and their hourly average,
+both with value 42. Rendering uses the unchanged authenticated HTML response.}
+\label{fig:application-l5}
+\end{figure}
+
+Journaled cleanup removed the exact SDK-owned simulator certificate, policy and
+Thing before normal Destroy. The first strict Destroy failed after fallback
+(157.246469 seconds); a second reconciled stale state and succeeded
+(30.976129 seconds). Independent scans found zero active residuals in both the
+successful and earlier failed namespaces, with one inactive IoT marker in each.
+The old namespace retains its tombstone-related state entry. The application
+record retains five earlier failed Deploy attempts and 110 creation-completion
+observations for the successful run. This is a scoped composed observation with
+explicit cleanup and UI conditions, not nine complete-profile passes.
+\footnote{\texttt{docs/research/evaluation/application-closeout-results.md}.}
 
 \section{Threats to Validity}
 \label{sec:eval-validity}

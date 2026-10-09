@@ -82,7 +82,7 @@ inventory. Its synthetic local-adapter projection is not Event-to-L4 delivery.
 Subsequent separately scoped observations are summarized below.
 Research questions remain unchanged; GCP L4/L5 stay excluded without replacement.
 
-## Consolidated claim coverage — 2026-10-08
+## Consolidated claim coverage — 2026-10-09
 
 This checkpoint combines observations, not deployments. Passing adjacent cuts
 does not prove their composition through the ordinary application workflow.
@@ -93,8 +93,8 @@ does not prove their composition through the ordinary application workflow.
 | Local command return + exact L3 | AWS attempt 05 (`f505bb69`), Azure 08 (`c806f134`), GCP 02 (`13fbdb99`) | One correlated receipt per provider; 13.646645 / 38.264408 / 28.965664 s, not a distribution |
 | Event→L4 | AWS 03 (`86d46701`), Azure 04 (`974e96b5`) | Actual deployed consumers and authenticated state readback; local edges only |
 | Graphical L3→L5 | AWS/Azure 03 (`1d82debe`; Azure runner `f6b426bb`) | Three exact seeded raw and hourly points, two panels, unauthorized access rejected; not simulator→L5 |
-| Normal L5 application implementation | `49fa9fc0`; offline contracts, API, UI, native mock plans and builds | Implemented and offline-tested, not a live application pass |
-| Normal application deploy/reconnect/composed roundtrip | Native AWS plan passed after explicit auxiliary Azure authentication; 110 managed creates, no Azure resources | Approved PoC authentication dependency; Apply/reconnect/roundtrip not yet observed |
+| Normal L5 application implementation | `49fa9fc0`; offline contracts, API, UI, native mock plans and builds; later AWS run below | AWS/Azure implemented; complete normal Azure run not claimed |
+| Normal application deploy/reconnect/composed roundtrip | [AWS application observation](application-closeout-results.md), runtime `cd4e7b39` | Actual UI start, one operation across reconnect, downloaded simulator/command/L3/Event→L4/L5 pass; supplementary identity cleanup and Destroy retry; popup rendered from unchanged returned HTML, not captured as an independent popup |
 | Directed command return / cross-cloud L4 / tier transitions | No scoped successful observation | Explicitly unverified, no inferred equivalence |
 | GCP L4/L5 | Deliberately excluded | Scope finding, not a negative service-capability proof |
 | Costs | Dated account/subscription billing and [reproduced frozen model](poc-cost-model-results.md): eight placements, three workload sizes | Conditional modeled ranking/scale sensitivity; no per-run attribution, paired live FiveLayer comparison or causal Event-Layer savings claim |
@@ -108,7 +108,8 @@ deletion markers are not active resources; their later expiry has not been
 rechecked here. None of these historical checks is a current global inventory.
 
 RQ1 is supported by actual supervised provisioning and lifecycle observations,
-but the complete normal application path remains open. RQ2 supports the named
+including one normal AWS composed functional path with its stated UI/cleanup
+conditions. RQ2 supports the named
 contracts under their conditions, not product-level service equivalence.
 RQ3 requires separating modeled monthly allocations, account billing and the
 cost of failed attempts. Successful cuts alone cannot isolate the Event Layer's

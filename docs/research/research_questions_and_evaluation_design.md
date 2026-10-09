@@ -10,8 +10,10 @@ The question set was accepted as the working direction during the architecture
 discussion on 2026-07-17. The implementation scope and bounded evaluation
 scenarios are now frozen, and Phase 8.10 evidence maps to the questions. The
 LaTeX introduction, architecture, evaluation, discussion, and conclusion now
-use this framing. Supervisor review and empirical completion from the
-supervised live evidence remain pending.
+use this framing. The bounded live observations now include nine Core cases,
+separate higher-layer cuts and one normal AWS application observation. Supervisor
+review, delayed billing reconciliation and the explicitly recorded coverage
+limitations remain; these observations do not establish all-profile equivalence.
 
 This note is deliberately separate from the published user and developer
 documentation. Product documentation explains the implemented system. This
@@ -770,7 +772,12 @@ responsibility. A minimal AWS/Azure HTML/SVG consumer has since been implemented
 in the normal workflow and separately live-verified with exact seeded raw and
 hourly values, unauthorized-access rejection and cleanup. The
 [L5 evidence record](../plans/2026-10-05_minimal_l5_evidence.md) distinguishes that
-cut from simulator-to-L5 and the still separate normal application acceptance.
+cut from simulator-to-L5. The subsequent
+[normal AWS application observation](evaluation/application-closeout-results.md)
+verifies downloaded-simulator telemetry, command receipt, exact L3/L4 values and
+returned graphical L5 content in one deployment, with the recorded browser-popup
+and supplementary identity-cleanup limitations. It is not an Azure application
+acceptance result or nine complete-profile passes.
 The consumer's hosting/invocation costs and L3 query costs have explicit owners;
 neither a JSON endpoint nor the reduced consumer implies Managed Grafana feature
 equivalence. General monitoring and a product analytics UI remain

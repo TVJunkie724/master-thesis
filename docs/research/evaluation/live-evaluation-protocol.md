@@ -1,6 +1,15 @@
 # Supervised Six-layer live evaluation
 
-Status (2026-10-04): all three provider-local and all six directed Core telemetry
+Current checkpoint (2026-10-09): the [application observation](application-closeout-results.md)
+adds one actual AWS normal deployment, reconnect and downloaded-simulator
+command/L3/Event→L4/L5 assertion to the previously separated cuts. Its two sample
+conditions, popup-observation limitation, supplementary journaled identity cleanup,
+Destroy retry and inactive markers remain explicit. The
+[frozen model comparison](poc-cost-model-results.md) is offline evidence, not bills
+or Medium/Large live qualification. The JSON matrix remains a frozen planning
+input; no complete-profile matrix-wide pass is inferred.
+
+Historical status (2026-10-04): all three provider-local and all six directed Core telemetry
 cases have passed live. Bounded account preparation and all six standalone
 federation probes are also verified. Current Azure runs use the approved
 one-administrator contract.
@@ -57,7 +66,7 @@ are absent, not merely checked later inside a complete Apply.
 Research questions remain unchanged; this is an implementation finding and a
 limit on the available functional comparison, not a measured negative result.
 
-**Integration checkpoint (2026-10-08):** the isolated AWS/Azure graphical L5
+**Historical integration checkpoint (2026-10-08):** the isolated AWS/Azure graphical L5
 experiment passed on 2026-10-05. Its provider-local Lambda/Flex consumers are
 now wired into the normal Terraform graph, with separate L5 cost terms and
 owner-scoped Management HTML access. Empty panels prove readiness, not data

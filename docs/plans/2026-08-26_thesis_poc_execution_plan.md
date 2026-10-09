@@ -2,15 +2,16 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-06"
-version: "2.0"
+lastUpdated: "2026-10-09"
+version: "2.1"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
 Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
-and minimal L5 observations passed. Regular L5 integration, one representative
-application workflow and thesis analysis remain open; see the completion plan below.
+and minimal L5 observations passed. Regular L5 integration and one representative
+AWS application functional observation are complete; model/results chapters are
+updated. Remaining measurement/UI limits are explicit, not further live scope.
 
 ## 1. Purpose
 
@@ -33,7 +34,39 @@ and the
 
 ## Current phase status
 
-Current checkpoint (reconciled 2026-10-06, observations through 2026-10-05): all three local and six directed Core telemetry
+**Completion checkpoint — 2026-10-09:**
+
+1. Normal AWS/Azure minimal L5 integration is implemented and offline-verified.
+2. One AWS application deployment (`cd4e7b39`) passed the real downloaded
+   simulator/command, exact L3 raw/hourly, Event→L4 and L5 content assertions.
+   Reconnect retained one operation. UI access fetched HTTP 200; its separate
+   blob popup was not exposed to browser automation, so the unchanged returned
+   HTML was rendered independently. The [application record](../research/evaluation/application-closeout-results.md)
+   retains that limit, five earlier failed Deploy attempts and all timings.
+   Journaled simulator identity cleanup preceded normal Destroy. Its first
+   strict cleanup failed after fallback; a second normal Destroy succeeded.
+   Final independent checks found zero active resources in the successful
+   namespace (24 categories, including certificate) and original namespace
+   (23 categories). Each still has one inactive IoT deletion marker; the old
+   failed namespace also retains its tombstone-related Terraform entry. This
+   is zero-active-resource cleanup, not a tombstone-free global all-clear.
+3. [Frozen cost comparisons](../research/evaluation/poc-cost-model-results.md)
+   reproduce 24 placement/scale records (22 priced, two excluded). RQ conclusions
+   distinguish modeled allocation, real functional evidence and delayed bills.
+   AWS/Azure month-to-date totals were read; current GCP reconciliation and
+   per-run billing attribution remain unavailable, not assumed zero.
+4. Results, architecture, discussion and conclusion are updated without changing
+   RQs. Strict docs and the multi-file thesis build pass; changed result pages
+   are visually inspected. Intermediate commits retain implementation defects
+   and corrections. No product expansion or automatic nine-case rerun follows.
+
+The eight-case JSON remains the frozen **planning input**, not an execution
+ledger. The result records distinguish this single application observation from
+the unexecuted complete-profile permutations. Directed commands, cross-cloud
+L4, tier transitions, universal popup behavior and billing attribution remain
+disclosed limitations; no unsupported thesis claim depends on their completion.
+
+Historical checkpoint (reconciled 2026-10-06, observations through 2026-10-05): all three local and six directed Core telemetry
 cases passed their ten-message assertion. The [compact Core results](../research/evaluation/core-telemetry-results.md)
 consolidate successful phase timings, measurement gaps, dated zero-active-resource
 inventories and inactive provider deletion markers. Actual billed attribution
