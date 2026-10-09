@@ -1363,3 +1363,13 @@ context graph first. Twenty lifecycle/preflight tests pass, including both entry
 points. Credential validation is not bypassed. After cleanup of a never-deployed
 Twin, the existing configure/preflight transition is required before another
 Deploy; the current destroyed-screen redeploy wording does not express this.
+
+The first real image-foundation Apply then exposed premature indexing of the
+new L5 output before its resources exist. AWS/Azure L5 outputs now return null
+during that intermediate stage; the later complete Apply remains responsible
+for creating and publishing the consumer. The credential-free Terraform suite
+passes all 26 native checks, including a provider-mocked foundation Apply and
+teardown regression (seven Python tests). The live failed foundation was
+destroyed, and an independent 23-category namespace inventory found zero
+active resources and zero deletion markers. AWS TwinMaker pricing mode was
+also read-only verified as STANDARD before the next attempt.

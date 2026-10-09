@@ -1665,7 +1665,8 @@ output "aws_component_storage_read_access_output" {
 
 output "aws_component_visualization_output" {
   description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
-  value = local.aws_six_layer_l5_enabled ? {
+  # The image-foundation target stage has not created L5 yet.
+  value = local.aws_six_layer_l5_enabled ? try({
     access_url           = aws_lambda_function_url.aws_six_layer_visualization[0].function_url
     reader_function_name = aws_lambda_function.aws_six_layer_visualization[0].function_name
     principal_label      = data.aws_caller_identity.current[0].arn
@@ -1677,5 +1678,5 @@ output "aws_component_visualization_output" {
       content_revision    = "graphical-l5.v1"
       data_probe_revision = "graphical-l5-readiness.v1"
     }
-  } : null
+  }, null) : null
 }

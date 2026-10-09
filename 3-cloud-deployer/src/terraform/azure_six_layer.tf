@@ -1519,7 +1519,8 @@ output "azure_component_storage_read_access_output" {
 
 output "azure_component_visualization_output" {
   description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
-  value = local.azure_six_layer_l5_enabled ? {
+  # The image-foundation target stage has not created L5 yet.
+  value = local.azure_six_layer_l5_enabled ? try({
     access_url           = "https://${azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].default_hostname}/api/visualization/v1"
     reader_function_name = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].name
     principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
@@ -1531,6 +1532,6 @@ output "azure_component_visualization_output" {
       content_revision    = "graphical-l5.v1"
       data_probe_revision = "graphical-l5-readiness.v1"
     }
-  } : null
+  }, null) : null
   depends_on = [module.azure_six_layer_visualization_package]
 }
