@@ -83,6 +83,25 @@ def _context():
     return SimpleNamespace(operation_id="op-test-terraform-lifecycle")
 
 
+@pytest.mark.parametrize('streaming', [False, True])
+def test_graph_is_available_before_credential_validation(tmp_path, streaming):
+    strategy = _strategy(tmp_path, [])
+    context = _context()
+    context.resolved_deployment_graph = object()
+    def validate():
+        assert strategy._resolved_deployment_graph is context.resolved_deployment_graph
+        raise RuntimeError('validation reached with graph')
+    strategy._validate_credentials = validate
+    async def consume():
+        async for _ in strategy.deploy_all_async(context):
+            pass
+    with pytest.raises(RuntimeError, match='validation reached with graph'):
+        if streaming:
+            asyncio.run(consume())
+        else:
+            strategy.deploy_all(context)
+
+
 def test_sync_deployment_records_packages_after_apply_before_post_deployment(tmp_path):
     events = []
     strategy = _strategy(tmp_path, events)

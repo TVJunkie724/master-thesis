@@ -1355,3 +1355,11 @@ The runner now passes the isolated state file positionally, as required by
 `show`, while keeping other commands' state flags unchanged. Twenty focused
 runner/destruction tests pass (with the application's normal `src.core` import
 order); direct isolated collection exposes a pre-existing circular import.
+
+The next credential check exposed an initialization-order defect: the resolved
+graph was attached only after credential validation, although that validation
+requires it. Both synchronous and streaming lifecycles now attach the existing
+context graph first. Twenty lifecycle/preflight tests pass, including both entry
+points. Credential validation is not bypassed. After cleanup of a never-deployed
+Twin, the existing configure/preflight transition is required before another
+Deploy; the current destroyed-screen redeploy wording does not express this.
