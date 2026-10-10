@@ -24,7 +24,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final resolved = resolvedArchitectureFixture();
+      final currency = width == 640 ? 'EUR' : 'USD';
+      final resolved = resolvedArchitectureFixture(currency: currency);
       final bloc = WizardBloc(
         api: _Api(),
         initialState: architectureReadyWizardState().copyWith(
@@ -51,7 +52,7 @@ void main() {
       expect(find.byType(CheapestPathVisualization), findsNothing);
       expect(find.byType(LayerCostCard), findsNothing);
       expect(find.text('Independent Event Layer'), findsOneWidget);
-      expect(find.text('145.69038186 USD / month'), findsOneWidget);
+      expect(find.text('145.69038186 $currency / month'), findsOneWidget);
       expect(find.textContaining('not a cloud bill'), findsOneWidget);
       expect(find.text('Functionally complete'), findsNothing);
       expect(tester.takeException(), isNull);

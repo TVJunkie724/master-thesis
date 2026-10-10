@@ -518,6 +518,15 @@ class TwinOverviewView extends ConsumerWidget {
       context: context,
       builder: (_) => DeployTwinConfirmationDialog(
         resourceName: state.cloudResourceName ?? state.projectName,
+        connections: [
+          for (final provider
+              in state.deploymentReadiness.snapshot?.providers ?? const [])
+            '${provider.provider.label}: ${provider.connectionDisplayName ?? 'No named connection'}',
+        ],
+        monthlyEstimate:
+            state.optimizerConfig?.optimization?.resolvedArchitecture == null
+            ? null
+            : '${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.monthlyTotal} ${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.currency}',
       ),
     );
     if (confirmed == true && context.mounted) {

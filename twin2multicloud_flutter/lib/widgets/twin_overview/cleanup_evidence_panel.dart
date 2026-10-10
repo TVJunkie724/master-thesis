@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/cleanup_evidence.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 /// Presents persisted post-Destroy evidence without inferring missing proof.
 class CleanupEvidencePanel extends StatelessWidget {
@@ -50,6 +51,8 @@ class CleanupEvidencePanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
+              const Text(TwinOverviewStrings.cleanupScope),
+              const SizedBox(height: AppSpacing.sm),
               if (errorMessage != null)
                 _Notice(
                   icon: Icons.error_outline,

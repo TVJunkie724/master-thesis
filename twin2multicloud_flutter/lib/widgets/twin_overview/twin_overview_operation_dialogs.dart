@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 class DeployTwinConfirmationDialog extends StatelessWidget {
   final String resourceName;
+  final List<String> connections;
+  final String? monthlyEstimate;
 
-  const DeployTwinConfirmationDialog({super.key, required this.resourceName});
+  const DeployTwinConfirmationDialog({
+    super.key,
+    required this.resourceName,
+    this.connections = const [],
+    this.monthlyEstimate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,26 +27,32 @@ class DeployTwinConfirmationDialog extends StatelessWidget {
           const Expanded(child: Text('Deploy to Cloud?')),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('This will provision cloud resources for:'),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            resourceName,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This will provision cloud resources for:'),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              resourceName,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'Estimated time: 5-15 minutes',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
+            const SizedBox(height: AppSpacing.md),
+            for (final connection in connections) Text(connection),
+            if (monthlyEstimate != null)
+              Text('Modeled monthly estimate: $monthlyEstimate'),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              TwinOverviewStrings.deployCostWarning,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(

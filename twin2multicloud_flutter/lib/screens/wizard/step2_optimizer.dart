@@ -260,7 +260,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   String _taskTitle(ConfigurationTaskId? taskId) => switch (taskId) {
     ConfigurationTaskId.scenarioAndCurrency => 'Scenario and currency',
     ConfigurationTaskId.deviceTraffic => 'Device traffic',
-    ConfigurationTaskId.processing => 'Processing',
+    ConfigurationTaskId.processing => 'Processing and Eventing',
     ConfigurationTaskId.retention => 'Retention',
     ConfigurationTaskId.twinCapabilities => 'Twin capabilities',
     _ => 'Calculation inputs',
@@ -273,14 +273,14 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     ConfigurationTaskId.scenarioAndCurrency =>
       'Start from a representative scenario and choose the reporting currency.',
     ConfigurationTaskId.deviceTraffic =>
-      'Describe connected devices and the telemetry volume they produce.',
+      'Review the fixed device count and telemetry volume for this scenario.',
     ConfigurationTaskId.processing =>
-      'Describe event evaluation, orchestration, and device feedback.',
+      'Review processing and the independent Event Layer contract, including device feedback.',
     ConfigurationTaskId.retention =>
-      'Define how long telemetry remains in each storage tier.',
+      'Review the fixed retention periods for each storage tier.',
     ConfigurationTaskId.twinCapabilities =>
       usesPhase8Profile
-          ? 'Review the frozen twin-state and dashboard activity.'
+          ? 'Review the frozen twin-state and L5 read workload; these are model inputs, not automatic browser polling.'
           : 'Describe 3D representation and dashboard usage requirements.',
     _ =>
       'Configure your digital twin workload parameters to calculate optimized costs.',

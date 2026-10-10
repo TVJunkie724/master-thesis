@@ -354,7 +354,7 @@ class ConfigurationJourney {
       for (final entry in const {
         ConfigurationTaskId.scenarioAndCurrency: 'Scenario and currency',
         ConfigurationTaskId.deviceTraffic: 'Device traffic',
-        ConfigurationTaskId.processing: 'Processing',
+        ConfigurationTaskId.processing: 'Processing and Eventing',
         ConfigurationTaskId.retention: 'Retention',
         ConfigurationTaskId.twinCapabilities: 'Twin capabilities',
       }.entries)

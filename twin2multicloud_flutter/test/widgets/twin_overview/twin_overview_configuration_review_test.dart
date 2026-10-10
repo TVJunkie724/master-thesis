@@ -4,10 +4,12 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.d
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
+import 'package:twin2multicloud_flutter/widgets/results/logical_resolved_flow.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_code_artifact.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_configuration_review.dart';
 
 import '../../fixtures/typed_api_fixtures.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   Widget buildWidget({
@@ -29,6 +31,27 @@ void main() {
   }
 
   group('TwinOverviewConfigurationReview', () {
+    testWidgets('native overview retains graph and immutable currency', (
+      tester,
+    ) async {
+      final legacy = TypedApiFixtures.optimization(totalCost: 42.5);
+      final native = OptimizationResultData(
+        result: legacy.result,
+        payload: legacy.payload,
+        resolvedArchitecture: resolvedArchitectureFixture(
+          currency: 'EUR',
+        ).architecture,
+      );
+      await tester.pumpWidget(buildWidget(state: _state(result: native)));
+      expect(find.byType(LogicalResolvedFlow), findsOneWidget);
+      expect(find.textContaining('42.50 EUR/month'), findsOneWidget);
+      expect(
+        find.textContaining('Historical compatibility path'),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('renders optimization summary and architecture', (
       tester,
     ) async {
@@ -146,6 +169,7 @@ TwinOverviewLoaded _state({
     l4: CloudProvider.aws,
   ),
   bool includePricingCatalogContext = true,
+  OptimizationResultData? result,
 }) {
   final params = CalcParams.fromJson({
     ...CalcParams.defaultParams().toJson(),
@@ -155,10 +179,12 @@ TwinOverviewLoaded _state({
     'coolStorageDurationInMonths': 2,
     'archiveStorageDurationInMonths': 3,
   });
-  final optimization = TypedApiFixtures.optimization(
-    totalCost: 42.5,
-    cheapestPath: const ['L1_AWS', 'L2_Azure', 'L4_GCP'],
-  );
+  final optimization =
+      result ??
+      TypedApiFixtures.optimization(
+        totalCost: 42.5,
+        cheapestPath: const ['L1_AWS', 'L2_Azure', 'L4_GCP'],
+      );
   final persistedOptimization = includePricingCatalogContext
       ? optimization
       : OptimizationResultData.fromPayload(

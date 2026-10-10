@@ -24,7 +24,7 @@ void main() {
           'Define Twin',
           'Scenario and currency',
           'Device traffic',
-          'Processing',
+          'Processing and Eventing',
           'Retention',
           'Twin capabilities',
           'User logic',

@@ -4,6 +4,7 @@ import '../../../../bloc/wizard/wizard.dart';
 import '../../../../theme/spacing.dart';
 import '../../../../widgets/architecture_layer_builder.dart';
 import '../../../../widgets/file_inputs/collapsible_section.dart';
+import '../../../../widgets/results/logical_resolved_flow.dart';
 import '../../domain/configuration_journey.dart';
 import 'deployment_config_section.dart';
 import 'deployment_contracts.dart';
@@ -148,6 +149,7 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final showFlowchart =
+            !state.usesSixLayerProfile &&
             constraints.maxWidth >= DeploymentTaskContent.flowchartBreakpoint;
         return SingleChildScrollView(
           key: const ValueKey('deployment-task-all'),
@@ -155,6 +157,11 @@ class _LayerAlignedDeploymentTask extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (state.usesSixLayerProfile &&
+                  state.resolvedArchitecture != null)
+                LogicalResolvedFlow(
+                  architecture: state.resolvedArchitecture!.architecture,
+                ),
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(

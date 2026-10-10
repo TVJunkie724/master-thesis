@@ -7,6 +7,7 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.d
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/layer_access_panel.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_strings.dart';
 
 void main() {
   testWidgets('renders exactly one ready L4 and L5 card with enabled Open', (
@@ -23,6 +24,7 @@ void main() {
     expect(find.byKey(const Key('layer-access-card-l5')), findsOneWidget);
     expect(find.text('Azure Digital Twins Explorer'), findsOneWidget);
     expect(find.text('AWS Raw-history Reader'), findsOneWidget);
+    expect(find.text(TwinOverviewStrings.snapshotScope), findsOneWidget);
     expect(_filledButton(tester, 'open-layer-l4').onPressed, isNotNull);
     expect(_filledButton(tester, 'open-layer-l5').onPressed, isNotNull);
 

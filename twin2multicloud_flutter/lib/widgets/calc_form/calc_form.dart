@@ -116,7 +116,7 @@ class _CalcFormState extends State<CalcForm> {
               'Frozen thesis scenario',
               icon: Icons.science_outlined,
               description:
-                  'Choose one reproducible Small, Medium, or Large workload.',
+                  'Choose a frozen workload. Live evidence covers bounded Small runs; Medium and Large are offline model comparisons.',
             ),
             _buildSixLayerScenarioCards(),
             const SizedBox(height: AppSpacing.md),
@@ -151,17 +151,14 @@ class _CalcFormState extends State<CalcForm> {
             ]),
           ]),
           _section(CalcFormSection.twinCapabilities, [
-            _buildV2ReadOnlyCard('Twin and dashboard activity', [
+            _buildV2ReadOnlyCard('Twin state and modeled L5 reads', [
               ('Twin entities', '${params.entityCount}'),
               (
                 'State materializations',
                 '${params.twinStateMaterializationsPerSecond}/second',
               ),
               ('Graph updates', '${params.twinGraphUpdatesPerSecond}/second'),
-              (
-                'Aggregate refreshes',
-                '${params.dashboardRefreshesPerHour}/hour',
-              ),
+              ('Modeled L5 reads', '${params.dashboardRefreshesPerHour}/hour'),
               ('Monthly editors', '${params.amountOfActiveEditors}'),
               ('Monthly viewers', '${params.amountOfActiveViewers}'),
             ]),

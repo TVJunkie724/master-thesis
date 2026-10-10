@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 class TestingUtilitiesPanel extends StatelessWidget {
   final String provider;
@@ -45,7 +46,7 @@ class TestingUtilitiesPanel extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Validate telemetry flow or run the standalone device simulator.',
+              TwinOverviewStrings.simulatorScope,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

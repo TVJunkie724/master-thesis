@@ -2,8 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_operation_dialogs.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_strings.dart';
 
 void main() {
+  testWidgets('deploy confirmation shows bindings and labeled model estimate', (
+    tester,
+  ) async {
+    final triggerFocus = FocusNode();
+    addTearDown(triggerFocus.dispose);
+    bool? result;
+    await tester.pumpWidget(
+      _DialogHost(
+        triggerFocus: triggerFocus,
+        dialog: const DeployTwinConfirmationDialog(
+          resourceName: 'poc-twin',
+          connections: [
+            'AWS: thesis connection',
+            'Azure: auxiliary connection',
+          ],
+          monthlyEstimate: '4.20 EUR/month',
+        ),
+        onResult: (value) => result = value,
+      ),
+    );
+    await tester.tap(find.text('Open confirmation'));
+    await tester.pumpAndSettle();
+    expect(find.text('AWS: thesis connection'), findsOneWidget);
+    expect(find.text('Azure: auxiliary connection'), findsOneWidget);
+    expect(
+      find.text('Modeled monthly estimate: 4.20 EUR/month'),
+      findsOneWidget,
+    );
+    expect(find.text(TwinOverviewStrings.deployCostWarning), findsOneWidget);
+    expect(result, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(result, isFalse);
+  });
+
   testWidgets('destroy confirmation requires acknowledgement before Enter', (
     tester,
   ) async {

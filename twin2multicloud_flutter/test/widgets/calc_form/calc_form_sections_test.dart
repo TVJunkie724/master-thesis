@@ -250,7 +250,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Twin and dashboard activity'), findsOneWidget);
+    expect(find.text('Twin state and modeled L5 reads'), findsOneWidget);
     expect(find.text('Twin entities'), findsOneWidget);
     expect(find.textContaining('3D representation'), findsNothing);
     expect(find.text('Is a 3D Model Necessary?'), findsNothing);

@@ -4,6 +4,7 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../models/deployment_access.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 class LayerAccessPanel extends StatelessWidget {
   final LayerAccessViewState state;
@@ -214,6 +215,10 @@ class LayerAccessCard extends StatelessWidget {
                 surface.capabilities.join(' '),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              if (surface.serviceId.endsWith('_l5_visualization')) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const Text(TwinOverviewStrings.snapshotScope),
+              ],
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '${_principalLabel(surface.auth.mode)}: ${surface.auth.principalLabel}',

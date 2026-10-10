@@ -219,7 +219,7 @@ class DeploymentLayerOverview extends StatelessWidget {
         if (selectable)
           CollapsibleBlockWrapper(
             title: 'config_user.json',
-            subtitle: 'L4/L5 browser access identity',
+            subtitle: 'Graph-required access identity',
             icon: Icons.dashboard,
             isValid: state.userConfigValidated ? true : null,
             showEditBadge: true,
@@ -228,7 +228,8 @@ class DeploymentLayerOverview extends StatelessWidget {
             child: FileEditorBlock(
               showHeader: false,
               filename: 'config_user.json',
-              description: 'Read-only Twin and dashboard access configuration',
+              description:
+                  'Provider-owned Twin access identity; the minimal L5 snapshot uses Management authentication.',
               icon: Icons.dashboard,
               isHighlighted: true,
               constraints:

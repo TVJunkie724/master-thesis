@@ -48,4 +48,16 @@ abstract final class TwinOverviewStrings {
       'Run provider preflight and resolve any preparation findings.';
   static const configureNext =
       'Complete the experiment configuration before deployment.';
+  static const infrastructureScope =
+      'Read-only inspection of deployed resources. This does not prove telemetry, command delivery or L4/L5 data; duration and provider API charges vary.';
+  static const telemetryScope =
+      'Send one telemetry sample and inspect the returned verification checkpoints. This is not automatically a full command/L4/L5 test; provider requests may incur charges.';
+  static const simulatorScope =
+      'Use the downloaded simulator for device telemetry and command receipt. L4 projection requires projection_candidate: true in the sample. Verify exact L3/L4 values and L5 timestamps separately.';
+  static const cleanupScope =
+      'Recorded cleanup covers the reported Terraform/provider checks, not a global account inventory. Inactive deletion markers and supplementary research checks are not classified by this read model.';
+  static const snapshotScope =
+      'Open fetches one authenticated Raw/Hourly snapshot through Management. It does not require a Grafana login, poll continuously, or mark data as verified. Allow a new browser window if blocked.';
+  static const deployCostWarning =
+      'This creates billable cloud resources. The monthly model estimate is not this run’s bill or a spending cap. Verify promptly, then Destroy and inspect cleanup evidence.';
 }
