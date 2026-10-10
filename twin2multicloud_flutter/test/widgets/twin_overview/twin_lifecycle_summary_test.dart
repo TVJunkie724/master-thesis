@@ -98,7 +98,7 @@ void main() {
     );
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
-    expect(find.text('Destroy cloud resources before editing'), findsOneWidget);
+    expect(find.textContaining('Busy or immutable Twin.'), findsOneWidget);
     expect(
       find.text('Destroy cloud resources before deleting'),
       findsOneWidget,

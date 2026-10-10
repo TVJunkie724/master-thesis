@@ -198,10 +198,11 @@ void main() {
     );
 
     expect(find.byType(CleanupEvidencePanel), findsOneWidget);
-    expect(find.byType(DeploymentOperationsPanel), findsOneWidget);
+    expect(find.byType(DeploymentOperationsPanel), findsNothing);
+    expect(find.text('Prepare the next run'), findsNothing);
     expect(
-      tester.getTopLeft(find.text('Destroy and cleanup')).dy,
-      lessThan(tester.getTopLeft(find.text('Prepare the next run')).dy),
+      find.textContaining('reopen configuration and preflight'),
+      findsOneWidget,
     );
   });
 }

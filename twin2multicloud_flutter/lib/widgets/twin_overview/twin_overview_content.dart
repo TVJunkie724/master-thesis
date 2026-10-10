@@ -186,12 +186,18 @@ class TwinOverviewContent extends StatelessWidget {
 
   List<Widget> _errorSection() => [
     ..._cleanupSection(includeEvidence: true),
-    ..._prepareSection(nextRun: true, includeOperation: false),
+    if (!state.hasBeenDeployed)
+      ..._prepareSection(nextRun: true, includeOperation: false),
   ];
 
   List<Widget> _destroyedSection() => [
     ..._cleanupSection(includeEvidence: true, includeOperation: false),
-    ..._prepareSection(nextRun: true),
+    const SizedBox(height: AppSpacing.md),
+    Text(
+      state.hasBeenDeployed
+          ? TwinOverviewStrings.immutableNext
+          : TwinOverviewStrings.reconfigureNext,
+    ),
   ];
 
   List<Widget> _cleanupSection({

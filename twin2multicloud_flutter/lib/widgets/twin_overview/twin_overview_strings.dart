@@ -10,7 +10,8 @@ abstract final class TwinOverviewStrings {
   static const moreActions = 'More actions';
   static const editConfiguration = 'Edit configuration';
   static const deleteTwin = 'Delete Twin';
-  static const editBlocked = 'Destroy cloud resources before editing';
+  static const editBlocked =
+      'Busy or immutable Twin. Use Duplicate in Twin experiments for a new definition.';
   static const deleteBlocked = 'Destroy cloud resources before deleting';
   static const prepareAndDeploy = 'Prepare and deploy';
   static const prepareNextRun = 'Prepare the next run';
@@ -37,7 +38,11 @@ abstract final class TwinOverviewStrings {
   static const deployedNext =
       'Verify L1-L3 and Event, then L4/L5, telemetry and commands; Destroy afterward.';
   static const destroyedNext =
-      'Review cleanup evidence before starting another approved run.';
+      'Review cleanup evidence. For a previously deployed Twin, use Duplicate in Twin experiments for a new run.';
+  static const immutableNext =
+      'This definition has already been deployed. Use Duplicate in Twin experiments for a new run.';
+  static const reconfigureNext =
+      'Review cleanup evidence, then reopen configuration and preflight before a first successful deployment.';
   static const deployNext = 'Deploy this bounded experiment.';
   static const preflightNext =
       'Run provider preflight and resolve any preparation findings.';

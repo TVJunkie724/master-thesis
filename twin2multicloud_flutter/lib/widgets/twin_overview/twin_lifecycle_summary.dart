@@ -217,6 +217,9 @@ class _MenuLabel extends StatelessWidget {
 String _nextStep(TwinOverviewLoaded state) {
   if (state.isDeploying) return TwinOverviewStrings.deployingNext;
   if (state.isDestroying) return TwinOverviewStrings.destroyingNext;
+  if (state.hasBeenDeployed && state.twinState == 'configured') {
+    return TwinOverviewStrings.immutableNext;
+  }
   return switch (state.twinState) {
     'error' => TwinOverviewStrings.errorNext,
     'deployed' => TwinOverviewStrings.deployedNext,

@@ -51,19 +51,12 @@ void main() {
       expect(TwinStateUtils.canEdit(null), isTrue);
     });
 
-    test('canEdit_unknown returns true (fail-open)', () {
-      // Unknown states should be editable (fail-open for forward compatibility)
-      expect(TwinStateUtils.canEdit('unknown'), isTrue);
+    test('canEdit_unknown fails closed', () {
+      expect(TwinStateUtils.canEdit('unknown'), isFalse);
     });
 
     test('canEdit_caseInsensitive returns false for DEPLOYED', () {
-      // Note: TwinStateUtils.canEdit uses lowercase comparison
-      // So 'DEPLOYED' will NOT match 'deployed' in current implementation
-      // This test documents the current behavior
-      expect(
-        TwinStateUtils.canEdit('DEPLOYED'),
-        isTrue,
-      ); // Current: doesn't lowercase
+      expect(TwinStateUtils.canEdit('DEPLOYED'), isFalse);
     });
   });
 }

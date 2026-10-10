@@ -411,6 +411,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String projectName;
   final String? cloudResourceName;
   final String twinState;
+  final bool hasBeenDeployed;
 
   // Calculated permissions based on state
   final bool canDeploy;
@@ -451,6 +452,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.projectName,
     this.cloudResourceName,
     required this.twinState,
+    this.hasBeenDeployed = false,
     required this.canDeploy,
     required this.canDestroy,
     required this.canEdit,
@@ -493,6 +495,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? projectName,
     String? cloudResourceName,
     String? twinState,
+    bool? hasBeenDeployed,
     bool? canDeploy,
     bool? canDestroy,
     bool? canEdit,
@@ -527,6 +530,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       projectName: projectName ?? this.projectName,
       cloudResourceName: cloudResourceName ?? this.cloudResourceName,
       twinState: twinState ?? this.twinState,
+      hasBeenDeployed: hasBeenDeployed ?? this.hasBeenDeployed,
       canDeploy: canDeploy ?? this.canDeploy,
       canDestroy: canDestroy ?? this.canDestroy,
       canEdit: canEdit ?? this.canEdit,
@@ -566,6 +570,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     projectName,
     cloudResourceName,
     twinState,
+    hasBeenDeployed,
     canDeploy,
     canDestroy,
     canEdit,

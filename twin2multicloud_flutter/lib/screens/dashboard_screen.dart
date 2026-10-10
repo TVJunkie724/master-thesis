@@ -107,7 +107,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     WidgetRef ref,
     Twin twin,
   ) async {
-    if (twin.isDeployed) {
+    if (!twin.canDelete) {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(

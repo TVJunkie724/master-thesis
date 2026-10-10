@@ -71,6 +71,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
     return BlocConsumer<WizardBloc, WizardState>(
       listenWhen: (previous, current) =>
           previous.status != current.status ||
+          previous.canModify != current.canModify ||
           previous.successMessage != current.successMessage ||
           previous.errorMessage != current.errorMessage,
       listener: _handleStateSideEffects,
@@ -168,6 +169,12 @@ class _WizardViewState extends ConsumerState<WizardView> {
   }
 
   void _handleStateSideEffects(BuildContext context, WizardState state) {
+    if (state.status == WizardStatus.ready &&
+        !state.canModify &&
+        state.twinId != null) {
+      context.go('/twins/${state.twinId}/overview');
+      return;
+    }
     if (state.status == WizardStatus.error || state.errorMessage != null) {
       _pendingExitDestination = null;
     }

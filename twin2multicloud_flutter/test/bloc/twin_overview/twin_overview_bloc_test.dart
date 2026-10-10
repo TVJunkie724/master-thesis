@@ -8,6 +8,7 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/cleanup_evidence.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
@@ -175,6 +176,52 @@ void main() {
     late MockApiService api;
 
     setUp(() => api = MockApiService());
+
+    for (final lifecycle in [
+      DeploymentTwinState.error,
+      DeploymentTwinState.destroyed,
+      DeploymentTwinState.configured,
+    ]) {
+      blocTest<TwinOverviewBloc, TwinOverviewState>(
+        'deployed history disables re-deploy and edit in ${lifecycle.apiValue}',
+        setUp: () {
+          _stubLoad(
+            api,
+            status: DeploymentStatusSnapshot(
+              schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+              state: lifecycle,
+            ),
+            readiness: _readiness(ready: true),
+          );
+          final stamp = DateTime.utc(2026, 10, 10);
+          when(() => api.getTwin('test-id')).thenAnswer(
+            (_) async => Twin(
+              id: 'test-id',
+              name: 'History',
+              state: lifecycle.apiValue,
+              createdAt: stamp,
+              updatedAt: stamp,
+              deployedAt: stamp,
+            ),
+          );
+        },
+        build: () => _buildBloc(api),
+        act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+        expect: () => [
+          isA<TwinOverviewLoading>(),
+          isA<TwinOverviewLoaded>()
+              .having((s) => s.hasBeenDeployed, 'history', isTrue)
+              .having((s) => s.canDeploy, 'deploy', isFalse)
+              .having((s) => s.canEdit, 'edit', isFalse)
+              .having(
+                (s) => s.canDelete,
+                'delete',
+                lifecycle == DeploymentTwinState.destroyed,
+              ),
+        ],
+        verify: (_) => verifyNever(() => api.deployTwin(any())),
+      );
+    }
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'loads one ready access snapshot for an initially deployed twin',
@@ -634,7 +681,7 @@ void main() {
             .having((state) => state.twinState, 'state', 'destroyed')
             .having((state) => state.lastError, 'lastError', isNull)
             .having((state) => state.deploymentOutputs, 'outputs', isNull)
-            .having((state) => state.canDeploy, 'canDeploy', isTrue)
+            .having((state) => state.canDeploy, 'canDeploy', isFalse)
             .having((state) => state.canDestroy, 'canDestroy', isFalse),
       ],
     );

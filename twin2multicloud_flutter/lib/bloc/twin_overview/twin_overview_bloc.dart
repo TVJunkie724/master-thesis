@@ -365,6 +365,15 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    if (!currentState.canDeploy || currentState.hasBeenDeployed) {
+      emit(
+        currentState.copyWith(
+          errorMessage:
+              'Deployment is blocked for this lifecycle state. Reconfigure an undeployed Twin or Duplicate a previously deployed Twin.',
+        ),
+      );
+      return;
+    }
     if (!currentState.deploymentReadiness.isDeployable) {
       emit(
         currentState.copyWith(
@@ -687,6 +696,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   ) async {
     final currentState = state;
     if (currentState is! TwinOverviewLoaded) return;
+    if (!currentState.canDelete) return;
 
     try {
       await _api.deleteTwin(currentState.twinId);
@@ -742,7 +752,13 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
 
     // First emit state update that PRESERVES terminal logs so they stay visible
     final newState = event.newState ?? (event.success ? 'deployed' : 'error');
-    final perms = _permissionsForState(newState);
+    final hasBeenDeployed =
+        currentState.hasBeenDeployed ||
+        (!isDestroy && event.success && newState == 'deployed');
+    final perms = Twin.permissionsFor(
+      newState,
+      hasBeenDeployed: hasBeenDeployed,
+    );
     final failureMessage = event.success
         ? null
         : (event.message ?? 'Deployment operation failed.');
@@ -777,6 +793,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
       currentState.copyWith(
         deploymentOperation: completedOperation,
         twinState: newState,
+        hasBeenDeployed: hasBeenDeployed,
         canDeploy: perms['canDeploy'],
         canDestroy: perms['canDestroy'],
         canEdit: perms['canEdit'],
@@ -1684,12 +1701,7 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
   /// Recalculate permissions for a given twinState.
   /// Single source of truth — used by _buildLoadedState and all copyWith transitions.
   static Map<String, bool> _permissionsForState(String twinState) {
-    return {
-      'canDeploy': ['configured', 'destroyed', 'error'].contains(twinState),
-      'canDestroy': ['deployed', 'error'].contains(twinState),
-      'canEdit': !['deploying', 'destroying', 'deployed'].contains(twinState),
-      'canDelete': !['deploying', 'destroying', 'deployed'].contains(twinState),
-    };
+    return Twin.permissionsFor(twinState);
   }
 
   /// Build loaded state with calculated permissions based on twin state
@@ -1708,13 +1720,18 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
     DeploymentOperationViewState deploymentOperation =
         const DeploymentOperationViewState(),
   }) {
-    final perms = _permissionsForState(twinState);
+    final hasBeenDeployed = twin.deployedAt != null || twinState == 'deployed';
+    final perms = Twin.permissionsFor(
+      twinState,
+      hasBeenDeployed: hasBeenDeployed,
+    );
 
     return TwinOverviewLoaded(
       twinId: twinId,
       projectName: twin.name,
       cloudResourceName: deployerConfig?.deployerDigitalTwinName,
       twinState: twinState,
+      hasBeenDeployed: hasBeenDeployed,
       canDeploy: perms['canDeploy']!,
       canDestroy: perms['canDestroy']!,
       canEdit: perms['canEdit']!,
