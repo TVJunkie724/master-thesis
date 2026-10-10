@@ -11,6 +11,7 @@ import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 import '../../widgets/results/deployment_selection_status.dart';
+import '../../widgets/results/resolved_architecture_review.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
 /// Step 2: Optimizer - BLoC version
@@ -287,6 +288,39 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
 
   Widget _buildResultsSection(BuildContext context, WizardState state) {
     final result = state.calcResult!;
+
+    if (state.usesSixLayerProfile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Optimization Results',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DeploymentSelectionStatus(
+            review: state.deploymentReview,
+            isSelecting: state.isSelectingDeploymentRun,
+            onRetry: () => context.read<WizardBloc>().add(
+              const WizardDeploymentRunSelectionRequested(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ResolvedArchitectureReview(
+            phase: state.resolvedArchitecturePhase,
+            resolved: state.resolvedArchitecture,
+            error: state.resolvedArchitectureError,
+            onRetry: state.deploymentRun == null
+                ? null
+                : () => context.read<WizardBloc>().add(
+                    WizardResolvedArchitectureRetried(
+                      runId: state.deploymentRun!.id,
+                    ),
+                  ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

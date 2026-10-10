@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../models/pricing_catalog.dart';
+import '../../models/resolved_twin_architecture.dart';
 import '../../models/twin_configuration_view.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../pricing/pricing_catalog_evidence.dart';
 import '../results/cheapest_path_visualization.dart';
+import '../results/logical_resolved_flow.dart';
 import 'twin_overview_code_artifact.dart';
 
 class TwinOverviewConfigurationReview extends StatelessWidget {
@@ -38,7 +40,10 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
         ),
         const Divider(),
         const SizedBox(height: AppSpacing.md),
-        _ProviderArchitectureSection(pathSegments: view.pathSegments),
+        _ProviderArchitectureSection(
+          pathSegments: view.pathSegments,
+          architecture: view.resolvedArchitecture,
+        ),
         const SizedBox(height: AppSpacing.md),
         _OptimizationSummarySection(optimization: view.optimization),
         const SizedBox(height: AppSpacing.md),
@@ -64,8 +69,12 @@ class TwinOverviewConfigurationReview extends StatelessWidget {
 
 class _ProviderArchitectureSection extends StatelessWidget {
   final List<String> pathSegments;
+  final ResolvedTwinArchitecture? architecture;
 
-  const _ProviderArchitectureSection({required this.pathSegments});
+  const _ProviderArchitectureSection({
+    required this.pathSegments,
+    this.architecture,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +97,14 @@ class _ProviderArchitectureSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Center(child: CheapestPathVisualization(path: pathSegments)),
+            if (architecture != null)
+              LogicalResolvedFlow(architecture: architecture!)
+            else ...[
+              const Text(
+                'Historical allocation only; no resolved graph is available.',
+              ),
+              Center(child: CheapestPathVisualization(path: pathSegments)),
+            ],
           ],
         ),
       ),
@@ -135,7 +151,7 @@ class _OptimizationSummarySection extends StatelessWidget {
                             style: theme.textTheme.titleMedium,
                           ),
                           Text(
-                            '\$${optimization.totalCost.toStringAsFixed(2)}/month',
+                            '${optimization.totalCost.toStringAsFixed(2)} ${optimization.currency}/month',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.success,

@@ -92,7 +92,7 @@ void main() {
   ) async {
     await tester.pumpWidget(_app(resolved));
 
-    expect(find.text('Functionally complete'), findsOneWidget);
+    expect(find.text('Model contract complete'), findsOneWidget);
     expect(find.text('six-layer-eventing@1'), findsOneWidget);
     expect(find.text('145.69038186 USD / month'), findsOneWidget);
     expect(find.byType(LogicalResolvedFlow), findsOneWidget);

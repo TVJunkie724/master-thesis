@@ -37,7 +37,7 @@ void main() {
       expect(find.text('CONFIGURATION REVIEW'), findsOneWidget);
       expect(find.text('Provider Architecture'), findsOneWidget);
       expect(find.text('Optimization Summary'), findsOneWidget);
-      expect(find.textContaining(r'$42.50/month'), findsOneWidget);
+      expect(find.textContaining('42.50 USD/month'), findsOneWidget);
       expect(find.text('Devices: '), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
     });
