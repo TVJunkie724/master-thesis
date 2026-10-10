@@ -28,7 +28,7 @@ Neither path contacts a cloud provider by default.
 5. Select named deployment CloudConnections required by the result.
 6. Run readiness, confirm bounded preparation, or follow repair guidance.
 7. Confirm Deploy, follow persisted progress/SSE replay and verify telemetry.
-8. Open provider-owned L4/L5 access links.
+8. Open provider-owned L4 access and an authenticated minimal L5 snapshot.
 9. Confirm Destroy and inspect cleanup evidence.
 
 The **Twin experiments** inventory is intentionally a start-or-resume surface:
@@ -46,10 +46,18 @@ unchanged.
 The **Twin lifecycle** overview presents one next safe step and one lifecycle
 command at a time. Configured Twins prepare and deploy; deployed Twins verify
 L1–L3/Event, L4/L5, telemetry and commands before Destroy; failed Twins clean
-up before another attempt; destroyed Twins show cleanup evidence before a new
-approved run. Configuration evidence remains available last. This ordering
+up; previously deployed Twins cannot be edited or deployed again. Destroyed
+Twins show recorded cleanup evidence; use the existing Duplicate action for a
+new experiment. Configuration evidence remains available last. This ordering
 changes presentation only—the operation, access, verification and cleanup
 contracts remain Management-owned.
+
+Native results show the resolved graph including Eventing and the result's
+currency, not a reconstructed linear L1–L5 path. Estimates are model outputs,
+not cloud bills. Infrastructure inspection and one telemetry sample are not
+automatic command/L4/L5 proof. L5 opens one Raw/Hourly HTML/SVG snapshot through
+Management, without Grafana or polling; inspect its actual values separately.
+Cleanup shows the returned evidence, not an independent global account scan.
 
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place
@@ -84,7 +92,7 @@ configuration and in-memory adapters behind the same interfaces.
 cd twin2multicloud_flutter
 flutter analyze
 flutter test
-python3 scripts/check_flutter_architecture.py
+python3 ../scripts/check_flutter_architecture.py
 flutter build web --release
 ```
 

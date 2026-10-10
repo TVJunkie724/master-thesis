@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-08"
-version: "2.11"
+lastUpdated: "2026-10-10"
+version: "2.12"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -29,6 +29,18 @@ maintained in `docs/research/architecture_evolution.md`.
 5. Git history is the archive for superseded implementation plans.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
+
+**Frontend alignment (2026-10-10):** reuse the existing resolved graph and
+currency evidence in optimizer and lifecycle views, including independent
+Eventing. Remove the native path's misleading legacy allocation/cost comparison.
+Model completeness, configuration completeness, cloud preflight and actual
+telemetry/command/L4/L5 proof remain distinct. L5 workload labels describe
+modeled reads, not a polling dashboard; cleanup copy states the current read
+model's limits rather than inventing tombstone or global-inventory fields.
+Deploy confirmation exposes available named bindings and the monthly estimate
+with its billing limitation. No redesign, new feature, API or cloud run.
+The bounded client gate passed 801 tests, analysis, architecture checks and
+Web/macOS builds; the execution plan records the offline browser/popup limit.
 
 **Normal L5 integration (2026-10-08):** reuse the proven AWS/Azure HTML/SVG
 renderer as an independent provider-local consumer in the normal graph. L3
@@ -377,6 +389,12 @@ adding a generic credential mapper.
 
 **Decision:** Drafts are editable; deployed Twin definitions are immutable.
 Duplicate and typed Export/Import create independent drafts with unique names.
+
+**Frontend enforcement (2026-10-10):** derive permissions from lifecycle state
+and successful-deployment history, including direct Wizard entry. A Destroy
+does not unlock Edit or Deploy on a previously deployed definition. Use the
+existing Duplicate action for a new experiment; Delete keeps Management's
+separate state/history rule. This corrects client presentation, not the policy.
 
 **Rationale:** In-place infrastructure updates would require migration,
 rollback, optimizer invalidation, and Terraform replacement semantics that are

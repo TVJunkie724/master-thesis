@@ -116,6 +116,12 @@ topology editor.
 
 Logical and resolved graphs are read-only server-owned evidence. Responsive
 layouts may render them as a graph or list but cannot invent edges.
+Native optimizer results and lifecycle configuration evidence reuse the resolved
+graph, including independent Eventing, and immutable cost currency. They do not
+render the compatibility L1–L5 path or pretend that uncalculated alternatives
+are provider comparisons. Model contract completeness is not live proof.
+Small live observations and Medium/Large offline model comparisons remain
+distinct; GCP L4/L5 exclusions are explicit. Modeled L5 reads do not imply polling.
 
 ## Credential and readiness UI
 
@@ -166,14 +172,23 @@ dashboard grid:
 
 1. configured or deploying: **Prepare and deploy**;
 2. deployed: **Verify and access**, then **Destroy and cleanup**;
-3. error: **Destroy and cleanup** before preparation for another run;
-4. destroyed: cleanup evidence before preparation for another approved run;
+3. error: **Destroy and cleanup**; a previously deployed Twin stays immutable;
+4. destroyed: recorded cleanup evidence and Duplicate guidance for a new Twin;
 5. **Configuration evidence** remains last in every state.
 
 Exactly one lifecycle mutation command is shown at a time. A ready preflight
 re-check is secondary so Deploy is the only filled action; a blocking
 preflight remains the primary remediation. All commands retain the existing
 BLoC, confirmation, Management API, durable operation and SSE boundaries.
+Eligibility uses both lifecycle state and deployment history. Only configured
+or failed first-attempt Twins may Deploy; a populated `deployedAt` locks Edit
+and Deploy permanently. Delete follows Management's separate state/history
+rule. Direct Wizard entry also respects this lock. Deploy confirmation shows
+available named connection bindings and the native monthly model estimate,
+not an account-scope attestation, actual bill or spending cap.
+Infrastructure checks, telemetry samples, simulator/command use and exact
+L4/L5 data assertions have separate proof boundaries. Cleanup v1 reports its
+recorded checks, not global account inventory or private research observations.
 
 ## Access handoff
 
@@ -205,7 +220,7 @@ cd twin2multicloud_flutter
 dart format --output=none --set-exit-if-changed lib test integration_test
 flutter analyze
 flutter test
-python3 scripts/check_flutter_architecture.py
+python3 ../scripts/check_flutter_architecture.py
 flutter build web --release
 ```
 
