@@ -34,6 +34,145 @@ and the
 
 ## Current phase status
 
+### Frontend architecture alignment — approved scope, 2026-10-10
+
+The user requested planning followed by implementation of the necessary
+screen-by-screen corrections. This is a bounded follow-up to Phase 6, not a
+redesign, new feature set or new live evaluation. Every step below is required.
+The user-authorized sequence includes implementation after this plan's review.
+
+#### 0. Git and delivery
+
+Continue `codex/gcp-l4-iap-bootstrap` from `4b518bf5`; no master edits, merge or
+push. Preserve unrelated work. Commit the plan, architecture/cost correction,
+lifecycle correction, and remaining screen/verification corrections separately.
+
+#### 1. Summary and boundaries
+
+Use the existing resolved Six-layer graph and monetary evidence in the active
+optimizer and lifecycle screens. Align mutation eligibility with Management's
+immutable deployed-Twin rule. Correct misleading configuration/access/test
+wording. Keep the shell, routes, four phases, existing controls and API surface.
+Do not add billing, scope selectors, automatic cloud checks or new dashboards.
+
+#### 2. Layout (Web and desktop unchanged)
+
+```text
+Optimizer result                 Twin lifecycle
++----------------------------+   +--------------------------------+
+| Monthly estimate / currency|   | State / next safe action       |
+| Selection / error / retry  |   | Existing operation controls    |
+| Resolved graph + Eventing  |   | Verification / L4 / L5         |
+| Components / cost evidence|   | Destroy / recorded cleanup     |
+| Existing technical details|   | Configuration: same graph/cost |
++----------------------------+   +--------------------------------+
+Scenario / Prepare / Cloud access: same forms and task navigation;
+only inaccurate text, required-field presentation and legacy diagrams change.
+```
+
+#### 3. Widget tree
+
+```text
+[MODIFY] Step2Optimizer / _buildResultsSection
+  [REUSE] DeploymentSelectionStatus
+  [REUSE] ResolvedArchitectureReview
+    [REUSE] LogicalResolvedFlow / component rows / cost and evidence
+[MODIFY] TwinOverviewConfigurationReview
+  [REUSE] LogicalResolvedFlow (native result; legacy path is historical only)
+  [MODIFY] OptimizationSummary (currency from immutable result)
+[MODIFY] TwinLifecycleSummary / existing controls
+  [MODIFY] lifecycle permission projection (history-aware)
+[MODIFY] existing configuration / verification / cleanup text
+  [REUSE] existing dialogs, layer-access cards, file controls and status rows
+```
+
+#### 4. Component contracts
+
+No new network DTO, route, dependency or generic UI framework. Native result
+screens consume existing `ResolvedTwinArchitectureRead` / `ResolvedTwinArchitecture`
+values. The overview view model carries the existing resolved architecture and
+currency; historical results keep their read-only fallback without implying
+current completeness. Use the existing result review for selected components,
+Eventing, connections and server-calculated costs instead of pseudo comparisons.
+Lifecycle eligibility takes both current state and `deployedAt`; destroyed
+Twins cannot directly Deploy, and previously deployed definitions cannot Edit
+or Deploy again. Existing Duplicate remains the new-experiment route. Match
+the backend's separate Delete rule, without inventing stricter backend policy.
+
+#### 5. Responsive behavior
+
+Retain `logicalProfileFlowCompactBreakpoint`,
+`resolvedDeploymentWideBreakpoint`, `twinOverviewCompactBreakpoint` and their
+existing graph/list and stacked layouts. Verify compact 640 px, wide 1280 px,
+and increased text scale. No new fixed dimensions.
+
+#### 6. State ownership
+
+`WizardBloc` retains result loading/retry/selection. `TwinOverviewBloc` retains
+commands, history-aware permissions, operation replay and access launch.
+Read-only widgets receive existing immutable data; they never recalculate costs
+or invent graph edges. No auto-Deploy, auto-verification or auto-Cleanup.
+
+#### 7. Tokens
+
+Reuse `AppSpacing`, `AppColors`, `ThemeData` and Material icons. Group new copy
+with the relevant existing screen strings where shared. No new visual tokens.
+
+#### 8. Interactions and states
+
+Keep existing click, keyboard, hover and focus behavior; add no animations.
+Retain loading, empty, incompatible and failed result states and retry actions.
+Keep the reserved isolated L5 popup and its failure path unless a local browser
+check proves a defect requiring a minimal correction. No public proxy or login
+replacement. Explicitly state that a returned snapshot is not persisted proof.
+
+#### 9. Accessibility
+
+Retain ordered focus traversal, button labels, keyboard activation and status
+semantics. Status meaning must be textual, not color-only. Existing responsive
+and high-text-scale tests remain regression gates.
+
+#### 10. Management integration
+
+Reuse existing selected-run/resolved-architecture reads and
+`GET /twins/{id}/deployment-access/visualization`. Deploy/Destroy, verification,
+simulator download, CloudConnection import and SSE commands remain unchanged.
+Current cleanup v1 does not classify provider tombstones or private research
+inventories: disclose that boundary instead of adding unsupported UI fields.
+No backend changes or mutations are needed for this alignment.
+
+#### 11. Required tests and review
+
+Before editing code, analyze and Web build must pass. Per slice run analysis and
+focused unit/widget tests; finish with the full suite, architecture checker,
+Web and macOS release builds. Use existing fixtures only for client tests and
+label demo/browser checks as offline, never live provider evidence. Do not run
+integration tests that can Deploy; no API transport change needs a new cloud run.
+
+Architecture/cost tests: native USD/EUR, Eventing and actual edges, missing/error
+and incompatible result, legacy fallback, empty edges, exclusions without fake
+prices, compact width and large text. Lifecycle tests: configured and failed
+first attempt; previously deployed error/destroyed/configured; transient, draft,
+unknown state, safe Delete and stale responses. Copy/access tests: scope and
+cost wording, popup success/failure, duplicate/stale action and empty snapshot.
+For copy-only controls the existing interaction tests plus exact-copy assertions
+are sufficient; a fresh nine-case matrix per label would not add evidence.
+
+Architect/builder review covers all plan-review criteria: API types and reusable
+components are present, changes are scoped, no new providers/features are exposed,
+and existing research planning hierarchy replaces superseded pillar roadmaps.
+
+#### 12. Definition of done
+
+- Native result and overview show the server-owned graph including Eventing,
+  correct currency, and no fabricated linear topology/provider comparison.
+- Actions match current lifecycle/history and remain explicitly confirmed.
+- Configuration, L4/L5, verification and cleanup copy state actual scope/limits.
+- Cloud access, inventory, import/export and reconnect regressions stay green.
+- Required analysis/tests/builds pass; browser observations and any unavailable
+  checks are reported honestly. Update current architecture/decision log and
+  retain clean intermediate commits. No cloud resources or private data added.
+
 **Completion checkpoint — 2026-10-09:**
 
 1. Normal AWS/Azure minimal L5 integration is implemented and offline-verified.
