@@ -18,6 +18,8 @@ git branch --show-current
 Branch rules:
 
 - Never work directly on `master`.
+- Use the existing primary checkout. Do not create additional worktrees unless
+  the user explicitly requests one.
 - Continue on the user's current feature branch when one is already selected.
 - For new work, create `codex/<short-task-name>` from `master` unless the user requests a different branch.
 - Push only when the user asks for push, merge, or PR work.

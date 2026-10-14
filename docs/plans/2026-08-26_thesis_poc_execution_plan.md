@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-10"
-version: "2.2"
+lastUpdated: "2026-10-14"
+version: "2.3"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -33,6 +33,40 @@ and the
 [`live-evaluation-protocol.md`](../research/evaluation/live-evaluation-protocol.md).
 
 ## Current phase status
+
+### Primary-checkout consolidation — 2026-10-14
+
+Work continues only in the original `master-thesis` checkout on
+`codex/phase-8-deployer-graph-resolver`. No additional worktrees remain
+registered. Do not create new worktrees without an explicit user request.
+
+- `71df5300` preserves the 37 original tracked documentation edits.
+- `5f2edcfa` joins that history with the verified Six-layer/frontend history
+  through `ef76a79b`. Runtime code, contracts and tests are unchanged from that
+  verified revision; current documentation retains applicable quickstart,
+  authoring and navigation improvements instead of restoring superseded
+  default-off/Grafana/profile-selection descriptions.
+- `3a063939` also retains the older checkout's four tracked Flutter tooling
+  edits as snapshot `17dadce7`. The current Swift-package support and pinned
+  test dependencies already include their functional changes.
+- The other retired branch heads are ancestors of the consolidated branch.
+  Former directory contents and registration metadata were moved into an
+  owner-only local recovery directory, not discarded. Active evaluation
+  evidence was moved into the primary checkout; conflicting pre-existing
+  evidence versions remain in the recovery copy. Credentials and encryption
+  keys were not overwritten. Three original untracked user documents remain
+  byte-identical and uncommitted.
+- Primary-checkout verification: **801 Flutter tests passed**, analyze clean,
+  architecture gate and shell syntax check passed, Web/macOS demo release
+  builds succeeded, and MkDocs strict build passed with networking disabled.
+  The three idle closeout containers using retired bind paths were stopped;
+  their volumes were retained and unrelated containers left running.
+
+This consolidation changes no cloud evidence or scientific claim. No provider
+mutation, E2E run, push or master update occurred. Start the app from the
+original repository root with `./thesis.sh demo --setup` (offline) or the
+explicitly selected integrated local mode. The recovery copy is not a second
+development workspace.
 
 ### Frontend architecture alignment — completed, 2026-10-10
 
