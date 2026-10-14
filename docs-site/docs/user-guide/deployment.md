@@ -3,6 +3,24 @@
 Deployment actions live on the twin overview after configuration. The UI uses the
 Management API; it never uploads files directly to or starts operations on the Deployer.
 
+New deployment packages require Manifest v3 and a resolved architecture. Profile
+resolution defaults to off, and runtime/live verification gaps remain. Check
+[Results and Limits](../runtime/known-limitations.md) before using cloud operations.
+
+```mermaid
+flowchart TD
+    Ready["Current selection + valid preflight"] --> Deploy["Start deployment"]
+    Deploy --> Status{"Operation result"}
+    Status -->|Success| Verify["Inspect outputs<br/>and verify data flow"]
+    Status -->|Error| Inspect["Inspect logs and<br/>remaining resources"]
+    Inspect -->|"After resolving cause"| Ready
+    Verify -->|"When finished"| Destroy["Confirm destroy<br/>and check cleanup result"]
+    Inspect -->|"Cleanup needed"| Destroy
+```
+
+Deployment success and verified data flow are separate checks. An error can leave
+resources behind; inspect the operation record before retry or cleanup.
+
 ## Before Deploy
 
 Confirm:

@@ -1,409 +1,69 @@
 # Twin2MultiCloud
 
-A unified platform that bridges theoretical cost optimization and practical multi-cloud infrastructure deployment for Digital Twins.
+A research proof of concept that connects Digital Twin cost optimization with
+multi-cloud deployment. Users describe a workload, inspect a costed provider
+assignment, and prepare its deployment through one Flutter application.
 
-For the project vision, 5-layer architecture and component roles (Orchestrator → Brain → Muscle), see [integration_vision.md](integration_vision.md).
-For practical developer setup and daily workflows, see [HANDBOOK.md](HANDBOOK.md).
-For agent/contributor workflow rules, see [ONBOARDING.md](ONBOARDING.md).
-For the canonical published user and developer documentation site, see
-[`docs-site/`](docs-site/). Research reasoning and material for later thesis synthesis
-live separately under [`docs/research/`](docs/research/).
+## Try the PoC
 
----
-
-## Project Structure
-
-| Directory | Role | Port |
-|-----------|------|------|
-| [`twin2multicloud_flutter/`](twin2multicloud_flutter/) | Flutter UI (Web, macOS, Windows, Linux) | — |
-| [`twin2multicloud_backend/`](twin2multicloud_backend/) | Management API (FastAPI, SQLite) | 5005 |
-| [`2-twin2clouds/`](2-twin2clouds/) | Cost Optimizer — "Brain" | 5003 |
-| [`3-cloud-deployer/`](3-cloud-deployer/) | Cloud Deployer — "Muscle" | 5004 |
-| [`twin2multicloud-latex/`](twin2multicloud-latex/) | Thesis document | — |
-| [`docs-site/`](docs-site/) | MkDocs documentation site | 5010 |
-
----
-
-## Prerequisites
-
-- **Docker** (OrbStack, Docker Desktop, or similar) — used to run all three backend services
-- **Flutter SDK** 3.44.0 (with Dart 3.12) — pinned by the platform CI gate
-- **Python** ≥ 3.9 — used by the root entrypoint and repository quality checks
-- **Git**
-- Native Flutter desktop tooling for macOS, Windows, or Linux; Windows users run
-  `thesis.sh` through Git Bash
-- Cloud credentials (AWS / GCP / Azure) — only required if you actually want to validate cloud access, seed sample twins with real credentials, or run deployments
-
----
-
-## Quick Start (Fresh Clone)
-
-The preferred development entrypoint is [`thesis.sh`](thesis.sh). It wraps the
-Docker stack, Flutter configuration, docs site, and LaTeX build paths so day-to-day
-startup does not require remembering raw `docker compose` and `flutter` commands.
-
-### 1. Clone the repository
+Requires Git, Flutter 3.44.0 / Dart 3.12 and the
+[platform toolchain](docs-site/docs/getting-started/supported-platforms.md).
+The integrated stack also requires Docker Compose and Python ≥ 3.9.
+Run commands from the repository root; use Git Bash on Windows.
 
 ```bash
-git clone <repo-url> master-thesis
-cd master-thesis
-```
-
-### 2. Optional: create local cloud credential files
-
-The default Docker Compose stack does **not** mount credential files. You can start the backend, use the UI, and create Cloud Connections through the Management API without any root-level credential files.
-
-Only create local credential files if you intentionally want supervised real-cloud validation, deployment tests, or the transitional sample seed workflow. Local cloud credentials live under `.secrets/local/`, which is ignored by Git:
-
-```bash
-mkdir -p .secrets/local
-cp config.json.example                .secrets/local/config.json
-cp config_credentials.json.example    .secrets/local/config_credentials.json
-cp google_credentials.json.example    .secrets/local/google-credentials.json
-cp google_credentials.json.example    .secrets/local/gcp_credentials.json
-```
-
-Then edit only the files under `.secrets/local/`. If you already have valid root-level credential files from the older setup, keep them until you have manually moved or copied them into `.secrets/local/`; this repository does not migrate or delete live credentials automatically.
-
-### 3. Start the application
-
-From the workspace root:
-
-```bash
-./thesis.sh up
-```
-
-For a self-contained UI walkthrough without Docker, APIs, or cloud
-credentials:
-
-```bash
+# Offline walkthrough: no backend or cloud credentials
 ./thesis.sh demo --setup
+
+# Integrated local application
+./thesis.sh up --setup
 ```
 
-After the first dependency setup, use `./thesis.sh demo`. The optional
-`--scenario showcase|empty|degraded` selector starts a reproducible UI state.
+The demo opens a populated dashboard and resets on restart. The integrated
+application starts three backend services and Flutter; select **Continue in
+local development** to sign in. Cloud credentials are not needed for startup.
 
-This starts the backend containers, checks the APIs, writes
-`twin2multicloud_flutter/config/dev.json`, and launches Flutter with
-`--dart-define-from-file=config/dev.json`.
+See [Fresh Clone](docs-site/docs/getting-started/fresh-clone.md) for setup and
+[PoC Walkthrough](docs-site/docs/user-guide/multi-cloud-walkthrough.md) for
+what to inspect.
 
-Backend only:
+## Projects
+
+| Project | Responsibility | Local port |
+|---|---|---|
+| [Flutter](twin2multicloud_flutter/) | configuration and result review | host app |
+| [Management API](twin2multicloud_backend/) | users, twins, credentials, persisted runs and orchestration | 5005 |
+| [Optimizer](2-twin2clouds/) | pricing evidence and complete-path cost comparison | 5003 |
+| [Deployer](3-cloud-deployer/) | packages, Terraform and provider operations | 5004 |
+| [Documentation](docs-site/) | current PoC guide and technical reference | 5010 |
+
+Flutter calls only the Management API.
+
+## Current boundary
+
+The PoC implements cost calculation, immutable calculation evidence and
+manifest-backed deployment orchestration. The architecture-profile resolver
+defaults to **off**; new deployment packages require Manifest v3 and a resolved
+architecture. The graph compiler exists, but neither local startup nor a demo
+proves a working cloud deployment.
+
+GCP L4/L5 are unsupported. Grafana's current L3-reader binding differs from the
+modeled L4→L5 path. Final live-cloud verification and cost-model reconciliation
+remain open. See [Results and Limits](docs-site/docs/runtime/known-limitations.md).
+
+## Documentation and daily work
 
 ```bash
-./thesis.sh up --no-flutter
-```
-
-Flutter only:
-
-```bash
-./thesis.sh flutter
-```
-
-Status and logs:
-
-```bash
+./thesis.sh docs up       # http://localhost:5010
 ./thesis.sh status
-./thesis.sh logs management-api
+./thesis.sh down
 ```
 
-LaTeX is intentionally separate from application startup:
-
-```bash
-./thesis.sh latex once
-./thesis.sh latex watch
-./thesis.sh latex clean
-```
-
-### 4. Raw Docker fallback
-
-From the workspace root:
-
-```bash
-docker compose up -d
-```
-
-This is the canonical development startup. It is intentionally credential-free:
-
-- `2twin2clouds` starts with default INFO mode if `/config/config.json` is not mounted.
-- `3-cloud-deployer` receives deployment credentials from uploaded project ZIPs generated by the Management API.
-- `management-api` starts with `SEED_DATA=false`; no root-level credentials are mounted by default.
-
-To opt in to supervised local cloud mode:
-
-```bash
-docker compose -f compose.yaml -f compose.cloud.local.yaml up -d
-```
-
-`compose.credentials.local.yaml` remains as a deprecated compatibility alias for now, but it also reads from `.secrets/local/` and no longer mounts root-level credential files.
-
-In this mode only, Optimizer and Deployer receive `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`, which enables their debug/local-cloud `GET /permissions/verify/*` endpoints that read mounted credential files. Normal app validation uses request-body or CloudConnection-derived credentials and does not require this gate.
-
-This builds and starts three application containers:
-
-| Container | Purpose |
-|-----------|---------|
-| `master-thesis-2twin2clouds-1` | Cost Optimizer |
-| `master-thesis-3cloud-deployer-1` | Cloud Deployer |
-| `master-thesis-management-api-1` | Management API (FastAPI + SQLite) |
-
-Verify they are up:
-
-```bash
-docker ps
-```
-
-### Optional: start the documentation site
-
-The canonical documentation site is served from `docs-site/` with MkDocs:
-
-```bash
-docker compose --profile docs up docs
-```
-
-Open `http://localhost:5010`. Markdown changes under `docs-site/docs/` reload automatically.
-
-Equivalent entrypoint command:
-
-```bash
-./thesis.sh docs up
-```
-
-### 5. Database initialization & seeding (automatic)
-
-The Management API handles everything on startup — no manual commands needed.
-
-#### 5a. Schema creation
-
-`src/main.py` calls `Base.metadata.create_all(bind=engine)` on startup, which creates all SQLAlchemy tables in `twin2multicloud_backend/data/app.db` if they don't exist yet. The `data/` directory is persisted on the host via a bind mount, so the DB survives container rebuilds.
-
-#### 5b. Dev user (always-on)
-
-When `DEBUG=true` (set by default in `compose.yaml`) the backend uses a development auth bypass in [`src/api/dependencies.py`](twin2multicloud_backend/src/api/dependencies.py). The first API request with the header `Authorization: Bearer dev-token` will:
-- return the first existing user, **or**
-- if the DB is empty, create `dev@example.com` / "Developer" and return it.
-
-The Flutter client hardcodes `dev-token` in [`lib/services/api_service.dart`](twin2multicloud_flutter/lib/services/api_service.dart), so **simply starting the Flutter app is enough to seed the dev user**.
-
-#### 5c. Sample twins (opt-in via `compose.cloud.local.yaml`)
-
-[`twin2multicloud_backend/scripts/seed_twins.py`](twin2multicloud_backend/scripts/seed_twins.py) creates user-scoped Cloud Connections plus five pre-configured sample twins under a dedicated `seed@twin2multicloud.dev` user:
-
-| Twin | Providers |
-|------|-----------|
-| `aws-single-cloud` | AWS only |
-| `azure-single-cloud` | Azure only |
-| `gcp-single-cloud` | GCP only |
-| `mixed-all-providers` | AWS + Azure + GCP |
-| `mixed-cost-optimized` | AWS + Azure + GCP (cost-optimized config) |
-
-**Behaviour:**
-- Idempotent — skips entirely if `seed@twin2multicloud.dev` already exists. Safe to restart.
-- Credentials from `.secrets/local/` are stored once as encrypted Cloud Connections and then referenced by the sample twins.
-- Legacy per-twin encrypted credential fields are not populated by default. Set `SEED_LEGACY_TWIN_CREDENTIALS=true` only for old compatibility checks.
-- Twins with valid credentials advance to **CONFIGURED** state; invalid credentials leave them in **DRAFT**.
-
-**Disabled by default** — `compose.yaml` starts with:
-
-```yaml
-# management-api service
-environment:
-  - SEED_DATA=false
-```
-
-To enable sample twins, start the stack with the local cloud override after creating the ignored `.secrets/local/` credential files in step 2:
-
-```bash
-docker compose -f compose.yaml -f compose.cloud.local.yaml up -d
-```
-
-**Disable seeding** (e.g. for production or a clean slate):
-
-```bash
-docker compose up -d
-```
-
-**Re-seed from scratch** (e.g. after changing credentials):
-
-```bash
-# Option A — delete only the seed user (fast, non-destructive)
-docker exec master-thesis-management-api-1 \
-  python -c "
-from src.models.database import SessionLocal
-from src.models.user import User
-db = SessionLocal()
-u = db.query(User).filter_by(email='seed@twin2multicloud.dev').first()
-if u: db.delete(u); db.commit(); print('Seed user deleted')
-db.close()
-"
-docker compose restart management-api
-
-# Option B — wipe the entire DB
-docker compose down
-rm twin2multicloud_backend/data/app.db
-docker compose up -d
-```
-
-### 6. Run the Flutter app
-
-In a second terminal:
-
-```bash
-cd twin2multicloud_flutter
-flutter pub get
-flutter run -d <macos|windows|linux|chrome> \
-  --dart-define-from-file=config/dev.json
-```
-
-The first screen will auto-login as the mock developer user, hit the Management API, and thereby seed the DB (see step 5).
-
----
-
-## Testing Deployments Without Cloud Cost
-
-The Management API ships with two **mock deployment endpoints** that simulate a full Terraform deploy/destroy (with realistic SSE log streaming and mock Terraform outputs written to the DB) — **without ever touching a cloud provider**. Use these whenever you develop or test the deployment UI.
-
-### The two toggles
-
-| Side | Flag | Location | Default |
-|------|------|----------|---------|
-| Backend | `ENABLE_TEST_ENDPOINTS` (env var) | [`compose.yaml`](compose.yaml) → `management-api` | `false` unless explicitly enabled |
-| Flutter | `kUseTestDeploy` (compile-time const) | [`lib/bloc/twin_overview/twin_overview_bloc.dart`](twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart) | transitional UI setting |
-
-Both flags must be consistent:
-
-| Backend | Flutter | Result |
-|---------|---------|--------|
-| `true`  | `true`  | ✅ Mock deploys via the UI |
-| `false` | `true`  | ❌ UI calls the endpoint and gets a 404 |
-| `true`  | `false` | ⚠️ Real deploys — will incur cloud cost |
-| `false` | `false` | ✅ Production mode |
-
-### Backend endpoints
-
-Both endpoints are guarded by `ENABLE_TEST_ENDPOINTS` in [`src/api/routes/twins.py`](twin2multicloud_backend/src/api/routes/twins.py). If the flag is off, they return 404. When on, they:
-
-1. Create an SSE session and return `{session_id, sse_url}`
-2. Spawn a background task that streams fake Terraform logs for `duration` seconds
-3. Write a `Deployment` record with mock Terraform outputs to the DB
-4. Transition the twin state (`DEPLOYING → ACTIVE` or `DESTROYING → INACTIVE`)
-
-| Endpoint | Query params |
-|----------|--------------|
-| `POST /twins/{twin_id}/test-deploy`  | `duration` (5–120s, default 30), `should_fail` (bool) |
-| `POST /twins/{twin_id}/test-destroy` | `duration` (5–60s, default 20), `should_fail` (bool) |
-
-**Example — successful 15-second deploy:**
-```bash
-curl -X POST "http://localhost:5005/twins/<twin_id>/test-deploy?duration=15" \
-  -H "Authorization: Bearer dev-token"
-```
-
-**Example — simulate a failure:**
-```bash
-curl -X POST "http://localhost:5005/twins/<twin_id>/test-deploy?duration=10&should_fail=true" \
-  -H "Authorization: Bearer dev-token"
-```
-
-Subscribe to the returned `sse_url` (e.g. `/sse/deploy/<session_id>`) to see the streamed log events.
-
-### Switching to real deployments
-
-1. Confirm [`compose.yaml`](compose.yaml) keeps `ENABLE_TEST_ENDPOINTS=false` or leaves the variable unset on the `management-api` service, then restart: `docker compose up -d --build management-api`
-2. Edit [`twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart`](twin2multicloud_flutter/lib/bloc/twin_overview/twin_overview_bloc.dart) → set `kUseTestDeploy = false` and `flutter run` again
-3. Create or select valid Cloud Connections for the providers you want to deploy to. Only use `compose.cloud.local.yaml` if you intentionally need `.secrets/local/` credential files for supervised local cloud testing or transitional sample seeding.
-
-> ⚠️ Once both flags are `false`, every "Deploy" click in the UI triggers a **real** multi-cloud Terraform run via `3-cloud-deployer`. Budget accordingly.
-
----
-
-## Daily Usage
-
-**Stop everything:**
-```bash
-docker compose down
-```
-
-**Rebuild after backend changes:**
-```bash
-docker compose up -d --build
-```
-
-**Tail logs:**
-```bash
-docker compose logs -f management-api
-docker compose logs -f 2twin2clouds
-docker compose logs -f 3cloud-deployer
-```
-
-**Run the safe quality gates:**
-```bash
-./thesis.sh test backend
-./thesis.sh test frontend
-
-# Fast Optimizer-to-Terraform contract diagnosis
-./thesis.sh test deployment-contract --focused
-
-# Complete credential-free cross-project release gate
-./thesis.sh test deployment-contract
-```
-
-The deployment-contract gate strips provider credential environment variables,
-rejects cloud credential overlays and `RUN_E2E_TESTS=1`, uses isolated temporary
-runtime secrets, performs no `terraform apply`, and removes its verification
-containers, networks, and volumes. The focused mode validates the frozen
-Optimizer result through Management persistence, Manifest v2, typed tfvars, and
-credential-free Terraform mock plans. The no-argument command additionally
-runs all safe service, Flutter, documentation, static, and security gates.
-
-> ⚠️ **Never run E2E tests (`tests/e2e/`) without explicit intent** — they can
-> deploy real cloud resources and incur cost.
-
-**Run the service quality gates:**
-
-The canonical service-layer evidence is tracked in
-[`docs/plans/service_architecture_audit/PHASE_04_SERVICE_QUALITY_GATE.md`](docs/plans/service_architecture_audit/phases/PHASE_04_SERVICE_QUALITY_GATE.md).
-It includes OpenAPI contract snapshots, safe test gates, Bandit high-severity
-checks, observability review, documentation drift, and residual risks.
-
-**Compile the LaTeX thesis (on-demand profile):**
-```bash
-docker compose --profile latex run --rm thesis-latex \
-  latexmk -pdf -interaction=nonstopmode -cd /thesis/main.tex
-```
-
----
-
-## Troubleshooting
-
-**Docker daemon not reachable**
-Check your Docker context:
-```bash
-docker context ls
-docker context use orbstack    # or: desktop-linux
-```
-
-**Flutter build errors after branch changes**
-Run `flutter pub get` in `twin2multicloud_flutter/` and rebuild the selected
-desktop/web target. Current refactoring branches are created from `master`.
-
-**Backend returns 401 on every request**
-Ensure `DEBUG=true` is set in the `management-api` service in `compose.yaml`, and that the client sends `Authorization: Bearer dev-token`.
-
-**Empty `app.db` but no dev user created**
-The dev user is only created on the first request. Start the Flutter app, or trigger it manually:
-```bash
-curl -H "Authorization: Bearer dev-token" http://localhost:5005/auth/me
-```
-
----
-
-## Documentation
-
-- [integration_vision.md](integration_vision.md) — high-level project vision
-- [ONBOARDING.md](ONBOARDING.md) — workflow rules for AI agents and contributors
-- [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md) — Flutter UI architecture
-- [TODOS.md](TODOS.md) — current open work items
-- Per-project guides:
-  - [twin2multicloud_backend/DEVELOPMENT_GUIDE.md](twin2multicloud_backend/DEVELOPMENT_GUIDE.md)
-  - [2-twin2clouds/DEVELOPMENT_GUIDE.md](2-twin2clouds/DEVELOPMENT_GUIDE.md)
-  - [3-cloud-deployer/development_guide.md](3-cloud-deployer/development_guide.md)
+- [Handbook](HANDBOOK.md): daily commands and where to find details.
+- [Documentation home](docs-site/docs/index.md): setup, use and architecture.
+- [Research notes](docs/research/README.md): scientific reasoning and evaluation design.
+- [Testing](docs-site/docs/developer-guide/testing.md): safe verification commands.
+- [Contributor workflow](ONBOARDING.md): repository rules and backlog ownership.
+
+Live deploy/destroy and provider E2E operations can create costs; they are
+separate from the offline demo and default local startup.

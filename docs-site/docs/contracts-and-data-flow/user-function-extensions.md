@@ -84,8 +84,8 @@ Terraform package reference
 
 An invalid owner relationship, artifact digest, binding digest, path, adapter,
 dependency, package digest, or missing reviewed deployment-component mapping
-stops before Terraform. The prerequisite records the digest-checked Terraform
-reference but deliberately does not make that reference executable. Package
+stops before Terraform. The graph compiler checks the catalog-selected package
+and Terraform binding; a package digest alone is not execution admission. Package
 evidence excludes source text, configuration values, credentials, environment
 values, and local absolute paths.
 

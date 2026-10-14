@@ -1,55 +1,10 @@
 # Twin2Clouds Optimizer
 
-Twin2Clouds is the pricing and cost-optimization service in the
-Twin2MultiCloud thesis platform. It evaluates a workload against versioned
-pricing, formula, workload, and optimization contracts for AWS, Azure, and GCP.
-The Flutter application does not call this service directly; the Management API
-owns the user-facing orchestration boundary.
+The pricing and cost engine of the Twin2MultiCloud PoC. The Management API
+supplies workload inputs and exact pricing-catalog references; the Optimizer
+returns a costed provider path, evidence and a resolved deployment specification.
 
-## Responsibility
-
-The Optimizer owns:
-
-- provider pricing acquisition and evidence,
-- pricing-source and normalization contracts,
-- monthly cost calculation,
-- complete-path cost optimization across layers L1-L5,
-- profile-bounded candidate construction and functional-completeness admission,
-- deterministic `ResolvedTwinArchitecture v1` construction,
-- bounded intent-to-result traceability,
-- pricing readiness and credential preflight contracts.
-
-It does not persist users or twins and it does not deploy cloud resources.
-
-## Architecture
-
-```text
-Management API
-  -> Optimizer API
-       -> pricing registry
-       -> provider fetchers
-       -> normalized pricing snapshots
-       -> calculation strategy + formulas
-       -> architecture profile strategy + completeness gate
-       -> cost result + trace evidence
-       -> resolved deployment specification + resolved architecture
-```
-
-The canonical layer model is:
-
-| Layer | Capability |
-|---|---|
-| L1 | Data ingestion |
-| L2 | Processing and orchestration |
-| L3 | Hot, cool, and archive storage |
-| L4 | Twin management |
-| L5 | Visualization |
-
-GCP self-hosted L4/L5 implementations are not available in the Deployer and
-therefore fail closed in calculation requests. They are never represented as
-zero-cost deployable alternatives.
-
-## Start
+## Run
 
 From the repository root:
 
@@ -57,154 +12,40 @@ From the repository root:
 ./thesis.sh up --no-flutter
 ```
 
-The host API is available at
-[http://localhost:5003/docs](http://localhost:5003/docs). Normal application
-traffic goes through the Management API on port 5005.
+The internal API reference is at [localhost:5003/docs](http://localhost:5003/docs).
+Application clients use the Management API on port 5005.
 
-A standalone development container can be started with:
+## What it does
 
-```bash
-docker compose up -d 2twin2clouds
-```
+- Fetches and reviews provider pricing without silently publishing ambiguous rows.
+- Compares complete five-layer provider paths, including transfer, glue and storage-transition runtime costs.
+- Retains immutable catalog references and bounded calculation evidence.
+- Excludes unsupported GCP L4/L5 choices.
 
-## Pricing Refresh
+Selection is not an independent minimum per layer. Results are estimates under
+the recorded workload and pricing assumptions, not reconciled provider bills.
 
-The default runtime does not read local credential files. The Management API
-forwards user-scoped credentials for AWS and GCP refreshes; Azure pricing uses
-the public Retail Prices API.
+Architecture-aware calculation is implemented behind
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED`, default `false` in both Optimizer
+and Management API. With it enabled, Management supplies the pinned profile
+and extension references; incomplete candidates are rejected before ranking.
+AWS/Azure profile definitions have `supported: true`, but this does not imply
+default activation or live-cloud verification. See
+[Architecture Profiles](../docs-site/docs/contracts-and-data-flow/architecture-profiles.md).
 
-Canonical endpoints include:
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `PUT` | `/calculate` | Execute the enabled cost optimization profile |
-| `POST` | `/fetch_pricing_with_credentials/{provider}` | Refresh provider pricing with explicit credential context |
-| `POST` | `/stream/fetch_pricing/{provider}` | Stream one operation-scoped refresh |
-| `GET` | `/pricing/source_inventory` | Read pricing source governance |
-| `GET` | `/pricing/catalogs/baseline/{provider}` | Read the pinned reviewed baseline reference |
-| `GET` | `/pricing/catalogs/{provider}/{region}/published` | Read the active regional reference and freshness |
-| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}/reference` | Verify one exact reference without loading pricing |
-| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{snapshot_id}` | Inspect one explicitly identified immutable snapshot |
-| `POST` | `/permissions/verify/{provider}` | Validate pricing-access credentials |
-| `POST` | `/fetch_currency` | Refresh the USD/EUR conversion snapshot |
-
-The local-file endpoints under `/fetch_pricing/{provider}` and
-`GET /permissions/verify/{provider}` are disabled unless
-`ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`. That switch is reserved for the
-explicit local cloud overlay.
-
-Provider refreshes are isolated by provider and canonical pricing region.
-Duplicate same-region refreshes are rejected, immutable snapshots are written
-to the durable `optimizer_pricing_catalogs` volume, and reviewed references are
-published atomically. Review-required candidates never replace the regional
-last-known-good pointer.
-
-## Calculation Contract
-
-Provider prices are normalized to canonical USD inputs. Calculation requests
-must supply a Management-owned UUID under `calculationRunId` and the exact
-reviewed AWS, Azure, and GCP catalog references under
-`providerPricingCatalogs`; the Optimizer resolves all three immutable snapshots
-before any formula executes and returns the same run ID and references in the
-result.
-Requests may ask for `USD` or `EUR` output. EUR results use the cached
-exchange-rate snapshot and expose `currencyConversion` metadata with source
-currency, target currency, rate, and retrieval time. Invalid or missing rates
-fail closed.
-
-The response also includes:
-
-- selected providers per layer,
-- provider and transfer cost breakdowns,
-- all six evaluated baseline edges from L1-to-L2 through L4-to-L5,
-- exact route, tier, billing-pool, and immutable catalog evidence for the
-  winning complete path,
-- bounded complete-path diagnostics with evaluated and rejected candidate
-  counts,
-- optimization profile and strategy identifiers,
-- registry/evidence references,
-- bounded `intentTrace` and `resultTrace` diagnostics,
-- one schema-valid `resolvedDeploymentSpecification` with exact component,
-  tier, SKU, capacity, storage-class, and runtime selections for the winning
-  path.
-
-Selection is not greedy per layer. The Optimizer enumerates every executable
-provider assignment for the closed Five-Layer baseline, calculates layer and
-route costs as one candidate total, applies each transfer allowance once per
-source-provider billing pool, and passes those totals to the active scoring
-strategy. Unsupported routes and capabilities fail closed rather than entering
-selection as zero-cost alternatives.
-
-### Dark Architecture-Profile Resolution
-
-Phase 8.5 adds a closed strategy registry under
-`backend/architecture_profiles/`. When
-`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=true`, `PUT /calculate` additionally
-requires the exact Management-owned `architectureProfile` reference and the
-complete immutable `extensionBindings` set. The Optimizer:
-
-1. resolves only the exact repository profile digest;
-2. constructs the bounded provider/component candidates;
-3. rejects incomplete components, capabilities, ports, edges, regions,
-   pricing/formula evidence, deployment mappings, or extension coverage before
-   cost ranking;
-4. ranks only admissible complete paths with exact decimal totals and a
-   canonical tie-break key;
-5. emits one contract-validated `ResolvedTwinArchitecture v1` linked to the
-   already-built deployment specification.
-
-The gate defaults to `false`. With the gate off, the audited legacy request and
-response path is unchanged and architecture fields are rejected. With the gate
-on, missing architecture fields never fall back to a legacy result. Repository
-AWS and Azure provider profiles deliberately remain `supported: false`, so the
-production definition bundle still fails closed until the Phase 8.6 Deployer
-graph compiler promotes support and both services are activated together.
-Canonical supported fixtures exercise the complete resolver offline; this does
-not claim runtime provider activation or Eventing support.
-
-Azure IoT Hub sizing returns the selected F1/S1/S2/S3 SKU and unit capacity
-rather than only a cost. Physical workload messages are normalized to the
-provider billing blocks first: 0.5 KB for F1 and 4 KB for paid Standard tiers.
-The result keeps physical messages, billable messages, included messages per
-unit, SKU, and capacity together under `details.tierSelection`, making the
-formula and deployable selection directly auditable.
-
-## Repository Layout
+## Code and reference
 
 | Path | Purpose |
 |---|---|
-| `api/` | FastAPI transport adapters |
-| `backend/architecture_profiles/` | Closed profile registry, candidate/completeness strategy, diagnostics, and resolution builder |
-| `backend/calculation_v2/` | Calculation engine, formulas, layer contracts, traceability |
-| `backend/optimization/` | Metrics, profiles, scoring, and extension points |
-| `backend/fetch_data/` | Provider pricing adapters and refresh orchestration |
-| `pricing_registry/` | Versioned pricing and optimization contracts |
-| `json/pricing_catalog_baselines/` | Pinned reviewed regional pricing seed snapshots |
-| `json/fetched_data/` | Region lists and currency snapshots only |
-| `/var/lib/twin2multicloud-optimizer/pricing-catalogs/` | Durable immutable runtime catalogs and regional published pointers |
-| `tests/` | Unit and API integration tests |
-| `implementation_plans/` | Approved and completed implementation records |
+| `api/` | HTTP adapters |
+| `backend/calculation_v2/` | formulas, complete-path scoring and traceability |
+| `backend/architecture_profiles/` | profile resolution and completeness checks |
+| `backend/fetch_data/` | provider pricing acquisition |
+| `pricing_registry/` | versioned pricing and optimization definitions |
+| `json/pricing_catalog_baselines/` | reviewed baseline snapshots |
+| `tests/` | unit and API contract tests |
 
-The integrated documentation is served from `docs-site/`. Historical HTML
-under this service remains reference material and is not the canonical project
-entrypoint.
-
-## Verification
-
-Run the complete offline quality gate from the repository root:
-
-```bash
-docker compose run --rm --no-deps 2twin2clouds sh -lc \
-  'python -m pytest tests -q && \
-   ruff check api backend rest_api.py && \
-   python -m bandit -r api backend rest_api.py -q && \
-   python -m compileall -q api backend rest_api.py && \
-   python -m pip check'
-```
-
-Provider API fixture tests are safe and do not create cloud resources. Live
-pricing refreshes require intentional credentials and network access.
-
-Backlog and future work are tracked in
-[GitHub Issues](https://github.com/TVJunkie724/master-thesis/issues), not in
-service-local TODO files.
+- [Optimizer reference](../docs-site/docs/components/optimizer.md)
+- [Pricing and optimization flow](../docs-site/docs/contracts-and-data-flow/pricing-optimization.md)
+- [Pricing Review](../docs-site/docs/user-guide/pricing-review.md)
+- [Testing](../docs-site/docs/developer-guide/testing.md)

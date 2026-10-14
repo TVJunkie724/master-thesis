@@ -1,84 +1,62 @@
-# Multi-Cloud Walkthrough
+# PoC Walkthrough
 
-This walkthrough exercises the intended workflow without prescribing one provider as
-the correct result. The selected architecture depends on workload, region, pricing
-evidence, provider capability, and the active cost profile.
+Use the offline demo to inspect the result of the PoC without accounts or
+cloud cost. Use the integrated stack when you need real local persistence.
 
-## 1. Start Safely
+## 1. Open the demo
 
-For a no-cloud walkthrough:
-
-```bash
-./thesis.sh demo --scenario showcase
-```
-
-For real local persistence and services without cloud mutations:
+After installing the [prerequisites](../getting-started/fresh-clone.md), run
+from the repository root:
 
 ```bash
-./thesis.sh up --no-flutter
-./thesis.sh flutter
+./thesis.sh demo --setup
 ```
 
-## 2. Confirm Account-Level Pricing Readiness
+**Expected:** a populated dashboard, a fixture user and a visible demo banner.
+No login, Docker or cloud credentials are required.
 
-From the dashboard, open **Pricing Review**. Review AWS, Azure, and GCP independently:
+## 2. Inspect the main workflow
 
-1. confirm the displayed pricing account/project context;
-2. inspect cache age and latest run;
-3. refresh only when the intended pricing CloudConnection is available;
-4. expand evidence when a provider is review-required;
-5. record a mapping decision only after comparing selected and rejected candidates.
+| Action | What to look for |
+|---|---|
+| Open a Twin | configuration and lifecycle state |
+| Inspect the Configuration Workspace | five phases from workload to review |
+| Open a populated calculation result | provider assignments and estimated monthly costs |
+| Expand calculation evidence | assumptions and the resource selections behind the result |
+| Open Pricing Review | provider readiness and review-required states |
+| Inspect deployment history | operation status and log presentation |
 
-Do not create a throwaway twin merely to refresh global pricing.
+All values and operations here are fixtures. They illustrate the workflow,
+not live pricing or deployed infrastructure. Restarting discards demo edits.
 
-## 3. Create The Twin And Workload
+For empty and failure states, restart with:
 
-Create a twin and complete **Define twin** and **Describe workload**. Representative
-inputs include device count/message frequency and size, processing executions/duration,
-retention/storage quantities, and required Digital Twin/visualization capabilities.
-
-The inputs describe workload intent. They do not encode provider SKU names or prices.
-
-## 4. Calculate And Inspect Alternatives
-
-In **Choose architecture**:
-
-1. confirm pricing readiness;
-2. calculate alternatives;
-3. compare per-layer provider assignments and monthly cost breakdowns;
-4. expand calculation trace/evidence when a result is surprising;
-5. select the architecture accepted for deployment.
-
-```text
-workload
-  -> AWS/Azure/GCP component costs
-  -> valid five-layer provider paths
-  -> minimum-cost scoring
-  -> selected path with component/layer trace
+```bash
+./thesis.sh demo --scenario empty
+./thesis.sh demo --scenario degraded
 ```
 
-A mixed path may require inter-cloud connector functions and transfer pricing. A cheap
-individual service does not automatically produce the cheapest complete path.
+## 3. Use local persistence
 
-## 5. Prepare Deployment
+```bash
+./thesis.sh up --setup
+```
 
-The selected path determines required provider deployment connections and artifacts.
-Complete cloud access, data contracts, user logic, and twin assets. Unsupported provider
-capabilities or missing cross-cloud glue must appear as readiness findings rather than
-being silently ignored.
+Select **Continue in local development**, then create a Twin and save its
+identity/workload. **Expected:** the Twin persists in the Management database
+and can be reopened. Cloud credentials are not required for startup.
 
-## 6. Validate Without Deploying
+Calculation uses reviewed pricing catalogs; inspect their readiness and
+recorded source before interpreting a cost result. A pricing refresh may
+contact a provider. Follow [Configuration Workspace](configuration-workspace.md)
+and [Pricing Review](pricing-review.md) when exploring those steps.
 
-Run configuration validation and provider preflight. Review manifest/artifact findings,
-required provider permissions and versions, stale preflight results, packages, and asset
-constraints. Stopping here is the safe integrated development workflow; it proves local
-contracts, not live provider deployment.
+## Cloud deployment is a separate step
 
-## 7. Optional Supervised Deployment
+The current profile resolver defaults to off; new deployment packages need a
+resolved architecture and Manifest v3. The graph compiler is implemented, but
+the L4→L5 binding gap and final live verification remain open.
+See [Results and Limits](../runtime/known-limitations.md) before using
+[Cloud Setup](../cloud-setup/index.md) or [Deployment](deployment.md).
 
-Only continue with approved accounts, cost expectations, regions, cleanup, and
-credentials. Follow persisted operation/SSE logs, inspect outputs and verification,
-then destroy and confirm cleanup evidence.
-
-Live operation evidence belongs to the opt-in E2E/thesis evidence issue, not routine
-documentation verification.
+For local failures, use [Troubleshooting](../runtime/troubleshooting.md).

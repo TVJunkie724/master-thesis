@@ -25,8 +25,9 @@ Full local application:
 ./thesis.sh up --setup
 ```
 
-Neither command loads cloud credentials by default. The integrated stack can create
-users, twins, configurations, pricing-review state, and mock deployment data without
-contacting a provider.
+Neither command loads cloud credentials by default. The integrated stack supports
+local users, twins and configuration persistence. Mock deployment endpoints are a
+separate development capability, disabled by default; use the offline demo for a
+repeatable deployment-UI walkthrough.
 
 Continue with [Fresh Clone](fresh-clone.md) or [Runtime Profiles](runtime-profiles.md).

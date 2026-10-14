@@ -1,5 +1,8 @@
 # User Guide
 
+For a short first pass, use the [PoC Walkthrough](multi-cloud-walkthrough.md).
+The pages below explain individual tasks when needed.
+
 Start with [Sign In](sign-in.md), then use the dashboard to create or open a
 twin. The remaining pages follow the main account, configuration, pricing, and
 deployment workflows.

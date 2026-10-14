@@ -82,9 +82,19 @@ and meters are bounded and remain available with reasons.
 
 ## Review Decision
 
-When one candidate is deterministic and publishable, it can flow into generated
-pricing. When candidates are ambiguous, alternatives remain visible and the user
-records a reviewed selection.
+```mermaid
+flowchart TD
+    Candidates["Price candidates<br/>from one provider refresh"] --> Decision{"Mapping ready<br/>for publication?"}
+    Decision -->|Yes| Catalog["Publish immutable catalog"]
+    Decision -->|"Ambiguous"| Review["Review alternatives<br/>and select a mapping"]
+    Review --> Validate["Validate reviewed mapping"]
+    Validate -->|Pass| Catalog
+    Validate -->|Fail| Blocked["Keep blocked<br/>and resolve findings"]
+    Decision -->|"Missing or invalid evidence"| Blocked
+```
+
+Each provider is reviewed independently. A reviewed selection must still pass
+publication checks before it can supply calculation inputs.
 
 The stored decision selects a mapping; it does not overwrite provider prices. The
 candidate contract already has a typed `ai_suggestion` field so a future advisory

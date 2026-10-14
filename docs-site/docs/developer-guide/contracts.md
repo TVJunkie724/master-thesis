@@ -128,8 +128,9 @@ selection only while its catalog/account context remains current. Existing runs
 without v1 remain inspectable but have compatibility status
 `legacy_not_deployable`.
 
-`DeploymentManifest 2.0` binds the selected run ID, exact specification object,
-and digest. The Deployer validates the same generated contract before creating
+`DeploymentManifest 3.0` binds the selected run ID, exact architecture and
+specification objects, and their digests. The Deployer validates and compiles
+the resolved graph before creating
 an operation workspace, verifies the exact provider/component/dimension
 binding, and translates only allowlisted `deployable_selection`
 `terraform_target` dimensions. The translation is pure and deterministic;
@@ -149,10 +150,11 @@ contracts/architecture-profiles/v1/
 It separates logical `ArchitectureProfile`, provider-specific
 `ProviderImplementationProfile`, deployable `DeploymentComponentCatalog`, and
 immutable `ResolvedTwinArchitecture` records. All three backend services expose
-the same validator. Phase 8.3 adds exact generated AWS/Azure/GCP definitions;
-Phase 8.4 adds Management profile selection, migration, immutable persistence,
-and safe read APIs. Optimizer calculation output, deployment, Terraform, and
-Flutter activation remain later phase boundaries.
+the same validator. Management selection/persistence, Optimizer resolution and
+Deployer graph compilation are implemented. Profile resolution defaults to off;
+the Flutter profile workflow remains later work. See
+[Architecture Profiles](../contracts-and-data-flow/architecture-profiles.md)
+for the current activation boundary.
 
 The shared local-only validator enforces canonical digests, closed versions,
 reference and cycle integrity, capability completeness, size bounds, and

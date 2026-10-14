@@ -81,10 +81,10 @@ The extension workflow is complete only when every reviewed slot has an active
 binding. A stale binding revision or API failure is shown as an attention
 state; retry only after reviewing the message and current binding.
 
-The current prerequisite validates and packages the bound artifact, but a real
-deployment fails closed until the reviewed architecture component catalog maps
-that slot to an executable provider resource. This avoids silently deploying a
-package that is not connected to the Twin data path.
+The reviewed catalog maps this slot to provider adapters. Binding alone does
+not make the Twin deployable: the selected run, resolved architecture and
+package mappings must also validate. See [Results and Limits](../runtime/known-limitations.md)
+for the default-off profile resolver and remaining runtime verification.
 
 ## Legacy User Logic
 

@@ -198,8 +198,10 @@ assignments whose component and edge mappings are complete, and excludes the
 remaining 125 before path-cost evaluation with stable reason codes. The same
 winner produces the compatibility path, deployment specification, exact cost,
 and immutable resolved architecture. This is offline method evidence: the
-repository provider profiles remain runtime-unsupported until the independent
-Deployer graph gate in Phase 8.6.
+repository now marks AWS/Azure profile definitions supported and implements the
+Phase 8.6 Deployer graph compiler. Profile resolution still defaults to off;
+these fixture counts remain evidence for their recorded scenario, not a claim
+of complete live provider behavior.
 
 #### Required Evidence
 

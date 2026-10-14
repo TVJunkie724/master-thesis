@@ -6,13 +6,17 @@ purpose, permission-set version, validation status, and last use/validation.
 
 ## Purposes
 
-| Purpose | Scope | Used for |
-|---|---|---|
-| deployment | reusable and bindable to twins | provider preflight and infrastructure deployment |
-| pricing | one default per user/provider | account-level provider pricing refresh |
+```mermaid
+flowchart LR
+    Connection["Validated cloud connection"] -->|pricing| Default["Default per user<br/>and provider"]
+    Connection -->|deployment| Binding["Bind to Twins"]
+    Default --> Refresh["Refresh account-level<br/>pricing"]
+    Binding --> Deploy["Preflight + deploy"]
+```
 
 The same provider account may require separate credentials because pricing discovery
-and infrastructure deployment have different permissions.
+and infrastructure deployment have different permissions. Deployment connections
+are reusable across Twins. Azure pricing uses its public API without a connection.
 
 ## Create Or Import
 

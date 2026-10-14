@@ -41,7 +41,9 @@ Modern successful calculation runs also persist one immutable
 selection timestamp. The Management API permits at most one selected run per twin.
 Creating a newer run does not transfer the older selection. Flutter and deployment
 readiness therefore use the newest run for review, while the Deployer receives only
-the explicitly selected compatible run through `DeploymentManifest v2`.
+the explicitly selected compatible run through `DeploymentManifest v3`, with
+its resolved architecture. Profile resolution defaults to off; see
+[Architecture Profiles](../contracts-and-data-flow/architecture-profiles.md).
 Flutter snapshots workload inputs, the result projection, and deployment run as one
 unit. Input changes invalidate that unit; discard restores the complete saved unit,
 so the UI cannot combine values from different calculations.

@@ -20,16 +20,16 @@ cases.
 
 ## Optimizer-To-Terraform Drift Gate
 
-The complete root gate proves that the exact cost-model winner is deployable
-without reconstructing SKU, capacity, storage class, schedule, memory, or
-scaling values downstream:
+The root gate checks that selected resource values reach Terraform without
+reconstructing SKU, capacity, storage class, schedule, memory or scaling values
+downstream. It covers contracts and mock plans, not live deployability:
 
 ```text
 Optimizer formula/deployment selection
   -> ResolvedDeploymentSpecification v1 + digest
   -> Management validation and immutable persistence
-  -> DeploymentManifest v2
-  -> Deployer allowlisted typed tfvars
+  -> DeploymentManifest v3 + resolved architecture
+  -> Deployer graph and allowlisted typed tfvars
   -> Terraform variable validation and resource attributes
 ```
 

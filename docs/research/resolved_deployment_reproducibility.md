@@ -30,8 +30,8 @@ fixed workload + immutable provider-region catalog references
   -> canonical SHA-256 digest
   -> atomic Management API persistence
   -> selected calculation-run identity
-  -> DeploymentManifest v2
-  -> Deployer semantic preflight
+  -> DeploymentManifest v3 + resolved architecture
+  -> Deployer graph compilation and semantic preflight
   -> allowlisted typed tfvars
   -> Terraform variable validation
   -> provider resource attributes
@@ -44,7 +44,7 @@ Each boundary has one owner:
 | workload to tier/SKU/capacity | Optimizer formulas | provider tier tests and hard expected cases |
 | winning path to component dimensions | Optimizer deployment registry | schema and semantic contract tests |
 | immutable result and digest | Management API | transaction, round-trip, selection, and tamper tests |
-| selected run to operation package | Management API | Manifest v2 contract tests |
+| selected run to operation package | Management API | Manifest v3 and architecture cross-link tests |
 | manifest to tfvars | Deployer | strict preflight and allowlist tests |
 | tfvars to resources | Terraform | parsed source bindings and native mock plans |
 
@@ -54,6 +54,11 @@ assumptions that Terraform cannot enforce remain explicit evidence and are
 forbidden as tfvars.
 
 ## Independent Verification Matrix
+
+The new package path requires a resolved architecture, while profile resolution
+defaults to off. The graph compiler is implemented; activation and live runtime
+evidence remain separate. See the current
+[execution boundary](../../docs-site/docs/runtime/known-limitations.md).
 
 The production source of truth is `deployment-dimensions.json`. A separate
 `verification-matrix.json` contains reviewed expected outcomes and is never

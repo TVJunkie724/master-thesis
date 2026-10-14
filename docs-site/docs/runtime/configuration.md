@@ -34,6 +34,7 @@ Important groups from `src/config.py`:
 | dev gates | `DEV_AUTH_ENABLED`, `DEV_AUTH_TOKEN`, `ENABLE_TEST_ENDPOINTS`, `SEED_DATA` |
 | credential controls | limiter enable/storage and write/validation/bootstrap rates |
 | downstreams | `OPTIMIZER_URL`, `DEPLOYER_URL`, preflight max age |
+| architecture resolution | `ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` (default `false`; must agree with Optimizer) |
 | uploads | `UPLOAD_DIR`, `MAX_GLB_SIZE_MB` |
 
 Production startup rejects debug/dev/test capabilities, weak or duplicate runtime
@@ -47,6 +48,10 @@ boundary and must never be compiled into Flutter.
 The default Compose mode sets `TWIN2CLOUDS_MODE=INFO`. Pricing contracts live in the
 versioned `pricing_registry/` tree. Local file permission checks are disabled unless
 the cloud overlay sets `ENABLE_LOCAL_CREDENTIAL_FILE_CHECKS=true`.
+
+`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED` also defaults to `false` here.
+See [Architecture Profiles](../contracts-and-data-flow/architecture-profiles.md)
+before enabling it for controlled verification.
 
 ## Deployer
 

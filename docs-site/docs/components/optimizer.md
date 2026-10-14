@@ -392,7 +392,7 @@ currency conversion. Therefore USD and EUR views of the same run have identical
 deployment selections and digest. No downstream service may reconstruct SKU,
 capacity, storage class, or runtime configuration from defaults.
 
-Management persistence, DeploymentManifest v2, Deployer preflight, and typed
+Management persistence, DeploymentManifest v3, Deployer graph preflight, and typed
 tfvar translation are implemented. AWS, Azure, and GCP resource bindings are
 complete. The credential-free gate covers all 27 storage-provider triples and
 the Azure F1/S1/S2/S3 capacity cases from formula output to Terraform resource

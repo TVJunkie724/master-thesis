@@ -53,8 +53,8 @@ flowchart LR
 | pricing refresh/review history | Management database | append/update by workflow | Flutter pricing review |
 | calculation results and specifications | Management database | immutable after successful run creation | Flutter, deployment selection |
 | reviewed architecture definitions | repository `contracts/architecture-profiles/` | reviewed source change | all three backend validators |
-| Twin architecture profile selection | Management database | owner-scoped, revisioned, invalidating | Management API; Flutter in Phase 8.7 |
-| resolved Twin architecture | Management database canonical JSON plus derived component/edge rows | immutable per calculation run | Management reads; Optimizer/Deployer activation in Phases 8.5/8.6 |
+| Twin architecture profile selection | Management database | owner-scoped, revisioned, invalidating | Management API; Flutter selection UI remains planned |
+| resolved Twin architecture | Management database canonical JSON plus derived component/edge rows | immutable per calculation run | Management reads; Optimizer and Deployer when architecture resolution is enabled |
 | operation package | Deployer package store | immutable, one acquisition | deploy/destroy operation |
 | operation workspace | Deployer temporary storage | mutable only during one operation | Terraform and provider adapters |
 | runtime project state and allowlisted outputs | Deployer runtime store | operation-controlled | destroy, status, verification |
@@ -78,10 +78,13 @@ flowchart TD
         Commit --> Succeeded[("Succeeded run, items,<br/>traces, and specification")]
     end
     Execute --> Contracts
-    Validate -. "failure" .-> Rejected["Rejected;<br/>no run row"]
-    Execute -. "failure" .-> Rejected
-    Contracts -. "failure" .-> Rejected
-    Commit -. "rollback" .-> Rejected
+    Validate -. "rejected before run preparation" .-> Rejected["No run row"]
+    Execute -. "failure" .-> Failure["Handle failed calculation"]
+    Contracts -. "failure" .-> Failure
+    Commit -. "rollback" .-> Failure
+    Failure --> Mode{"Architecture-aware run prepared?"}
+    Mode -->|"yes"| Failed[("Bounded failed-run metadata")]
+    Mode -->|"no"| Rejected
 ```
 
 ### Selection And Deployment Readiness
@@ -104,12 +107,12 @@ flowchart TD
     Blocked --> Recalculate["Calculate a new run"]
 ```
 
-This diagram combines request processing with the durable run lifecycle. The
-Management API currently persists only fully validated successful runs with
-`status=succeeded`; rejected requests do not create a pending or failed run row.
-Selection is represented by `selected_for_deployment_at`, not by changing the run
-status. Staleness and incompatibility are evaluated at selection and deployment
-readiness rather than written back as a mutable run status.
+Successful runs persist atomically with `status=succeeded`. In the enabled
+architecture-profile path, failures after run preparation persist bounded
+metadata with `status=failed`, without a result or deployable architecture.
+Earlier request rejection and the legacy calculation path do not create these
+failed-run rows. Selection uses `selected_for_deployment_at`; staleness is
+checked at selection and deployment readiness.
 
 Historical successful runs remain inspectable. A run becomes deployable only when
 its schema, catalog/account context, path evidence, and resolved specification remain

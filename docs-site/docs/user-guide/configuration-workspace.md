@@ -19,14 +19,13 @@ step projections internally where needed for compatibility.
 
 ## Dependency Rules
 
-```text
-twin identity
-   -> complete workload
-      -> pricing ready enough to calculate
-         -> calculation result / verified deployment selection
-            -> required provider cloud access
-               -> deployment artifacts
-                  -> validation and preflight
+```mermaid
+flowchart TD
+    Inputs["Twin identity + complete workload"] --> Pricing["Check pricing readiness"]
+    Pricing --> Calculate["Calculate + verify selection"]
+    Calculate --> Prepare["Required cloud access + artifacts"]
+    Prepare --> Check["Validation + preflight"]
+    Calculate -. "Workload changes: recalculate" .-> Inputs
 ```
 
 Users may revisit completed tasks. A material configuration edit can invalidate a

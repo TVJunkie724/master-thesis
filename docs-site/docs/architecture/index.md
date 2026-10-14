@@ -17,7 +17,10 @@ durable state, optimization semantics, and cloud execution.
 Read in this order:
 
 - [System Context](system-context.md)
-- [Responsibilities and Data Ownership](data-ownership.md)
 - [End-to-End Flows](end-to-end-flows.md)
-- [Security and Trust Boundaries](security-boundaries.md)
+- [Engineering Decisions](engineering-decisions.md)
 - [Original to Current State](evolution.md)
+
+For activation and verification boundaries, see
+[Results and Limits](../runtime/known-limitations.md). Ownership and security
+details remain under Reference.

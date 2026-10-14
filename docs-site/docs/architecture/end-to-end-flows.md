@@ -1,141 +1,47 @@
 # End-to-End Flows
 
-## Configuration And Optimization
+## From workload to infrastructure
 
-```text
-User input
-  -> Flutter Configuration Workspace
-  -> typed workload parameter draft
-  -> POST durable optimizer run
-  -> Management application service
-  -> owner-scoped exact AWS + Azure + GCP catalog context
-  -> Optimizer calculation request
-  -> active optimization profile
-       metric provider: cost
-       pricing intent group: cost
-       calculation model: cost_model_v1
-       formula set + provider contracts
-       scoring strategy: minimum cost
-  -> typed result + trace metadata + identical catalog context
-  -> exact ResolvedDeploymentSpecification v1
-       selected components, deployable dimensions, assumptions, evidence, digest
-  -> Management schema/registry/run/path/catalog/digest validation
-  -> atomic calculation run/items/result/path/specification persistence
-  -> read-only Flutter review
+```mermaid
+sequenceDiagram
+    participant UI as Flutter
+    participant API as Management
+    participant Optimizer
+    participant Dep as Deployer
+    UI->>API: Workload + calculate
+    API->>Optimizer: Workload + exact pricing references
+    Optimizer-->>API: Costed provider paths + evidence
+    API->>API: Validate and persist immutable run
+    UI->>API: Select compatible run
+    API->>API: Verify selection and readiness
+    UI->>API: Deploy
+    API->>Dep: Manifest v3 + resolved architecture
+    Dep->>Dep: Compile graph, package, execute
+    Dep-->>API: Status, logs, outputs
+    API-->>UI: Persisted results via REST / SSE
 ```
 
-The user expresses workload quantities. Provider pricing models are not forced into
-one raw unit; provider contracts and formulas normalize their own billable units into
-the common output metric `USD/month`. Flutter cannot author or overwrite calculation
-results, transfer evidence, catalog references, or the deployment path.
+The Optimizer compares complete paths including connection costs. With profile
+resolution enabled, the saved run includes a frozen architecture. The Deployer
+executes Terraform and provider SDK work from the validated operation package.
 
-## Pricing Refresh And Review
+Profile resolution defaults to off. The sequence above describes the
+implemented deployment contract, not a guarantee that a fresh local startup
+can complete a cloud deployment. See [Results and Limits](../runtime/known-limitations.md).
 
-```text
-User selects provider and confirms source scope
-  -> AWS/GCP: Management API resolves owned pricing CloudConnection
-  -> Azure: public catalog request uses selected pricing region
-  -> provider refresh starts in Optimizer
-  -> provider API rows / official-static classifications
-  -> raw evidence retained
-  -> intent contract filters and normalizes candidates
-  -> immutable provider-region candidate
-  -> publishable match? ---- yes ---> atomic regional published pointer
-              |
-              no
-              v
-       review-required candidate; published reference remains active
-              |
-       user records a decision in Management API DB
-              |
-       future refresh reuses reviewed mapping, not a price override
-```
+## Detailed flows
 
-An emergency fallback is diagnostic, never the target source. Review decisions may
-select a mapping but are forbidden from storing a replacement price. Evidence and
-normalization remain inspectable. Calculation resolves the newest usable owner
-refresh reference for each provider, otherwise the reviewed baseline. It verifies
-each exact identity before formula execution; Flutter never exports or authors
-pricing evidence.
+| Flow | What the reference explains |
+|---|---|
+| [Pricing and optimization](../contracts-and-data-flow/pricing-optimization.md) | source acquisition, review, complete-path selection and cost evidence |
+| [Credentials and trust](../contracts-and-data-flow/credentials-and-trust.md) | external bootstrap, encrypted Cloud Connections and operation-local secrets |
+| [Deployment lifecycle](../contracts-and-data-flow/deployment-lifecycle.md) | immutable run → Manifest v3 → graph → packages/Terraform → outputs |
+| [State ownership](../contracts-and-data-flow/state-ownership.md) | durable records, selections and failure behavior |
+| [Current cloud graph](current-deployment-graph.md) | actual provider data paths and known divergences |
+| [Azure Twin updates](../components/deployer.md) | Persister → ADT Pusher delivery, ownership and retry behavior |
 
-## Credential Bootstrap And Use
+## Offline demo
 
-```text
-Management bootstrap plan (no admin secret)
-  -> versioned provider script and dry-run command
-  -> operator authenticates in provider CLI outside the app
-  -> explicit script apply creates scoped deployment identity
-  -> ignored local CloudConnection JSON
-  -> authenticated import encrypts and persists CloudConnection
-  -> validate/preflight by purpose
-  -> bind deployment connection to twin
-```
-
-Bootstrap/admin credentials never cross the application boundary. The current scripts
-produce deployment credentials only. AWS and GCP pricing credentials are imported
-separately as user-level defaults; Azure pricing uses a public API. Deployment
-credentials can be bound to individual twins.
-
-## Deployment
-
-```text
-configured twin
-  -> exactly one selected deployment-compatible optimizer run
-  -> Management revalidates frozen specification + current pricing/account context
-  -> Management API readiness + preflight
-  -> build canonical deployment archive
-       deployment_manifest.json (v2.0)
-       calculation run ID + exact specification + digest
-       generated configuration
-       user artifacts / scene assets
-       transient credential context
-  -> Deployer validates archive, specification, and typed tfvars
-  -> provider resources must match the costed deployable dimensions
-  -> stage operation package
-  -> one-use package token identifies exact accepted bytes
-  -> deploy/destroy request acquires token
-  -> isolated ephemeral workspace
-  -> Terraform-first provider execution + bounded SDK operations
-  -> allowlisted runtime outputs synchronized
-  -> structured logs/results returned
-  -> Management API persists operation and lifecycle result
-  -> Flutter observes REST status and SSE logs
-```
-
-The canonical operation never mutates the versioned template. Generic project-file
-APIs hide credential files and reject traversal.
-
-## Azure Digital Twins Runtime Update
-
-```text
-normalized telemetry
-  -> provider L2 Persister
-  -> validate Azure-L4 endpoint/token and telemetry shape
-  -> idempotent provider storage write
-  -> authenticated HTTPS ADT Pusher call
-  -> validate token and request envelope
-  -> resolve device-to-twin mapping
-  -> build JSON Patch
-  -> managed-identity Azure Digital Twins SDK update
-  -> acknowledge Persister success
-```
-
-The same path applies when L2 is Azure and when L2 is AWS or GCP. If Azure is not L4,
-the Pusher is absent and no ADT update is attempted. Known configuration and payload
-errors fail before the storage write. An exhausted Pusher delivery fails after the
-idempotent write so the caller can retry without creating a second storage identity.
-The baseline does not claim durable replay or exactly-once delivery.
-
-## Offline Demo
-
-```text
-config/demo.json
-  -> runtime composition
-  -> DemoManagementApi + DemoLogStreamClient
-  -> scenario fixture store
-  -> same Flutter screens and typed ManagementApi interface
-  -X-> no HTTP, no Docker, no cloud provider
-```
-
-The demo is an adapter replacement, not scattered UI conditionals or a fake backend
-server. It exists for repeatable product walkthroughs and screen coverage.
+Demo mode substitutes in-memory API/log adapters behind the same Flutter
+screens. It performs no HTTP or provider operations and resets on restart.
+Use the [PoC Walkthrough](../user-guide/multi-cloud-walkthrough.md) to inspect it.

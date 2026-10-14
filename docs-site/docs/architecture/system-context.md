@@ -1,53 +1,45 @@
 # System Context
 
-The platform implements the five-layer model from the
-[EDTConf'25 engineering paper](../references/EDT_25__CloudDT_engineering.pdf):
-data acquisition, processing, storage, Digital Twin management, and visualization.
+Twin2MultiCloud implements a bounded Digital Twin model derived from the
+[EDTConf'25 paper](../references/EDT_25__CloudDT_engineering.pdf).
 
-![Five-layer architecture](../references/diagrams/layer_architecture_overview_1763755975125.png)
+## Logical model
 
-## Containers And External Systems
-
-```text
-                         external identity provider
-                                   |
-                                   | OAuth/SAML (production)
-                                   v
-+----------------+        +----------------------+        +----------------+
-| Flutter client |------->| Management API :5005 |------->| Optimizer :5003|
-| Web/all desktop| HTTP   | durable orchestration| HTTP   | pricing + cost |
-+----------------+ + SSE  +----------+-----------+        +----------------+
-                                     |
-                                     | manifest/archive + operation requests
-                                     v
-                          +----------------------+
-                          | Deployer :5004       |
-                          | Terraform/providers  |
-                          +----+---------+-------+
-                               |         |
-                         SDK/API|         |Terraform/API
-                               v         v
-                         AWS / Azure / Google Cloud
+```mermaid
+flowchart LR
+    L1["L1 · Acquisition"] --> L2["L2 · Processing"]
+    L2 --> H["L3 · Hot storage"]
+    H --> C["L3 · Cool storage"] --> A["L3 · Archive"]
+    H --> L4["L4 · Twin management"] --> L5["L5 · Visualization"]
 ```
 
-The documentation container is operationally separate and serves only the MkDocs
-site. The LaTeX source is intentionally outside this application architecture.
+Five responsibilities become seven optimization slots because storage has
+three tiers. This is the logical model; the
+[current deployment graph](current-deployment-graph.md) records the actual
+runtime paths, including Grafana's L3-reader divergence.
 
-## Runtime Topology
+## Application boundary
 
-| Runtime | Location | Persistence |
-|---|---|---|
-| Flutter | host process | no application database; auth token held in memory |
-| Management API | Compose container | SQLite bind mount and upload directory |
-| Optimizer | Compose container | versioned YAML registry and fetched JSON artifacts in project bind mount |
-| Deployer | Compose container | source bind mount plus dedicated runtime-state volume |
-| Docs | optional Compose profile | source bind mount; no runtime state |
+```mermaid
+flowchart TB
+    UI["Flutter · host / browser"] -->|"HTTP + SSE"| API["Management API · 5005"]
+    API -->|"workload + pricing references"| OPT["Optimizer · 5003"]
+    API -->|"Manifest v3 + operation package"| DEP["Deployer · 5004"]
+    DEP -->|"Terraform + SDKs"| CLOUD["AWS / Azure / GCP"]
+    IDP["External identity provider"] -.->|"configured OAuth / SAML"| API
+```
 
-Compose uses one bridge network. Internal calls use service names, while Flutter
-uses the host-published Management API port.
+Flutter calls only Management. All three backend ports are published locally
+for development; internal service calls use Compose DNS names.
 
-## Public And Internal Boundaries
+| Owner | Durable state |
+|---|---|
+| Management API | SQLite users, twins, Cloud Connections, runs and operation history |
+| Optimizer | immutable regional pricing catalogs in a named volume; versioned registry/baselines in Git |
+| Deployer | private Terraform/device state in a named volume |
+| Flutter | no application database; authentication token in process memory |
 
-The Management API is the application API. Optimizer and Deployer OpenAPI schemas
-are internal service contracts and developer diagnostics. Exposing them on local
-ports does not make them valid Flutter dependencies.
+The docs server is a separate optional profile. See
+[State and Persistence](../runtime/state-and-persistence.md) for storage paths,
+[Results and Limits](../runtime/known-limitations.md) for activation/evidence,
+and [Engineering Decisions](engineering-decisions.md) for rationale.

@@ -1,10 +1,19 @@
-# Aktuelle Architektur-Schulden und Refactoring-Roadmap
+# Architektur-Schulden: Ausgangsbefund und Refactoring-Roadmap
+
+> **Historischer Ausgangsbefund mit späteren Teilaktualisierungen.** Die folgenden
+> Befunde und Phasen dokumentieren die Refactoring-Motivation; sie sind kein
+> durchgehend aktuelles Inventar offener Schulden. Cloud Connections, Service-
+> Schichten und getrennte Runtime-Workspaces sind inzwischen implementiert.
+> Aktuelle Grenzen: [Results and Limits](docs-site/docs/runtime/known-limitations.md).
+> Phasenübersicht: [Refactoring Roadmap](docs-site/docs/architecture/refactoring-roadmap.md).
+> GitHub Issues/Milestones bleiben der operative Backlog.
 
 **Datum:** 2026-04-26
 **Scope:** `2-twin2clouds` (Brain), `3-cloud-deployer` (Muscle), `twin2multicloud_backend` + `twin2multicloud_flutter` (Orchestrator)
 **Ziel:** Alle gravierenden Architektur-Schulden benennen, nach Risiko priorisieren und eine Roadmap definieren, um sie schrittweise aufzulösen.
 
-Dieses Dokument beschreibt nur den **aktuellen Befund**. Bereits erledigte Altlasten wie `2-twin2clouds/backend/deprecated_calculation/`, doppelte Backend-Entry-Points im Management API und archivierte alte Implementation Plans sind hier nicht mehr als offene Findings enthalten.
+Der folgende Ausgangsbefund stammt aus dem damaligen Review. Spätere
+Teilaktualisierungen ersetzen keinen erneuten Abgleich aller Findings mit dem Code.
 
 ---
 

@@ -75,7 +75,7 @@ deployment drift gate is:
 ./thesis.sh test deployment-contract
 ```
 
-Architecture-profile boundaries, version rules, and current dark-reader status
+Architecture-profile boundaries, version rules, and current activation status
 are documented in [Architecture Profile Contracts](architecture-profiles.md).
 
 ## Versioning Rule

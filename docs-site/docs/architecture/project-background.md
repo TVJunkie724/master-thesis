@@ -37,7 +37,7 @@ Important differences to the current platform:
 - Terraform-first deployment is the canonical path,
 - provider-specific implementation is behind `src/providers/*`,
 - the Management API owns user/twin state and calls the Deployer through service contracts,
-- deployment templates and runtime upload folders are being separated.
+- versioned deployment templates, project definitions and private runtime state are separated.
 
 ## Current Integrated Platform
 

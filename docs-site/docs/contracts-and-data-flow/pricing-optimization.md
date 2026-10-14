@@ -77,7 +77,7 @@ flowchart TD
         direction LR
         Result["cost-result.v1<br/>and traces"]
         Specification["Resolved deployment<br/>specification v1"]
-        Architecture["Resolved Twin architecture v1<br/>(dark in Phase 8.5; activated in Phase 8.6)"]
+        Architecture["Resolved Twin architecture v1<br/>(profile resolution enabled)"]
         Management["Management validation<br/>and atomic persistence"]
         Flutter["Read-only Flutter review"]
     end
@@ -89,10 +89,10 @@ flowchart TD
     ProviderContracts --> Calculators
     Scoring --> Result
     Scoring --> Specification
-    Scoring -->|"profile resolver when dark gate is enabled"| Architecture
+    Scoring -->|"when profile resolution is enabled"| Architecture
     Result --> Management
     Specification --> Management --> Flutter
-    Architecture -->|"default-off Phase 8.5 admission"| Management
+    Architecture -->|"default-off profile admission"| Management
 ```
 
 Provider-native billing quantities are not forced into one raw input unit. Contracts
@@ -147,14 +147,12 @@ The Optimizer owns registry definitions and immutable catalogs. The Management A
 owns durable owner-scoped refresh history, review decisions, calculation runs, result
 items, exact catalog references, paths, traces, and resolved deployment
 specifications. It also owns the selected architecture-profile reference and
-immutable resolved-architecture persistence. Phase 8.5 implements architecture
-emission, trusted Management enrichment, shared-contract validation, and
-atomic result/specification/architecture persistence behind a default-off
-gate. The public Management calculation schema cannot author the profile or
-extension references. Repository AWS/Azure provider profiles remain
-unsupported until the Phase 8.6 graph compiler passes; Phase 8.6 promotes the
-profiles and activates calculation plus deployment together. Flutter cannot
-author or overwrite these artifacts.
+immutable resolved-architecture persistence. Architecture emission and atomic
+admission remain behind a default-off gate. AWS/Azure profile definitions are
+supported and the Deployer graph compiler is implemented; this does not enable
+the gate or establish live-cloud correctness. The public workload schema cannot
+author profile or extension references. See
+[Architecture Profiles](architecture-profiles.md) for activation and limits.
 
 See [Optimizer](../components/optimizer.md) and
 [Pricing Review](../user-guide/pricing-review.md) for operational detail.
