@@ -1,9 +1,10 @@
 # tests/test_twin_state_transitions.py
 # Tests for twin state transitions: blocking, regression, and Finish Configuration
 
+from unittest.mock import AsyncMock, patch
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from unittest.mock import patch, AsyncMock
 
 from src.models.twin import DigitalTwin, TwinState
 
@@ -95,7 +96,7 @@ class TestConfigStateTransitions:
             json={"debug_mode": True}
         )
         assert response.status_code == 400
-        assert "Cannot modify twin in 'deployed' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
     def test_config_deploying_blocked(
         self, auth_client: TestClient, db: Session, test_twin: DigitalTwin
@@ -109,7 +110,7 @@ class TestConfigStateTransitions:
             json={"debug_mode": True}
         )
         assert response.status_code == 400
-        assert "Cannot modify twin in 'deploying' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
     def test_config_destroying_blocked(
         self, auth_client: TestClient, db: Session, test_twin: DigitalTwin
@@ -123,7 +124,7 @@ class TestConfigStateTransitions:
             json={"debug_mode": True}
         )
         assert response.status_code == 400
-        assert "Cannot modify twin in 'destroying' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
 
 class TestDeployerConfigStateTransitions:
@@ -141,7 +142,7 @@ class TestDeployerConfigStateTransitions:
             json={"deployer_digital_twin_name": "test"}
         )
         assert response.status_code == 400
-        assert "Cannot modify twin in 'deployed' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
     def test_deployer_config_deploying_blocked(
         self, auth_client: TestClient, db: Session, test_twin: DigitalTwin
@@ -155,7 +156,7 @@ class TestDeployerConfigStateTransitions:
             json={"deployer_digital_twin_name": "test"}
         )
         assert response.status_code == 400
-        assert "Cannot modify twin in 'deploying' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
     def test_deployer_config_regresses(
         self, auth_client: TestClient, db: Session, test_twin: DigitalTwin
@@ -189,12 +190,12 @@ class TestTwinRenameBlocking:
             json={"name": "NewName"}
         )
         assert response.status_code == 400
-        assert "Cannot rename twin in 'deployed' state" in response.json()["detail"]
+        assert "immutable after its first successful deployment" in response.json()["detail"]
 
-    def test_state_change_deployed_allowed(
+    def test_client_authored_state_change_is_rejected(
         self, auth_client: TestClient, db: Session, test_twin: DigitalTwin
     ):
-        """State changes allowed for deployed twins (needed for destroy flow)."""
+        """Lifecycle state can only be changed by configure/deploy/destroy operations."""
         test_twin.state = TwinState.DEPLOYED
         db.commit()
 
@@ -202,10 +203,10 @@ class TestTwinRenameBlocking:
             f"/twins/{test_twin.id}",
             json={"state": "destroying"}
         )
-        assert response.status_code == 200
+        assert response.status_code == 422
         
         db.refresh(test_twin)
-        assert test_twin.state == TwinState.DESTROYING
+        assert test_twin.state == TwinState.DEPLOYED
 
 
 class TestFinishConfiguration:
@@ -219,10 +220,7 @@ class TestFinishConfiguration:
         test_twin.state = TwinState.DRAFT
         db.commit()
 
-        response = auth_client.put(
-            f"/twins/{test_twin.id}",
-            json={"state": "configured"}
-        )
+        response = auth_client.post(f"/twins/{test_twin.id}/configure")
         assert response.status_code == 200
         
         db.refresh(test_twin)
@@ -236,10 +234,7 @@ class TestFinishConfiguration:
         test_twin.state = TwinState.ERROR
         db.commit()
 
-        response = auth_client.put(
-            f"/twins/{test_twin.id}",
-            json={"state": "configured"}
-        )
+        response = auth_client.post(f"/twins/{test_twin.id}/configure")
         assert response.status_code == 200
         
         db.refresh(test_twin)
@@ -253,10 +248,7 @@ class TestFinishConfiguration:
         test_twin.state = TwinState.DESTROYED
         db.commit()
 
-        response = auth_client.put(
-            f"/twins/{test_twin.id}",
-            json={"state": "configured"}
-        )
+        response = auth_client.post(f"/twins/{test_twin.id}/configure")
         assert response.status_code == 200
         
         db.refresh(test_twin)

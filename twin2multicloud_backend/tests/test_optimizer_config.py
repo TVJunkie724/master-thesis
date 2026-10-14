@@ -4,6 +4,16 @@ from tests.conftest import create_test_twin
 
 
 class TestOptimizerConfigRoutes:
+    def test_slashless_read_does_not_redirect(self, authenticated_client):
+        client, headers = authenticated_client
+        twin_id = create_test_twin(client, headers)
+        path = f"/twins/{twin_id}/optimizer-config"
+        direct = client.get(path, headers=headers, follow_redirects=False)
+        canonical = client.get(path + "/", headers=headers, follow_redirects=False)
+        assert direct.status_code == canonical.status_code == 200
+        assert direct.json() == canonical.json()
+        assert "location" not in direct.headers
+
     def test_get_optimizer_config_default(self, authenticated_client):
         client, headers = authenticated_client
         twin_id = create_test_twin(client, headers)
@@ -54,7 +64,21 @@ class TestOptimizerConfigRoutes:
             headers=headers,
         )
 
-        updated_params = {**sample_calc_params, "numberOfDevices": 500}
+        updated_params = {
+            **sample_calc_params,
+            "numberOfDevices": 4000,
+            "deviceSendingIntervalInMinutes": 0.5,
+            "averageSizeOfMessageInKb": 0.5,
+            "twinEntityCount": 4000,
+            "aggregateDashboardRefreshesPerHour": 60,
+            "apiCallsPerAggregateDashboardRefresh": 10,
+            "dashboardActiveHoursPerDay": 4,
+            "monthlyEditorSeats": 25,
+            "monthlyViewerSeats": 10,
+            "twinStateMaterializationsPerSecond": 2.5,
+            "twinGraphUpdatesPerSecond": 0.1,
+            "eventingScenarioId": "eventing-medium-v1",
+        }
         response = client.put(
             f"/twins/{twin_id}/optimizer-config/params",
             json={"params": updated_params},
@@ -62,7 +86,7 @@ class TestOptimizerConfigRoutes:
         )
 
         assert response.status_code == 200
-        assert response.json()["params"]["numberOfDevices"] == 500
+        assert response.json()["params"]["numberOfDevices"] == 4000
 
     def test_client_result_write_endpoint_is_removed(
         self,

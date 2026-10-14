@@ -70,7 +70,6 @@ def test_twin_config_update_rejects_direct_per_twin_credentials(db_session):
                 {
                     "gcp": {
                         "project_id": "my-project-12345",
-                        "billing_account": "012345-6789AB-CDEF01",
                         "region": "europe-west1",
                     }
                 }
@@ -113,7 +112,6 @@ def test_optimizer_update_is_parameter_only(
     optimizer_config = twin.optimizer_config
     assert json.loads(optimizer_config.params) == sample_calc_params
     assert optimizer_config.result_json is None
-    assert optimizer_config.cheapest_l1 is None
 
     service.apply_twin_config_update(
         twin,
@@ -130,7 +128,6 @@ def test_optimizer_update_is_parameter_only(
     )
     assert optimizer_config.params is None
     assert optimizer_config.result_json is None
-    assert optimizer_config.cheapest_l1 is None
 
 
 def test_twin_update_schema_rejects_client_authored_optimizer_result():

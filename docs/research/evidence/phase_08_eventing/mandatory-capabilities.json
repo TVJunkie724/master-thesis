@@ -37,7 +37,7 @@
     },
     {
       "capability_id": "capability.direct-edge.cross-cloud-transport",
-      "requirement": "for every remote five-layer responsibility edge, use a source-owned durable outbox and acknowledge it only after authenticated destination acceptance"
+      "requirement": "for every remote Six-layer responsibility edge, use a source-owned durable outbox and acknowledge it only after authenticated destination acceptance"
     }
   ],
   "event_layer_capabilities": [

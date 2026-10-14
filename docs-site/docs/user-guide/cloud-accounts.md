@@ -1,55 +1,36 @@
 # Cloud Accounts
 
-Cloud Accounts are represented by encrypted, user-scoped CloudConnections. The profile
-screen shows non-secret metadata: provider, display name, account/project scope,
-purpose, permission-set version, validation status, and last use/validation.
+Cloud Accounts are encrypted, user-scoped deployment CloudConnections. The UI
+shows only provider, display name, authentication kind, account/project scope,
+and validation/readiness metadata.
 
-## Purposes
+Users may keep several named connections per provider and select the suitable
+one for each Twin. There is no pricing-purpose connection or default pricing
+credential.
 
-```mermaid
-flowchart LR
-    Connection["Validated cloud connection"] -->|pricing| Default["Default per user<br/>and provider"]
-    Connection -->|deployment| Binding["Bind to Twins"]
-    Default --> Refresh["Refresh account-level<br/>pricing"]
-    Binding --> Deploy["Preflight + deploy"]
-```
+## Add a connection
 
-The same provider account may require separate credentials because pricing discovery
-and infrastructure deployment have different permissions. Deployment connections
-are reusable across Twins. Azure pricing uses its public API without a connection.
+1. Create a non-root administrator credential in an isolated thesis cloud
+   scope outside the application.
+2. Enter it in the write-only form or import the supported provider file.
+3. Review the detected provider identity and target scope.
+4. Run identity validation.
+5. Bind the connection to a Twin only when its resolved graph needs that
+   provider.
 
-## Create Or Import
+Supported file shapes are AWS access-key CSV, Azure service-principal JSON,
+the allowlisted Azure compatibility bundle, and GCP service-account JSON.
+On **Settings → Cloud access**, import is the primary action and manual entry
+remains available. Azure files are parsed locally to prefill known metadata;
+only normalized deployment-principal fields reach the Management import
+endpoint. Files are credential input, not stored portable Twin artifacts.
 
-1. choose provider and purpose;
-2. supply the provider credential payload through the secure form/file boundary;
-3. verify displayed cloud scope before submission;
-4. validate the stored connection;
-5. set it as pricing default or bind it to a twin where applicable.
+Readiness may reveal missing permissions or external provider prerequisites.
+The Management/Deployer preparation contract is bounded and confirmation-
+gated. After preflight, review the exact automatic account actions, acknowledge
+only external steps already completed, and confirm preparation. The overview
+then renders the retry-safe result and the newly probed readiness. Do not invoke
+live preparation by bypassing that UI boundary.
 
-The API returns metadata and validation results, never the stored plaintext payload.
-
-## Bootstrap A Scoped Connection
-
-The current bootstrap is a manual, versioned static-script workflow:
-
-1. request the provider bootstrap plan through the authenticated Management API;
-2. review the returned dry-run command and cloud scope;
-3. authenticate through the provider CLI outside the application;
-4. run the script without `--apply`, review its plan, then apply explicitly;
-5. store its generated deployment CloudConnection JSON only in an ignored local path;
-6. import that generated connection and validate it before binding it to a twin.
-
-The Management API never receives or persists the administrator credential. Current
-bootstrap scripts create deployment identities only. AWS and GCP pricing connections
-are created/imported separately; Azure pricing uses its public API path.
-Flutter does not currently expose the bootstrap plan/import workflow, so operators use
-the Management OpenAPI/HTTP boundary for these two steps.
-
-See [Cloud Setup](../cloud-setup/index.md) for provider-specific commands and security
-rules.
-
-## Delete Or Replace
-
-Deletion is blocked when a deployment connection is still referenced. Unbind/replace
-it first. Removing a pricing default disables refresh for that provider until another
-default is selected. Existing historical refresh/calculation records remain evidence.
+Twin2MultiCloud does not create, minimize, rotate, or revoke the provider
+administrator. Revoke it directly with the provider after the experiment.

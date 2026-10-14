@@ -8,8 +8,8 @@ enum UserFunctionWorkflowPhase {
   validating,
   invalid,
   valid,
-  binding,
-  bound,
+  saving,
+  saved,
   stale,
   error,
 }
@@ -302,25 +302,26 @@ final class UserFunctionValidationResult extends Equatable {
   ];
 }
 
-final class UserFunctionArtifact extends Equatable {
-  final String schemaVersion;
-  final String artifactId;
-  final String artifactState;
+final class TwinUserFunction extends Equatable {
+  static const supportedSchemaVersion = 'twin-user-function.v1';
+
+  final String functionId;
+  final String twinId;
   final String artifactDigest;
   final String slotId;
   final String slotVersion;
   final String runtimeId;
   final Map<String, dynamic> configuration;
   final List<String> declaredCapabilities;
-  final String? validatorVersion;
+  final String validatorVersion;
   final List<String> sourceFiles;
-  final int dependencyCount;
+  final List<String> dependencies;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
-  const UserFunctionArtifact({
-    required this.schemaVersion,
-    required this.artifactId,
-    required this.artifactState,
+  const TwinUserFunction({
+    required this.functionId,
+    required this.twinId,
     required this.artifactDigest,
     required this.slotId,
     required this.slotVersion,
@@ -329,15 +330,16 @@ final class UserFunctionArtifact extends Equatable {
     required this.declaredCapabilities,
     required this.validatorVersion,
     required this.sourceFiles,
-    required this.dependencyCount,
+    required this.dependencies,
     required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory UserFunctionArtifact.fromJson(Map<String, dynamic> json) {
+  factory TwinUserFunction.fromJson(Map<String, dynamic> json) {
     _exactFields(json, const {
       'schema_version',
-      'artifact_id',
-      'artifact_state',
+      'function_id',
+      'twin_id',
       'artifact_digest',
       'slot_id',
       'slot_version',
@@ -346,28 +348,14 @@ final class UserFunctionArtifact extends Equatable {
       'declared_capabilities',
       'validator_version',
       'source_files',
-      'dependency_count',
+      'dependencies',
       'created_at',
-    }, 'user-function artifact');
-    final schemaVersion = _string(json['schema_version'], 'schema_version');
-    if (!{
-      'user-function-artifact.v1',
-      'legacy-user-function-artifact.v0',
-    }.contains(schemaVersion)) {
-      throw FormatException(
-        'Unsupported user-function artifact version "$schemaVersion".',
-      );
-    }
-    final state = _string(json['artifact_state'], 'artifact_state');
-    if (!{'valid', 'legacy_unvalidated'}.contains(state)) {
-      throw FormatException(
-        'Unsupported user-function artifact state "$state".',
-      );
-    }
-    return UserFunctionArtifact(
-      schemaVersion: schemaVersion,
-      artifactId: _string(json['artifact_id'], 'artifact_id'),
-      artifactState: state,
+      'updated_at',
+    }, 'Twin user function');
+    _version(json, supportedSchemaVersion, 'Twin user function');
+    return TwinUserFunction(
+      functionId: _string(json['function_id'], 'function_id'),
+      twinId: _string(json['twin_id'], 'twin_id'),
       artifactDigest: _string(json['artifact_digest'], 'artifact_digest'),
       slotId: _string(json['slot_id'], 'slot_id'),
       slotVersion: _string(json['slot_version'], 'slot_version'),
@@ -379,21 +367,18 @@ final class UserFunctionArtifact extends Equatable {
         json['declared_capabilities'],
         'declared_capabilities',
       ),
-      validatorVersion: json['validator_version'] as String?,
+      validatorVersion: _string(json['validator_version'], 'validator_version'),
       sourceFiles: _stringList(json['source_files'], 'source_files'),
-      dependencyCount: _integer(json['dependency_count'], 'dependency_count'),
+      dependencies: _stringList(json['dependencies'], 'dependencies'),
       createdAt: DateTime.parse(_string(json['created_at'], 'created_at')),
+      updatedAt: DateTime.parse(_string(json['updated_at'], 'updated_at')),
     );
   }
 
-  bool get isValid => artifactState == 'valid';
-  bool get isLegacy => artifactState == 'legacy_unvalidated';
-
   @override
   List<Object?> get props => [
-    schemaVersion,
-    artifactId,
-    artifactState,
+    functionId,
+    twinId,
     artifactDigest,
     slotId,
     slotVersion,
@@ -402,91 +387,9 @@ final class UserFunctionArtifact extends Equatable {
     declaredCapabilities,
     validatorVersion,
     sourceFiles,
-    dependencyCount,
+    dependencies,
     createdAt,
-  ];
-}
-
-final class TwinExtensionBinding extends Equatable {
-  static const supportedSchemaVersion = 'twin-extension-binding.v1';
-
-  final String bindingId;
-  final String twinId;
-  final String slotId;
-  final String slotVersion;
-  final String artifactId;
-  final String artifactDigest;
-  final String bindingDigest;
-  final bool active;
-  final int revision;
-  final DateTime createdAt;
-  final DateTime? unboundAt;
-
-  const TwinExtensionBinding({
-    required this.bindingId,
-    required this.twinId,
-    required this.slotId,
-    required this.slotVersion,
-    required this.artifactId,
-    required this.artifactDigest,
-    required this.bindingDigest,
-    required this.active,
-    required this.revision,
-    required this.createdAt,
-    required this.unboundAt,
-  });
-
-  factory TwinExtensionBinding.fromJson(Map<String, dynamic> json) {
-    _exactFields(json, const {
-      'schema_version',
-      'binding_id',
-      'twin_id',
-      'slot_id',
-      'slot_version',
-      'artifact_id',
-      'artifact_digest',
-      'binding_digest',
-      'active',
-      'revision',
-      'created_at',
-      'unbound_at',
-    }, 'extension binding');
-    _version(json, supportedSchemaVersion, 'extension binding');
-    if (json['active'] is! bool) {
-      throw const FormatException(
-        'Invalid extension contract: active must be a boolean.',
-      );
-    }
-    return TwinExtensionBinding(
-      bindingId: _string(json['binding_id'], 'binding_id'),
-      twinId: _string(json['twin_id'], 'twin_id'),
-      slotId: _string(json['slot_id'], 'slot_id'),
-      slotVersion: _string(json['slot_version'], 'slot_version'),
-      artifactId: _string(json['artifact_id'], 'artifact_id'),
-      artifactDigest: _string(json['artifact_digest'], 'artifact_digest'),
-      bindingDigest: _string(json['binding_digest'], 'binding_digest'),
-      active: json['active'] == true,
-      revision: _integer(json['revision'], 'revision'),
-      createdAt: DateTime.parse(_string(json['created_at'], 'created_at')),
-      unboundAt: json['unbound_at'] == null
-          ? null
-          : DateTime.parse(_string(json['unbound_at'], 'unbound_at')),
-    );
-  }
-
-  @override
-  List<Object?> get props => [
-    bindingId,
-    twinId,
-    slotId,
-    slotVersion,
-    artifactId,
-    artifactDigest,
-    bindingDigest,
-    active,
-    revision,
-    createdAt,
-    unboundAt,
+    updatedAt,
   ];
 }
 
@@ -516,11 +419,11 @@ final class UserFunctionSourceDraft extends Equatable {
   List<Object?> get props => [filename, bytes, configuration];
 }
 
-final class UserFunctionArtifactUpload {
+final class UserFunctionSourceUpload {
   final ExtensionSlot slot;
   final UserFunctionSourceDraft draft;
 
-  const UserFunctionArtifactUpload({required this.slot, required this.draft});
+  const UserFunctionSourceUpload({required this.slot, required this.draft});
 
   Uint8List get metadataBytes => Uint8List.fromList(
     utf8.encode(
@@ -555,15 +458,6 @@ String _string(Object? value, String field) {
   if (value is! String || value.isEmpty) {
     throw FormatException(
       'Invalid extension contract: $field must be a non-empty string.',
-    );
-  }
-  return value;
-}
-
-int _integer(Object? value, String field) {
-  if (value is! int) {
-    throw FormatException(
-      'Invalid extension contract: $field must be an integer.',
     );
   }
   return value;

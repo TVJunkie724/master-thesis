@@ -7,7 +7,6 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/config/runtime_composition.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/dashboard_screen.dart';
-import 'package:twin2multicloud_flutter/screens/pricing_review/pricing_review_screen.dart';
 import 'package:twin2multicloud_flutter/screens/settings_screen.dart';
 import 'package:twin2multicloud_flutter/screens/twin_overview/twin_overview_screen.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
@@ -18,7 +17,6 @@ void main() {
   final routes = <String, Type>{
     '/dashboard': DashboardScreen,
     '/settings': SettingsScreen,
-    '/pricing-review': PricingReviewScreen,
     '/wizard': WizardScreen,
     '/wizard/demo-configured': WizardScreen,
     '/twins/demo-deployed/overview': TwinOverviewScreen,
@@ -34,16 +32,24 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
 
         final runtime = AppRuntimeConfig.demo(demoScenario: scenario);
-        final composition = await RuntimeComposition.bootstrap(runtime);
+        final composition = await tester.runAsync(
+          () => RuntimeComposition.bootstrap(runtime),
+        );
+        expect(composition, isNotNull);
+        final resolvedComposition = composition!;
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               appRuntimeProvider.overrideWithValue(runtime),
-              apiServiceProvider.overrideWithValue(composition.managementApi),
-              logStreamClientFactoryProvider.overrideWithValue(
-                composition.logStreamClientFactory,
+              apiServiceProvider.overrideWithValue(
+                resolvedComposition.managementApi,
               ),
-              initialUserProvider.overrideWithValue(composition.initialUser),
+              logStreamClientFactoryProvider.overrideWithValue(
+                resolvedComposition.logStreamClientFactory,
+              ),
+              initialUserProvider.overrideWithValue(
+                resolvedComposition.initialUser,
+              ),
             ],
             child: const Twin2MultiCloudApp(),
           ),
@@ -60,6 +66,15 @@ void main() {
 
           expect(find.byType(entry.value), findsOneWidget);
           expect(find.textContaining('Offline demo'), findsOneWidget);
+          if (entry.key == '/dashboard') {
+            expect(find.text('Twin experiments'), findsOneWidget);
+            expect(find.text('Import Twin'), findsOneWidget);
+            expect(find.text('New Twin'), findsOneWidget);
+            expect(find.byType(FilterChip), findsNothing);
+            expect(find.byType(DataTable), findsNothing);
+            expect(find.text('Pricing readiness'), findsNothing);
+            expect(find.text('Est. Cost'), findsNothing);
+          }
           expect(tester.takeException(), isNull);
         }
 
@@ -68,4 +83,48 @@ void main() {
       },
     );
   }
+
+  testWidgets('new twin enters the credential-free wizard directly', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final runtime = AppRuntimeConfig.demo(demoScenario: DemoScenario.showcase);
+    final composition = await tester.runAsync(
+      () => RuntimeComposition.bootstrap(runtime),
+    );
+    expect(composition, isNotNull);
+    final resolvedComposition = composition!;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appRuntimeProvider.overrideWithValue(runtime),
+          apiServiceProvider.overrideWithValue(
+            resolvedComposition.managementApi,
+          ),
+          logStreamClientFactoryProvider.overrideWithValue(
+            resolvedComposition.logStreamClientFactory,
+          ),
+          initialUserProvider.overrideWithValue(
+            resolvedComposition.initialUser,
+          ),
+        ],
+        child: const Twin2MultiCloudApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.widgetWithText(FilledButton, 'New Twin'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 200));
+
+    expect(find.byType(WizardScreen), findsOneWidget);
+    expect(find.text('Set Up Cloud Credentials'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
 }

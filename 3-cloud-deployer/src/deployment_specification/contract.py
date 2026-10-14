@@ -10,10 +10,8 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 
-SCHEMA_VERSION = "resolved-deployment-specification.v1"
-REGISTRY_VERSION = "resolved-deployment-dimensions.v1"
-MANIFEST_VERSION = "3.0"
-HISTORICAL_MANIFEST_VERSION = "2.0"
+V2_SCHEMA_VERSION = "resolved-deployment-specification.v2"
+V4_MANIFEST_VERSION = "4.0"
 PROVIDERS = ("aws", "azure", "gcp")
 SLOT_ORDER = (
     "l1_ingestion",
@@ -24,49 +22,53 @@ SLOT_ORDER = (
     "l4_twin_state",
     "l5_visualization",
 )
-CONTRACT_ROOT = (
+V2_CONTRACT_ROOT = (
     Path(__file__).resolve().parents[1]
     / "contracts"
     / "generated"
     / "resolved-deployment-specification"
-    / "v1"
+    / "v2"
 )
-MANIFEST_CONTRACT_ROOT = (
+V4_MANIFEST_CONTRACT_ROOT = (
     Path(__file__).resolve().parents[1]
     / "contracts"
     / "generated"
     / "deployment-manifest"
-    / "v3"
+    / "v4"
 )
 
 
 @lru_cache(maxsize=1)
-def load_contract() -> tuple[dict[str, Any], dict[str, Any]]:
-    """Load and sanity-check the generated schema and semantic registry."""
+def load_v2_contract() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load the additive generic component-selection contract."""
 
     try:
-        schema = json.loads((CONTRACT_ROOT / "schema.json").read_text("utf-8"))
+        schema = json.loads((V2_CONTRACT_ROOT / "schema.json").read_text("utf-8"))
         registry = json.loads(
-            (CONTRACT_ROOT / "deployment-dimensions.json").read_text("utf-8")
+            (V2_CONTRACT_ROOT / "component-capacity-registry.json").read_text("utf-8")
         )
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Resolved deployment contract is unavailable") from exc
+        raise RuntimeError("Resolved deployment v2 contract is unavailable") from exc
 
     Draft202012Validator.check_schema(schema)
-    if registry.get("registry_version") != REGISTRY_VERSION:
-        raise RuntimeError("Resolved deployment registry version is unsupported")
-    if registry.get("specification_schema_version") != SCHEMA_VERSION:
-        raise RuntimeError("Resolved deployment schema and registry versions differ")
+    if schema.get("properties", {}).get("schema_version", {}).get("const") != (
+        V2_SCHEMA_VERSION
+    ):
+        raise RuntimeError("Resolved deployment v2 schema version is unsupported")
     return schema, registry
 
 
 @lru_cache(maxsize=1)
-def load_manifest_schema() -> dict[str, Any]:
-    """Load the synchronized DeploymentManifest v3 schema."""
+def load_manifest_schema(version: str = V4_MANIFEST_VERSION) -> dict[str, Any]:
+    """Load the sole supported DeploymentManifest schema."""
 
+    if version != V4_MANIFEST_VERSION:
+        raise RuntimeError("DeploymentManifest contract version is unsupported")
     try:
-        schema = json.loads((MANIFEST_CONTRACT_ROOT / "schema.json").read_text("utf-8"))
+        schema = json.loads(
+            (V4_MANIFEST_CONTRACT_ROOT / "schema.json").read_text("utf-8")
+        )
     except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("DeploymentManifest v3 contract is unavailable") from exc
+        raise RuntimeError("DeploymentManifest contract is unavailable") from exc
     Draft202012Validator.check_schema(schema)
     return schema

@@ -27,9 +27,7 @@ def _glb_bytes() -> bytes:
 
 
 def _create_user(db) -> User:
-    user = User(
-        email="scene-glb-service@example.test", name="Scene GLB", auth_provider="google"
-    )
+    user = User(email="scene-glb-service@example.test", name="Scene GLB")
     db.add(user)
     db.commit()
     db.refresh(user)

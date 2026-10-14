@@ -15,7 +15,10 @@ class CloudConnectionRepository:
     def list_for_user(self, user_id: str) -> list[CloudConnection]:
         return (
             self._db.query(CloudConnection)
-            .filter(CloudConnection.user_id == user_id)
+            .filter(
+                CloudConnection.user_id == user_id,
+                CloudConnection.purpose == "deployment",
+            )
             .order_by(CloudConnection.created_at.desc())
             .all()
         )
@@ -26,32 +29,9 @@ class CloudConnectionRepository:
             .filter(
                 CloudConnection.id == connection_id,
                 CloudConnection.user_id == user_id,
+                CloudConnection.purpose == "deployment",
             )
             .first()
-        )
-
-    def get_default_pricing(self, user_id: str, provider: str) -> CloudConnection | None:
-        return (
-            self._db.query(CloudConnection)
-            .filter(
-                CloudConnection.user_id == user_id,
-                CloudConnection.provider == provider,
-                CloudConnection.purpose == "pricing",
-                CloudConnection.is_default_for_pricing.is_(True),
-            )
-            .one_or_none()
-        )
-
-    def clear_pricing_defaults(self, user_id: str, provider: str) -> None:
-        (
-            self._db.query(CloudConnection)
-            .filter(
-                CloudConnection.user_id == user_id,
-                CloudConnection.provider == provider,
-                CloudConnection.purpose == "pricing",
-                CloudConnection.is_default_for_pricing.is_(True),
-            )
-            .update({CloudConnection.is_default_for_pricing: False}, synchronize_session="fetch")
         )
 
     def add(self, connection: CloudConnection) -> CloudConnection:

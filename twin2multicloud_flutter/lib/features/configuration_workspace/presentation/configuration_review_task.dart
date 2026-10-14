@@ -59,9 +59,13 @@ class _Summary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final params = state.calcParams;
-    final providers = state.layerProviders.entries
-        .map((entry) => '${entry.key}: ${entry.value}')
-        .join(' · ');
+    final providers = state.hasActiveArchitectureProfile
+        ? state.requiredDeploymentProviders
+              .map((provider) => provider.label)
+              .join(' · ')
+        : state.layerProviders.entries
+              .map((entry) => '${entry.key}: ${entry.value}')
+              .join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -74,7 +78,7 @@ class _Summary extends StatelessWidget {
           title: 'Twin',
           rows: {
             'Name': state.twinName ?? 'Not set',
-            'Mode': state.debugMode ? 'Debug' : 'Production',
+            'Mode': state.debugMode ? 'Debug' : 'Standard PoC',
           },
         ),
         _SummarySection(
@@ -86,14 +90,22 @@ class _Summary extends StatelessWidget {
             'Storage retention': params == null
                 ? 'Not set'
                 : '${params.hotStorageDurationInMonths} / ${params.coolStorageDurationInMonths} / ${params.archiveStorageDurationInMonths} months',
-            '3D representation': params?.needs3DModel == true
-                ? 'Required'
-                : 'Not required',
+            if (state.usesSixLayerProfile) ...{
+              'Twin entities': '${params?.entityCount ?? 0}',
+              'Modeled L5 reads':
+                  '${params?.dashboardRefreshesPerHour ?? 0}/hour',
+            } else
+              '3D representation': params?.needs3DModel == true
+                  ? 'Required'
+                  : 'Not required',
           },
         ),
         _SummarySection(
           title: 'Architecture',
           rows: {
+            'Profile': state.architectureSelection == null
+                ? 'Not selected'
+                : '${state.architectureSelection!.profileRef.id}@${state.architectureSelection!.profileRef.version}',
             'Provider path': providers.isEmpty ? 'Not calculated' : providers,
             'Monthly estimate': state.calcResult == null
                 ? 'Not calculated'
@@ -107,10 +119,20 @@ class _Summary extends StatelessWidget {
             const WizardDeploymentRunSelectionRequested(),
           ),
           onRecalculateArchitecture: () =>
-              onOpenTask(ConfigurationTaskId.calculateAlternatives),
+              onOpenTask(ConfigurationTaskId.calculateCostAllocation),
+          architecturePhase: state.resolvedArchitecturePhase,
+          resolvedArchitecture: state.resolvedArchitecture,
+          resolvedArchitectureError: state.resolvedArchitectureError,
+          onRetryResolvedArchitecture: state.deploymentRun == null
+              ? null
+              : () => context.read<WizardBloc>().add(
+                  WizardResolvedArchitectureRetried(
+                    runId: state.deploymentRun!.id,
+                  ),
+                ),
         ),
         _SummarySection(
-          title: 'Deployment readiness',
+          title: 'Configuration completeness (not cloud preflight)',
           rows: {
             for (final section in state.deployerReadiness.sections)
               section.label: section.ready ? 'Ready' : 'Needs attention',
@@ -144,11 +166,16 @@ class _SummarySection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 180, child: Text(row.key)),
+                SizedBox(
+                  width: AppSpacing.configurationSummaryLabelWidth,
+                  child: Text(row.key),
+                ),
                 Expanded(
                   child: Text(
                     row.value,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -254,7 +281,7 @@ List<_Finding> _buildFindings(WizardState state) {
       const _Finding(
         'Resolved architecture needs confirmation',
         'Verify or recalculate the latest optimizer recommendation.',
-        ConfigurationTaskId.compareAndSelect,
+        ConfigurationTaskId.reviewImmutableResult,
       ),
     );
   }
@@ -263,7 +290,7 @@ List<_Finding> _buildFindings(WizardState state) {
       const _Finding(
         'Architecture changes require review',
         'Review the current recommendation before continuing.',
-        ConfigurationTaskId.compareAndSelect,
+        ConfigurationTaskId.reviewImmutableResult,
       ),
     );
   }

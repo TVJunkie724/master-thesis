@@ -10,10 +10,6 @@ from backend.calculation_v2.components.aws import (
     AWSStepFunctionsCalculator,
     AWSTwinMakerCalculator,
 )
-from backend.calculation_v2.components.aws.twinmaker import (
-    DEDICATED_ACCOUNT_FULL_COST,
-    calculate_tiered_bundle_account_cost,
-)
 from backend.calculation_v2.engine import _calculate_egress_cost
 from backend.calculation_v2.layers.aws_layers import AWSLayerCalculators
 from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
@@ -237,126 +233,6 @@ class TestAWSTwinMakerUnits:
                 model_storage_gb=1,
                 pricing=_aws_pricing(),
             )
-
-    def test_twinmaker_bundle_calculates_full_dedicated_account_cost(self):
-        result = calculate_tiered_bundle_account_cost(
-            observed_tier="TIER_1",
-            account_entity_count=500,
-            account_queries_per_month=4_000_000,
-            account_api_calls_per_month=26_000_000,
-            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-            pricing=_aws_pricing(),
-        )
-
-        assert result.monthly_base_price == 231.0
-        assert result.query_overage == 200_000
-        assert result.api_call_overage == 1_000_000
-        assert result.total == pytest.approx(
-            231.0 + (200_000 * 0.0000525) + (1_000_000 * 0.00000165)
-        )
-
-    @pytest.mark.parametrize(
-        (
-            "tier",
-            "entities",
-            "base_price",
-            "included_queries",
-            "included_api_calls",
-        ),
-        [
-            ("TIER_1", 1, 231.0, 3_800_000, 25_000_000),
-            ("TIER_1", 1_000, 231.0, 3_800_000, 25_000_000),
-            ("TIER_2", 1_001, 682.5, 9_000_000, 60_000_000),
-            ("TIER_2", 5_000, 682.5, 9_000_000, 60_000_000),
-            ("TIER_3", 5_001, 1155.0, 14_300_000, 95_000_000),
-            ("TIER_3", 10_000, 1155.0, 14_300_000, 95_000_000),
-            ("TIER_4", 10_001, 2047.5, 24_000_000, 160_000_000),
-            ("TIER_4", 20_000, 2047.5, 24_000_000, 160_000_000),
-        ],
-    )
-    def test_twinmaker_bundle_covers_every_entity_and_included_usage_boundary(
-        self,
-        tier,
-        entities,
-        base_price,
-        included_queries,
-        included_api_calls,
-    ):
-        at_boundary = calculate_tiered_bundle_account_cost(
-            observed_tier=tier,
-            account_entity_count=entities,
-            account_queries_per_month=included_queries,
-            account_api_calls_per_month=included_api_calls,
-            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-            pricing=_aws_pricing(),
-        )
-        first_overage = calculate_tiered_bundle_account_cost(
-            observed_tier=tier,
-            account_entity_count=entities,
-            account_queries_per_month=included_queries + 1,
-            account_api_calls_per_month=included_api_calls + 1,
-            allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-            pricing=_aws_pricing(),
-        )
-
-        assert at_boundary.total == base_price
-        assert at_boundary.query_overage == 0
-        assert at_boundary.api_call_overage == 0
-        assert first_overage.total == pytest.approx(
-            base_price + 0.0000525 + 0.00000165
-        )
-
-    @pytest.mark.parametrize("entities", [0, 20_001])
-    def test_twinmaker_bundle_rejects_entities_outside_supported_tiers(
-        self,
-        entities,
-    ):
-        with pytest.raises(ValueError, match="does not belong"):
-            calculate_tiered_bundle_account_cost(
-                observed_tier="TIER_1" if entities == 0 else "TIER_4",
-                account_entity_count=entities,
-                account_queries_per_month=0,
-                account_api_calls_per_month=0,
-                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-                pricing=_aws_pricing(),
-            )
-
-    def test_twinmaker_bundle_rejects_incomplete_tier_schedule(self):
-        pricing = _aws_pricing()
-        pricing["aws"]["iotTwinMaker"]["tieredBundle"]["tiers"].pop()
-
-        with pytest.raises(ValueError, match="exactly four tiers"):
-            calculate_tiered_bundle_account_cost(
-                observed_tier="TIER_1",
-                account_entity_count=1,
-                account_queries_per_month=0,
-                account_api_calls_per_month=0,
-                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-                pricing=pricing,
-            )
-
-    def test_twinmaker_bundle_rejects_entity_tier_mismatch(self):
-        with pytest.raises(ValueError, match="does not belong"):
-            calculate_tiered_bundle_account_cost(
-                observed_tier="TIER_1",
-                account_entity_count=1_001,
-                account_queries_per_month=0,
-                account_api_calls_per_month=0,
-                allocation_policy=DEDICATED_ACCOUNT_FULL_COST,
-                pricing=_aws_pricing(),
-            )
-
-    def test_twinmaker_bundle_rejects_implicit_allocation(self):
-        with pytest.raises(ValueError, match=DEDICATED_ACCOUNT_FULL_COST):
-            calculate_tiered_bundle_account_cost(
-                observed_tier="TIER_1",
-                account_entity_count=1,
-                account_queries_per_month=0,
-                account_api_calls_per_month=0,
-                allocation_policy="PROPORTIONAL",
-                pricing=_aws_pricing(),
-            )
-
 
 class TestAWSActionUnits:
     def test_step_functions_normalizes_per_1k_state_transitions(self):

@@ -36,6 +36,10 @@ def test_aws_generated_config_resolves_shared_payload_and_device_credentials(tmp
         tmp_path / "iot_devices_auth" / "sensor-1" / "private.pem.key"
     ).resolve()
     assert config["root_ca_path"].endswith("iot_device_simulator/aws/AmazonRootCA1.pem")
+    assert config["command_target_id"] == "factory-sensor-1"
+    assert config["command_topic_filter"] == (
+        "$aws/commands/things/factory-sensor-1/executions/+/request/json"
+    )
 
 
 def test_azure_generated_config_is_atomically_private_and_uses_shared_payload(tmp_path):

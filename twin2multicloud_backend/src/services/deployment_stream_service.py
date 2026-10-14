@@ -13,6 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.models import DeploymentLog
+from src.models.deployment import Deployment
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
 logger = logging.getLogger(__name__)
@@ -397,6 +398,92 @@ async def stream_session_events(session: LogSession, request, last_event_id: int
         if session.unpersisted_logs:
             await persist_logs_batch(session, session.get_unpersisted_and_clear(), db)
         session.close_stream(connection.generation)
+
+
+def persisted_operation_last_event_id(
+    deployment: Deployment,
+    db: Session,
+) -> int:
+    """Return the stable terminal cursor for a detached persisted operation."""
+
+    latest_log = (
+        db.query(DeploymentLog.event_id)
+        .filter(DeploymentLog.session_id == deployment.session_id)
+        .order_by(DeploymentLog.event_id.desc())
+        .first()
+    )
+    latest_log_id = int(latest_log[0]) if latest_log is not None else 0
+    return latest_log_id + (1 if deployment.status in {"success", "failed"} else 0)
+
+
+async def stream_persisted_operation_events(
+    deployment: Deployment,
+    last_event_id: int,
+    db: Session,
+):
+    """Replay progress and terminal state after the in-memory session is gone."""
+
+    rows = (
+        db.query(DeploymentLog)
+        .filter(
+            DeploymentLog.session_id == deployment.session_id,
+            DeploymentLog.event_id > last_event_id,
+        )
+        .order_by(DeploymentLog.event_id.asc())
+        .all()
+    )
+    for row in rows:
+        yield _sse_frame(
+            {
+                "id": row.event_id,
+                "type": "log",
+                "data": row.message,
+                "level": row.level,
+                "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+            }
+        )
+
+    latest_log_id = rows[-1].event_id if rows else persisted_operation_last_event_id(
+        deployment,
+        db,
+    )
+    if deployment.status in {"success", "failed"}:
+        terminal_id = persisted_operation_last_event_id(deployment, db)
+        if terminal_id > last_event_id:
+            success = deployment.status == "success"
+            yield _sse_frame(
+                {
+                    "id": terminal_id,
+                    "type": "complete" if success else "error",
+                    "status": deployment.status,
+                    "data": deployment.description
+                    or deployment.error_message
+                    or ("Operation complete" if success else "Operation failed"),
+                    "message": deployment.error_message,
+                    "outputs": None,
+                    "operation_id": deployment.operation_id,
+                    "error_code": deployment.error_code,
+                    "timestamp": (
+                        deployment.completed_at.isoformat()
+                        if deployment.completed_at
+                        else None
+                    ),
+                }
+            )
+        return
+
+    yield (
+        "data: "
+        + json.dumps(
+            {
+                "type": "operation_detached",
+                "status": "running",
+                "data": "Live stream unavailable; continue with deployment status polling.",
+                "after_event_id": latest_log_id,
+            }
+        )
+        + "\n\n"
+    )
 
 
 def _sse_frame(event: dict[str, Any]) -> str:

@@ -1,51 +1,56 @@
 import 'package:equatable/equatable.dart';
 
-import '../../models/cloud_access_inventory.dart';
+import '../../models/cloud_connection.dart';
 
 class CloudAccessState extends Equatable {
-  final CloudAccessInventory? inventory;
+  final List<CloudConnection> connections;
   final bool isLoading;
   final String? loadError;
   final Set<String> busyConnectionIds;
   final bool isCreating;
+  final bool isImporting;
   final CloudAccessFeedback? feedback;
 
   const CloudAccessState({
-    this.inventory,
+    this.connections = const [],
     this.isLoading = false,
     this.loadError,
     this.busyConnectionIds = const {},
     this.isCreating = false,
+    this.isImporting = false,
     this.feedback,
   });
 
   CloudAccessState copyWith({
-    CloudAccessInventory? inventory,
+    List<CloudConnection>? connections,
     bool? isLoading,
     String? loadError,
     bool clearLoadError = false,
     Set<String>? busyConnectionIds,
     bool? isCreating,
+    bool? isImporting,
     CloudAccessFeedback? feedback,
     bool clearFeedback = false,
   }) {
     return CloudAccessState(
-      inventory: inventory ?? this.inventory,
+      connections: connections ?? this.connections,
       isLoading: isLoading ?? this.isLoading,
       loadError: clearLoadError ? null : loadError ?? this.loadError,
       busyConnectionIds: busyConnectionIds ?? this.busyConnectionIds,
       isCreating: isCreating ?? this.isCreating,
+      isImporting: isImporting ?? this.isImporting,
       feedback: clearFeedback ? null : feedback ?? this.feedback,
     );
   }
 
   @override
   List<Object?> get props => [
-    inventory,
+    connections,
     isLoading,
     loadError,
     busyConnectionIds,
     isCreating,
+    isImporting,
     feedback,
   ];
 }

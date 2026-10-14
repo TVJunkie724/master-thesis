@@ -9,24 +9,20 @@ import 'package:twin2multicloud_flutter/services/sse_service.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'demo composition selects in-memory adapters and fixture identity',
-    () async {
-      const config = AppRuntimeConfig.demo(demoScenario: DemoScenario.degraded);
+  test('demo composition selects fixtures and in-memory adapters', () async {
+    const config = AppRuntimeConfig.demo(demoScenario: DemoScenario.degraded);
 
-      final composition = await RuntimeComposition.bootstrap(config);
+    final composition = await RuntimeComposition.bootstrap(config);
 
-      expect(composition.config, same(config));
-      expect(composition.managementApi, isA<DemoManagementApi>());
-      expect(composition.logStreamClientFactory(), isA<DemoLogStreamClient>());
-      expect(composition.initialUser?.id, 'demo-degraded-user');
-    },
-  );
+    expect(composition.managementApi, isA<DemoManagementApi>());
+    expect(composition.logStreamClientFactory(), isA<DemoLogStreamClient>());
+    expect(composition.initialUser?.id, 'demo-degraded-user');
+  });
 
-  test('non-demo composition retains real infrastructure adapters', () async {
+  test('network composition installs the configured PoC bearer', () async {
     final config = AppRuntimeConfig.development(
       managementApiBaseUri: Uri.parse('http://management.test'),
-      developmentAuthToken: 'local-token',
+      pocAuthToken: 'local-token',
     );
 
     final composition = await RuntimeComposition.bootstrap(config);
@@ -34,17 +30,6 @@ void main() {
     expect(composition.managementApi, isA<ApiService>());
     expect(composition.logStreamClientFactory(), isA<SseService>());
     expect(composition.initialUser, isNull);
-    expect(await composition.managementApi.getAuthToken(), isNull);
-  });
-
-  test('production composition starts without a bearer token', () async {
-    final config = AppRuntimeConfig.production(
-      managementApiBaseUri: Uri.parse('https://management.example.test'),
-    );
-
-    final composition = await RuntimeComposition.bootstrap(config);
-
-    expect(composition.managementApi, isA<ApiService>());
-    expect(await composition.managementApi.getAuthToken(), isNull);
+    expect(await composition.managementApi.getAuthToken(), 'local-token');
   });
 }

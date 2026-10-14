@@ -13,7 +13,7 @@ from src.services.service_errors import EntityNotFoundError
 
 
 def _create_user(db, email: str = "optimizer-config-service@example.test") -> User:
-    user = User(email=email, name="Optimizer Config", auth_provider="google")
+    user = User(email=email, name="Optimizer Config")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -58,24 +58,22 @@ def test_update_params_persists_without_calculation(
     response = _service(db_session).update_params(
         twin.id,
         user.id,
-        OptimizerParamsUpdate(params={**sample_calc_params, "numberOfDevices": 250}),
+        OptimizerParamsUpdate(params=sample_calc_params),
     )
 
-    assert response.params == {**sample_calc_params, "numberOfDevices": 250}
+    assert response.params == sample_calc_params
     assert response.result is None
     assert response.cheapest_path is None
 
 
-def test_update_params_persists_compatibility_defaults(
+def test_update_params_persists_current_contract_defaults(
     db_session,
     sample_calc_params,
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
     params = {
-        key: value
-        for key, value in sample_calc_params.items()
-        if not key.startswith("averageDigitalTwinQuery")
+        key: value for key, value in sample_calc_params.items() if key != "currency"
     }
 
     response = _service(db_session).update_params(
@@ -84,8 +82,8 @@ def test_update_params_persists_compatibility_defaults(
         OptimizerParamsUpdate(params=params),
     )
 
-    assert response.params["averageDigitalTwinQueryUnitsPerQuery"] == 1
-    assert response.params["averageDigitalTwinQueryResponseSizeInKb"] == 1
+    assert "optimizationProfileId" not in response.params
+    assert response.params["currency"] == "USD"
 
 
 def test_get_cheapest_path_rejects_missing_result(db_session):

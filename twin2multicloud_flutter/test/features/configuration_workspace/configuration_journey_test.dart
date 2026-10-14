@@ -2,15 +2,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/features/configuration_workspace/domain/configuration_journey.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
-import 'package:twin2multicloud_flutter/models/calc_result.dart';
-import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
-import 'package:twin2multicloud_flutter/models/pricing_health.dart';
-import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 
-import '../../fixtures/typed_api_fixtures.dart';
+import '../../fixtures/architecture_wizard_fixture.dart';
 
 void main() {
   group('ConfigurationJourney', () {
+    test('exposes exactly the four thesis research groups', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        const WizardState(status: WizardStatus.ready),
+      );
+
+      expect(journey.phases.map((phase) => phase.label), [
+        'Scenario',
+        'Optimize',
+        'Prepare',
+        'Review',
+      ]);
+      expect(
+        journey.phases.expand((phase) => phase.tasks).map((task) => task.label),
+        containsAll(<String>[
+          'Define Twin',
+          'Scenario and currency',
+          'Device traffic',
+          'Processing and Eventing',
+          'Retention',
+          'Twin capabilities',
+          'User logic',
+          'Calculate cost allocation',
+          'Review immutable result',
+          'Cloud access',
+          'Data contracts',
+          'Twin assets',
+          'Summary',
+          'Readiness findings',
+          'Validation and preflight',
+        ]),
+      );
+    });
+
     test('has stable unique task ordering and compatibility mapping', () {
       expect(
         ConfigurationJourney.orderedTaskIds.toSet().length,
@@ -24,7 +53,7 @@ void main() {
       );
     });
 
-    test('starts an empty draft at twin identity and blocks dependencies', () {
+    test('starts an empty draft at Define Twin and blocks research inputs', () {
       final journey = ConfigurationJourney.fromWizardState(
         const WizardState(status: WizardStatus.ready),
       );
@@ -35,62 +64,60 @@ void main() {
         ConfigurationTaskStatus.blocked,
       );
       expect(
+        journey.task(ConfigurationTaskId.deviceTraffic).blockingReason,
+        'Save the Twin draft first',
+      );
+      expect(
         journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
-        'Calculate an architecture first',
+        'Calculate the cost allocation first',
       );
     });
 
-    test('moves a named draft to workload description without credentials', () {
+    test(
+      'blocks scenario work when the canonical contract is incompatible',
+      () {
+        final journey = ConfigurationJourney.fromWizardState(
+          const WizardState(
+            status: WizardStatus.ready,
+            twinId: 'twin-1',
+            twinName: 'Historical Twin',
+            architectureDetailPhase: ArchitectureDetailPhase.error,
+            architectureDetailError: 'Canonical contract mismatch',
+          ),
+        );
+
+        expect(journey.recommendedTaskId, ConfigurationTaskId.defineTwin);
+        expect(
+          journey.task(ConfigurationTaskId.defineTwin).status,
+          ConfigurationTaskStatus.attention,
+        );
+        expect(
+          journey.task(ConfigurationTaskId.processing).blockingReason,
+          contains('six-layer-eventing@1'),
+        );
+      },
+    );
+
+    test('moves directly from complete scenario to cost calculation', () {
       final journey = ConfigurationJourney.fromWizardState(
-        const WizardState(status: WizardStatus.ready, twinName: 'Factory twin'),
+        architectureReadyWizardState().copyWith(
+          calcParams: CalcParams.defaultParams(),
+          isCalcFormValid: true,
+        ),
       );
 
       expect(
         journey.recommendedTaskId,
-        ConfigurationTaskId.scenarioAndCurrency,
+        ConfigurationTaskId.calculateCostAllocation,
       );
       expect(
-        journey.task(ConfigurationTaskId.deviceTraffic).status,
+        journey.task(ConfigurationTaskId.calculateCostAllocation).status,
         ConfigurationTaskStatus.available,
       );
-    });
-
-    test('surfaces pricing attention before architecture calculation', () {
-      final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
-          calcParams: CalcParams.defaultParams(),
-          pricingHealthError: 'Unavailable',
-        ),
-      );
-
-      expect(journey.recommendedTaskId, ConfigurationTaskId.pricingReadiness);
       expect(
-        journey.task(ConfigurationTaskId.pricingReadiness).status,
-        ConfigurationTaskStatus.current,
+        journey.task(ConfigurationTaskId.reviewImmutableResult).status,
+        ConfigurationTaskStatus.blocked,
       );
-    });
-
-    test('requires access only for providers in selected architecture', () {
-      final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
-          calcParams: CalcParams.defaultParams(),
-          pricingHealth: _healthyPricing(),
-          calcResult: _result(const ['L1_AWS', 'L2_AWS', 'L4_AZURE']),
-          deploymentRun: TypedApiFixtures.deploymentRun(
-            selectedForDeploymentAt: TypedApiFixtures.timestamp,
-          ),
-        ),
-      );
-
-      expect(
-        journey.task(ConfigurationTaskId.cloudAccess).status,
-        ConfigurationTaskStatus.current,
-      );
-      expect(journey.recommendedTaskId, ConfigurationTaskId.cloudAccess);
     });
 
     test('falls back from a blocked requested task deterministically', () {
@@ -102,172 +129,107 @@ void main() {
       expect(journey.currentTaskId, ConfigurationTaskId.defineTwin);
     });
 
+    test('selection never overwrites the projected domain status', () {
+      final journey = ConfigurationJourney.fromWizardState(
+        architectureReadyWizardState(),
+        requestedTaskId: ConfigurationTaskId.deviceTraffic,
+      );
+
+      expect(journey.currentTaskId, ConfigurationTaskId.deviceTraffic);
+      expect(
+        journey.task(ConfigurationTaskId.deviceTraffic).status,
+        ConfigurationTaskStatus.available,
+      );
+    });
+
     test(
-      'preserves an available requested task instead of forcing linearity',
+      'phase target prefers current attention available then completion',
       () {
-        final journey = ConfigurationJourney.fromWizardState(
-          const WizardState(
-            status: WizardStatus.ready,
-            twinName: 'Factory twin',
-          ),
-          requestedTaskId: ConfigurationTaskId.retention,
+        const phase = ConfigurationPhase(
+          id: ConfigurationPhaseId.scenario,
+          label: 'Scenario',
+          tasks: [
+            ConfigurationTask(
+              id: ConfigurationTaskId.defineTwin,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Complete',
+              status: ConfigurationTaskStatus.complete,
+            ),
+            ConfigurationTask(
+              id: ConfigurationTaskId.deviceTraffic,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Attention',
+              status: ConfigurationTaskStatus.attention,
+            ),
+            ConfigurationTask(
+              id: ConfigurationTaskId.processing,
+              phaseId: ConfigurationPhaseId.scenario,
+              label: 'Available',
+              status: ConfigurationTaskStatus.available,
+            ),
+          ],
         );
 
-        expect(journey.currentTaskId, ConfigurationTaskId.retention);
-        expect(journey.previousNavigableTaskId, ConfigurationTaskId.processing);
+        expect(
+          phase.taskTarget(ConfigurationTaskId.processing),
+          ConfigurationTaskId.processing,
+        );
+        expect(
+          phase.taskTarget(ConfigurationTaskId.retention),
+          ConfigurationTaskId.deviceTraffic,
+        );
       },
     );
 
-    test('finish readiness includes access, artifacts and invalidation', () {
-      final ready = WizardState(
-        status: WizardStatus.ready,
-        twinName: 'Factory twin',
-        calcParams: CalcParams.defaultParams(),
-        calcResult: _result(const [
-          'L1_GCP',
-          'L2_GCP',
-          'L3_hot_GCP',
-          'L4_GCP',
-          'L5_GCP',
-        ]),
-        selectedCloudConnectionIds: const {CloudProvider.gcp: 'gcp-deploy'},
-        deployerDigitalTwinName: 'Factory twin',
-        configEventsJson: '[]',
-        configIotDevicesJson: '[]',
-        configJsonValidated: true,
-        configEventsValidated: true,
-        configIotDevicesValidated: true,
-        payloadsJson: '{}',
-        payloadsValidated: true,
-        deploymentRun: TypedApiFixtures.deploymentRun(
-          selectedForDeploymentAt: TypedApiFixtures.timestamp,
-        ),
+    test('completed phase targets its last completed task', () {
+      const phase = ConfigurationPhase(
+        id: ConfigurationPhaseId.optimize,
+        label: 'Optimize',
+        tasks: [
+          ConfigurationTask(
+            id: ConfigurationTaskId.calculateCostAllocation,
+            phaseId: ConfigurationPhaseId.optimize,
+            label: 'Calculate',
+            status: ConfigurationTaskStatus.complete,
+          ),
+          ConfigurationTask(
+            id: ConfigurationTaskId.reviewImmutableResult,
+            phaseId: ConfigurationPhaseId.optimize,
+            label: 'Review',
+            status: ConfigurationTaskStatus.complete,
+          ),
+        ],
       );
 
-      expect(ready.isConfigurationReadyForFinish, isTrue);
       expect(
-        ready.copyWith(step3Invalidated: true).isConfigurationReadyForFinish,
-        isFalse,
+        phase.taskTarget(ConfigurationTaskId.defineTwin),
+        ConfigurationTaskId.reviewImmutableResult,
       );
-      expect(
-        ready
-            .copyWith(selectedCloudConnectionIds: const {})
-            .isConfigurationReadyForFinish,
-        isFalse,
-      );
-
-      final extensionRequired = ready.copyWith(
-        extensionSlots: const [_extensionSlot],
-      );
-      expect(extensionRequired.isConfigurationReadyForFinish, isFalse);
-      expect(
-        ConfigurationJourney.fromWizardState(
-          extensionRequired,
-        ).task(ConfigurationTaskId.userLogic).status,
-        ConfigurationTaskStatus.available,
-      );
-
-      final binding = TwinExtensionBinding(
-        bindingId: '10000000-0000-4000-8000-000000000001',
-        twinId: 'twin-1',
-        slotId: _extensionSlot.slotId,
-        slotVersion: _extensionSlot.slotVersion,
-        artifactId: '20000000-0000-4000-8000-000000000001',
-        artifactDigest:
-            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        bindingDigest:
-            'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        active: true,
-        revision: 1,
-        createdAt: DateTime.utc(2026, 7, 19),
-        unboundAt: null,
-      );
-      final bound = extensionRequired.copyWith(
-        extensionBindings: [binding],
-        extensionPhases: const {
-          'processor.telemetry': UserFunctionWorkflowPhase.bound,
-        },
-      );
-      expect(bound.isConfigurationReadyForFinish, isTrue);
-      expect(
-        ConfigurationJourney.fromWizardState(
-          bound,
-        ).task(ConfigurationTaskId.userLogic).status,
-        ConfigurationTaskStatus.complete,
-      );
+      expect(phase.complete, isTrue);
     });
 
-    test('blocks deployment tasks until the latest run is selected', () {
-      final journey = ConfigurationJourney.fromWizardState(
-        WizardState(
-          status: WizardStatus.ready,
-          twinName: 'Factory twin',
-          calcParams: CalcParams.defaultParams(),
-          pricingHealth: _healthyPricing(),
-          calcResult: _result(const ['L1_AWS']),
-          deploymentRun: TypedApiFixtures.deploymentRun(),
-        ),
+    test('blocked and not-required phase has no navigation target', () {
+      const phase = ConfigurationPhase(
+        id: ConfigurationPhaseId.prepare,
+        label: 'Prepare',
+        tasks: [
+          ConfigurationTask(
+            id: ConfigurationTaskId.cloudAccess,
+            phaseId: ConfigurationPhaseId.prepare,
+            label: 'Cloud access',
+            status: ConfigurationTaskStatus.blocked,
+            blockingReason: 'Calculate first',
+          ),
+          ConfigurationTask(
+            id: ConfigurationTaskId.twinAssets,
+            phaseId: ConfigurationPhaseId.prepare,
+            label: 'Twin assets',
+            status: ConfigurationTaskStatus.notRequired,
+          ),
+        ],
       );
 
-      expect(
-        journey.task(ConfigurationTaskId.compareAndSelect).label,
-        'Review recommendation',
-      );
-      expect(
-        journey.task(ConfigurationTaskId.compareAndSelect).status,
-        ConfigurationTaskStatus.current,
-      );
-      expect(
-        journey.task(ConfigurationTaskId.cloudAccess).status,
-        ConfigurationTaskStatus.blocked,
-      );
-      expect(
-        journey.task(ConfigurationTaskId.cloudAccess).blockingReason,
-        'Confirm the resolved architecture first',
-      );
+      expect(phase.taskTarget(ConfigurationTaskId.defineTwin), isNull);
     });
   });
 }
-
-const _extensionSlot = ExtensionSlot(
-  slotId: 'processor.telemetry',
-  slotVersion: '1',
-  displayName: 'Telemetry processor',
-  runtimeId: 'python311',
-  configurationFields: [],
-  resourceLimits: {'timeout_seconds': 30, 'memory_mb': 256},
-  permissionCapabilities: ['capability.telemetry.process'],
-);
-
-PricingHealthResponse _healthyPricing() => PricingHealthResponse.fromJson({
-  'schema_version': PricingHealthResponse.supportedSchemaVersion,
-  'providers': {
-    for (final provider in ['aws', 'azure', 'gcp'])
-      provider: {
-        'provider': provider,
-        'state': 'fresh',
-        'severity': 'success',
-        'review_required': false,
-        'can_calculate': true,
-        'calculation_source': 'fresh',
-        'pricing_freshness': 'fresh',
-        'source_label': provider,
-        'credential_summary': {
-          'provider': provider,
-          'purpose': 'pricing',
-          'scope': 'user',
-          'identity_label': provider,
-          'status': 'active',
-        },
-        'primary_message': 'Ready',
-      },
-  },
-});
-
-CalcResult _result(List<String> path) => CalcResult.fromJson({
-  'awsCosts': const <String, dynamic>{},
-  'azureCosts': const <String, dynamic>{},
-  'gcpCosts': const <String, dynamic>{},
-  'cheapestPath': path,
-  'inputParamsUsed': const <String, dynamic>{},
-});

@@ -23,7 +23,7 @@ def _project(tmp_path, provider="aws", devices=("device-b", "device-a")):
         device.mkdir(parents=True)
         config = device / "config_generated.json"
         config.write_text(json.dumps({"device_id": device_id}), encoding="utf-8")
-        if provider == "azure":
+        if provider in {"azure", "google"}:
             config.chmod(0o600)
     (simulator / "payloads.json").write_text("[]", encoding="utf-8")
     return project, provider_dir

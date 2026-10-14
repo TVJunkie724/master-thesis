@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
 import io
 import zipfile
 
 import httpx
 import pytest
-
 import src.clients.deployer_client as deployer_client_module
 from src.clients.deployer_client import DeployerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -15,6 +13,30 @@ def _client_with_handler(handler):
         base_url="http://deployer.test",
         transport=httpx.MockTransport(handler),
     )
+
+
+@pytest.mark.asyncio
+async def test_visualization_fixed_route_and_one_shot_header():
+    def handler(request):
+        assert request.url.path == '/projects/twin/visualization'
+        assert request.headers['X-Operation-Package'] == 'one-shot'
+        return httpx.Response(200, content=b'<html>chart</html>', headers={'Content-Type': 'text/html'})
+    assert await _client_with_handler(handler).get_visualization('twin', 'one-shot') == b'<html>chart</html>'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('body,mime', [(b'{}', 'application/json'), (b'', 'text/html')])
+async def test_visualization_rejects_non_html_or_empty(body, mime):
+    client = _client_with_handler(lambda request: httpx.Response(200, content=body, headers={'Content-Type': mime}))
+    with pytest.raises(ValueError, match='invalid L5'):
+        await client.get_visualization('twin', 'one-shot')
+
+
+@pytest.mark.asyncio
+async def test_visualization_rejects_oversized_html():
+    client = _client_with_handler(lambda request: httpx.Response(200, content=b'x' * (1024 * 1024 + 1), headers={'Content-Type': 'text/html'}))
+    with pytest.raises(ExternalServiceError):
+        await client.get_visualization('twin', 'one-shot')
 
 
 def _zip_bytes() -> bytes:
@@ -28,7 +50,7 @@ def _simulator_headers(provider: str = "azure") -> dict[str, str]:
     classes = {
         "aws": "aws_iot_device_certificate",
         "azure": "azure_iot_hub_device_identity",
-        "gcp": "gcp_pubsub_topic_publisher",
+        "gcp": "gcp_mqtt_deployment_credential",
     }
     return {
         "Content-Type": "application/zip",
@@ -46,17 +68,80 @@ def _graph_evidence() -> dict[str, object]:
         "calculation_run_id": "run-1",
         "graph_digest": "sha256:" + ("1" * 64),
         "architecture_digest": "sha256:" + ("2" * 64),
-        "profile_id": "five-layer-baseline",
+        "profile_id": "six-layer-eventing",
         "profile_version": "1",
         "catalog_id": "baseline",
         "catalog_version": "1",
         "catalog_digest": "sha256:" + ("3" * 64),
         "specification_digest": "sha256:" + ("4" * 64),
         "package_selection_digest": "sha256:" + ("5" * 64),
+        "requirements_digest": "sha256:" + ("6" * 64),
         "node_count": 7,
         "edge_count": 6,
         "binding_count": 21,
+        "requirement_count": 18,
+        "requirement_types": [
+            "control_plane",
+            "permission",
+            "provider_scope",
+            "region",
+        ],
+        "required_providers": ["aws", "azure"],
         "stage_ids": ["package", "preplan", "terraform", "postapply"],
+    }
+
+
+def _graph_requirements() -> list[dict[str, object]]:
+    return [
+        {
+            "requirement_id": "requirement.provider-scope.aws.aws-target-scope",
+            "requirement_type": "provider_scope",
+            "provider": "aws",
+            "capability_id": "aws.target-scope",
+            "scope": "account",
+            "preparation_mode": "none",
+            "mandatory": True,
+            "source_node_ids": ["node.aws"],
+            "source_edge_ids": [],
+            "region": "",
+            "attributes": {"target_type": "account"},
+        },
+        {
+            "requirement_id": "requirement.region.azure.azure-region-westeurope",
+            "requirement_type": "region",
+            "provider": "azure",
+            "capability_id": "azure.region.westeurope",
+            "scope": "region",
+            "preparation_mode": "none",
+            "mandatory": True,
+            "source_node_ids": ["node.azure"],
+            "source_edge_ids": [],
+            "region": "westeurope",
+            "attributes": {},
+        },
+    ]
+
+
+def _requirements_inspection() -> dict[str, object]:
+    evidence = _graph_evidence()
+    evidence.update(
+        requirement_count=2,
+        requirement_types=["provider_scope", "region"],
+        required_providers=["aws", "azure"],
+    )
+    return {
+        "project_name": "factory",
+        "warnings": [],
+        "graph_evidence": evidence,
+        "requirements": _graph_requirements(),
+        "preparation_plan": {
+            "schema_version": "graph-account-preparation.v1",
+            "graph_digest": evidence["graph_digest"],
+            "requirements_digest": evidence["requirements_digest"],
+            "plan_digest": "sha256:" + "7" * 64,
+            "actions": [],
+            "manual_requirements": [],
+        },
     }
 
 
@@ -116,7 +201,7 @@ async def test_verify_permissions_posts_exact_provider_endpoint_and_payload():
     assert response == {"valid": True}
     assert seen == {
         "method": "POST",
-        "url": "http://deployer.test/permissions/verify/azure",
+        "url": "http://deployer.test/permissions/preflight/azure",
         "payload": '{"azure_region":"westeurope"}',
     }
 
@@ -144,23 +229,30 @@ async def test_validate_config_file_posts_multipart_validation_contract():
 
 
 @pytest.mark.asyncio
-async def test_check_cooldown_sends_expected_query_params():
+async def test_validate_config_file_forwards_trusted_context_params():
     seen = {}
-    destroyed_at = datetime(2026, 4, 26, 10, 15, tzinfo=timezone.utc)
 
     async def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
-        return httpx.Response(200, json={"ready": False, "remaining_seconds": 120})
+        return httpx.Response(200, json={"message": "Valid"})
 
-    response = await _client_with_handler(handler).check_cooldown(
-        destroyed_at,
-        uses_gcp_firestore=True,
+    await _client_with_handler(handler).validate_config_file(
+        "user-config",
+        {"file": ("config_user.json", b"{}", "application/json")},
+        provider="gcp",
+        context_params={
+            "architecture_profile_id": "six-layer-eventing",
+            "architecture_profile_version": "2",
+            "layer_4_provider": "azure",
+            "layer_5_provider": "gcp",
+        },
     )
 
-    assert response == {"ready": False, "remaining_seconds": 120}
     assert seen["url"] == (
-        "http://deployer.test/infrastructure/cooldown-check?"
-        "destroyed_at=2026-04-26T10%3A15%3A00%2B00%3A00Z&uses_gcp_firestore=true"
+        "http://deployer.test/validate/user-config?"
+        "architecture_profile_id=six-layer-eventing&"
+        "architecture_profile_version=2&layer_4_provider=azure&"
+        "layer_5_provider=gcp&provider=gcp"
     )
 
 
@@ -432,6 +524,96 @@ async def test_stage_operation_package_accepts_profile_owned_graph_cardinality()
 
 
 @pytest.mark.asyncio
+async def test_inspect_deployment_requirements_sends_pure_validation_request():
+    seen = {}
+    payload = _requirements_inspection()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(
+            method=request.method,
+            url=str(request.url),
+            content_type=request.headers["content-type"],
+        )
+        return httpx.Response(200, json=payload)
+
+    result = await _client_with_handler(handler).inspect_deployment_requirements(
+        "factory",
+        b"zip",
+    )
+
+    assert result == payload
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/validate/deployment-requirements?project_name=factory"
+    )
+    assert seen["content_type"].startswith("multipart/form-data")
+
+
+@pytest.mark.asyncio
+async def test_inspect_deployment_requirements_rejects_unbound_evidence():
+    payload = _requirements_inspection()
+    payload["graph_evidence"]["requirements_digest"] = "invalid"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(ExternalServiceError) as exc_info:
+        await _client_with_handler(handler).inspect_deployment_requirements(
+            "factory",
+            b"zip",
+        )
+
+    assert exc_info.value.public_detail == (
+        "Deployer returned an invalid requirement inspection contract."
+    )
+
+
+@pytest.mark.asyncio
+async def test_prepare_deployment_account_sends_confirmed_digest_bound_package():
+    seen = {}
+    plan_digest = "sha256:" + "7" * 64
+    payload = {
+        "project_name": "factory",
+        "plan_digest": plan_digest,
+        "requirements_digest": "sha256:" + "6" * 64,
+        "status": "ready",
+        "completed_actions": [
+            {
+                "action_id": "prepare.gcp.enable.run",
+                "provider": "gcp",
+                "capability_id": "run.googleapis.com",
+                "status": "ready",
+                "message": "API enabled.",
+            }
+        ],
+        "failed_actions": [],
+        "remaining_actions": [],
+        "retry_safe": True,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read()
+        seen.update(method=request.method, url=str(request.url), body=body)
+        return httpx.Response(200, json=payload)
+
+    result = await _client_with_handler(handler).prepare_deployment_account(
+        "factory",
+        b"zip",
+        expected_plan_digest=plan_digest,
+    )
+
+    assert result == payload
+    assert seen["method"] == "POST"
+    assert seen["url"] == (
+        "http://deployer.test/infrastructure/account-preparation?project_name=factory"
+    )
+    assert b"expected_plan_digest" in seen["body"]
+    assert plan_digest.encode() in seen["body"]
+    assert b"confirmed" in seen["body"]
+    assert b"true" in seen["body"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "payload",
     [
@@ -480,55 +662,6 @@ async def test_stage_operation_package_rejects_invalid_downstream_contract(paylo
 
     assert exc_info.value.public_detail == (
         "Deployer returned an invalid operation package contract."
-    )
-
-
-@pytest.mark.asyncio
-async def test_extract_project_zip_sends_validation_context_without_credentials():
-    seen = {}
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        seen["method"] = request.method
-        seen["url"] = str(request.url)
-        seen["content_type"] = request.headers["content-type"]
-        return httpx.Response(200, json={"success": True, "files": {}})
-
-    response = await _client_with_handler(handler).extract_project_zip(
-        b"zip",
-        {"skip_credentials": True, "l2_provider": "aws"},
-    )
-
-    assert response == {"success": True, "files": {}}
-    assert seen["method"] == "POST"
-    assert seen["url"] == (
-        "http://deployer.test/validate/zip/extract?"
-        "validation_context=%7B%22skip_credentials%22%3Atrue%2C%22l2_provider%22%3A%22aws%22%7D"
-        "&include_credentials=false"
-    )
-    assert seen["content_type"].startswith("multipart/form-data")
-
-
-@pytest.mark.asyncio
-async def test_extract_project_zip_rejects_oversized_downstream_response(monkeypatch):
-    import src.clients.deployer_client as deployer_client_module
-
-    monkeypatch.setattr(
-        deployer_client_module,
-        "MAX_PROJECT_EXTRACTION_RESPONSE_BYTES",
-        8,
-    )
-
-    async def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"success": True, "files": {}})
-
-    with pytest.raises(ExternalServiceError) as exc_info:
-        await _client_with_handler(handler).extract_project_zip(
-            b"zip",
-            {"skip_credentials": True},
-        )
-
-    assert exc_info.value.public_detail == (
-        "Deployer project extraction response is too large."
     )
 
 

@@ -1,54 +1,76 @@
-# Twin2MultiCloud: PoC Purpose and Boundaries
+# Twin2MultiCloud Integration Vision
 
-Twin2MultiCloud connects a Digital Twin cost optimizer and a cloud deployer
-through a Management API and Flutter UI. The research question is whether a
-costed provider assignment can become a functionally complete, traceable and
-reproducible deployment.
+Status: current thesis-PoC boundary
 
-## Model and responsibilities
+## Research objective
 
-The scientific baseline has five responsibilities: acquisition, processing,
-storage, twin management and visualization. Hot, cool and archive storage
-produce seven optimization slots. The Optimizer evaluates complete provider
-paths, including transfer and required runtime costs.
+Twin2MultiCloud demonstrates how a theoretical layer-based cost model can be
+operationalized as a functionally gated, traceable and reproducibly deployable
+Digital Twin across AWS, Azure and Google Cloud.
 
-| Project | Owns |
-|---|---|
-| Flutter | workload input, configuration workflow and result review |
-| Management API | users, twins, Cloud Connections, immutable calculation evidence and lifecycle |
-| Optimizer | pricing evidence, formulas, candidate admission and cost ranking |
-| Deployer | graph compilation, packages, Terraform and provider operations |
+The contribution is not a general cloud-management product. It is the method
+and evidence chain used to answer:
 
-Flutter calls only Management. Provider formulas stay in the Optimizer;
-infrastructure execution stays in the Deployer.
+- how typed Twin intent becomes a cloud deployment and verification result;
+- how provider implementations can be compared under the same functional
+  responsibilities;
+- how provider-local and multi-cloud placement affects estimated cost; and
+- how Eventing topology, delivery responsibility and cost become explicit.
 
-## Implemented chain
+## Canonical architecture
+
+The original five responsibilities—acquisition, processing, storage, Twin
+management and visualization/access—remain. `six-layer-eventing@1` adds
+Eventing as an independent responsibility because it owns placement, trust,
+delivery semantics, directed cross-cloud edges, verification and cost.
+
+This is the only deployable architecture. Five-layer v1 remains an isolated
+Optimizer-side offline baseline.
+
+## Integrated system
 
 ```text
-workload + exact pricing references
-  -> complete-path cost result
-  -> immutable calculation run and deployment specification
-  -> selected resolved architecture (when profile resolution is enabled)
-  -> Manifest v3
-  -> Deployer graph, packages and Terraform inputs
-  -> operation evidence
+Flutter
+   |
+   v
+Management API
+   |--------------------|
+   v                    v
+Cost Optimizer      Cloud Deployer
+   |                    |
+   +---- immutable -----+
+        result, graph,
+        operation and evidence
 ```
 
-Configuration, calculation, selection and deployment are separate steps.
-Clients cannot replace frozen pricing or deployment decisions with editable
-provider fields. Credentials are resolved privately from user-owned Cloud
-Connections at the operation boundary.
+Management owns users, Twins, encrypted deployment connections, immutable
+calculation evidence, readiness, operations, verification, cleanup and public
+errors. Optimizer owns frozen pricing/formulas, capability admission, monetary
+ranking and graph resolution. Deployer owns provider readiness, bounded
+preparation, packages, Terraform/provider execution and probes.
 
-## Current limits
+## Supported workflow
 
-Architecture-profile resolution defaults to off. Graph compilation and
-AWS/Azure profile mappings are implemented; GCP L4/L5 and a complete current
-live-cloud proof remain unavailable. Grafana still uses an L3-reader path
-rather than the modeled L4→L5 binding. Eventing is research/decision work,
-not an enabled extra baseline layer.
+1. Create, import or duplicate a unique Twin draft.
+2. Configure typed workload and bounded university user functions.
+3. Calculate one cost-only result from exact frozen pricing snapshots.
+4. Review placement, exclusions, assumptions, trace and immutable graph.
+5. Select existing named deployment CloudConnections.
+6. Run graph readiness and confirmed bounded preparation or manual repair.
+7. Confirm Deploy and follow durable/replayable progress.
+8. Verify the telemetry roundtrip and open provider-owned L4/L5 surfaces.
+9. Confirm Destroy and record post-destroy inventory/residual evidence.
 
-The canonical [Results and Limits](docs-site/docs/runtime/known-limitations.md)
-page records execution and evidence boundaries. [System Context](docs-site/docs/architecture/system-context.md)
-and [Engineering Decisions](docs-site/docs/architecture/engineering-decisions.md)
-explain the design. [Research Notes](docs/research/README.md) hold hypotheses,
-comparisons and evaluation plans; they do not establish implemented behavior.
+Deployed definitions are immutable; a changed experiment becomes a new draft.
+
+## Evaluation boundary
+
+Offline suites prove deterministic contracts and logic. Live evaluation first
+uses low-cost identity/API/capacity/image probes, then three provider-local and
+six directed multi-cloud Small scenarios. Every live run has budget/duration
+guardrails, immediate verification, a guaranteed Destroy attempt and residual
+inventory.
+
+Results must distinguish estimated cost, contract-tested functionality and
+live-verified behavior. Limitations, sensitivity, threats to validity and the
+distance to product maturity are first-class thesis outputs.

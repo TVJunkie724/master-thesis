@@ -7,7 +7,7 @@ changing application startup.
 | Service | Host port | Internal port | Health/contract |
 |---|---:|---:|---|
 | Optimizer (`2twin2clouds`) | 5003 | 8000 | `/`, `/docs`, pricing/validation APIs |
-| Deployer (`3cloud-deployer`) | 5004 | 8000 | `/`, `/docs`, project/infrastructure APIs |
+| Deployer (`3cloud-deployer`) | 5004 | 8000 | `/`, `/docs`, internal package/infrastructure APIs |
 | Management API | 5005 | 5005 | `/health`, `/docs` |
 | MkDocs (`docs` profile) | 5010 | 8000 | documentation site |
 

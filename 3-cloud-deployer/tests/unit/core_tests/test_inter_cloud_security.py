@@ -102,7 +102,10 @@ def test_http_error_diagnostics_are_bounded_and_redacted(inter_cloud_module):
         BytesIO(body),
     )
 
-    diagnostic = inter_cloud_module.read_http_error_body(error, limit=128)
+    try:
+        diagnostic = inter_cloud_module.read_http_error_body(error, limit=128)
+    finally:
+        error.close()
 
     assert len(diagnostic) <= 128
     assert secret not in diagnostic

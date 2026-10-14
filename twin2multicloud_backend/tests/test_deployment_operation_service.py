@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
@@ -20,7 +20,7 @@ from src.services.service_errors import (
 
 
 def _create_user(db, email: str = "operation@example.test") -> User:
-    user = User(email=email, name="Operation", auth_provider="google")
+    user = User(email=email, name="Operation")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -120,8 +120,6 @@ async def test_deploy_sets_state_and_schedules_real_stream(db_session):
 async def test_deploy_normalizes_google_alias_for_deployer_api(db_session, monkeypatch):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user, TwinState.CONFIGURED)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
-    db_session.commit()
     stream_calls = []
 
     async def fake_run_real_deploy_stream(**kwargs):
@@ -163,7 +161,7 @@ def _graph_evidence(digit: str = "1") -> dict:
     return {
         "architecture_digest": "sha256:" + (digit * 64),
         "graph_digest": "sha256:" + (digit * 64),
-        "profile_id": "five-layer-baseline",
+        "profile_id": "six-layer-eventing",
         "profile_version": "1",
         "catalog_id": "baseline-component-catalog",
         "catalog_version": "1",
@@ -289,7 +287,7 @@ async def test_deploy_rolls_back_on_project_preparation_failure(db_session):
 @pytest.mark.asyncio
 async def test_deploy_preparation_failure_restores_original_allowed_state(db_session):
     user = _create_user(db_session)
-    twin = _create_twin(db_session, user, TwinState.DESTROYED)
+    twin = _create_twin(db_session, user, TwinState.ERROR)
 
     async def failing_preparer(_twin, _user_id):
         raise DownstreamServiceError(
@@ -304,7 +302,34 @@ async def test_deploy_preparation_failure_restores_original_allowed_state(db_ses
         )
 
     db_session.refresh(twin)
-    assert twin.state == TwinState.DESTROYED
+    assert twin.state == TwinState.ERROR
+
+
+@pytest.mark.asyncio
+async def test_deploy_reuses_persisted_command_for_same_idempotency_key(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user, TwinState.CONFIGURED)
+    scheduled = []
+    service = _service(db_session, scheduled=scheduled)
+
+    first = await service.deploy_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+        idempotency_key="deploy-command-0001",
+    )
+    second = await service.deploy_twin(
+        twin_id=twin.id,
+        user_id=user.id,
+        test_mode=False,
+        idempotency_key="deploy-command-0001",
+    )
+
+    assert second == {**first, "reused": True}
+    assert len(scheduled) == 1
+    operations = db_session.query(Deployment).filter_by(twin_id=twin.id).all()
+    assert len(operations) == 1
+    assert operations[0].idempotency_key == "deploy-command-0001"
 
 
 @pytest.mark.asyncio

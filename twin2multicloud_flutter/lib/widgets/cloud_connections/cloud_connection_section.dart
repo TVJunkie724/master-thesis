@@ -109,8 +109,8 @@ class CloudConnectionSection extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                FilledButton.icon(
-                  icon: const Icon(Icons.add),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.key_outlined),
                   label: const Text(CloudConnectionStrings.newConnection),
                   onPressed: isLoading ? null : onCreate,
                 ),

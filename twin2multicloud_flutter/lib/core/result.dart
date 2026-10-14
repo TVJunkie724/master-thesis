@@ -32,6 +32,12 @@ abstract interface class UserFacingException implements Exception {
   String get message;
 }
 
+/// User-facing exception with a stable machine-readable domain code.
+abstract interface class CodedUserFacingException
+    implements UserFacingException {
+  String get code;
+}
+
 /// Represents a successful result containing data.
 class Success<T> extends Result<T> {
   final T data;

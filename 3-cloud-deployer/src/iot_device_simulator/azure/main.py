@@ -25,6 +25,7 @@ def help_menu():
     print("""
     Available commands:
       send                        - Sends payload to Azure IoT Hub.
+      listen                      - Waits for one device command (up to 5 minutes).
       help                        - Show this help menu.
       exit                        - Exit the program.
     """)
@@ -88,6 +89,12 @@ def main():
                 transmission.send()
             except Exception as e:
                 print(f"Error sending message: {e}")
+        elif command == "listen":
+            try:
+                if not transmission.listen_for_command():
+                    print("No command received before timeout.")
+            except Exception as e:
+                print(f"Error receiving command: {e}")
         elif command == "help":
             help_menu()
         elif command == "exit":

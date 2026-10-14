@@ -247,17 +247,33 @@ class DeployerConfigRequirements extends Equatable {
     required String? layer5Provider,
     required List<String> deviceIds,
     required List<String> eventActionNames,
+    bool profileOwnsMandatoryEventBehavior = false,
   }) {
     final l4UsesManagedAssets = _isAwsOrAzure(layer4Provider);
     return DeployerConfigRequirements(
-      deviceIds: List.unmodifiable(deviceIds),
-      eventActionNames: List.unmodifiable(eventActionNames),
-      eventFeedbackRequired: calcParams?.returnFeedbackToDevice == true,
-      eventActionsRequired: calcParams?.useEventChecking == true,
-      stateMachineRequired: calcParams?.triggerNotificationWorkflow == true,
-      hierarchyRequired: l4UsesManagedAssets,
-      sceneRequired: calcParams?.needs3DModel == true && l4UsesManagedAssets,
-      userConfigRequired: _isAwsOrAzure(layer5Provider),
+      deviceIds: List.unmodifiable(
+        profileOwnsMandatoryEventBehavior ? const <String>[] : deviceIds,
+      ),
+      eventActionNames: List.unmodifiable(
+        profileOwnsMandatoryEventBehavior ? const <String>[] : eventActionNames,
+      ),
+      eventFeedbackRequired:
+          !profileOwnsMandatoryEventBehavior &&
+          calcParams?.returnFeedbackToDevice == true,
+      eventActionsRequired:
+          !profileOwnsMandatoryEventBehavior &&
+          calcParams?.useEventChecking == true,
+      stateMachineRequired:
+          !profileOwnsMandatoryEventBehavior &&
+          calcParams?.triggerNotificationWorkflow == true,
+      hierarchyRequired:
+          !profileOwnsMandatoryEventBehavior && l4UsesManagedAssets,
+      sceneRequired:
+          !profileOwnsMandatoryEventBehavior &&
+          calcParams?.needs3DModel == true &&
+          l4UsesManagedAssets,
+      userConfigRequired:
+          profileOwnsMandatoryEventBehavior || _isAwsOrAzure(layer5Provider),
     );
   }
 

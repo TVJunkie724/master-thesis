@@ -1,65 +1,147 @@
-# Twin2MultiCloud Handbook
+# Twin2MultiCloud handbook
 
-Use this command reference from the repository root. For first use, follow
-[Fresh Clone](docs-site/docs/getting-started/fresh-clone.md); the
-[documentation site](docs-site/docs/index.md) owns the detailed explanations.
+This is the practical entry point for local work on the thesis proof of
+concept. The target scope and research rationale live in the documents linked
+from the root README; this handbook intentionally contains no product roadmap.
 
-## Daily commands
+## 1. Safe local setup
 
-| Command | Result |
-|---|---|
-| `./thesis.sh demo --setup` | offline Flutter walkthrough; omit `--setup` after dependency setup |
-| `./thesis.sh up --setup` | local backend stack and Flutter |
-| `./thesis.sh up --no-flutter` | backend stack and generated Flutter configuration |
-| `./thesis.sh flutter` | Flutter against the local Management API |
-| `./thesis.sh config` | regenerate ignored `config/dev.json` |
-| `./thesis.sh secrets` | create or validate local runtime keys |
-| `./thesis.sh status` | service URLs and container status |
-| `./thesis.sh logs management-api` | service logs; also accepts `2twin2clouds` or `3cloud-deployer` |
-| `./thesis.sh down` | stop the local stack |
-| `./thesis.sh docs up` | documentation at `http://localhost:5010` |
-| `./thesis.sh latex once` | separate thesis build; `watch` and `clean` are also available |
+Required tools:
 
-Development sign-in is explicit. Production uses the implemented external
-OAuth/SAML flow when configured; live UIBK activation still needs institutional
-setup. See [Authentication](docs-site/docs/runtime/authentication.md).
+- Docker or OrbStack with Docker Compose;
+- Flutter 3.44 with Dart 3.12;
+- Python 3.9 or newer; and
+- Git.
 
-## Verification
+Start the complete local stack:
+
+```bash
+./thesis.sh up
+```
+
+Common variants:
+
+```bash
+./thesis.sh up --no-flutter
+./thesis.sh up --setup
+./thesis.sh flutter
+./thesis.sh demo --setup
+./thesis.sh status
+./thesis.sh logs management-api
+./thesis.sh down
+```
+
+`demo` uses deterministic in-memory adapters and makes no network or cloud
+call. `up` starts the credential-free local services and writes the ignored
+Flutter development configuration.
+
+## 2. Runtime configuration
+
+Flutter receives configuration through
+`--dart-define-from-file=config/dev.json`. The generated local file contains
+the Management API URL and a local development token and is ignored by Git.
+Tracked example files define development, demo and fail-closed deployment
+shapes without containing secrets.
+
+The Management API requires one local runtime encryption key:
+
+```text
+.secrets/runtime/ENCRYPTION_KEY
+```
+
+The root script creates it with restricted permissions and never prints or
+rotates an existing value. The encryption key protects stored CloudConnections;
+deleting it can make local encrypted records unreadable.
+
+Provider credentials are a separate boundary. The default stack does not need
+or mount them. For the eventual supervised evaluation, store credentials only
+through the Management API or ignored local secret files. Never commit, paste,
+log or add real values to evidence.
+
+## 3. Runtime ownership
+
+```text
+Flutter
+   |
+   v
+Management API
+   |          |
+   v          v
+Optimizer   Deployer
+```
+
+- Flutter presents typed inputs, review, readiness and operation state.
+- Management owns users, Twins, CloudConnections, immutable evidence and the
+  public API.
+- Optimizer owns frozen pricing, formulas, admissibility and cost scoring.
+- Deployer owns package validation, readiness requirements, Terraform,
+  verification and cleanup.
+
+Direct Flutter calls to Optimizer or Deployer are outside the architecture.
+
+## 4. Offline quality gates
 
 ```bash
 ./thesis.sh test backend
 ./thesis.sh test frontend
 ./thesis.sh test frontend-integration
 ./thesis.sh test deployment-contract --focused
+./thesis.sh test deployment-contract
 ```
 
-Use `./thesis.sh test deployment-contract` for the full credential-free
-cross-project gate. See [Testing](docs-site/docs/developer-guide/testing.md)
-for scope and prerequisites. Provider E2E is a separate supervised operation.
+The deployment-contract gate strips provider credentials, rejects live E2E
+flags and performs no Terraform apply. It validates the frozen Optimizer result
+through Management persistence, Manifest v4, typed Terraform variables and
+credential-free mock plans.
 
-## Configuration and recovery
+Individual service commands:
 
-- [Runtime profiles](docs-site/docs/getting-started/runtime-profiles.md): development, demo and production.
-- [Configuration](docs-site/docs/runtime/configuration.md): environment settings and port overrides.
-- [Cloud setup](docs-site/docs/cloud-setup/index.md): optional provider access.
-- [State and backups](docs-site/docs/runtime/state-and-persistence.md): database, encryption key and Terraform state.
-- [Troubleshooting](docs-site/docs/runtime/troubleshooting.md): startup, pricing and deployment failures.
+```bash
+cd 2-twin2clouds && python -m pytest
+cd twin2multicloud_backend && python -m pytest
+cd 3-cloud-deployer && python -m pytest
+cd twin2multicloud_flutter && flutter analyze && flutter test
+```
 
-The default stack uses no cloud credential files. Normal application credentials
-are encrypted Cloud Connections. `.secrets/local/` and
-`./thesis.sh up --with-credentials` are optional compatibility/seeding paths.
-Keep the original encryption key when restoring a database.
+Build the documentation locally with the pinned container:
 
-## Where to change what
+```bash
+docker compose --profile docs run --rm docs mkdocs build --strict
+```
 
-| Change | Source |
-|---|---|
-| UI and workflows | `twin2multicloud_flutter/lib/` |
-| Management contracts and orchestration | `twin2multicloud_backend/src/` |
-| Pricing and calculation | `2-twin2clouds/backend/`, `2-twin2clouds/pricing_registry/` |
-| Infrastructure execution | `3-cloud-deployer/src/` |
-| Current technical/user documentation | `docs-site/docs/` |
-| Research reasoning | `docs/research/` |
+Compile the thesis independently:
 
-For responsibilities and the data path, see
-[System Context](docs-site/docs/architecture/system-context.md).
+```bash
+./thesis.sh latex once
+```
+
+## 5. Live-cloud boundary
+
+Live provider validation, preparation, Deploy, telemetry verification and
+Destroy can change external state or incur cost. They require a separate,
+explicitly supervised evaluation session. Before a live run:
+
+1. freeze the scenario, regions, pricing references and budget;
+2. select isolated thesis accounts and pre-existing administrator
+   CloudConnections;
+3. inspect identity and graph-derived readiness without mutation;
+4. review every proposed persistent provider change;
+5. run one Small scenario at a time;
+6. verify function immediately; and
+7. Destroy, inventory remaining resources and record residual state.
+
+Offline fixtures and Terraform plans are never reported as live evidence.
+
+## 6. Current documentation
+
+- `README.md` — repository overview
+- `ONBOARDING.md` — branch, safety and repository rules
+- `integration_vision.md` — architecture boundary
+- `FRONTEND_ARCHITECTURE.md` — Flutter structure
+- `docs-site/` — user and developer documentation
+- `docs/plans/2026-08-26_thesis_poc_target_concept.md` — scope
+- `docs/plans/2026-08-26_thesis_poc_execution_plan.md` — execution state
+- `docs/development_and_decision_log.md` — durable decisions
+
+Git history, not the active documentation tree, preserves superseded
+implementation handoffs and abandoned product directions.

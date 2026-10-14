@@ -18,23 +18,44 @@ from decimal import Decimal, InvalidOperation
 from math import isfinite
 from typing import Any, Dict
 
-from backend.calculation_v2.layers import (
-    AWSLayerCalculators,
-    AzureLayerCalculators,
-    GCPLayerCalculators,
-    LayerResult,
-    SUPPORTED_LAYER_KEYS,
-    SUPPORTED_PROVIDER_KEYS,
+from backend.architecture_profiles.completeness import (
+    CompleteArchitectureCandidate,
+)
+from backend.architecture_profiles.diagnostics import (
+    ArchitectureResolutionError,
+    RejectionCollector,
+)
+from backend.architecture_profiles.five_layer_strategy import (
+    FIVE_LAYER_PROFILE_REF,
+    FiveLayerCompletePathStrategy,
+)
+from backend.architecture_profiles.resolution_builder import (
+    ArchitectureResolutionWinner,
+)
+from backend.architecture_profiles.six_layer_strategy import (
+    SIX_LAYER_EVENTING_V1_PROFILE_REF,
+    SixLayerEventingV1CandidateStrategy,
+)
+from backend.architecture_profiles.strategy import (
+    ArchitectureResolutionContext,
 )
 from backend.calculation_v2.currency import apply_result_currency
 from backend.calculation_v2.formulas import (
     billable_1kb_units,
 )
+from backend.calculation_v2.layers import (
+    SUPPORTED_LAYER_KEYS,
+    SUPPORTED_PROVIDER_KEYS,
+    AWSLayerCalculators,
+    AzureLayerCalculators,
+    GCPLayerCalculators,
+    LayerResult,
+)
 from backend.calculation_v2.path_optimizer import (
     LAYER_ORDER,
     build_optimization_diagnostics,
-    build_transition_runtime_context,
     build_transfer_pricing_context,
+    build_transition_runtime_context,
     evaluate_complete_paths,
 )
 from backend.calculation_v2.strategy_context import (
@@ -43,6 +64,8 @@ from backend.calculation_v2.strategy_context import (
 )
 from backend.calculation_v2.strategy_traceability import (
     TRACE_SCHEMA_VERSION as STRATEGY_TRACE_SCHEMA_VERSION,
+)
+from backend.calculation_v2.strategy_traceability import (
     build_intent_result_trace as build_strategy_result_trace,
 )
 from backend.calculation_v2.traceability import (
@@ -53,33 +76,16 @@ from backend.calculation_v2.transfer_pricing import (
     TransferPricingContractError,
     TransferRouteClass,
 )
-from backend.optimization.context import OptimizationMetricContext
-from backend.optimization.profiles import build_default_profile_registry
-from backend.optimization.scoring import OptimizationCandidate
-from backend.deployment_specification import (
-    build_resolved_deployment_specification,
-)
-from backend.architecture_profiles.completeness import (
-    CompleteArchitectureCandidate,
-)
-from backend.architecture_profiles.diagnostics import (
-    ArchitectureResolutionError,
-    RejectionCollector,
-)
-from backend.architecture_profiles.five_layer_strategy import (
-    build_default_strategy_registry,
-)
-from backend.architecture_profiles.resolution_builder import (
-    ArchitectureResolutionWinner,
-)
-from backend.architecture_profiles.strategy import (
-    ArchitectureResolutionContext,
-)
 from backend.executable_topology import ensure_executable_error_handling_topology
+from backend.optimization.context import OptimizationMetricContext
+from backend.optimization.cost_runtime import (
+    CostOptimizationRuntime,
+    build_default_cost_runtime,
+)
+from backend.optimization.scoring import OptimizationCandidate
 from backend.pricing_catalog_models import PricingCatalogContext
 from backend.pricing_registry_service import PricingRegistryService
 from backend.transfer_catalog import validate_transfer_catalog
-
 
 # =============================================================================
 # Calculator Instances
@@ -135,7 +141,9 @@ def _supported_provider_options(
             raise ValueError(f"{provider} provider cost result must be a mapping")
         payload = costs.get(layer)
         if not isinstance(payload, Mapping):
-            raise ValueError(f"Missing {provider} result for architecture layer {layer}")
+            raise ValueError(
+                f"Missing {provider} result for architecture layer {layer}"
+            )
 
         supported = payload.get("supported")
         if not isinstance(supported, bool):
@@ -152,7 +160,9 @@ def _supported_provider_options(
 
         cost = payload.get("cost")
         if isinstance(cost, bool) or not isinstance(cost, (int, float)):
-            raise ValueError(f"{provider} result for {layer} must declare a numeric cost")
+            raise ValueError(
+                f"{provider} result for {layer} must declare a numeric cost"
+            )
         normalized_cost = float(cost)
         if not isfinite(normalized_cost) or normalized_cost < 0:
             raise ValueError(
@@ -169,41 +179,42 @@ def _supported_provider_options(
 # Parameter Helpers
 # =============================================================================
 
+
 def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Calculate derived parameters from the raw input params.
-    
+
     This mirrors the logic from the old engine but centralizes it.
     """
     # Extract base params
     num_devices = params["numberOfDevices"]
     interval_minutes = params["deviceSendingIntervalInMinutes"]
     msg_size_kb = params["averageSizeOfMessageInKb"]
-    
+
     # Calculate messages
     messages_per_device_per_hour = 60 / interval_minutes
     messages_per_device_per_day = messages_per_device_per_hour * 24
     messages_per_device_per_month = messages_per_device_per_day * 30
     total_messages_per_month = num_devices * messages_per_device_per_month
-    
+
     # Calculate data sizes
     data_size_per_month_kb = total_messages_per_month * msg_size_kb
     data_size_per_month_gb = data_size_per_month_kb / (1024 * 1024)
-    
+
     # Storage calculations
     hot_duration = params["hotStorageDurationInMonths"]
     cool_duration = params["coolStorageDurationInMonths"]
     archive_duration = params["archiveStorageDurationInMonths"]
-    
+
     hot_storage_gb = data_size_per_month_gb * hot_duration
     cool_storage_gb = data_size_per_month_gb * cool_duration
     archive_storage_gb = data_size_per_month_gb * archive_duration
-    
+
     # Dashboard/queries
     dashboard_hours = params.get("dashboardActiveHoursPerDay", 0)
     dashboard_refreshes = params.get("dashboardRefreshesPerHour", 0)
     api_calls_per_refresh = params.get("apiCallsPerDashboardRefresh", 1)
-    
+
     queries_per_day = dashboard_hours * dashboard_refreshes * api_calls_per_refresh
     queries_per_month = queries_per_day * 30
 
@@ -222,7 +233,7 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
     assumption_sources = params.get("_assumption_sources")
     if not isinstance(assumption_sources, Mapping):
         assumption_sources = {}
-    
+
     return {
         "total_messages_per_month": total_messages_per_month,
         "data_size_per_month_gb": data_size_per_month_gb,
@@ -258,12 +269,12 @@ def _calculate_derived_params(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _ensure_supported_result_profile(
+def _ensure_supported_cost_result(
     result_schema_version: str,
     metric_provider_ids: tuple[str, ...],
     primary_metric_id: str,
 ) -> None:
-    """Fail fast when a profile exceeds this engine's executable contract."""
+    """Fail fast when collaborators exceed the cost engine contract."""
     if result_schema_version != "cost-result.v1":
         raise ValueError(
             "calculate_cheapest_costs currently supports only cost-result.v1. "
@@ -271,8 +282,8 @@ def _ensure_supported_result_profile(
         )
     if primary_metric_id not in metric_provider_ids:
         raise ValueError(
-            "Scoring strategy primary metric must be declared by the active "
-            f"profile: {primary_metric_id!r}"
+            "Scoring strategy primary metric must match the cost runtime: "
+            f"{primary_metric_id!r}"
         )
 
 
@@ -280,22 +291,25 @@ def _ensure_supported_result_profile(
 # Provider Cost Calculators
 # =============================================================================
 
-def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict[str, Any]:
+
+def calculate_aws_costs(
+    params: Dict[str, Any], pricing: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Calculate all AWS layer costs.
-    
+
     Returns dict with costs for L1, L2, L3 (hot/cool/archive), L4, L5.
     """
     derived = _calculate_derived_params(params)
-    
+
     # L1: Data Acquisition
     l1 = _aws_calc.calculate_l1_cost(
         number_of_devices=derived["num_devices"],
         messages_per_month=derived["total_messages_per_month"],
         average_message_size_kb=derived["msg_size_kb"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     # L2: Data Processing
     l2 = _aws_calc.calculate_l2_cost(
         executions_per_month=derived["total_messages_per_month"],
@@ -308,55 +322,52 @@ def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         num_event_actions=params.get("numberOfEventActions", 0),
         events_per_message=params.get("eventsPerMessage", 1),
         orchestration_actions=params.get("orchestrationActionsPerMessage", 3),
-        event_trigger_rate=params.get("eventTriggerRate", 0.1)
+        event_trigger_rate=params.get("eventTriggerRate", 0.1),
     )
-    
+
     # L3: Storage tiers
     l3_hot = _aws_calc.calculate_l3_hot_cost(
         writes_per_month=derived["total_messages_per_month"],
         reads_per_month=derived["queries_per_month"],
         storage_gb=derived["hot_storage_gb"],
         pricing=pricing,
-        hot_reader_queries_per_month=derived["queries_per_month"]
+        hot_reader_queries_per_month=derived["queries_per_month"],
     )
-    
+
     l3_cool = _aws_calc.calculate_l3_cool_cost(
         storage_gb=derived["cool_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     l3_archive = _aws_calc.calculate_l3_archive_cost(
         storage_gb=derived["archive_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     # L4: Twin Management
     l4 = _aws_calc.calculate_l4_cost(
         entity_count=params.get("entityCount", 1),
         queries_per_month=derived["queries_per_month"],
         api_calls_per_month=derived["queries_per_month"],
         pricing=pricing,
-        account_pricing_context=(
-            params.get("providerPricingContexts", {}).get("awsTwinMaker")
-            if isinstance(params.get("providerPricingContexts"), Mapping)
-            else None
-        ),
     )
-    
+
     # L5: Visualization
     l5 = _aws_calc.calculate_l5_cost(
         num_editors=params.get("amountOfActiveEditors", 0),
         num_viewers=params.get("amountOfActiveViewers", 0),
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     return {
         "L1": _layer_result_payload(l1, data_size_gb=l1.data_size_gb),
         "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
         "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
-        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_cool": _layer_result_payload(
+            l3_cool, data_size_gb=derived["cool_storage_gb"]
+        ),
         "L3_archive": _layer_result_payload(
             l3_archive,
             data_size_gb=derived["archive_storage_gb"],
@@ -364,27 +375,24 @@ def calculate_aws_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         "L4": _layer_result_payload(l4),
         "L5": _layer_result_payload(l5),
         "totalMessagesPerMonth": derived["total_messages_per_month"],
-        "providerPricingContext": (
-            l4.details_as_dict().get("pricingContext")
-            if isinstance(l4.details, Mapping)
-            else None
-        ),
     }
 
 
-def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict[str, Any]:
+def calculate_azure_costs(
+    params: Dict[str, Any], pricing: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Calculate all Azure layer costs.
     """
     derived = _calculate_derived_params(params)
-    
+
     # L1: Data Acquisition
     l1 = _azure_calc.calculate_l1_cost(
         messages_per_month=derived["total_messages_per_month"],
         pricing=pricing,
         average_message_size_kb=derived["msg_size_kb"],
     )
-    
+
     # L2: Data Processing
     l2 = _azure_calc.calculate_l2_cost(
         executions_per_month=derived["total_messages_per_month"],
@@ -395,51 +403,53 @@ def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Di
         return_feedback_to_device=params.get("returnFeedbackToDevice", False),
         use_error_handling=params.get("integrateErrorHandling", False),
         num_event_actions=params.get("numberOfEventActions", 0),
-        event_trigger_rate=params.get("eventTriggerRate", 0.1)
+        event_trigger_rate=params.get("eventTriggerRate", 0.1),
     )
-    
+
     # L3: Storage tiers
     l3_hot = _azure_calc.calculate_l3_hot_cost(
         writes_per_month=derived["total_messages_per_month"],
         reads_per_month=derived["queries_per_month"],
         storage_gb=derived["hot_storage_gb"],
         pricing=pricing,
-        hot_reader_queries_per_month=derived["queries_per_month"]
+        hot_reader_queries_per_month=derived["queries_per_month"],
     )
-    
+
     l3_cool = _azure_calc.calculate_l3_cool_cost(
         storage_gb=derived["cool_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     l3_archive = _azure_calc.calculate_l3_archive_cost(
         storage_gb=derived["archive_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     # L4: Twin Management
     l4 = _azure_calc.calculate_l4_cost(
         billable_operations=derived["monthly_digital_twin_billable_operations"],
         billable_query_units=derived["monthly_digital_twin_query_units"],
         billable_messages=derived["monthly_digital_twin_routed_messages"],
         telemetry_updates_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     # L5: Visualization
     l5 = _azure_calc.calculate_l5_cost(
         num_editors=params.get("amountOfActiveEditors", 0),
         num_viewers=params.get("amountOfActiveViewers", 0),
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     return {
         "L1": _layer_result_payload(l1, data_size_gb=derived["data_size_per_month_gb"]),
         "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
         "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
-        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_cool": _layer_result_payload(
+            l3_cool, data_size_gb=derived["cool_storage_gb"]
+        ),
         "L3_archive": _layer_result_payload(
             l3_archive,
             data_size_gb=derived["archive_storage_gb"],
@@ -450,12 +460,14 @@ def calculate_azure_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Di
     }
 
 
-def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict[str, Any]:
+def calculate_gcp_costs(
+    params: Dict[str, Any], pricing: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Calculate all GCP layer costs.
     """
     derived = _calculate_derived_params(params)
-    
+
     # L1: Data Acquisition (volume-based for GCP)
     l1 = _gcp_calc.calculate_l1_cost(
         data_volume_gb=derived["data_size_per_month_gb"],
@@ -463,7 +475,7 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         pricing=pricing,
         average_message_size_kb=derived["msg_size_kb"],
     )
-    
+
     # L2: Data Processing
     l2 = _gcp_calc.calculate_l2_cost(
         executions_per_month=derived["total_messages_per_month"],
@@ -473,41 +485,43 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
         use_orchestration=params.get("triggerNotificationWorkflow", False),
         return_feedback_to_device=params.get("returnFeedbackToDevice", False),
         num_event_actions=params.get("numberOfEventActions", 0),
-        event_trigger_rate=params.get("eventTriggerRate", 0.1)
+        event_trigger_rate=params.get("eventTriggerRate", 0.1),
     )
-    
+
     # L3: Storage tiers
     l3_hot = _gcp_calc.calculate_l3_hot_cost(
         writes_per_month=derived["total_messages_per_month"],
         reads_per_month=derived["queries_per_month"],
         storage_gb=derived["hot_storage_gb"],
         pricing=pricing,
-        hot_reader_queries_per_month=derived["queries_per_month"]
+        hot_reader_queries_per_month=derived["queries_per_month"],
     )
-    
+
     l3_cool = _gcp_calc.calculate_l3_cool_cost(
         storage_gb=derived["cool_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     l3_archive = _gcp_calc.calculate_l3_archive_cost(
         storage_gb=derived["archive_storage_gb"],
         writes_per_month=derived["total_messages_per_month"],
-        pricing=pricing
+        pricing=pricing,
     )
-    
+
     # L4: Twin Management (self-hosted on GCP)
     l4 = _gcp_calc.calculate_l4_cost(pricing=pricing)
-    
+
     # L5: Visualization (self-hosted on GCP)
     l5 = _gcp_calc.calculate_l5_cost(pricing=pricing)
-    
+
     return {
         "L1": _layer_result_payload(l1, data_size_gb=derived["data_size_per_month_gb"]),
         "L2": _layer_result_payload(l2, data_size_gb=derived["data_size_per_month_gb"]),
         "L3_hot": _layer_result_payload(l3_hot, data_size_gb=derived["hot_storage_gb"]),
-        "L3_cool": _layer_result_payload(l3_cool, data_size_gb=derived["cool_storage_gb"]),
+        "L3_cool": _layer_result_payload(
+            l3_cool, data_size_gb=derived["cool_storage_gb"]
+        ),
         "L3_archive": _layer_result_payload(
             l3_archive,
             data_size_gb=derived["archive_storage_gb"],
@@ -521,6 +535,7 @@ def calculate_gcp_costs(params: Dict[str, Any], pricing: Dict[str, Any]) -> Dict
 # =============================================================================
 # Cross-Cloud Transfer Costs
 # =============================================================================
+
 
 def _calculate_egress_cost(
     data_gb: float,
@@ -574,7 +589,9 @@ def _calculate_egress_cost(
     return float(table.cost_for_bytes(volume_bytes))
 
 
-def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str) -> float:
+def _calculate_glue_cost(
+    messages: float, pricing: Dict[str, Any], provider: str
+) -> float:
     """Calculate cost of glue functions for cross-cloud communication."""
     calculators = {
         "AWS": _aws_calc,
@@ -592,34 +609,35 @@ def _calculate_glue_cost(messages: float, pricing: Dict[str, Any], provider: str
 # Main Orchestration - Calculate Cheapest Costs
 # =============================================================================
 
+
 def calculate_cheapest_costs(
     params: Dict[str, Any],
     pricing: Dict[str, Any],
     *,
     pricing_catalog_context: PricingCatalogContext,
-    optimization_profile_id: str | None = None,
     pricing_registry_service: PricingRegistryService | None = None,
+    cost_runtime: CostOptimizationRuntime | None = None,
     architecture_context: ArchitectureResolutionContext | None = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate cost calculation and find the cheapest path across providers.
-    
+
     This function:
     1. Calculates costs for each provider (AWS, Azure, GCP)
     2. Enumerates every executable complete baseline path
     3. Applies route-aware pooled transfer and glue costs
     4. Scores complete paths and returns the globally cheapest result
-    
+
     Args:
         params: Input parameters from the API
         pricing: Exact resolved pricing data for all providers
         pricing_catalog_context: Exact immutable catalog references and regions
-        optimization_profile_id: Optional executable optimization profile.
-        
+        cost_runtime: Optional internal test seam for the fixed cost strategy.
+
     Returns:
         Dictionary with:
         - awsCosts: Full cost breakdown for AWS
-        - azureCosts: Full cost breakdown for Azure  
+        - azureCosts: Full cost breakdown for Azure
         - gcpCosts: Full cost breakdown for GCP
         - calculationResult: Optimal provider for each layer
         - cheapestPath: List of layer-provider combinations
@@ -634,36 +652,31 @@ def calculate_cheapest_costs(
     if not isinstance(pricing_catalog_context, PricingCatalogContext):
         raise TypeError("pricing_catalog_context must be a PricingCatalogContext")
 
-    registry_service = pricing_registry_service or PricingRegistryService()
-    pricing_registry = registry_service.load()
-    profile_registry = (
-        build_default_profile_registry(registry_service)
-        if pricing_registry_service is not None
-        else build_default_profile_registry()
+    registry_service = pricing_registry_service or (
+        cost_runtime.pricing_registry_service
+        if cost_runtime is not None
+        else PricingRegistryService()
     )
+    pricing_registry = registry_service.load()
+    runtime = cost_runtime or build_default_cost_runtime(registry_service)
     execution_context = resolve_calculation_strategy_execution_context(
-        optimization_profile_id=optimization_profile_id,
-        profile_registry=profile_registry,
+        cost_runtime=runtime,
         pricing_registry_service=registry_service,
         publishable_mode=True,
     )
-    optimization_profile = profile_registry.select_profile(optimization_profile_id)
-    cost_metric_provider = profile_registry.get_metric_provider("cost")
-    scoring_strategy = profile_registry.get_scoring_strategy(
-        optimization_profile.scoring_strategy_id
-    )
-    _ensure_supported_result_profile(
-        optimization_profile.result_schema_version,
-        tuple(optimization_profile.metric_provider_ids),
+    optimization_definition = runtime.definition
+    cost_metric_provider = runtime.metric_provider
+    scoring_strategy = runtime.scoring_strategy
+    _ensure_supported_cost_result(
+        optimization_definition.result_schema_version,
+        (optimization_definition.metric_provider_id,),
         scoring_strategy.primary_metric_id,
     )
-    optimization_metadata = profile_registry.build_result_metadata(
-        optimization_profile.profile_id
-    )
+    optimization_metadata = runtime.build_result_metadata()
     pricing_registry_reference = (
         f"pricing_registry:{optimization_metadata['pricing_registry_version']}"
     )
-    
+
     # Calculate costs for each provider
     execution_context.ensure_provider_context("aws")
     aws_costs = calculate_aws_costs(params, pricing)
@@ -671,9 +684,9 @@ def calculate_cheapest_costs(
     azure_costs = calculate_azure_costs(params, pricing)
     execution_context.ensure_provider_context("gcp")
     gcp_costs = calculate_gcp_costs(params, pricing)
-    
+
     derived = _calculate_derived_params(params)
-    
+
     provider_costs = {
         "AWS": aws_costs,
         "Azure": azure_costs,
@@ -703,18 +716,24 @@ def calculate_cheapest_costs(
         bound_architecture_context = architecture_context.with_execution_inputs(
             layer_options=layer_options,
             provider_regions={
-                provider: pricing_catalog_context.catalogs[
-                    provider
-                ].pricing_region
+                provider: pricing_catalog_context.catalogs[provider].pricing_region
                 for provider in ("aws", "azure", "gcp")
             },
         )
-        strategy_registry = build_default_strategy_registry(
-            bound_architecture_context
-        )
-        architecture_strategy = strategy_registry.resolve(
-            bound_architecture_context.profile
-        )
+        if bound_architecture_context.profile_ref == SIX_LAYER_EVENTING_V1_PROFILE_REF:
+            architecture_strategy = SixLayerEventingV1CandidateStrategy(
+                bound_architecture_context.profile
+            )
+        elif bound_architecture_context.profile_ref == FIVE_LAYER_PROFILE_REF:
+            architecture_strategy = FiveLayerCompletePathStrategy(
+                bound_architecture_context.profile
+            )
+        else:
+            raise ArchitectureResolutionError(
+                "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+                "architectureProfile",
+                "No cost strategy supports the immutable architecture contract",
+            )
         architecture_strategy.validate_request(bound_architecture_context)
         architecture_candidates = architecture_strategy.enumerate_candidates(
             bound_architecture_context
@@ -722,11 +741,9 @@ def calculate_cheapest_costs(
         architecture_candidate_count = len(architecture_candidates)
         for candidate in architecture_candidates:
             try:
-                complete = (
-                    architecture_strategy.validate_functional_completeness(
-                        candidate,
-                        bound_architecture_context,
-                    )
+                complete = architecture_strategy.validate_functional_completeness(
+                    candidate,
+                    bound_architecture_context,
                 )
             except ArchitectureResolutionError as exc:
                 architecture_rejections.record(
@@ -752,9 +769,7 @@ def calculate_cheapest_costs(
             "azure": "Azure",
             "gcp": "GCP",
         }[provider.value]
-        return Decimal(
-            str(_calculate_glue_cost(float(invocations), pricing, label))
-        )
+        return Decimal(str(_calculate_glue_cost(float(invocations), pricing, label)))
 
     def resolve_transition_runtime(
         provider,
@@ -808,8 +823,7 @@ def calculate_cheapest_costs(
         ) from exc
     if architecture_context is not None:
         evaluated_candidate_ids = {
-            evaluation.candidate_id
-            for evaluation in evaluation_set.evaluations
+            evaluation.candidate_id for evaluation in evaluation_set.evaluations
         }
         for candidate_id in complete_architecture_candidates:
             if candidate_id not in evaluated_candidate_ids:
@@ -894,8 +908,7 @@ def calculate_cheapest_costs(
     transfer_costs = {
         charge.route.segment_id: float(charge.total_cost)
         for charge in winner.transfer_charges
-        if charge.route.route_class
-        == TransferRouteClass.CROSS_PROVIDER_PUBLIC_INTERNET
+        if charge.route.route_class == TransferRouteClass.CROSS_PROVIDER_PUBLIC_INTERNET
     }
     transition_runtime_costs = {
         charge.workload.edge_id: float(charge.total_cost)
@@ -905,18 +918,20 @@ def calculate_cheapest_costs(
         f"{assignment.layer_key}_{provider_labels[assignment.provider.value]}"
         for assignment in winner.assignments
     ]
-    
+
     result_payload = {
-        "optimization_profile_id": optimization_profile.profile_id,
+        "optimization_profile_id": optimization_definition.optimization_id,
         "calculation_strategy_id": execution_context.calculation_strategy_id,
-        "result_schema_version": optimization_profile.result_schema_version,
+        "result_schema_version": optimization_definition.result_schema_version,
         "trace_schema_version": TRACE_SCHEMA_VERSION,
         "optimizationProfile": optimization_metadata,
         "calculationStrategy": execution_context.to_result_metadata(),
         "evidenceReferences": {
             "pricing_registry": pricing_registry_reference,
             "pricing_evidence_contract": "pricing-evidence.v1",
-            "intent_group_ids": list(optimization_metadata.get("intent_group_ids") or []),
+            "intent_group_ids": list(
+                optimization_metadata.get("intent_group_ids") or []
+            ),
             "calculation_strategy": (
                 f"calculation_strategy:{execution_context.calculation_strategy_id}"
             ),
@@ -932,9 +947,6 @@ def calculate_cheapest_costs(
         "awsCosts": aws_costs,
         "azureCosts": azure_costs,
         "gcpCosts": gcp_costs,
-        "providerPricingContexts": {
-            "awsTwinMaker": aws_costs.get("providerPricingContext"),
-        },
         "transferCosts": transfer_costs,
         "transferPricingContext": build_transfer_pricing_context(winner),
         "transitionRuntimeCosts": transition_runtime_costs,
@@ -955,37 +967,12 @@ def calculate_cheapest_costs(
             "schemaVersion": "architecture-resolution-diagnostics.v1",
             "profileId": architecture_context.profile_ref.profile_id,
             "profileVersion": architecture_context.profile_ref.profile_version,
-            "enumeratedCandidateCount": (
-                architecture_candidate_count
-            ),
-            "admissibleCandidateCount": len(
-                evaluation_set.evaluations
-            ),
+            "enumeratedCandidateCount": (architecture_candidate_count),
+            "admissibleCandidateCount": len(evaluation_set.evaluations),
             **frozen_rejections.to_dict(),
             "winningCandidateId": winner.candidate_id,
             "tieBreakPolicy": "canonical_logical_provider_deployment_tuple",
         }
-    result_payload["resolvedDeploymentSpecification"] = (
-        build_resolved_deployment_specification(
-            calculation_run_id=str(params.get("calculationRunId") or ""),
-            selected_providers=selected,
-            provider_costs=provider_costs,
-            glue_selections={
-                "aws": _aws_calc.glue_deployment_selection(),
-                "azure": _azure_calc.glue_deployment_selection(),
-                "gcp": _gcp_calc.glue_deployment_selection(),
-            },
-            transition_runtime_selections={
-                charge.workload.edge_id: (
-                    charge.result.deployment_selection
-                )
-                for charge in winner.transition_runtime_charges
-            },
-            optimization_metadata=optimization_metadata,
-            execution_context=execution_context,
-            pricing_catalog_context=pricing_catalog_context,
-        )
-    )
     result_payload["intentTrace"] = build_intent_result_trace(
         params=params,
         derived=derived,
@@ -1013,19 +1000,13 @@ def calculate_cheapest_costs(
         result_payload,
         str(params.get("currency") or "USD"),
     )
-    currency_rate = Decimal(
-        str(converted_result["currencyConversion"]["rate"])
-    )
+    currency_rate = Decimal(str(converted_result["currencyConversion"]["rate"]))
     exact_winner_total = winner.total_cost * currency_rate
-    converted_result["totalCostExact"] = _exact_decimal_text(
-        exact_winner_total
-    )
+    converted_result["totalCostExact"] = _exact_decimal_text(exact_winner_total)
     if architecture_strategy is not None:
         if bound_architecture_context is None:
             raise RuntimeError("Architecture context binding was lost")
-        complete_winner = complete_architecture_candidates.get(
-            winner.candidate_id
-        )
+        complete_winner = complete_architecture_candidates.get(winner.candidate_id)
         if complete_winner is None:
             raise ArchitectureResolutionError(
                 "ARCH_RESOLUTION_BUILD_FAILED",
@@ -1046,9 +1027,7 @@ def calculate_cheapest_costs(
             bound_architecture_context,
         )
         if (
-            Decimal(
-                resolved_architecture["cost_summary"]["monthly_total"]
-            )
+            Decimal(resolved_architecture["cost_summary"]["monthly_total"])
             != exact_winner_total
         ):
             raise ArchitectureResolutionError(

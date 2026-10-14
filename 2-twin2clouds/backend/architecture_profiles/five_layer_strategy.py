@@ -8,8 +8,8 @@ from typing import Any, Mapping
 from backend.calculation_v2.path_optimizer import CompletePathEvaluation
 
 from .candidate_factory import (
-    ArchitectureCandidate,
     BASELINE_LAYER_COMPONENTS,
+    ArchitectureCandidate,
     enumerate_component_candidates,
 )
 from .completeness import (
@@ -23,7 +23,6 @@ from .resolution_builder import ResolvedTwinArchitectureBuilder
 from .strategy import (
     ArchitectureProfileRef,
     ArchitectureResolutionContext,
-    ArchitectureStrategyRegistry,
     OptimizationBundleRef,
 )
 
@@ -56,10 +55,8 @@ class FiveLayerCompletePathStrategy:
 
     def __init__(self, profile: Mapping[str, Any]):
         if (
-            ArchitectureProfileRef.from_profile(profile)
-            != FIVE_LAYER_PROFILE_REF
-            or OptimizationBundleRef.from_profile(profile)
-            != FIVE_LAYER_BUNDLE_REF
+            ArchitectureProfileRef.from_profile(profile) != FIVE_LAYER_PROFILE_REF
+            or OptimizationBundleRef.from_profile(profile) != FIVE_LAYER_BUNDLE_REF
         ):
             raise RuntimeError(
                 "Five-layer strategy profile or optimization bundle drifted"
@@ -79,9 +76,7 @@ class FiveLayerCompletePathStrategy:
                 "componentCatalog",
                 "The compatible component catalog is not active",
             )
-        expected_slots = tuple(
-            slot_id for _, slot_id, _ in BASELINE_LAYER_COMPONENTS
-        )
+        expected_slots = tuple(slot_id for _, slot_id, _ in BASELINE_LAYER_COMPONENTS)
         if tuple(context.profile["optimization_slot_ids"]) != expected_slots:
             raise ArchitectureResolutionError(
                 "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
@@ -89,8 +84,7 @@ class FiveLayerCompletePathStrategy:
                 "The selected profile differs from the seven-slot baseline",
             )
         if not any(
-            profile["lifecycle_status"] == "active"
-            and profile["supported"] is True
+            profile["lifecycle_status"] == "active" and profile["supported"] is True
             for profile in context.provider_profiles.values()
         ):
             raise ArchitectureResolutionError(
@@ -145,34 +139,3 @@ class FiveLayerCompletePathStrategy:
             winner=winner,
             context=context,
         )
-
-
-def build_default_strategy_registry(
-    context: ArchitectureResolutionContext,
-) -> ArchitectureStrategyRegistry:
-    return _build_strategy_registry(context.profile)
-
-
-def validate_architecture_strategy_readiness(
-    registry=None,
-) -> ArchitectureStrategyRegistry:
-    """Load and resolve the exact reviewed strategy during API startup."""
-
-    if registry is None:
-        from .registry import ArchitectureProfileRegistry
-
-        registry = ArchitectureProfileRegistry()
-    return _build_strategy_registry(registry.profile)
-
-
-def _build_strategy_registry(
-    profile: Mapping[str, Any],
-) -> ArchitectureStrategyRegistry:
-    registry = ArchitectureStrategyRegistry()
-    registry.register(
-        profile,
-        FiveLayerCompletePathStrategy(profile),
-    )
-    registry.freeze()
-    registry.resolve(profile)
-    return registry

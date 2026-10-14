@@ -8,13 +8,13 @@
       "artifact_id": "bridge-decision",
       "path": "docs/research/evidence/phase_08_eventing/bridge-decision.json",
       "schema_version": "bridge-decision.v1",
-      "digest": "sha256:5f666a39ed1bdbb6723e2af79357c86fc5570a13c4e2d2ce5ee0a25cd2351345"
+      "digest": "sha256:0fa06821d6c3a0f9f9c5f69a84c5f66eb606f47cea41d7d53801ebd9d4671262"
     },
     {
       "artifact_id": "domain-event-flow-contract",
       "path": "docs/research/evidence/phase_08_eventing/domain-event-flow-contract.json",
       "schema_version": "domain-event-flow.v1",
-      "digest": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590"
+      "digest": "sha256:994eceaa179e02344cf7323d2a63eb0710e079d4b4a9f71e02c4c8a15a2d7dbc"
     },
     {
       "artifact_id": "formula-and-unit-ledger",
@@ -26,7 +26,7 @@
       "artifact_id": "mandatory-capabilities",
       "path": "docs/research/evidence/phase_08_eventing/mandatory-capabilities.json",
       "schema_version": "mandatory-capabilities.v1",
-      "digest": "sha256:4f390a62c6e5f42d4f84be3e3dc6677b585f69b114b7e7078cdffc73859ab66f"
+      "digest": "sha256:e2caf5d62e95016b3c63ba620865b4586bf93982a0f4dec8d5c900ed28d42f55"
     },
     {
       "artifact_id": "pricing-model-matrix",
@@ -38,19 +38,19 @@
       "artifact_id": "profile-parity-decision",
       "path": "docs/research/evidence/phase_08_eventing/profile-parity-decision.json",
       "schema_version": "profile-parity-decision.v1",
-      "digest": "sha256:14bfd44260c2be4e01e15f83c16d65a183d12ceaf12695dc7a156e53c338cdbb"
+      "digest": "sha256:3c871851be203120b447d47b4befc9c000add54ef662dd8bbca0bcf313d73f60"
     },
     {
       "artifact_id": "provider-capability-matrix",
       "path": "docs/research/evidence/phase_08_eventing/provider-capability-matrix.json",
       "schema_version": "provider-capability-matrix.v1",
-      "digest": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9"
+      "digest": "sha256:9751e48eba9ba56c959218c5cd86e0caee2ef4f2029ef742338b6620b104e943"
     },
     {
       "artifact_id": "scenario-cost-results",
       "path": "docs/research/evidence/phase_08_eventing/scenario-cost-results.json",
       "schema_version": "scenario-cost-results.v1",
-      "digest": "sha256:d3c8ad970747793510ec9f2fd1a83eff756ecfe057391f052112f9a340b30650"
+      "digest": "sha256:363c13cc6cbfb2671a7886934e6f9f35c097717d2cb75e1352bceb4205dd6aed"
     },
     {
       "artifact_id": "scenario-inputs",
@@ -72,7 +72,7 @@
       "owner_path": "docs/research/evidence/phase_08_eventing/domain-event-flow-contract.json"
     },
     {
-      "contract_id": "eventing-envelope.v1",
+      "contract_id": "canonical-domain-event.v1",
       "status": "evidence_alias",
       "owner_path": "docs/research/evidence/phase_08_eventing/bridge-decision.json"
     },
@@ -118,14 +118,6 @@
     }
   ],
   "profile_targets": [
-    {
-      "profile_id": "five-layer-baseline@2",
-      "architecture_definition_path": "contracts/architecture-profiles/definitions/profiles/five-layer-baseline/2/profile.json",
-      "deployment_specification_version": "resolved-deployment-specification.v2",
-      "deployment_manifest_version": "deployment-manifest.v4",
-      "legacy_flags": "rejected",
-      "activation": "after_phase_8_8_approval_and_phase_8_9_gates"
-    },
     {
       "profile_id": "six-layer-eventing@1",
       "architecture_definition_path": "contracts/architecture-profiles/definitions/profiles/six-layer-eventing/1/profile.json",
@@ -270,7 +262,6 @@
       "runtime_adapter_ids": [
         "adapter.aws.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.iot.connection",
         "intent.aws.iot.message",
@@ -282,7 +273,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "existing_extension_to_modify"
@@ -326,7 +317,6 @@
         "adapter.aws.embedded-domain@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.lambda.request",
         "intent.aws.lambda.compute"
@@ -336,7 +326,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "eu-central-1",
@@ -375,7 +365,6 @@
       "runtime_adapter_ids": [
         "adapter.aws.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.step-functions.transition"
       ],
@@ -384,7 +373,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "existing_extension_to_modify"
@@ -422,7 +411,6 @@
       "runtime_adapter_ids": [
         "adapter.aws.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.iot-command.execution"
       ],
@@ -431,7 +419,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -473,7 +461,6 @@
         "adapter.aws.embedded-domain@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.sqs-fifo.request"
       ],
@@ -482,7 +469,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "eu-central-1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -518,7 +505,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.cloudwatch.ingestion",
         "intent.aws.cloudwatch.storage"
@@ -569,7 +555,6 @@
       "runtime_adapter_ids": [
         "adapter.azure.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.iot-hub.s1",
         "intent.azure.iot-hub.s2",
@@ -580,7 +565,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "existing_extension_to_modify"
@@ -624,7 +609,6 @@
         "adapter.azure.embedded-domain@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.functions.execution",
         "intent.azure.functions.compute"
@@ -634,7 +618,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "westeurope",
@@ -673,7 +657,6 @@
       "runtime_adapter_ids": [
         "adapter.azure.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.logic-apps.builtin",
         "intent.azure.logic-apps.connector"
@@ -683,7 +666,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "existing_extension_to_modify"
@@ -726,7 +709,6 @@
         "adapter.azure.embedded-domain@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.service-bus.base-hour",
         "intent.azure.service-bus.operation"
@@ -736,7 +718,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "westeurope",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -774,7 +756,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.monitor.ingestion"
       ],
@@ -827,7 +808,6 @@
         "adapter.gcp.embedded-domain@1",
         "adapter.gcp.bridge@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.pubsub.throughput",
         "intent.gcp.pubsub.retention"
@@ -838,7 +818,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "europe-west1",
       "implementation_status": "existing_extension_to_modify"
@@ -882,7 +862,6 @@
         "adapter.gcp.embedded-domain@1",
         "adapter.gcp.bridge@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.cloud-run.request",
         "intent.gcp.cloud-run.cpu",
@@ -893,7 +872,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "user-function-extension@1"
       ],
       "region_constraint": "europe-west1",
@@ -932,7 +911,6 @@
       "runtime_adapter_ids": [
         "adapter.gcp.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.workflows.internal",
         "intent.gcp.workflows.external"
@@ -942,7 +920,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1"
+        "canonical-domain-event.v1"
       ],
       "region_constraint": "europe-west1",
       "implementation_status": "exact_new_phase_8_9_target"
@@ -993,7 +971,6 @@
         "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.gke.cluster",
         "intent.gcp.compute.e2-standard-8",
@@ -1004,7 +981,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bifromq-poc-boundary@1"
       ],
       "region_constraint": "europe-west1",
@@ -1050,7 +1027,6 @@
         "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.bifromq.software"
       ],
@@ -1059,7 +1035,7 @@
       ],
       "contract_refs": [
         "domain-event-flow@1",
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bifromq-poc-boundary@1"
       ],
       "region_constraint": "europe-west1",
@@ -1101,7 +1077,6 @@
         "adapter.gcp.mqtt-ingress@1",
         "adapter.gcp.embedded-domain@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.network.forwarding-rule",
         "intent.gcp.network.lb-processing"
@@ -1147,7 +1122,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.logging.ingestion"
       ],
@@ -1196,7 +1170,6 @@
       "runtime_adapter_ids": [
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.kinesis.shard-hour",
         "intent.aws.kinesis.put-unit",
@@ -1208,7 +1181,7 @@
         "formula.aws.kinesis-provisioned"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1250,7 +1223,6 @@
       "runtime_adapter_ids": [
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.sns-fifo.publish",
         "intent.aws.sns-fifo.ingress",
@@ -1264,7 +1236,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1310,7 +1282,6 @@
       "runtime_adapter_ids": [
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.event-hubs.tu-hour",
         "intent.azure.event-hubs.ingress"
@@ -1319,7 +1290,7 @@
         "formula.azure.event-hubs-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1367,7 +1338,6 @@
       "runtime_adapter_ids": [
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.event-hubs-dedicated.cu-hour"
       ],
@@ -1375,7 +1345,7 @@
         "formula.azure.event-hubs-dedicated"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "domain-event-flow@1"
       ],
@@ -1419,7 +1389,6 @@
         "adapter.aws.event-delivery@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.kinesis.shard-hour",
         "intent.aws.kinesis.put-unit",
@@ -1431,7 +1400,7 @@
         "formula.aws.kinesis-provisioned"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1474,7 +1443,6 @@
         "adapter.aws.event-delivery@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.sns-fifo.publish",
         "intent.aws.sns-fifo.ingress",
@@ -1488,7 +1456,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1532,7 +1500,6 @@
         "adapter.aws.event-delivery@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.sqs-fifo.request"
       ],
@@ -1540,7 +1507,7 @@
         "formula.aws.sns-sqs-fifo"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1583,7 +1550,6 @@
         "adapter.aws.event-delivery@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.s3.dlq-put",
         "intent.aws.s3.dlq-storage"
@@ -1592,7 +1558,7 @@
         "formula.aws.s3-dlq"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "bridge-failure@1",
         "bridge-observability-and-lifecycle@1"
       ],
@@ -1637,7 +1603,6 @@
         "adapter.aws.event-delivery@1",
         "adapter.aws.bridge@1"
       ],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.lambda.request",
         "intent.aws.lambda.compute"
@@ -1647,7 +1612,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -1685,7 +1650,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.aws.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.aws.cloudwatch.ingestion",
         "intent.aws.cloudwatch.storage"
@@ -1739,7 +1703,6 @@
         "adapter.azure.event-delivery@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.event-hubs.tu-hour",
         "intent.azure.event-hubs.ingress"
@@ -1748,7 +1711,7 @@
         "formula.azure.event-hubs-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1797,7 +1760,6 @@
         "adapter.azure.event-delivery@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.event-hubs-dedicated.cu-hour"
       ],
@@ -1805,7 +1767,7 @@
         "formula.azure.event-hubs-dedicated"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1852,7 +1814,6 @@
         "adapter.azure.event-delivery@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.service-bus.base-hour",
         "intent.azure.service-bus.operation"
@@ -1861,7 +1822,7 @@
         "formula.azure.service-bus-standard"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -1906,7 +1867,6 @@
         "adapter.azure.event-delivery@1",
         "adapter.azure.bridge@1"
       ],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.functions.execution",
         "intent.azure.functions.compute"
@@ -1916,7 +1876,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -1956,7 +1916,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.azure.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.azure.monitor.ingestion"
       ],
@@ -2008,7 +1967,6 @@
         "adapter.gcp.event-delivery@1",
         "adapter.gcp.bridge@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.pubsub.throughput",
         "intent.gcp.pubsub.retention"
@@ -2018,7 +1976,7 @@
         "formula.retention.average-storage"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "eventing-delivery@1"
       ],
@@ -2063,7 +2021,6 @@
         "adapter.gcp.event-delivery@1",
         "adapter.gcp.bridge@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.cloud-run.request",
         "intent.gcp.cloud-run.cpu",
@@ -2074,7 +2031,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -2118,7 +2075,6 @@
         "adapter.gcp.event-delivery@1",
         "adapter.gcp.bridge@1"
       ],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.cloud-run-worker.cpu",
         "intent.gcp.cloud-run-worker.memory"
@@ -2128,7 +2084,7 @@
         "formula.bridge.compute"
       ],
       "contract_refs": [
-        "eventing-envelope.v1",
+        "canonical-domain-event.v1",
         "phase-08-cross-cloud-bridge@1",
         "bridge-validation-and-error@1"
       ],
@@ -2166,7 +2122,6 @@
         ]
       },
       "runtime_adapter_ids": [],
-      "permission_set_ref": "permission.gcp.thesis-demo-eventing-v1",
       "pricing_intent_ids": [
         "intent.gcp.logging.ingestion"
       ],
@@ -2190,7 +2145,7 @@
       "wrapper_id": "wrapper.aws.embedded-domain@1",
       "handler_id": "handler.aws.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2204,7 +2159,7 @@
       "wrapper_id": "wrapper.azure.embedded-domain@1",
       "handler_id": "handler.azure.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2218,7 +2173,7 @@
       "wrapper_id": "wrapper.gcp.embedded-domain@1",
       "handler_id": "handler.gcp.embedded-domain@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/embedded_domain.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2232,7 +2187,7 @@
       "wrapper_id": "wrapper.gcp.mqtt-ingress@1",
       "handler_id": "handler.gcp.mqtt-ingress@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/mqtt_ingress.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2246,7 +2201,7 @@
       "wrapper_id": "wrapper.aws.event-delivery@1",
       "handler_id": "handler.aws.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2260,7 +2215,7 @@
       "wrapper_id": "wrapper.azure.event-delivery@1",
       "handler_id": "handler.azure.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2274,7 +2229,7 @@
       "wrapper_id": "wrapper.gcp.event-delivery@1",
       "handler_id": "handler.gcp.event-delivery@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/event_delivery.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2288,7 +2243,7 @@
       "wrapper_id": "wrapper.aws.bridge@1",
       "handler_id": "handler.aws.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/aws/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2302,7 +2257,7 @@
       "wrapper_id": "wrapper.azure.bridge@1",
       "handler_id": "handler.azure.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/azure/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2316,7 +2271,7 @@
       "wrapper_id": "wrapper.gcp.bridge@1",
       "handler_id": "handler.gcp.bridge@1",
       "source_path": "3-cloud-deployer/src/runtime/eventing/gcp/bridge.py",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "error_contract_ref": "bridge-validation-and-error@1",
       "observability_contract_ref": "bridge-observability-and-lifecycle@1",
       "cleanup_contract_ref": "cleanup.eventing@1"
@@ -2335,12 +2290,10 @@
         "port.telemetry-processor.telemetry-received-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.ingestion",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2359,12 +2312,10 @@
         "port.rule-evaluator.telemetry-processed-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2379,12 +2330,10 @@
         "port.action-dispatcher.event-matched-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2399,12 +2348,10 @@
         "port.notification-workflow.notification-requested-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2419,12 +2366,10 @@
         "port.device-command-adapter.device-command-requested-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2439,12 +2384,10 @@
         "port.historical-persistence.extension-action-outcome-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2459,12 +2402,10 @@
         "port.historical-persistence.notification-workflow-outcome-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.processing",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     },
     {
@@ -2479,12 +2420,10 @@
         "port.historical-persistence.device-command-outcome-in"
       ],
       "profiles": [
-        "five-layer-baseline@2",
         "six-layer-eventing@1"
       ],
-      "five_layer_owner": "responsibility.ingestion",
       "six_layer_owner": "responsibility.eventing",
-      "envelope_ref": "eventing-envelope.v1",
+      "envelope_ref": "canonical-domain-event.v1",
       "delivery_contract_ref": "eventing-delivery@1"
     }
   ],
@@ -2495,10 +2434,6 @@
       "destination_provider": "azure",
       "source_adapter_id": "adapter.aws.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#aws-to-azure",
-      "permission_set_refs": [
-        "permission.aws.thesis-demo-eventing-v1",
-        "permission.azure.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2506,23 +2441,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.aws.embedded.bridge-kinesis"
-          ],
-          "source_control_component_ids": [
-            "deployment.aws.embedded.bridge-sns-fifo",
-            "deployment.aws.embedded.direct-edge-transport"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.azure.embedded.bridge-event-hubs-standard",
-            "deployment.azure.embedded.bridge-event-hubs-dedicated"
-          ],
-          "destination_control_component_ids": [
-            "deployment.azure.embedded.direct-edge-transport"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2548,10 +2466,6 @@
       "destination_provider": "gcp",
       "source_adapter_id": "adapter.aws.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#aws-to-gcp",
-      "permission_set_refs": [
-        "permission.aws.thesis-demo-eventing-v1",
-        "permission.gcp.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2559,22 +2473,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.aws.embedded.bridge-kinesis"
-          ],
-          "source_control_component_ids": [
-            "deployment.aws.embedded.bridge-sns-fifo",
-            "deployment.aws.embedded.direct-edge-transport"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "destination_control_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2599,10 +2497,6 @@
       "destination_provider": "aws",
       "source_adapter_id": "adapter.azure.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#azure-to-aws",
-      "permission_set_refs": [
-        "permission.azure.thesis-demo-eventing-v1",
-        "permission.aws.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2610,23 +2504,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.azure.embedded.bridge-event-hubs-standard",
-            "deployment.azure.embedded.bridge-event-hubs-dedicated"
-          ],
-          "source_control_component_ids": [
-            "deployment.azure.embedded.direct-edge-transport"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.aws.embedded.bridge-kinesis"
-          ],
-          "destination_control_component_ids": [
-            "deployment.aws.embedded.bridge-sns-fifo",
-            "deployment.aws.embedded.direct-edge-transport"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2652,10 +2529,6 @@
       "destination_provider": "gcp",
       "source_adapter_id": "adapter.azure.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#azure-to-gcp",
-      "permission_set_refs": [
-        "permission.azure.thesis-demo-eventing-v1",
-        "permission.gcp.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2663,22 +2536,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.azure.embedded.bridge-event-hubs-standard",
-            "deployment.azure.embedded.bridge-event-hubs-dedicated"
-          ],
-          "source_control_component_ids": [
-            "deployment.azure.embedded.direct-edge-transport"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "destination_control_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2703,10 +2560,6 @@
       "destination_provider": "aws",
       "source_adapter_id": "adapter.gcp.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#gcp-to-aws",
-      "permission_set_refs": [
-        "permission.gcp.thesis-demo-eventing-v1",
-        "permission.aws.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2714,22 +2567,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "source_control_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.aws.embedded.bridge-kinesis"
-          ],
-          "destination_control_component_ids": [
-            "deployment.aws.embedded.bridge-sns-fifo",
-            "deployment.aws.embedded.direct-edge-transport"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2754,10 +2591,6 @@
       "destination_provider": "azure",
       "source_adapter_id": "adapter.gcp.bridge@1",
       "trust_path_ref": "phase-08-cross-cloud-bridge@1#gcp-to-azure",
-      "permission_set_refs": [
-        "permission.gcp.thesis-demo-eventing-v1",
-        "permission.azure.thesis-demo-eventing-v1"
-      ],
       "supported_scenarios": [
         "small",
         "medium",
@@ -2765,22 +2598,6 @@
       ],
       "live_gate": "required_before_profile_activation",
       "profile_bindings": [
-        {
-          "profile_id": "five-layer-baseline@2",
-          "source_telemetry_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "source_control_component_ids": [
-            "deployment.gcp.embedded.pubsub"
-          ],
-          "destination_telemetry_component_ids": [
-            "deployment.azure.embedded.bridge-event-hubs-standard",
-            "deployment.azure.embedded.bridge-event-hubs-dedicated"
-          ],
-          "destination_control_component_ids": [
-            "deployment.azure.embedded.direct-edge-transport"
-          ]
-        },
         {
           "profile_id": "six-layer-eventing@1",
           "source_telemetry_component_ids": [
@@ -2800,88 +2617,7 @@
       ]
     }
   ],
-  "permission_sets": [
-    {
-      "permission_set_id": "permission.aws.thesis-demo-eventing-v1",
-      "provider": "aws",
-      "version": "1",
-      "path": "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_eventing_v1.json",
-      "capability_ids": [
-        "iot_command_execute",
-        "kinesis_read_write",
-        "sns_publish_subscribe",
-        "sqs_receive_send",
-        "s3_dlq_write",
-        "lambda_event_source",
-        "logs_write",
-        "sts_outbound_and_web_identity"
-      ],
-      "scope_rule": "exact_resources_no_wildcard_management_plane",
-      "credential_rule": "short_lived_workload_identity_only"
-    },
-    {
-      "permission_set_id": "permission.azure.thesis-demo-eventing-v1",
-      "provider": "azure",
-      "version": "1",
-      "path": "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_eventing_v1.json",
-      "capability_ids": [
-        "iot_hub_data",
-        "event_hubs_data_sender_receiver",
-        "service_bus_data_sender_receiver",
-        "functions_runtime",
-        "logic_apps_runtime",
-        "monitor_write",
-        "federated_identity_credential"
-      ],
-      "scope_rule": "exact_resources_no_wildcard_management_plane",
-      "credential_rule": "short_lived_workload_identity_only"
-    },
-    {
-      "permission_set_id": "permission.gcp.thesis-demo-eventing-v1",
-      "provider": "gcp",
-      "version": "1",
-      "path": "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_eventing_v1.json",
-      "capability_ids": [
-        "pubsub_publisher_subscriber",
-        "run_service_and_worker_runtime",
-        "workflows_invoker",
-        "gke_and_helm_runtime",
-        "logging_write",
-        "workload_identity_federation"
-      ],
-      "scope_rule": "exact_resources_no_wildcard_management_plane",
-      "credential_rule": "short_lived_workload_identity_only"
-    }
-  ],
   "file_ownership": [
-    {
-      "path": "contracts/architecture-profiles/definitions/profiles/five-layer-baseline/2/profile.json",
-      "operation": "new",
-      "slice": "8.9A",
-      "owner": "contracts",
-      "purpose": "Five-layer v2 profile with mandatory embedded domain-event components and no legacy flags."
-    },
-    {
-      "path": "contracts/architecture-profiles/definitions/provider-implementations/five-layer-baseline/2/aws/1.json",
-      "operation": "new",
-      "slice": "8.9A",
-      "owner": "contracts",
-      "purpose": "AWS embedded provider mapping."
-    },
-    {
-      "path": "contracts/architecture-profiles/definitions/provider-implementations/five-layer-baseline/2/azure/1.json",
-      "operation": "new",
-      "slice": "8.9A",
-      "owner": "contracts",
-      "purpose": "Azure embedded provider mapping."
-    },
-    {
-      "path": "contracts/architecture-profiles/definitions/provider-implementations/five-layer-baseline/2/gcp/1.json",
-      "operation": "new",
-      "slice": "8.9A",
-      "owner": "contracts",
-      "purpose": "GCP embedded provider mapping with explicit whole-profile limitation."
-    },
     {
       "path": "contracts/architecture-profiles/definitions/profiles/six-layer-eventing/1/profile.json",
       "operation": "new",
@@ -2946,25 +2682,11 @@
       "purpose": "Manifest binding for RTA v1, RDS v2, and Phase 8.8 digests."
     },
     {
-      "path": "scripts/sync_architecture_profile_contracts.py",
+      "path": "scripts/sync_six_layer_contracts.py",
       "operation": "modify",
       "slice": "shared",
       "owner": "contracts",
-      "purpose": "Synchronize and validate both new profiles and the Eventing catalog."
-    },
-    {
-      "path": "scripts/sync_resolved_deployment_contract.py",
-      "operation": "modify",
-      "slice": "shared",
-      "owner": "contracts",
-      "purpose": "Synchronize RDS v2 while preserving v1."
-    },
-    {
-      "path": "scripts/sync_deployment_manifest_contract.py",
-      "operation": "new",
-      "slice": "shared",
-      "owner": "contracts",
-      "purpose": "Synchronize DeploymentManifest v4 while preserving historical schemas."
+      "purpose": "Synchronize and validate the standalone Six-layer profile and Eventing catalog."
     },
     {
       "path": "2-twin2clouds/backend/architecture_profiles/candidate_factory.py",
@@ -2981,11 +2703,11 @@
       "purpose": "Emit profile and Eventing assignments and graph-derived routes."
     },
     {
-      "path": "2-twin2clouds/backend/deployment_specification/builder.py",
+      "path": "2-twin2clouds/backend/deployment_specification/six_layer_builder.py",
       "operation": "modify",
       "slice": "shared",
       "owner": "optimizer",
-      "purpose": "Build RDS v2 from exact selected components."
+      "purpose": "Build Six-layer RDS v2 from exact selected components."
     },
     {
       "path": "2-twin2clouds/backend/calculation_v2/formulas/eventing_formulas.py",
@@ -3016,11 +2738,11 @@
       "purpose": "Normalize mandatory shared event workload fields without legacy flags."
     },
     {
-      "path": "twin2multicloud_backend/src/services/optimizer_calculation_service.py",
+      "path": "twin2multicloud_backend/src/services/cost_calculation_run_service.py",
       "operation": "modify",
       "slice": "shared",
       "owner": "management",
-      "purpose": "Validate profile-bound Eventing requests and immutable result digests."
+      "purpose": "Validate profile-bound Six-layer requests and immutable result digests."
     },
     {
       "path": "twin2multicloud_backend/src/clients/deployer_client.py",
@@ -3140,27 +2862,6 @@
       "slice": "8.9A",
       "owner": "deployer",
       "purpose": "GCP source bridge adapter shared by both target profiles."
-    },
-    {
-      "path": "3-cloud-deployer/docs/references/permission_sets/aws_thesis_demo_eventing_v1.json",
-      "operation": "new",
-      "slice": "shared",
-      "owner": "deployer",
-      "purpose": "Least-privilege AWS Eventing permission set."
-    },
-    {
-      "path": "3-cloud-deployer/docs/references/permission_sets/azure_thesis_demo_eventing_v1.json",
-      "operation": "new",
-      "slice": "shared",
-      "owner": "deployer",
-      "purpose": "Least-privilege Azure Eventing permission set."
-    },
-    {
-      "path": "3-cloud-deployer/docs/references/permission_sets/gcp_thesis_demo_eventing_v1.json",
-      "operation": "new",
-      "slice": "shared",
-      "owner": "deployer",
-      "purpose": "Least-privilege GCP Eventing permission set."
     },
     {
       "path": "twin2multicloud_flutter/lib/models/eventing_workload.dart",

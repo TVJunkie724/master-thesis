@@ -4,6 +4,33 @@ import 'package:twin2multicloud_flutter/models/twin.dart';
 import '../fixtures/test_fixtures.dart';
 
 void main() {
+  group('history-aware lifecycle permissions', () {
+    for (final state in Twin.supportedStates) {
+      test('previously deployed $state never enables Edit or Deploy', () {
+        final permissions = Twin.permissionsFor(state, hasBeenDeployed: true);
+        expect(permissions['canEdit'], isFalse);
+        expect(permissions['canDeploy'], isFalse);
+        expect(permissions['canDelete'], state == 'destroyed');
+        expect(
+          permissions['canDestroy'],
+          state == 'deployed' || state == 'error',
+        );
+      });
+    }
+    test('first configured and failed deployment can be attempted', () {
+      for (final state in ['configured', 'error']) {
+        expect(Twin.permissionsFor(state)['canDeploy'], isTrue);
+        expect(Twin.permissionsFor(state)['canEdit'], isTrue);
+      }
+    });
+    test('destroyed needs reconfiguration and unknown states fail closed', () {
+      expect(Twin.permissionsFor('destroyed')['canDeploy'], isFalse);
+      expect(Twin.permissionsFor('destroyed')['canEdit'], isTrue);
+      for (final state in [null, 'unknown', 'DEPLOYED']) {
+        expect(Twin.permissionsFor(state).values, everyElement(isFalse));
+      }
+    });
+  });
   group('Twin', () {
     // ============================================================
     // Happy Path Tests

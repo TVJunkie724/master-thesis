@@ -29,15 +29,53 @@ import re
 
 from src.core.config_loader import load_optimization_flags
 from src.core.secure_files import atomic_write_private_bytes
-from src.deployment_specification import (
-    translate_deployment_tfvars,
-    validate_deployment_manifest,
-)
+from src.deployment_specification import validate_deployment_manifest
 from src.architecture_profiles import resolve_deployment_graph
 from src.terraform_inputs import translate_graph_inputs
 
 logger = logging.getLogger(__name__)
 TERRAFORM_VARIABLE_PATTERN = re.compile(r'variable\s+"([a-zA-Z0-9_]+)"')
+SIX_LAYER_PROFILES = {("six-layer-eventing", "1")}
+SIX_LAYER_FIXED_REGIONS = {
+    "aws_region": "eu-central-1",
+    "azure_region": "westeurope",
+    "gcp_region": "europe-west1",
+}
+SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS = {
+    "allowGcpSelfHostedL4",
+    "allowGcpSelfHostedL5",
+    "amountOfActiveEditors",
+    "amountOfActiveViewers",
+    "apiCallsPerDashboardRefresh",
+    "average3DModelSizeInMB",
+    "dashboardRefreshesPerHour",
+    "entityCount",
+    "eventTriggerRate",
+    "eventsPerMessage",
+    "integrateErrorHandling",
+    "needs3DModel",
+    "numberOfEventActions",
+    "orchestrationActionsPerMessage",
+    "returnFeedbackToDevice",
+    "triggerNotificationWorkflow",
+    "useEventChecking",
+}
+SIX_LAYER_FORBIDDEN_TFVARS = {
+    "aws_event_actions",
+    "aws_event_feedback_enabled",
+    "aws_event_feedback_zip_path",
+    "aws_processors",
+    "gcp_event_actions",
+    "gcp_event_feedback_enabled",
+    "gcp_event_feedback_zip_path",
+    "gcp_processors",
+    "inter_cloud_token",
+    "needs_3d_model",
+    "return_feedback_to_device",
+    "scene_assets_path",
+    "trigger_notification_workflow",
+    "use_event_checking",
+}
 
 
 class ConfigurationError(ValueError):
@@ -93,15 +131,19 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         deployment_manifest,
         providers,
     )
-    resolved_graph = (
-        resolve_deployment_graph(validated_manifest)
-        if validated_manifest.manifest_version == "3.0"
-        else None
+    resolved_graph = resolve_deployment_graph(validated_manifest)
+    # Explicit single-user PoC accommodation for the shared Terraform root.
+    # Never substitute host credentials for a graph-selected Azure deployment.
+    tfvars.update(
+        _load_auxiliary_azure_auth(
+            azure_selected=any(node.provider == "azure" for node in resolved_graph.nodes),
+            tfvars=tfvars,
+        )
     )
-    deployment_tfvars = (
-        translate_graph_inputs(resolved_graph).values
-        if resolved_graph is not None
-        else translate_deployment_tfvars(validated_manifest.specification)
+    phase8_profile = _phase8_profile_identity(resolved_graph)
+    deployment_tfvars = translate_graph_inputs(resolved_graph).values
+    tfvars["resolved_component_dimensions"] = _project_graph_component_dimensions(
+        resolved_graph
     )
 
     # Load config_iot_devices.json (device definitions)
@@ -110,8 +152,9 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
     # Load config_events.json (event actions)
     tfvars.update(_load_events(project_dir))
 
-    # Load existing inter-cloud token if available
-    tfvars.update(_load_inter_cloud(project_dir))
+    # Historical v1 HTTP glue alone accepts the old shared-token artifact.
+    if phase8_profile is None:
+        tfvars.update(_load_inter_cloud(project_dir))
 
     # Generate DIGITAL_TWIN_INFO JSON (unified structure for all providers)
     tfvars["digital_twin_info_json"] = _build_digital_twin_info_json(tfvars)
@@ -121,6 +164,8 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
 
     # Load optimization feature flags (for conditional resources)
     optimization_flags = load_optimization_flags(project_dir)
+    if phase8_profile is not None:
+        _validate_phase8_optimization_artifact(project_dir)
 
     # Handle scene_assets_path for 3D models
     scene_assets_path = ""
@@ -132,17 +177,20 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         else:
             logger.warning("  needs3DModel=true but scene_assets/ not found")
 
-    tfvars.update(
-        {
-            "use_event_checking": optimization_flags["useEventChecking"],
-            "trigger_notification_workflow": optimization_flags[
-                "triggerNotificationWorkflow"
-            ],
-            "return_feedback_to_device": optimization_flags["returnFeedbackToDevice"],
-            "needs_3d_model": optimization_flags["needs3DModel"],
-            "scene_assets_path": scene_assets_path,
-        }
-    )
+    if phase8_profile is None:
+        tfvars.update(
+            {
+                "use_event_checking": optimization_flags["useEventChecking"],
+                "trigger_notification_workflow": optimization_flags[
+                    "triggerNotificationWorkflow"
+                ],
+                "return_feedback_to_device": optimization_flags[
+                    "returnFeedbackToDevice"
+                ],
+                "needs_3d_model": optimization_flags["needs3DModel"],
+                "scene_assets_path": scene_assets_path,
+            }
+        )
 
     # Workflow definition file paths (conditional based on L2 provider)
     # Only set paths when the corresponding provider is used for L2
@@ -194,11 +242,10 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         )
     )
 
-    # Build GCP user function variables if GCP is used as a provider
-    tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
-
-    # Build AWS user function variables if AWS is used as a provider
-    tfvars.update(_get_aws_user_function_vars(project_dir, providers))
+    if phase8_profile is None:
+        # Historical v1 user functions use the predecessor feature-flag path.
+        tfvars.update(_build_gcp_user_function_vars(project_dir, providers))
+        tfvars.update(_get_aws_user_function_vars(project_dir, providers))
 
     # Bind only contract-validated extension packages into Terraform evidence.
     tfvars.update(_load_validated_extension_packages(project_dir))
@@ -214,6 +261,7 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
             "configuration: " + ", ".join(collisions)
         )
     tfvars.update(deployment_tfvars)
+    _validate_phase8_tfvars(tfvars, phase8_profile)
     _validate_declared_tfvars(tfvars)
 
     # Write output file
@@ -245,6 +293,100 @@ def _validate_declared_tfvars(tfvars: dict[str, object]) -> None:
         raise ConfigurationError(
             "Generated Terraform inputs are not allowlisted by the root "
             "module: " + ", ".join(unknown)
+        )
+
+
+def _phase8_profile_identity(graph) -> tuple[str, str] | None:
+    if graph is None:
+        return None
+    identity = (
+        str(graph.profile_ref.get("id", "")),
+        str(graph.profile_ref.get("version", "")),
+    )
+    return identity if identity in SIX_LAYER_PROFILES else None
+
+
+def _validate_phase8_optimization_artifact(project_dir: Path) -> None:
+    path = project_dir / "config_optimization.json"
+    if not path.exists():
+        return
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ConfigurationError(
+            "config_optimization.json contains invalid JSON"
+        ) from exc
+    if not isinstance(value, dict):
+        raise ConfigurationError("config_optimization.json must contain a JSON object")
+    sources = [value]
+    result = value.get("result")
+    if result is not None:
+        if not isinstance(result, dict):
+            raise ConfigurationError(
+                "config_optimization.json result must contain a JSON object"
+            )
+        sources.append(result)
+        input_params = result.get("inputParamsUsed")
+        if input_params is not None:
+            if not isinstance(input_params, dict):
+                raise ConfigurationError(
+                    "config_optimization.json inputParamsUsed must contain a JSON object"
+                )
+            sources.append(input_params)
+    forbidden = sorted(
+        set().union(
+            *(
+                SIX_LAYER_FORBIDDEN_OPTIMIZER_FIELDS & source.keys()
+                for source in sources
+            )
+        )
+    )
+    if forbidden:
+        raise ConfigurationError(
+            "Phase 8 comparison profiles do not accept legacy feature flags: "
+            + ", ".join(forbidden)
+        )
+
+
+def _validate_phase8_tfvars(
+    tfvars: dict[str, object],
+    profile: tuple[str, str] | None,
+) -> None:
+    if profile is None:
+        return
+    forbidden = sorted(SIX_LAYER_FORBIDDEN_TFVARS & tfvars.keys())
+    if forbidden:
+        raise ConfigurationError(
+            "Phase 8 Terraform inputs contain retired feature or shared-token fields: "
+            + ", ".join(forbidden)
+        )
+    selected = {
+        "aws": any(
+            value == "aws" for key, value in tfvars.items() if key.endswith("_provider")
+        ),
+        "azure": any(
+            value == "azure"
+            for key, value in tfvars.items()
+            if key.endswith("_provider")
+        ),
+        "gcp": any(
+            value == "google"
+            for key, value in tfvars.items()
+            if key.endswith("_provider")
+        ),
+    }
+    for field, expected in SIX_LAYER_FIXED_REGIONS.items():
+        provider = field.removesuffix("_region")
+        if selected[provider] and tfvars.get(field) != expected:
+            raise ConfigurationError(
+                f"{field} must be {expected} for the selected Phase 8 comparison profile"
+            )
+    if (
+        tfvars.get("layer_1_provider") == "azure"
+        and tfvars.get("azure_region_iothub") != SIX_LAYER_FIXED_REGIONS["azure_region"]
+    ):
+        raise ConfigurationError(
+            "azure_region_iothub must be westeurope for the selected Phase 8 comparison profile"
         )
 
 
@@ -305,7 +447,7 @@ def _load_graph_azure_function_zips(
     project_dir: Path,
     graph,
 ) -> dict[str, str]:
-    """Load graph-built Azure app bundles without rebuilding legacy packages."""
+    """Load graph-built Azure app bundles from immutable evidence."""
 
     from src.providers.terraform.package_builder import (
         _selected_static_function_packages,
@@ -317,6 +459,7 @@ def _load_graph_azure_function_zips(
         package_id
         for package_id in expected_package_ids
         if package_id.startswith("azure_bundle_")
+        or package_id in {"azure_six-layer-domain", "azure_six-layer-eventing"}
     }
     evidence_path = project_dir / ".twin2multicloud" / "graph" / "package-evidence.json"
     try:
@@ -340,6 +483,8 @@ def _load_graph_azure_function_zips(
         "azure_l2_zip_path": "",
         "azure_l3_zip_path": "",
         "azure_user_zip_path": "",
+        "azure_six_layer_zip_path": "",
+        "azure_event_zip_path": "",
     }
     for group in ("l0", "l1", "l2", "l3"):
         matches = sorted(build_dir.glob(f"{group}_functions_*.zip"))
@@ -362,9 +507,71 @@ def _load_graph_azure_function_zips(
         for group in ("l0", "l1", "l2", "l3")
         if result[f"azure_{group}_zip_path"]
     }
+    domain_package = project_dir / ".build" / "azure" / "six-layer-domain.zip"
+    if "azure_six-layer-domain" in expected_azure:
+        item = evidence_packages.get("azure_six-layer-domain")
+        if (
+            item is None
+            or not domain_package.is_file()
+            or domain_package.is_symlink()
+            or item.get("sha256")
+            != hashlib.sha256(domain_package.read_bytes()).hexdigest()
+        ):
+            raise ConfigurationError(
+                "Graph-built Azure Six-layer package digest is invalid."
+            )
+        result["azure_six_layer_zip_path"] = str(domain_package)
+        discovered.add("azure_six-layer-domain")
+    event_package = project_dir / ".build" / "azure" / "six-layer-eventing.zip"
+    if "azure_six-layer-eventing" in expected_azure:
+        item = evidence_packages.get("azure_six-layer-eventing")
+        if (
+            item is None
+            or not event_package.is_file()
+            or event_package.is_symlink()
+            or item.get("sha256")
+            != hashlib.sha256(event_package.read_bytes()).hexdigest()
+        ):
+            raise ConfigurationError(
+                "Graph-built Azure Event Layer package is invalid."
+            )
+        result["azure_event_zip_path"] = str(event_package)
+        discovered.add("azure_six-layer-eventing")
     if discovered != expected_azure:
         raise ConfigurationError("Graph-built Azure package set is incomplete.")
     return result
+
+
+def _project_graph_component_dimensions(graph) -> dict[str, str]:
+    """Project globally qualified v2 dimensions into an immutable Terraform map."""
+
+    dimensions: dict[str, str] = {}
+    for node in graph.nodes:
+        for item in node.deployment_dimensions:
+            dimension_id = item.get("dimension_id")
+            value = item.get("value")
+            if not isinstance(dimension_id, str) or not dimension_id:
+                raise ConfigurationError("Resolved component dimension ID is invalid.")
+            if not dimension_id.startswith("dimension."):
+                # Historical v1 dimension IDs are scoped by component and can
+                # intentionally repeat with different values. Their existing
+                # explicit Terraform bindings remain authoritative.
+                continue
+            if isinstance(value, bool):
+                normalized = "true" if value else "false"
+            elif isinstance(value, (int, float, str)) and not isinstance(value, bool):
+                normalized = str(value)
+            else:
+                raise ConfigurationError(
+                    "Resolved component dimension value is not a Terraform scalar."
+                )
+            previous = dimensions.get(dimension_id)
+            if previous is not None and previous != normalized:
+                raise ConfigurationError(
+                    "Resolved component dimensions contradict across graph nodes."
+                )
+            dimensions[dimension_id] = normalized
+    return dict(sorted(dimensions.items()))
 
 
 def _build_azure_function_zips(
@@ -581,15 +788,25 @@ def _get_aws_user_function_vars(project_dir: Path, providers: dict) -> dict:
         with open(events_path, "r") as f:
             events = json.load(f)
 
+        functions_seen = set()
         for event in events:
             action = event.get("action", {})
-            if action.get("type") == "lambda" and "functionName" in action:
-                func_name = event["action"]["functionName"]
+            function_names = [action.get("functionName")]
+            if action.get("type") in {"step_function", "logic_app", "workflow"}:
+                function_names.append(action.get("functionNameB"))
+            for func_name in function_names:
+                if (
+                    not isinstance(func_name, str)
+                    or not func_name
+                    or func_name in functions_seen
+                ):
+                    continue
                 zip_path = build_dir / f"{func_name}.zip"
                 if zip_path.exists():
                     aws_vars["aws_event_actions"].append(
                         {"name": func_name, "zip_path": str(zip_path)}
                     )
+                    functions_seen.add(func_name)
 
     # Check for event feedback
     feedback_zip = build_dir / "event-feedback.zip"
@@ -628,6 +845,42 @@ def _load_config(project_dir: Path) -> dict:
             "cold_storage_size_in_days"
         ]
 
+    if "archive_storage_size_in_days" in config:
+        result["layer_3_archive_expiry_interval_days"] = config[
+            "archive_storage_size_in_days"
+        ]
+
+    return result
+
+
+def _load_auxiliary_azure_auth(*, azure_selected: bool, tfvars: dict) -> dict:
+    """Authenticate unused Azure providers without changing resource placement.
+
+    Opt-in, local single-user deployment only. Read four fields from the existing
+    credential-file format; do not add them to portable/operation packages or
+    use this fallback for actual Azure resources.
+    """
+    fields = (
+        "azure_subscription_id", "azure_client_id", "azure_client_secret",
+        "azure_tenant_id",
+    )
+    path = os.environ.get("TF_AZURE_PROVIDER_AUTH_FILE", "")
+    if azure_selected or not path or any(field in tfvars for field in fields):
+        return {}
+    try:
+        with Path(path).open("rb") as source:
+            raw = source.read(65537)
+        if len(raw) > 65536:
+            raise ValueError("size")
+        azure = json.loads(raw)["azure"]
+        result = {field: azure[field] for field in fields}
+        if not all(isinstance(value, str) and value.strip() for value in result.values()):
+            raise ValueError("fields")
+    except (OSError, ValueError, KeyError, TypeError):
+        raise ConfigurationError(
+            "TF_AZURE_PROVIDER_AUTH_FILE requires a readable credential JSON "
+            "with four nonempty Azure authentication fields"
+        ) from None
     return result
 
 
@@ -681,36 +934,16 @@ def _load_credentials(project_dir: Path) -> dict:
         # SSO region - may be different from main region (e.g., us-east-1 while resources are in eu-central-1)
         tfvars["aws_sso_region"] = aws.get("aws_sso_region", "")
 
-    # GCP credentials - support dual-mode: project_id (private) OR billing_account (org)
+    # GCP credentials target an existing billing-enabled project.
     if "gcp" in creds:
         gcp = creds["gcp"]
 
-        # gcp_region is always required
-        if "gcp_region" not in gcp:
-            raise ConfigurationError("Missing required GCP credential: gcp_region")
-
-        # Dual-mode validation: either gcp_project_id OR gcp_billing_account required
-        has_project_id = "gcp_project_id" in gcp and gcp["gcp_project_id"].strip()
-        has_billing_account = (
-            "gcp_billing_account" in gcp and gcp["gcp_billing_account"].strip()
-        )
-
-        if not has_project_id and not has_billing_account:
-            raise ConfigurationError(
-                "GCP requires either 'gcp_project_id' (for private accounts with existing project) "
-                "or 'gcp_billing_account' (for organization accounts with auto-project creation). "
-                "Please provide at least one."
-            )
+        for field in ("gcp_project_id", "gcp_region"):
+            if not str(gcp.get(field, "")).strip():
+                raise ConfigurationError(f"Missing required GCP credential: {field}")
 
         tfvars["gcp_region"] = gcp["gcp_region"]
-
-        # Private account mode: use existing project
-        if has_project_id:
-            tfvars["gcp_project_id"] = gcp["gcp_project_id"].strip()
-
-        # Organization account mode: auto-create project
-        if has_billing_account:
-            tfvars["gcp_billing_account"] = gcp["gcp_billing_account"].strip()
+        tfvars["gcp_project_id"] = gcp["gcp_project_id"].strip()
 
         # GCP credentials file - resolve relative paths, then read if exists
         creds_file_raw = gcp.get("gcp_credentials_file", "")
@@ -723,7 +956,19 @@ def _load_credentials(project_dir: Path) -> dict:
 
         if creds_file_path.exists():
             with open(creds_file_path) as f:
-                tfvars["gcp_credentials_json"] = f.read()
+                credential_payload = f.read()
+            tfvars["gcp_credentials_json"] = credential_payload
+            try:
+                principal_email = json.loads(credential_payload).get("client_email")
+            except (AttributeError, json.JSONDecodeError) as exc:
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON is invalid"
+                ) from exc
+            if not isinstance(principal_email, str) or not principal_email.strip():
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON has no client_email"
+                )
+            tfvars["gcp_deployment_principal_email"] = principal_email.strip()
         else:
             raise ConfigurationError(
                 "Configured GCP credentials file is missing or unreadable"
@@ -900,6 +1145,22 @@ def _load_platform_user_config(project_dir: Path) -> dict:
 
     if user.get("admin_last_name"):
         result["platform_user_last_name"] = user["admin_last_name"]
+
+    if user.get("aws_layer_access_principal_intent"):
+        result["aws_layer_access_principal_intent"] = user[
+            "aws_layer_access_principal_intent"
+        ]
+
+    # Six-layer binds read-only browser access to an existing Entra
+    # principal. Its object ID is an identifier, not an authentication secret;
+    # account creation and passwords remain an explicit cloud-side prerequisite.
+    if user.get("azure_principal_object_id"):
+        result["azure_layer_access_principal_object_id"] = user[
+            "azure_principal_object_id"
+        ]
+
+    if user.get("azure_principal_label"):
+        result["azure_layer_access_principal_label"] = user["azure_principal_label"]
 
     return result
 

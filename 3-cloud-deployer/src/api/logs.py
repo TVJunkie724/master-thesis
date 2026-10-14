@@ -49,7 +49,10 @@ def get_providers_to_query(project_name: str) -> set[str]:
     from src.core.config_loader import ProjectConfigLoader
 
     bundle = ProjectConfigLoader().load_bundle(project_name)
-    return providers_to_query(bundle.config.providers)
+    return providers_to_query(
+        bundle.config.providers,
+        bundle.resolved_deployment_graph,
+    )
 
 
 def _require_project(project_name: str) -> None:
@@ -107,7 +110,11 @@ async def start_log_trace(
     operation_id="streamLogTrace",
     summary="Stream trace-correlated logs from configured providers",
     responses={
-        200: {"description": "SSE stream with log, error, heartbeat, and done events"},
+        200: {
+            "description": (
+                "SSE stream with log, warning, terminal error, heartbeat, and done events"
+            )
+        },
         403: {"description": "Trace belongs to another project"},
         404: ERROR_RESPONSES[404],
         410: {"description": "Trace expired"},

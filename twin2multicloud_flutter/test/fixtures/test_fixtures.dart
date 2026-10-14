@@ -528,7 +528,6 @@ abstract class TestFixtures {
 
   static Map<String, String> get gcpCredentials => {
     'project_id': 'my-project',
-    'billing_account': 'billing-12345',
     'region': 'europe-west1',
   };
 }

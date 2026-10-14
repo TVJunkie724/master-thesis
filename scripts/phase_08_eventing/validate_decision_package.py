@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import importlib.util
 import json
 import re
@@ -24,31 +23,14 @@ DECISION_PATH = EVIDENCE_ROOT / "decision.json"
 README_PATH = EVIDENCE_ROOT / "README.md"
 PROVIDERS = {"aws", "azure", "gcp"}
 SCENARIOS = {"eventing-small-v1", "eventing-medium-v1", "eventing-large-v1"}
-PROFILE_TARGETS = {"five-layer-baseline@2", "six-layer-eventing@1"}
-HISTORICAL_PROFILE = "five-layer-baseline@1"
+PROFILE_TARGETS = {"six-layer-eventing@1"}
+EXPECTED_PROFILE_EXTENSION_EVENT_TYPES = [
+    "twin.state.upserted",
+    "twin.model.upserted",
+    "twin.relationship.upserted",
+    "twin.relationship.deleted",
+]
 EXPECTED_BRIDGE_COMPONENTS = {
-    "five-layer-baseline@2": {
-        "aws": {
-            "telemetry": {"deployment.aws.embedded.bridge-kinesis"},
-            "control": {
-                "deployment.aws.embedded.bridge-sns-fifo",
-                "deployment.aws.embedded.direct-edge-transport",
-            },
-        },
-        "azure": {
-            "telemetry": {
-                "deployment.azure.embedded.bridge-event-hubs-standard",
-                "deployment.azure.embedded.bridge-event-hubs-dedicated",
-            },
-            "control": {
-                "deployment.azure.embedded.direct-edge-transport",
-            },
-        },
-        "gcp": {
-            "telemetry": {"deployment.gcp.embedded.pubsub"},
-            "control": {"deployment.gcp.embedded.pubsub"},
-        },
-    },
     "six-layer-eventing@1": {
         "aws": {
             "telemetry": {"deployment.aws.event.kinesis"},
@@ -118,9 +100,7 @@ def load_calculator() -> Any:
 
 def artifact_digest(document: Any) -> str:
     calculator = load_calculator()
-    return calculator.normalized_digest(
-        calculator.normalize_for_digest(document)
-    )
+    return calculator.normalized_digest(calculator.normalize_for_digest(document))
 
 
 def iter_references(value: Any, keys: set[str]) -> Iterable[str]:
@@ -213,9 +193,7 @@ def validate_schemas(
             key=lambda item: list(item.absolute_path),
         ):
             location = "/".join(str(item) for item in failure.absolute_path)
-            errors.append(
-                f"{name}:{location or '<root>'}: {failure.message}"
-            )
+            errors.append(f"{name}:{location or '<root>'}: {failure.message}")
 
 
 def validate_secrets(
@@ -235,9 +213,7 @@ def validate_secrets(
         for index, nested in enumerate(value):
             validate_secrets(name, nested, errors, (*path, str(index)))
     elif isinstance(value, str) and SECRET_VALUE.search(value):
-        errors.append(
-            f"{name}:{'/'.join(path)}: value resembles credential material"
-        )
+        errors.append(f"{name}:{'/'.join(path)}: value resembles credential material")
 
 
 def validate_reference_integrity(
@@ -247,20 +223,12 @@ def validate_reference_integrity(
     source_ledger = artifacts["source-ledger.json"]
     sources = source_ledger["sources"]
     source_ids = {item["source_id"] for item in sources}
-    fact_ids = {
-        fact["fact_id"]
-        for source in sources
-        for fact in source["facts"]
-    }
+    fact_ids = {fact["fact_id"] for source in sources for fact in source["facts"]}
     add_duplicates(errors, "source_id", (item["source_id"] for item in sources))
     add_duplicates(
         errors,
         "fact_id",
-        (
-            fact["fact_id"]
-            for source in sources
-            for fact in source["facts"]
-        ),
+        (fact["fact_id"] for source in sources for fact in source["facts"]),
     )
 
     capabilities = artifacts["mandatory-capabilities.json"]
@@ -269,9 +237,7 @@ def validate_reference_integrity(
         for section in ("embedded_capabilities", "event_layer_capabilities")
         for row in capabilities[section]
     ]
-    capability_ids = {
-        row["capability_id"] for row in capability_rows
-    }
+    capability_ids = {row["capability_id"] for row in capability_rows}
     add_duplicates(
         errors,
         "capability_id",
@@ -283,9 +249,7 @@ def validate_reference_integrity(
     normalization_ids = {
         row["normalization_rule_id"] for row in formulas["normalization_rules"]
     }
-    conversion_ids = {
-        row["conversion_id"] for row in formulas["unit_conversions"]
-    }
+    conversion_ids = {row["conversion_id"] for row in formulas["unit_conversions"]}
     add_duplicates(
         errors,
         "formula_id",
@@ -294,10 +258,7 @@ def validate_reference_integrity(
     add_duplicates(
         errors,
         "normalization_rule_id",
-        (
-            row["normalization_rule_id"]
-            for row in formulas["normalization_rules"]
-        ),
+        (row["normalization_rule_id"] for row in formulas["normalization_rules"]),
     )
     add_duplicates(
         errors,
@@ -371,9 +332,7 @@ def validate_reference_integrity(
             {"normalization_rule_id", "normalization_rule_ids"},
         ):
             if rule_ref not in normalization_ids | conversion_ids:
-                errors.append(
-                    f"{name}: unresolved normalization reference {rule_ref}"
-                )
+                errors.append(f"{name}: unresolved normalization reference {rule_ref}")
         for conversion_ref in iter_references(
             document,
             {"conversion_id", "conversion_ids"},
@@ -402,30 +361,23 @@ def validate_coverage(
     scenarios = artifacts["scenario-inputs.json"]["scenarios"]
     actual_scenarios = {row["scenario_id"] for row in scenarios}
     if actual_scenarios != SCENARIOS:
-        errors.append(
-            f"scenario coverage mismatch: {sorted(actual_scenarios)}"
-        )
+        errors.append(f"scenario coverage mismatch: {sorted(actual_scenarios)}")
 
     parity = artifacts["profile-parity-decision.json"]
     profile_ids = {row["profile_id"] for row in parity["profiles"]}
-    expected_profiles = PROFILE_TARGETS | {HISTORICAL_PROFILE}
-    if profile_ids != expected_profiles:
+    if profile_ids != PROFILE_TARGETS:
         errors.append(f"profile parity mismatch: {sorted(profile_ids)}")
     if set(parity["comparison_rule"]["functional_parity_profiles"]) != PROFILE_TARGETS:
-        errors.append("functional comparison must be exactly five-layer@2 vs six-layer@1")
+        errors.append("functional validation must target only six-layer@1")
     if parity["legacy_flag_policy"]["new_profile_behavior"] != "reject":
         errors.append("new profiles must reject all legacy event feature flags")
 
     capability = artifacts["provider-capability-matrix.json"]
     registry = artifacts["mandatory-capabilities.json"]
     expected_capabilities = {
-        "embedded": {
-            row["capability_id"]
-            for row in registry["embedded_capabilities"]
-        },
+        "embedded": {row["capability_id"] for row in registry["embedded_capabilities"]},
         "event_layer": {
-            row["capability_id"]
-            for row in registry["event_layer_capabilities"]
+            row["capability_id"] for row in registry["event_layer_capabilities"]
         },
     }
     actual_capabilities: dict[str, set[str]] = defaultdict(set)
@@ -441,14 +393,11 @@ def validate_coverage(
         actual_capabilities[row["profile_scope"]].add(row["capability_id"])
         cell_providers = {cell["provider"] for cell in row["cells"]}
         if cell_providers != PROVIDERS:
-            errors.append(
-                f"{row['capability_id']}: provider cell coverage mismatch"
-            )
+            errors.append(f"{row['capability_id']}: provider cell coverage mismatch")
         for cell in row["cells"]:
             if cell["status"] in {"unsupported", "unverified"}:
                 errors.append(
-                    f"{row['capability_id']}: {cell['provider']} is "
-                    f"{cell['status']}"
+                    f"{row['capability_id']}: {cell['provider']} is {cell['status']}"
                 )
     for scope, expected in expected_capabilities.items():
         if actual_capabilities[scope] != expected:
@@ -476,14 +425,11 @@ def validate_coverage(
         for row in capability["capacity_allocations"]
     }
     expected_capacity_cases = {
-        (provider, scenario)
-        for provider in PROVIDERS
-        for scenario in SCENARIOS
+        (provider, scenario) for provider in PROVIDERS for scenario in SCENARIOS
     }
-    if (
-        capacity_cases != expected_capacity_cases
-        or len(capability["capacity_allocations"]) != len(expected_capacity_cases)
-    ):
+    if capacity_cases != expected_capacity_cases or len(
+        capability["capacity_allocations"]
+    ) != len(expected_capacity_cases):
         errors.append(
             f"capacity allocation coverage mismatch: {sorted(capacity_cases)}"
         )
@@ -509,22 +455,16 @@ def validate_coverage(
         errors.append(f"three-provider coverage mismatch: {sorted(triples)}")
 
     rejected_ids = {
-        row["alternative_id"]
-        for row in capability["rejected_alternatives"]
+        row["alternative_id"] for row in capability["rejected_alternatives"]
     }
     pricing_rejected_ids = {
         row["alternative_id"]
-        for row in artifacts["pricing-model-matrix.json"][
-            "rejected_member_dimensions"
-        ]
+        for row in artifacts["pricing-model-matrix.json"]["rejected_member_dimensions"]
     }
     add_duplicates(
         errors,
         "rejected capability alternative",
-        (
-            row["alternative_id"]
-            for row in capability["rejected_alternatives"]
-        ),
+        (row["alternative_id"] for row in capability["rejected_alternatives"]),
     )
     add_duplicates(
         errors,
@@ -579,16 +519,11 @@ def validate_coverage(
         "outbound_web_identity_federation_account_enabled",
         "regional_STS_endpoint_for_GetWebIdentityToken",
     }
-    if (
-        aws_requirement is None
-        or not required_aws_preflight.issubset(
-            set(aws_requirement["preflight_gates"])
-        )
+    if aws_requirement is None or not required_aws_preflight.issubset(
+        set(aws_requirement["preflight_gates"])
     ):
         errors.append("AWS provider outbound identity preflight is incomplete")
-    runtime_providers = {
-        row["provider"] for row in bridge["provider_source_runtimes"]
-    }
+    runtime_providers = {row["provider"] for row in bridge["provider_source_runtimes"]}
     landing_providers = {row["provider"] for row in bridge["destination_landings"]}
     if runtime_providers != PROVIDERS:
         errors.append(f"bridge source runtime mismatch: {sorted(runtime_providers)}")
@@ -601,9 +536,7 @@ def validate_coverage(
         errors.append(f"result scenario coverage mismatch: {sorted(result_scenarios)}")
     for result in results:
         if {row["provider"] for row in result["single_cloud_results"]} != PROVIDERS:
-            errors.append(
-                f"{result['scenario_id']}: incomplete single-cloud results"
-            )
+            errors.append(f"{result['scenario_id']}: incomplete single-cloud results")
         result_pairs = {
             (row["source_provider"], row["destination_provider"])
             for row in result["directed_pair_bridge_results"]
@@ -625,6 +558,8 @@ def validate_coverage(
 def validate_manifest(
     artifacts: dict[str, Any],
     errors: list[str],
+    *,
+    require_new_targets_absent: bool = False,
 ) -> None:
     manifest = artifacts["implementation-component-manifest.json"]
     capability = artifacts["provider-capability-matrix.json"]
@@ -658,12 +593,8 @@ def validate_manifest(
     if {row["provider"] for row in manifest["provider_requirements"]} != PROVIDERS:
         errors.append("implementation manifest provider requirements incomplete")
 
-    bundle_by_id = {
-        row["bundle_id"]: row for row in capability["bundle_selections"]
-    }
-    intent_by_id = {
-        row["intent_id"]: row for row in pricing["price_intents"]
-    }
+    bundle_by_id = {row["bundle_id"]: row for row in capability["bundle_selections"]}
+    intent_by_id = {row["intent_id"]: row for row in pricing["price_intents"]}
     pricing_by_bundle = {
         row["bundle_id"]: set(row["intent_ids"])
         for row in pricing["selected_bundle_intents"]
@@ -689,10 +620,7 @@ def validate_manifest(
     add_duplicates(
         errors,
         "deployment_component_id",
-        (
-            row["deployment_component_id"]
-            for row in manifest["service_components"]
-        ),
+        (row["deployment_component_id"] for row in manifest["service_components"]),
     )
 
     for bundle_id, bundle in bundle_by_id.items():
@@ -727,39 +655,23 @@ def validate_manifest(
         errors.append(f"manifest references unknown bundles: {sorted(unknown_bundles)}")
 
     adapter_ids = {row["adapter_id"] for row in manifest["runtime_adapters"]}
-    permission_ids = {
-        row["permission_set_id"] for row in manifest["permission_sets"]
-    }
     add_duplicates(
         errors,
         "adapter_id",
         (row["adapter_id"] for row in manifest["runtime_adapters"]),
     )
-    add_duplicates(
-        errors,
-        "permission_set_id",
-        (row["permission_set_id"] for row in manifest["permission_sets"]),
-    )
     for component in manifest["service_components"]:
         for adapter_id in component["runtime_adapter_ids"]:
             if adapter_id not in adapter_ids:
                 errors.append(f"unresolved runtime adapter: {adapter_id}")
-        if component["permission_set_ref"] not in permission_ids:
-            errors.append(
-                f"unresolved permission set: {component['permission_set_ref']}"
-            )
 
-    contract_ids = {
-        row["contract_id"] for row in manifest["contract_targets"]
-    }
+    contract_ids = {row["contract_id"] for row in manifest["contract_targets"]}
     add_duplicates(
         errors,
         "contract target",
         (row["contract_id"] for row in manifest["contract_targets"]),
     )
-    ownership_by_path = {
-        row["path"]: row for row in manifest["file_ownership"]
-    }
+    ownership_by_path = {row["path"]: row for row in manifest["file_ownership"]}
     for target in manifest["contract_targets"]:
         owner_path = target["owner_path"]
         repository_path = REPOSITORY_ROOT / owner_path
@@ -786,9 +698,7 @@ def validate_manifest(
             ]
         )
     for edge in manifest["logical_edges"]:
-        contract_refs.extend(
-            [edge["envelope_ref"], edge["delivery_contract_ref"]]
-        )
+        contract_refs.extend([edge["envelope_ref"], edge["delivery_contract_ref"]])
     contract_refs.extend(
         row["trust_path_ref"] for row in manifest["bridge_route_classes"]
     )
@@ -810,9 +720,7 @@ def validate_manifest(
     )
     for route in manifest["bridge_route_classes"]:
         if route["source_adapter_id"] not in adapter_ids:
-            errors.append(
-                f"{route['route_class_id']}: unresolved source adapter"
-            )
+            errors.append(f"{route['route_class_id']}: unresolved source adapter")
         source_adapter = next(
             (
                 row
@@ -825,9 +733,7 @@ def validate_manifest(
             source_adapter is not None
             and source_adapter["provider"] != route["source_provider"]
         ):
-            errors.append(
-                f"{route['route_class_id']}: source adapter provider differs"
-            )
+            errors.append(f"{route['route_class_id']}: source adapter provider differs")
         bindings = route["profile_bindings"]
         binding_profiles = {row["profile_id"] for row in bindings}
         if binding_profiles != PROFILE_TARGETS or len(bindings) != len(PROFILE_TARGETS):
@@ -835,24 +741,14 @@ def validate_manifest(
                 f"{route['route_class_id']}: incomplete profile route bindings"
             )
         for binding in bindings:
-            expected_scope = (
-                "embedded"
-                if binding["profile_id"] == "five-layer-baseline@2"
-                else "event_layer"
-            )
+            expected_scope = "event_layer"
             for side, provider in (
                 ("source", route["source_provider"]),
                 ("destination", route["destination_provider"]),
             ):
-                expected = EXPECTED_BRIDGE_COMPONENTS[
-                    binding["profile_id"]
-                ][provider]
-                actual_telemetry = set(
-                    binding[f"{side}_telemetry_component_ids"]
-                )
-                actual_control = set(
-                    binding[f"{side}_control_component_ids"]
-                )
+                expected = EXPECTED_BRIDGE_COMPONENTS[binding["profile_id"]][provider]
+                actual_telemetry = set(binding[f"{side}_telemetry_component_ids"])
+                actual_control = set(binding[f"{side}_control_component_ids"])
                 if (
                     actual_telemetry != expected["telemetry"]
                     or actual_control != expected["control"]
@@ -887,8 +783,7 @@ def validate_manifest(
                 metadata = deployment_metadata.get(component_id)
                 if metadata is None:
                     errors.append(
-                        f"{route['route_class_id']}: unresolved {side} "
-                        f"{component_id}"
+                        f"{route['route_class_id']}: unresolved {side} {component_id}"
                     )
                     continue
                 provider, scope, runtime_adapter_ids = metadata
@@ -905,11 +800,6 @@ def validate_manifest(
                         f"{route['route_class_id']}: source {component_id} "
                         "does not own the route bridge adapter"
                     )
-        for permission in route["permission_set_refs"]:
-            if permission not in permission_ids:
-                errors.append(
-                    f"{route['route_class_id']}: unresolved permission {permission}"
-                )
 
     domain_channels = {row["channel_id"]: row for row in domain["channels"]}
     manifest_edges = {row["channel_id"]: row for row in manifest["logical_edges"]}
@@ -936,24 +826,44 @@ def validate_manifest(
         path = REPOSITORY_ROOT / row["path"]
         if row["operation"] == "modify" and not path.exists():
             errors.append(f"modify target does not exist: {row['path']}")
-        if row["operation"] == "new" and path.exists():
+        if require_new_targets_absent and row["operation"] == "new" and path.exists():
             errors.append(f"new target already exists: {row['path']}")
     referenced_implementation_paths = {
-        row["architecture_definition_path"]
-        for row in manifest["profile_targets"]
+        row["architecture_definition_path"] for row in manifest["profile_targets"]
     }
     referenced_implementation_paths.update(
-        row["terraform"]["owner_file"]
-        for row in manifest["service_components"]
+        row["terraform"]["owner_file"] for row in manifest["service_components"]
     )
     referenced_implementation_paths.update(
         row["source_path"] for row in manifest["runtime_adapters"]
     )
-    referenced_implementation_paths.update(
-        row["path"] for row in manifest["permission_sets"]
-    )
     for path in sorted(referenced_implementation_paths - set(file_paths)):
         errors.append(f"implementation path has no file owner: {path}")
+
+
+def validate_event_type_registry(
+    artifacts: dict[str, Any],
+    errors: list[str],
+) -> None:
+    domain = artifacts["domain-event-flow-contract.json"]
+    bridge = artifacts["bridge-decision.json"]
+    registry = bridge["envelope_contract"]["event_type_registry"]
+    core_event_types = [row["channel_id"] for row in domain["channels"]]
+
+    if registry["core_event_types"] != core_event_types:
+        errors.append(
+            "bridge core event registry differs from the domain-flow channels"
+        )
+    if (
+        registry["profile_extension_event_types"]
+        != EXPECTED_PROFILE_EXTENSION_EVENT_TYPES
+    ):
+        errors.append("bridge Twin-projection event registry is incomplete")
+    combined = [
+        *registry["core_event_types"],
+        *registry["profile_extension_event_types"],
+    ]
+    add_duplicates(errors, "canonical event type", combined)
 
 
 def validate_reproducibility(
@@ -984,9 +894,7 @@ def validate_decision(
         "bridge_decision": "bridge-decision.json",
         "domain_event_flow_contract": "domain-event-flow-contract.json",
         "formula_and_unit_ledger": "formula-and-unit-ledger.json",
-        "implementation_component_manifest": (
-            "implementation-component-manifest.json"
-        ),
+        "implementation_component_manifest": ("implementation-component-manifest.json"),
         "mandatory_capabilities": "mandatory-capabilities.json",
         "pricing_model_matrix": "pricing-model-matrix.json",
         "profile_parity_decision": "profile-parity-decision.json",
@@ -999,9 +907,7 @@ def validate_decision(
         expected = artifact_digest(artifacts[artifact_name])
         actual = decision["input_digests"][input_id]
         if actual != expected:
-            errors.append(
-                f"decision digest mismatch: {input_id}: expected {expected}"
-            )
+            errors.append(f"decision digest mismatch: {input_id}: expected {expected}")
     capability = artifacts["provider-capability-matrix.json"]
     selected: dict[str, set[str]] = defaultdict(set)
     for bundle in capability["bundle_selections"]:
@@ -1039,13 +945,14 @@ def validate_decision(
 
 
 def load_artifacts() -> dict[str, Any]:
-    return {
-        path.name: load_json(path)
-        for path in sorted(EVIDENCE_ROOT.glob("*.json"))
-    }
+    return {path.name: load_json(path) for path in sorted(EVIDENCE_ROOT.glob("*.json"))}
 
 
-def validate(strict: bool = True) -> list[str]:
+def validate(
+    strict: bool = True,
+    *,
+    require_new_targets_absent: bool = False,
+) -> list[str]:
     artifacts = load_artifacts()
     errors: list[str] = []
     validate_schemas(artifacts, errors)
@@ -1053,7 +960,12 @@ def validate(strict: bool = True) -> list[str]:
         validate_secrets(name, document, errors)
     validate_reference_integrity(artifacts, errors)
     validate_coverage(artifacts, errors)
-    validate_manifest(artifacts, errors)
+    validate_manifest(
+        artifacts,
+        errors,
+        require_new_targets_absent=require_new_targets_absent,
+    )
+    validate_event_type_registry(artifacts, errors)
     validate_reproducibility(artifacts, errors)
     validate_decision(artifacts, errors)
     if strict:
@@ -1081,9 +993,7 @@ def refresh_decision_digests() -> None:
         "bridge_decision": "bridge-decision.json",
         "domain_event_flow_contract": "domain-event-flow-contract.json",
         "formula_and_unit_ledger": "formula-and-unit-ledger.json",
-        "implementation_component_manifest": (
-            "implementation-component-manifest.json"
-        ),
+        "implementation_component_manifest": ("implementation-component-manifest.json"),
         "mandatory_capabilities": "mandatory-capabilities.json",
         "pricing_model_matrix": "pricing-model-matrix.json",
         "profile_parity_decision": "profile-parity-decision.json",
@@ -1106,6 +1016,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strict", action="store_true")
     parser.add_argument(
+        "--check-planned-target-absence",
+        action="store_true",
+        help=(
+            "Planning-time collision check. Do not use after implementation "
+            "of the immutable manifest has started."
+        ),
+    )
+    parser.add_argument(
         "--refresh-artifact-digests",
         action="store_true",
         help="Explicitly rewrite manifest dependency digests.",
@@ -1124,7 +1042,10 @@ def main() -> int:
         refresh_artifact_digests()
     if args.refresh_decision_digests:
         refresh_decision_digests()
-    errors = validate(strict=args.strict)
+    errors = validate(
+        strict=args.strict,
+        require_new_targets_absent=args.check_planned_target_absence,
+    )
     if errors:
         for error in errors:
             print(f"error: {error}")

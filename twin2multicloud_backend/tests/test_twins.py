@@ -8,10 +8,11 @@ Tests CRUD operations for digital twins including:
 """
 
 from datetime import datetime, timezone
-from tests.conftest import create_test_twin
+
 from src.models.deployment import Deployment
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
+from tests.conftest import create_test_twin
 
 
 class TestTwinsRoutes:
@@ -75,21 +76,19 @@ class TestTwinsRoutes:
         assert response.status_code == 200
         assert response.json()["name"] == "Updated Name"
 
-    def test_update_twin_state(self, authenticated_client):
-        """PUT /twins/{id} updates twin state (non-configured states)."""
+    def test_update_twin_rejects_direct_state_mutation(self, authenticated_client):
+        """PUT /twins/{id} cannot bypass explicit lifecycle operations."""
         client, headers = authenticated_client
         
         twin_id = create_test_twin(client, headers)
         
-        # Setting to 'error' doesn't require validation (unlike 'configured')
         response = client.put(
             f"/twins/{twin_id}",
             json={"state": "error"},
             headers=headers
         )
         
-        assert response.status_code == 200
-        assert response.json()["state"] == "error"
+        assert response.status_code == 422
 
     def test_delete_twin(self, authenticated_client):
         """DELETE /twins/{id} soft-deletes (sets inactive)."""
@@ -129,6 +128,49 @@ class TestTwinsRoutes:
         
         assert response.status_code == 200
         assert len(response.json()) == 2
+
+    def test_duplicate_creates_a_new_draft_and_keeps_source(
+        self,
+        authenticated_client,
+    ):
+        client, headers = authenticated_client
+        source_id = create_test_twin(client, headers)
+
+        response = client.post(
+            f"/twins/{source_id}/duplicate",
+            json={"name": "Copied Twin"},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["id"] != source_id
+        assert response.json()["state"] == "draft"
+        assert response.json()["name"] == "Copied Twin"
+        assert client.get(f"/twins/{source_id}", headers=headers).status_code == 200
+
+    def test_export_then_import_creates_shareable_draft(self, authenticated_client):
+        client, headers = authenticated_client
+        source_id = create_test_twin(client, headers)
+        exported = client.get(f"/twins/{source_id}/export", headers=headers)
+
+        assert exported.status_code == 200
+        assert "filename=" in exported.headers["content-disposition"]
+        response = client.post(
+            "/twins/import",
+            data={"new_name": "Imported Twin"},
+            files={
+                "archive": (
+                    "shared.twin.zip",
+                    exported.content,
+                    "application/zip",
+                )
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Imported Twin"
+        assert response.json()["state"] == "draft"
 
     # ============================================================
     # Edge Case Tests

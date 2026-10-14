@@ -284,6 +284,12 @@ class ConfigVisualizationBlock extends StatelessWidget {
   static Widget buildOptimizationVisual({
     required Map<String, bool> inputParams,
   }) {
+    if (inputParams.isEmpty) {
+      return const Text(
+        'No legacy feature flags. Mandatory event behavior is owned by the '
+        'selected architecture profile.',
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

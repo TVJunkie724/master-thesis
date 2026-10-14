@@ -12,9 +12,10 @@ THESIS_COMPOSE_PROJECT="${THESIS_COMPOSE_PROJECT:-master-thesis}"
 THESIS_OPTIMIZER_PORT="${THESIS_OPTIMIZER_PORT:-5003}"
 THESIS_DEPLOYER_PORT="${THESIS_DEPLOYER_PORT:-5004}"
 THESIS_MANAGEMENT_API_PORT="${THESIS_MANAGEMENT_API_PORT:-5005}"
+THESIS_LAYER_ACCESS_TEST_PORT="${THESIS_LAYER_ACCESS_TEST_PORT:-5515}"
 THESIS_DOCS_PORT="${THESIS_DOCS_PORT:-5010}"
 THESIS_API_BASE_URL="${THESIS_API_BASE_URL:-http://localhost:${THESIS_MANAGEMENT_API_PORT}}"
-THESIS_DEV_AUTH_TOKEN="${THESIS_DEV_AUTH_TOKEN:-dev-token}"
+THESIS_POC_AUTH_TOKEN="${THESIS_POC_AUTH_TOKEN:-dev-token}"
 THESIS_FLUTTER_DEVICE="${THESIS_FLUTTER_DEVICE:-}"
 THESIS_DEMO_SCENARIO="${THESIS_DEMO_SCENARIO:-showcase}"
 THESIS_DOCKER_CONTEXT="${THESIS_DOCKER_CONTEXT:-}"
@@ -75,7 +76,7 @@ App commands:
   logs [service]     Follow Docker logs. Service examples: management-api,
                      2twin2clouds, 3cloud-deployer.
   down               Stop app/docs containers for this compose project.
-  test backend       Run Management API tests without tests/e2e.
+  test backend       Run the credential-free Management API tests.
   test frontend      Run static architecture, analysis, unit/widget, and build gates.
   test frontend-integration
                      Run read-only Flutter contracts against credential-free
@@ -118,9 +119,11 @@ Environment:
   THESIS_OPTIMIZER_PORT        Host port for Optimizer. Default: 5003.
   THESIS_DEPLOYER_PORT         Host port for Deployer. Default: 5004.
   THESIS_MANAGEMENT_API_PORT   Host port for Management API. Default: 5005.
+  THESIS_LAYER_ACCESS_TEST_PORT
+                               Isolated test-only Management API port. Default: 5515.
   THESIS_DOCS_PORT             Host port for MkDocs. Default: 5010.
   THESIS_API_BASE_URL          Flutter API URL. Default: http://localhost:${THESIS_MANAGEMENT_API_PORT}.
-  THESIS_DEV_AUTH_TOKEN        Flutter dev auth token. Default: dev-token.
+  THESIS_POC_AUTH_TOKEN        Local profile bearer. Default: dev-token.
   THESIS_FLUTTER_DEVICE        Optional Flutter target override. By default the
                                native macOS, Windows, or Linux host is selected.
   THESIS_DEMO_SCENARIO         Offline fixture scenario. Default: showcase.
@@ -348,7 +351,7 @@ write_flutter_config() {
   ensure_python_command
   mkdir -p "$FLUTTER_CONFIG_DIR"
   THESIS_API_BASE_URL="$THESIS_API_BASE_URL" \
-  THESIS_DEV_AUTH_TOKEN="$THESIS_DEV_AUTH_TOKEN" \
+  THESIS_POC_AUTH_TOKEN="$THESIS_POC_AUTH_TOKEN" \
   "$PYTHON_COMMAND" - "$FLUTTER_DEV_CONFIG" <<'PY'
 import json
 import os
@@ -359,7 +362,7 @@ path = Path(sys.argv[1])
 payload = {
     "APP_MODE": "development",
     "API_BASE_URL": os.environ["THESIS_API_BASE_URL"],
-    "DEV_AUTH_TOKEN": os.environ["THESIS_DEV_AUTH_TOKEN"],
+    "POC_AUTH_TOKEN": os.environ["THESIS_POC_AUTH_TOKEN"],
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -484,7 +487,7 @@ EOF
 run_backend_tests() {
   require_docker
   bootstrap_local_runtime_secrets
-  compose_cmd run --rm --no-deps management-api python -m pytest tests/ --ignore=tests/e2e -q
+  compose_cmd run --rm --no-deps management-api python -m pytest tests/ -q
 }
 
 run_frontend_tests() {
@@ -498,6 +501,9 @@ run_frontend_tests() {
     scripts.tests.test_check_flutter_architecture \
     scripts.tests.test_thesis_entrypoint)
   (cd "$REPO_ROOT" && "$PYTHON_COMMAND" scripts/check_flutter_architecture.py)
+
+  info "Resolving the locked Flutter dependency graph."
+  (cd "$FLUTTER_DIR" && flutter pub get --enforce-lockfile)
 
   info "Checking Dart formatting and static analysis."
   (cd "$FLUTTER_DIR" && dart format --output=none --set-exit-if-changed lib test integration_test)
@@ -520,28 +526,115 @@ run_frontend_integration_tests() {
     fail "Frontend integration tests must run without cloud credential overlays."
 
   bootstrap_local_runtime_secrets
+  local required_services=(2twin2clouds 3cloud-deployer management-api)
+  local layer_access_container="${THESIS_COMPOSE_PROJECT}-layer-access-it-$$"
+  local running_before
+  running_before="$(compose_cmd ps --services --filter status=running)"
+  local optimizer_was_running=0
+  if grep -Fxq "2twin2clouds" <<<"$running_before"; then
+    optimizer_was_running=1
+  fi
+  local started_services=()
+  local service
+  for service in "${required_services[@]}"; do
+    if ! grep -Fxq "$service" <<<"$running_before"; then
+      started_services+=("$service")
+    fi
+  done
 
-  info "Starting credential-free services for read-only Flutter integration tests."
-  compose_cmd up -d 2twin2clouds 3cloud-deployer management-api
-  info "Restarting services so bind-mounted API contracts match the current source."
-  compose_cmd restart 2twin2clouds 3cloud-deployer management-api
-  write_flutter_config
-  smoke_app
+  local integration_status
+  set +e
+  (
+    set -e
+    # The integration gate evaluates immutable repository fixtures and must not
+    # contact provider pricing APIs merely because wall-clock time advanced.
+    # Normal Compose/runtime behavior retains the seven-day default.
+    export PRICING_CATALOG_MAX_AGE_DAYS="${THESIS_INTEGRATION_PRICING_MAX_AGE_DAYS:-36500}"
+    local missing_non_optimizer_services=()
+    for service in "${started_services[@]}"; do
+      if [ "$service" != "2twin2clouds" ]; then
+        missing_non_optimizer_services+=("$service")
+      fi
+    done
+    if [ "${#missing_non_optimizer_services[@]}" -gt 0 ]; then
+      info "Starting missing credential-free services for read-only Flutter integration tests."
+      compose_cmd up -d "${missing_non_optimizer_services[@]}"
+    fi
+    # The fixture-only age override is a container environment value. Recreate
+    # only the local Optimizer so the gate cannot silently reuse a seven-day
+    # process; its durable catalog volume and all other pre-existing services
+    # remain intact.
+    info "Starting the credential-free Optimizer with the fixture-only age policy."
+    compose_cmd up -d --force-recreate 2twin2clouds
+    write_flutter_config
+    smoke_app
 
-  local host_device
-  host_device="$(resolve_host_desktop_device)" || exit $?
-  info "Running the Management API readiness contract on $host_device."
-  (cd "$FLUTTER_DIR" && flutter test \
-    integration_test/management_api_readiness_test.dart \
-    -d "$host_device" \
-    --dart-define-from-file=config/dev.json \
-    --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
-  info "Running the user-function extension contract on $host_device."
-  (cd "$FLUTTER_DIR" && flutter test \
-    integration_test/user_function_extension_contract_test.dart \
-    -d "$host_device" \
-    --dart-define-from-file=config/dev.json)
+    local host_device
+    host_device="$(resolve_host_desktop_device)" || exit $?
+    info "Running the Management API readiness contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/management_api_readiness_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json \
+      --dart-define="TEST_OPTIMIZER_API_BASE_URL=http://localhost:${THESIS_OPTIMIZER_PORT}")
+    info "Running the architecture-profile boundary contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/architecture_profile_workflow_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json)
+    info "Running the user-function extension contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/user_function_extension_contract_test.dart \
+      -d "$host_device" \
+      --dart-define-from-file=config/dev.json)
+    info "Starting an isolated credential-free Layer Access fixture API."
+    compose_cmd run -d --rm --no-deps \
+      --name "$layer_access_container" \
+      -p "127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}:5005" \
+      -e "DATABASE_URL=sqlite:////tmp/layer-access-integration.db" \
+      -e "ENABLE_TEST_ENDPOINTS=true" \
+      management-api >/dev/null
+    wait_for_url \
+      "Layer Access fixture API" \
+      "http://127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}/health"
+    info "Running the real Management API Layer Access contract on $host_device."
+    (cd "$FLUTTER_DIR" && flutter test \
+      integration_test/twin_layer_access_flow_test.dart \
+      -d "$host_device" \
+      --dart-define="APP_MODE=development" \
+      --dart-define="API_BASE_URL=http://127.0.0.1:${THESIS_LAYER_ACCESS_TEST_PORT}" \
+      --dart-define="POC_AUTH_TOKEN=${THESIS_POC_AUTH_TOKEN}")
+
+    if docker_cmd logs "$layer_access_container" 2>&1 | grep -Fq "fixture-viewer-"; then
+      fail "A one-time Layer Access test credential was found in API logs."
+    fi
+    if docker_cmd exec "$layer_access_container" sh -c \
+      "grep -aFq 'fixture-viewer-' /tmp/layer-access-integration.db* 2>/dev/null"; then
+      fail "A one-time Layer Access test credential was found in persistence."
+    fi
+
+  )
+  integration_status=$?
+  set -e
+
+  if docker_cmd inspect "$layer_access_container" >/dev/null 2>&1; then
+    info "Stopping the isolated Layer Access fixture API started by this run."
+    docker_cmd stop "$layer_access_container" >/dev/null || true
+  fi
+
+  if [ "${#started_services[@]}" -gt 0 ]; then
+    info "Stopping only services started by this integration run: ${started_services[*]}"
+    compose_cmd stop "${started_services[@]}" || true
+  else
+    info "Leaving all integration services running because they predated this run."
+  fi
+  if [ "$optimizer_was_running" -eq 1 ]; then
+    info "Restoring the pre-existing Optimizer with the normal seven-day age policy."
+    compose_cmd up -d --force-recreate 2twin2clouds || true
+  fi
+  return "$integration_status"
 }
+
 
 run_deployment_contract_tests() {
   ensure_python_command

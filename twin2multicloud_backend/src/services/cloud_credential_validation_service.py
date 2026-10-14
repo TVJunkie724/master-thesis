@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
 
 from src.clients.deployer_client import DeployerClient
-from src.clients.optimizer_client import OptimizerClient
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 
 _SENSITIVE_KEY_PARTS = (
@@ -22,141 +20,70 @@ _SENSITIVE_KEY_PARTS = (
     "gcp_credentials_file",
     "aws_access_key_id",
     "aws_secret_access_key",
+    "azure_client_id",
     "azure_client_secret",
+    "azure_preparation_client_id",
+    "azure_preparation_client_secret",
+    "azure_subscription_id",
+    "azure_tenant_id",
 )
 _REDACTION = "[REDACTED]"
 logger = logging.getLogger(__name__)
 
 
-async def perform_optimizer_validation(
+async def perform_deployer_validation(
     provider: str,
-    optimizer_creds: dict,
+    deployer_creds: dict,
     *,
-    optimizer_client: OptimizerClient | None = None,
+    deployer_client: DeployerClient | None = None,
 ) -> dict:
-    """Validate pricing access through the Optimizer boundary only."""
-    optimizer_client = optimizer_client or OptimizerClient()
+    """Validate admin credentials at the sole cloud-mutating service boundary."""
+    deployer_client = deployer_client or DeployerClient()
     try:
-        raw = await optimizer_client.verify_permissions(provider, optimizer_creds)
-        optimizer = {
-            "valid": raw.get("valid", False) or raw.get("status") == "valid",
-            "message": raw.get("message", "Validation complete"),
+        result = await deployer_client.verify_permissions(provider, deployer_creds)
+        deployer_result = {
+            "valid": (
+                bool(result.get("valid"))
+                or bool(result.get("ready"))
+                or result.get("status") in {"valid", "passed"}
+            ),
+            "message": result.get("summary")
+            or result.get("message", "Validation complete"),
+            "checks": result.get("checks") or [],
+            "permissions": result.get("missing_permissions") or [],
         }
     except ExternalServiceUnavailable:
-        optimizer = {
+        deployer_result = {
             "valid": False,
-            "message": "Cannot connect to Optimizer API (port 5003)",
+            "message": "Cannot connect to Deployer API (port 5004)",
         }
     except ExternalServiceError as exc:
-        optimizer = {
+        deployer_result = {
             "valid": False,
-            "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
+            "message": f"Deployer API error: {exc.upstream_status_code or 502}",
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - external adapter boundary
         logger.error(
-            "Unexpected Optimizer credential validation failure for %s (%s)",
+            "Unexpected Deployer credential validation failure for %s (%s)",
             provider,
             type(exc).__name__,
         )
-        optimizer = {
+        deployer_result = {
             "valid": False,
-            "message": "Optimizer validation failed unexpectedly",
+            "message": "Deployer validation failed unexpectedly",
         }
-
-    return redact_validation_result(
-        {
-            "provider": provider,
-            "valid": optimizer["valid"],
-            "optimizer": optimizer,
-            "deployer": None,
-        },
-        optimizer_creds,
-    )
-
-
-async def perform_dual_validation(
-    provider: str,
-    optimizer_creds: dict,
-    deployer_creds: dict,
-    *,
-    optimizer_client: OptimizerClient | None = None,
-    deployer_client: DeployerClient | None = None,
-) -> dict:
-    """Validate credentials against Optimizer and Deployer without persisting secrets."""
-    optimizer_client = optimizer_client or OptimizerClient()
-    deployer_client = deployer_client or DeployerClient()
-
-    async def call_optimizer():
-        try:
-            result = await optimizer_client.verify_permissions(provider, optimizer_creds)
-            is_valid = result.get("valid", False) or result.get("status") == "valid"
-            return {
-                "valid": is_valid,
-                "message": result.get("message", "Validation complete"),
-            }
-        except ExternalServiceUnavailable:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Optimizer API (port 5003)",
-            }
-        except ExternalServiceError as exc:
-            return {
-                "valid": False,
-                "message": f"Optimizer API error: {exc.upstream_status_code or 502}",
-            }
-        except Exception as exc:
-            logger.error(
-                "Unexpected Optimizer credential validation failure for %s (%s)",
-                provider,
-                type(exc).__name__,
-            )
-            return {
-                "valid": False,
-                "message": "Optimizer validation failed unexpectedly",
-            }
-
-    async def call_deployer():
-        try:
-            result = await deployer_client.verify_permissions(provider, deployer_creds)
-            is_valid = result.get("valid", False) or result.get("status") == "valid"
-            return {
-                "valid": is_valid,
-                "message": result.get("message", "Validation complete"),
-                "permissions": result.get("missing_permissions"),
-            }
-        except ExternalServiceUnavailable:
-            return {
-                "valid": False,
-                "message": "Cannot connect to Deployer API (port 5004)",
-            }
-        except ExternalServiceError as exc:
-            return {
-                "valid": False,
-                "message": f"Deployer API error: {exc.upstream_status_code or 502}",
-            }
-        except Exception as exc:
-            logger.error(
-                "Unexpected Deployer credential validation failure for %s (%s)",
-                provider,
-                type(exc).__name__,
-            )
-            return {
-                "valid": False,
-                "message": "Deployer validation failed unexpectedly",
-            }
-
-    optimizer_result, deployer_result = await asyncio.gather(call_optimizer(), call_deployer())
 
     result = {
         "provider": provider,
-        "valid": optimizer_result.get("valid", False) and deployer_result.get("valid", False),
-        "optimizer": optimizer_result,
+        "valid": deployer_result.get("valid", False),
         "deployer": deployer_result,
     }
-    return redact_validation_result(result, optimizer_creds, deployer_creds)
+    return redact_validation_result(result, deployer_creds)
 
 
-def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[str, Any]) -> dict[str, Any]:
+def redact_validation_result(
+    result: dict[str, Any], *credential_payloads: dict[str, Any]
+) -> dict[str, Any]:
     """Return a copy of a validation result with credential values removed."""
     sensitive_values = _collect_sensitive_values(*credential_payloads)
     return _redact_value(result, sensitive_values)
@@ -165,41 +92,43 @@ def redact_validation_result(result: dict[str, Any], *credential_payloads: dict[
 def build_preflight_result(
     provider: str,
     validation_result: dict[str, Any],
-    *,
-    version_comparison=None,
 ) -> dict[str, Any]:
-    """Normalize raw Optimizer/Deployer validation into UI-actionable preflight checks."""
-    checks = [
-        _build_component_check("optimizer", validation_result.get("optimizer")),
-        _build_component_check("deployer", validation_result.get("deployer")),
-    ]
-    if version_comparison is not None and not version_comparison.matches:
-        checks.insert(0, _permission_set_check(version_comparison))
+    """Normalize Deployer validation into UI-actionable preflight checks."""
+    checks = []
+    deployer = validation_result.get("deployer")
+    detailed = deployer.get("checks") if isinstance(deployer, dict) else None
+    if isinstance(detailed, list) and detailed:
+        checks.extend(
+            _build_deployer_check(item)
+            for item in detailed[:32]
+            if isinstance(item, dict)
+        )
+    else:
+        checks.append(_build_component_check("deployer", deployer))
     ready = all(check["status"] == "passed" for check in checks)
     return {
         "provider": provider,
         "ready": ready,
-        "summary": "Cloud connection preflight passed" if ready else "Cloud connection preflight failed",
+        "summary": "Cloud connection preflight passed"
+        if ready
+        else "Cloud connection preflight failed",
         "checks": checks,
     }
 
 
-def _permission_set_check(version_comparison) -> dict[str, Any]:
-    supplied = version_comparison.supplied_version or "missing"
+def _build_deployer_check(raw: dict[str, Any]) -> dict[str, Any]:
+    status = str(raw.get("status") or "failed")
+    permissions = raw.get("permissions") or []
+    apis = raw.get("apis") or []
     return {
-        "component": "deployer",
-        "status": "failed",
-        "code": "OUTDATED_PERMISSION_SET",
-        "message": (
-            f"{version_comparison.provider.upper()} CloudConnection uses permission set "
-            f"'{supplied}', but the active baseline is "
-            f"'{version_comparison.expected_version}'."
-        ),
-        "action": (
-            "Re-run provider bootstrap or rotate/import the CloudConnection with "
-            f"permission_set_version={version_comparison.expected_version}."
-        ),
-        "permissions": [],
+        "component": f"deployer.{(raw.get('name') or 'provider')!s}",
+        "status": "passed" if status in {"passed", "warning", "skipped"} else "failed",
+        "code": str(raw.get("code") or "VALIDATION_FAILED"),
+        "message": str(raw.get("message") or "Provider validation failed."),
+        "action": str(raw.get("action") or "Review provider access and retry."),
+        "permissions": [
+            str(item) for item in [*permissions, *apis] if str(item).strip()
+        ],
     }
 
 
@@ -232,7 +161,9 @@ def _build_component_check(component: str, raw_result: Any) -> dict[str, Any]:
     }
 
 
-def _classify_preflight_failure(message: str, permissions: list[str]) -> tuple[str, str]:
+def _classify_preflight_failure(
+    message: str, permissions: list[str]
+) -> tuple[str, str]:
     normalized = message.lower()
     if permissions:
         return (
@@ -272,7 +203,9 @@ def _collect_sensitive_values(*credential_payloads: dict[str, Any]) -> set[str]:
     return sensitive_values
 
 
-def _collect_from_mapping(value: Any, sensitive_values: set[str], parent_key: str = "") -> None:
+def _collect_from_mapping(
+    value: Any, sensitive_values: set[str], parent_key: str = ""
+) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
             key_text = str(key)

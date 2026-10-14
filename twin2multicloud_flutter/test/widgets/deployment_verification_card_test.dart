@@ -6,6 +6,7 @@ import 'package:twin2multicloud_flutter/bloc/deployment_verification/deployment_
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 import 'package:twin2multicloud_flutter/services/sse_service.dart';
 import 'package:twin2multicloud_flutter/widgets/deployment_verification_card.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_strings.dart';
 
 class MockApiService extends Mock implements ApiService {}
 
@@ -43,6 +44,7 @@ void main() {
                 twinId: 'twin-1',
                 api: api,
                 logStreamClientFactory: () => sse,
+                loadHistory: false,
               ),
               child: const DeploymentVerificationCard(),
             ),
@@ -54,6 +56,20 @@ void main() {
     expect(find.text('DEPLOYMENT VERIFICATION'), findsOneWidget);
     expect(find.text('CHECK INFRASTRUCTURE'), findsOneWidget);
     expect(find.text('VERIFY DATA FLOW'), findsOneWidget);
+    expect(
+      find.text(
+        TwinOverviewStrings.infrastructureScope,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Payload values must satisfy any configured event conditions.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('L0-L5'), findsNothing);
+    expect(find.text(TwinOverviewStrings.telemetryScope), findsOneWidget);
+    expect(find.textContaining('Cost: none'), findsNothing);
+    expect(find.textContaining('event checking is enabled'), findsNothing);
 
     await tester.tap(find.text('CHECK INFRASTRUCTURE'));
     await tester.pumpAndSettle();

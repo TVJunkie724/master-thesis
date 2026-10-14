@@ -1,26 +1,26 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
-import '../models/authentication.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
 import '../models/pricing_catalog.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
@@ -28,21 +28,31 @@ import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
+  @override
+  Future<String> getVisualization(String twinId) async =>
+      '<!doctype html><html><meta charset="utf-8"><title>Offline demo</title>'
+      '<h1>Offline L5 demo</h1><p>No live measurements. This is not cloud evidence.</p></html>';
+  static const double _sixLayerEurPerUsd = 0.865948;
+  static const _demoGraphDigest =
+      'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+  static const _demoRequirementsDigest =
+      'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+  static const _demoPreparationDigest =
+      'sha256:3333333333333333333333333333333333333333333333333333333333333333';
   final DemoFixtureStore store;
   final Duration latency;
-  String? _token = 'demo-token';
-  final List<Map<String, dynamic>> _decisions = [];
+  static const _token = 'demo-token';
   final Map<String, Map<String, dynamic>> _deploymentReadinessCache = {};
-  final List<UserFunctionArtifact> _extensionArtifacts = [];
-  final Map<String, TwinExtensionBinding> _extensionBindings = {};
+  final Map<String, TwinUserFunction> _twinUserFunctions = {};
+  final Map<String, Map<String, String>> _twinUserFunctionSources = {};
+  final Map<String, ResolvedTwinArchitectureRead> _resolvedArchitectures = {};
+  final Map<String, List<TelemetryVerificationRecord>> _telemetryVerifications =
+      {};
 
   DemoManagementApi({
     required this.store,
     this.latency = const Duration(milliseconds: 120),
   });
-
-  @override
-  void setToken(String? token) => _token = token;
 
   @override
   void setUnauthorizedHandler(void Function()? handler) {}
@@ -51,23 +61,6 @@ class DemoManagementApi implements ManagementApi {
   Future<String?> getAuthToken() async => _token;
 
   @override
-  Future<List<AuthProviderCapability>> getAuthProviders() async => const [];
-
-  @override
-  Future<AuthLoginTransaction> startExternalLogin(IdentityProvider provider) =>
-      throw StateError('External authentication is unavailable in demo mode.');
-
-  @override
-  Future<AuthExchangeResult> exchangeAuthSession(
-    AuthLoginTransaction transaction,
-  ) => throw StateError('External authentication is unavailable in demo mode.');
-
-  @override
-  Future<void> cancelAuthSession(AuthLoginTransaction transaction) async {}
-
-  @override
-  Future<void> logoutSession() async {}
-
   @override
   Future<User> getCurrentUser() async => User.fromJson(store.user);
 
@@ -87,6 +80,63 @@ class DemoManagementApi implements ManagementApi {
       if (themePreference != null) 'theme_preference': themePreference,
     });
     return store.user;
+  }
+
+  @override
+  Future<ArchitectureProfileDetail> getCanonicalArchitectureContract() async {
+    await _pause();
+    store.architectureProfile('six-layer-eventing', '1');
+    return ArchitectureProfileDetail.fromJson(
+      _architectureProfileDetailJson('six-layer-eventing', '1'),
+    );
+  }
+
+  @override
+  Future<TwinArchitectureSelection> getTwinArchitectureContract(
+    String twinId,
+  ) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    final selectedAt = DateTime.parse(twin['created_at'].toString()).toUtc();
+    final updatedAt = DateTime.parse(twin['updated_at'].toString()).toUtc();
+    final profile = store.sixLayerProfile();
+    return TwinArchitectureSelection(
+      twinId: twinId,
+      profileRef: PinnedArchitectureReference(
+        id: profile['profile_id'].toString(),
+        version: profile['profile_version'].toString(),
+        digest: profile['content_digest'].toString(),
+      ),
+      revision: 1,
+      selectedAt: selectedAt,
+      updatedAt: updatedAt,
+      selectedByUserId: store.user['id'].toString(),
+    );
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    throw const DemoApiException(
+      'ARCH_RESOLUTION_NOT_SELECTED',
+      'No resolved architecture is selected for this Twin.',
+    );
+  }
+
+  @override
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(
+    String runId,
+  ) async {
+    await _pause();
+    final architecture = _resolvedArchitectures[runId];
+    if (architecture != null) return architecture;
+    throw const DemoApiException(
+      'ARCH_LEGACY_NOT_RESOLVABLE',
+      'The historical demo run has no native resolved architecture.',
+    );
   }
 
   @override
@@ -123,31 +173,31 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     await _pause();
+    store.twin(twinId);
     _validateExtensionUpload(upload);
     return _extensionValidation(upload);
   }
 
   @override
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     await _pause();
+    store.twin(twinId);
     _validateExtensionUpload(upload);
     final validation = _extensionValidation(upload);
-    final existing = _extensionArtifacts
-        .where((item) => item.artifactDigest == validation.artifactDigest)
-        .firstOrNull;
-    if (existing != null) return existing;
-    final sequence = _extensionArtifacts.length + 1;
-    final artifact = UserFunctionArtifact(
-      schemaVersion: 'user-function-artifact.v1',
-      artifactId:
-          '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}',
-      artifactState: 'valid',
+    final key = '$twinId:${upload.slot.slotId}';
+    final existing = _twinUserFunctions[key];
+    final now = store.clock().toUtc();
+    final userFunction = TwinUserFunction(
+      functionId: existing?.functionId ?? _nextUserFunctionId(),
+      twinId: twinId,
       artifactDigest: validation.artifactDigest,
       slotId: upload.slot.slotId,
       slotVersion: upload.slot.slotVersion,
@@ -156,106 +206,46 @@ class DemoManagementApi implements ManagementApi {
       declaredCapabilities: upload.slot.permissionCapabilities,
       validatorVersion: 'user-function-validator.v1',
       sourceFiles: validation.sourceFiles,
-      dependencyCount: validation.dependencies.length,
-      createdAt: store.clock().toUtc(),
+      dependencies: validation.dependencies,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     );
-    _extensionArtifacts.add(artifact);
-    return artifact;
+    _twinUserFunctions[key] = userFunction;
+    _twinUserFunctionSources[key] = _decodeUserFunctionSource(
+      upload.draft.bytes,
+    );
+    return userFunction;
   }
 
   @override
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
-    await _pause();
-    return List.unmodifiable(_extensionArtifacts);
-  }
-
-  @override
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
-    String twinId,
-  ) async {
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId) async {
     await _pause();
     store.twin(twinId);
     return List.unmodifiable(
-      _extensionBindings.values.where(
-        (binding) => binding.twinId == twinId && binding.active,
-      ),
+      _twinUserFunctions.values.where((item) => item.twinId == twinId),
     );
   }
 
   @override
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  }) async {
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot) async {
     await _pause();
     store.twin(twinId);
-    final artifact = _extensionArtifacts
-        .where(
-          (item) =>
-              item.artifactId == artifactId &&
-              item.slotId == slot.slotId &&
-              item.slotVersion == slot.slotVersion &&
-              item.isValid,
-        )
-        .firstOrNull;
-    if (artifact == null) {
+    final key = '$twinId:${slot.slotId}';
+    final current = _twinUserFunctions[key];
+    if (current == null || current.slotVersion != slot.slotVersion) {
       throw const DemoApiException(
         'EXTENSION_BINDING_UNRESOLVED',
-        'The validated artifact is unavailable for this slot.',
+        'No current Twin function exists for this slot.',
       );
     }
-    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
-    final current = _extensionBindings[key];
-    if (expectedRevision != null && current?.revision != expectedRevision) {
-      throw const DemoApiException(
-        'EXTENSION_BINDING_UNRESOLVED',
-        'The extension binding revision is stale.',
-      );
-    }
-    final revision = (current?.revision ?? 0) + 1;
-    final binding = TwinExtensionBinding(
-      bindingId:
-          '10000000-0000-4000-8000-${revision.toString().padLeft(12, '0')}',
-      twinId: twinId,
-      slotId: slot.slotId,
-      slotVersion: slot.slotVersion,
-      artifactId: artifact.artifactId,
-      artifactDigest: artifact.artifactDigest,
-      bindingDigest:
-          'sha256:${sha256.convert(utf8.encode('$key:${artifact.artifactDigest}'))}',
-      active: true,
-      revision: revision,
-      createdAt: store.clock().toUtc(),
-      unboundAt: null,
-    );
-    _extensionBindings[key] = binding;
-    return binding;
-  }
-
-  @override
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  }) async {
-    await _pause();
-    final key = '$twinId:${slot.slotId}:${slot.slotVersion}';
-    final current = _extensionBindings[key];
-    if (current == null ||
-        (expectedRevision != null && current.revision != expectedRevision)) {
-      throw const DemoApiException(
-        'EXTENSION_BINDING_UNRESOLVED',
-        'The extension binding revision is stale.',
-      );
-    }
-    _extensionBindings.remove(key);
+    _twinUserFunctions.remove(key);
+    _twinUserFunctionSources.remove(key);
   }
 
   UserFunctionValidationResult _extensionValidation(
-    UserFunctionArtifactUpload upload,
+    UserFunctionSourceUpload upload,
   ) {
+    final sourceFiles = _decodeUserFunctionSource(upload.draft.bytes);
     final digest = sha256.convert([
       ...upload.metadataBytes,
       ...upload.draft.bytes,
@@ -265,7 +255,7 @@ class DemoManagementApi implements ManagementApi {
       slotId: upload.slot.slotId,
       slotVersion: upload.slot.slotVersion,
       runtimeId: upload.slot.runtimeId,
-      sourceFiles: const ['process.py', 'requirements.lock'],
+      sourceFiles: sourceFiles.keys.toList(growable: false)..sort(),
       dependencies: const [],
       checks: const [
         'archive_safe',
@@ -282,7 +272,7 @@ class DemoManagementApi implements ManagementApi {
     );
   }
 
-  void _validateExtensionUpload(UserFunctionArtifactUpload upload) {
+  void _validateExtensionUpload(UserFunctionSourceUpload upload) {
     if (!upload.draft.filename.toLowerCase().endsWith('.zip') ||
         upload.draft.bytes.isEmpty ||
         upload.draft.bytes.length > 10 * 1024 * 1024) {
@@ -312,6 +302,7 @@ class DemoManagementApi implements ManagementApi {
         'Secret material is forbidden in user-function v1.',
       );
     }
+    _decodeUserFunctionSource(upload.draft.bytes);
   }
 
   @override
@@ -328,41 +319,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<CloudAccessInventory> getCloudAccessInventory() async {
-    await _pause();
-    final connections = store.cloudConnections;
-    final providers = <String, dynamic>{};
-    for (final provider in CloudProvider.values) {
-      final providerConnections = connections
-          .where((item) => item['provider'] == provider.apiValue)
-          .toList(growable: false);
-      final pricing = providerConnections
-          .where((item) => item['purpose'] == 'pricing')
-          .toList(growable: false);
-      final deployment = providerConnections
-          .where((item) => item['purpose'] == 'deployment')
-          .toList(growable: false);
-      final selectedPricing = pricing.isEmpty
-          ? _missingOrPublicPricingEntry(provider)
-          : _accessEntry(
-              pricing.firstWhere(
-                (item) => item['is_default_for_pricing'] == true,
-                orElse: () => pricing.first,
-              ),
-            );
-      providers[provider.apiValue] = {
-        'provider': provider.apiValue,
-        'pricing': selectedPricing,
-        'pricing_options': pricing.map(_accessEntry).toList(),
-        'deployment': deployment.map(_accessEntry).toList(),
-      };
-    }
-    return CloudAccessInventory.fromJson({
-      'schema_version': 'cloud-access-inventory.v1',
-      'providers': providers,
-    });
-  }
-
   @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
@@ -388,35 +344,14 @@ class DemoManagementApi implements ManagementApi {
     }
     final now = store.clock().toIso8601String();
     final id = store.nextId('demo-${request.provider.apiValue}-connection');
-    if (request.isDefaultForPricing &&
-        request.purpose != CloudConnectionPurpose.pricing) {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_DEFAULT_INVALID',
-        'Only pricing connections can be the default pricing connection.',
-      );
-    }
-    if (request.isDefaultForPricing) {
-      for (final connection in store.cloudConnections.where(
-        (item) =>
-            item['provider'] == request.provider.apiValue &&
-            item['purpose'] == 'pricing' &&
-            item['is_default_for_pricing'] == true,
-      )) {
-        store.updateCloudConnection(connection['id'].toString(), {
-          'is_default_for_pricing': false,
-        });
-      }
-    }
     final payloadSummary = _payloadSummary(request);
     final value = <String, dynamic>{
       'id': id,
       'provider': request.provider.apiValue,
-      'purpose': request.purpose.apiValue,
+      'purpose': 'deployment',
       'scope': 'user',
-      'is_default_for_pricing': request.isDefaultForPricing,
       'display_name': request.displayName.trim(),
       'auth_type': request.authType ?? _defaultAuthType(request.provider),
-      'permission_set_version': null,
       'cloud_scope': request.cloudScope,
       'payload_fingerprint': '$id-fingerprint',
       'payload_summary': payloadSummary,
@@ -432,45 +367,53 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  }) async {
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  ) async {
     await _pause();
-    final current = store.cloudConnection(id);
-    if (displayName != null && displayName.trim().isEmpty) {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_NAME_REQUIRED',
-        'Cloud connection display name is required.',
-      );
-    }
-    if (isDefaultForPricing == true && current['purpose'] != 'pricing') {
-      throw const DemoApiException(
-        'DEMO_CONNECTION_DEFAULT_INVALID',
-        'Only pricing connections can be the default pricing connection.',
-      );
-    }
-    if (isDefaultForPricing == true) {
-      for (final connection in store.cloudConnections.where(
-        (item) =>
-            item['provider'] == current['provider'] &&
-            item['purpose'] == 'pricing' &&
-            item['id'] != id,
-      )) {
-        store.updateCloudConnection(connection['id'].toString(), {
-          'is_default_for_pricing': false,
-        });
-      }
-    }
-    store.updateCloudConnection(id, {
-      if (displayName != null) 'display_name': displayName.trim(),
-      if (cloudScope != null) 'cloud_scope': cloudScope,
-      if (isDefaultForPricing != null)
-        'is_default_for_pricing': isDefaultForPricing,
-    });
-    return CloudConnection.fromJson(store.cloudConnection(id));
+    final now = store.clock().toIso8601String();
+    final id = store.nextId('demo-${request.provider.apiValue}-connection');
+    final cloudScope = switch (request.provider) {
+      CloudProvider.aws => {
+        if (request.accountId != null) 'account_id': request.accountId,
+      },
+      CloudProvider.azure => {'subscription_id': request.targetScopeId},
+      CloudProvider.gcp => {'project_id': request.targetScopeId},
+    };
+    final payloadSummary = switch (request.provider) {
+      CloudProvider.aws => {
+        'region': request.region,
+        'credential_source': 'aws_csv',
+      },
+      CloudProvider.azure => {
+        'region': request.region,
+        'credential_source': 'azure_service_principal_json',
+        'client_configured': true,
+      },
+      CloudProvider.gcp => {
+        'region': request.region,
+        'credential_source': 'gcp_service_account_json',
+      },
+    };
+    final value = <String, dynamic>{
+      'id': id,
+      'provider': request.provider.apiValue,
+      'purpose': 'deployment',
+      'scope': 'user',
+      'display_name': request.displayName,
+      'auth_type': _defaultAuthType(request.provider),
+      'cloud_scope': cloudScope,
+      'payload_fingerprint': '$id-import-fingerprint',
+      'payload_summary': payloadSummary,
+      'validation_status': 'untested',
+      'validation_message': null,
+      'last_validated_at': null,
+      'last_used_at': null,
+      'created_at': now,
+      'updated_at': now,
+    };
+    store.addCloudConnection(value);
+    return CloudConnection.fromJson(value);
   }
 
   @override
@@ -497,7 +440,10 @@ class DemoManagementApi implements ManagementApi {
       'valid': true,
       'validation_status': 'valid',
       'message': 'Demo permission checks completed successfully.',
-      'optimizer': {'valid': true, 'message': 'Pricing access is ready.'},
+      'optimizer': {
+        'valid': true,
+        'message': 'Frozen pricing evidence is available to the optimizer.',
+      },
       'deployer': {'valid': true, 'message': 'Deployment access is ready.'},
     });
   }
@@ -506,25 +452,6 @@ class DemoManagementApi implements ManagementApi {
   Future<List<Twin>> getTwins() async {
     await _pause();
     return store.twins.map(Twin.fromJson).toList(growable: false);
-  }
-
-  @override
-  Future<DashboardStats> getDashboardStats() async {
-    await _pause();
-    final twins = store.twins.map(Twin.fromJson).toList(growable: false);
-    var monthlyCost = 0.0;
-    for (final twin in twins.where((item) => item.isDeployed)) {
-      final result = store.optimizerConfig(twin.id)?['result'];
-      if (result is Map && result['totalCost'] is num) {
-        monthlyCost += (result['totalCost'] as num).toDouble();
-      }
-    }
-    return DashboardStats(
-      deployedCount: twins.where((item) => item.isDeployed).length,
-      draftCount: twins.where((item) => item.isDraft).length,
-      totalTwins: twins.length,
-      estimatedMonthlyCost: monthlyCost,
-    );
   }
 
   @override
@@ -580,6 +507,108 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
+  Future<Twin> duplicateTwin(
+    String twinId,
+    TwinDuplicateRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    final created = await createTwin(request.name);
+    final sourceConfig = store.twinConfig(twinId);
+    if (sourceConfig != null) {
+      store.setTwinConfig(created.id, {
+        ...sourceConfig,
+        'highest_step_reached': 0,
+        'aws_validated': false,
+        'azure_validated': false,
+        'gcp_validated': false,
+      });
+    }
+    final sourceOptimizer = store.optimizerConfig(twinId);
+    if (sourceOptimizer?['params'] is Map) {
+      store.setOptimizerConfig(created.id, {
+        'params': _copyMap(sourceOptimizer!['params'] as Map),
+      });
+    }
+    final sourceDeployer = store.deployerConfig(twinId);
+    if (sourceDeployer != null) {
+      store.setDeployerConfig(created.id, sourceDeployer);
+    }
+    _copyTwinUserFunctions(twinId, created.id);
+    return Twin.fromJson(store.twin(created.id));
+  }
+
+  @override
+  Future<Twin> importTwin(TwinImportRequest request) async {
+    await _pause();
+    final definition = _decodePortableTwinDefinition(request.bytes);
+    final created = await createTwin(request.newName);
+    final providerSettings = definition['provider_settings'];
+    store.setTwinConfig(created.id, {
+      'highest_step_reached': 0,
+      'debug_mode': definition['debug_mode'] == true,
+      if (providerSettings is Map) ...{
+        'aws_region': providerSettings['aws_region'],
+        'aws_sso_region': providerSettings['aws_sso_region'],
+        'azure_region': providerSettings['azure_region'],
+        'azure_region_iothub': providerSettings['azure_region_iothub'],
+        'azure_region_digital_twin':
+            providerSettings['azure_region_digital_twin'],
+        'gcp_project_id': providerSettings['gcp_project_id'],
+        'gcp_region': providerSettings['gcp_region'],
+      },
+      'aws_cloud_connection_id': null,
+      'azure_cloud_connection_id': null,
+      'gcp_cloud_connection_id': null,
+      'aws_validated': false,
+      'azure_validated': false,
+      'gcp_validated': false,
+    });
+    if (definition['optimizer_params'] case final Map params) {
+      store.setOptimizerConfig(created.id, {'params': _copyMap(params)});
+    }
+    if (definition['deployer'] case final Map deployer) {
+      store.setDeployerConfig(created.id, _copyMap(deployer));
+    }
+    _importTwinUserFunctions(created.id, definition['user_functions']);
+    return Twin.fromJson(store.twin(created.id));
+  }
+
+  @override
+  Future<PortableTwinDownload> exportTwin(String twinId) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    final config = store.twinConfig(twinId) ?? const <String, dynamic>{};
+    final optimizer = store.optimizerConfig(twinId);
+    final definition = <String, dynamic>{
+      'schema_version': 'twin-definition.v1',
+      'source_name': twin['name'],
+      'debug_mode': config['debug_mode'] == true,
+      'provider_settings': {
+        'aws_region': config['aws_region'] ?? 'eu-central-1',
+        'aws_sso_region': config['aws_sso_region'],
+        'azure_region': config['azure_region'] ?? 'westeurope',
+        'azure_region_iothub': config['azure_region_iothub'],
+        'azure_region_digital_twin': config['azure_region_digital_twin'],
+        'gcp_project_id': config['gcp_project_id'],
+        'gcp_region': config['gcp_region'] ?? 'europe-west1',
+      },
+      'optimizer_params': optimizer?['params'],
+      'deployer': store.deployerConfig(twinId),
+      'user_functions': _portableTwinUserFunctions(twinId),
+    };
+    final safeName = twin['name'].toString().trim().replaceAll(
+      RegExp(r'[^A-Za-z0-9._-]+'),
+      '-',
+    );
+    return PortableTwinDownload(
+      filename: '${safeName.isEmpty ? 'twin' : safeName}.twin.zip',
+      mediaType: PortableTwinDownload.mediaTypeZip,
+      bytes: _encodePortableTwinDefinition(definition),
+    );
+  }
+
+  @override
   Future<Twin> updateTwin(String twinId, {String? name, String? state}) async {
     await _pause();
     if (name != null && name.trim().isEmpty) {
@@ -623,6 +652,10 @@ class DemoManagementApi implements ManagementApi {
     }
     store.removeTwin(twinId);
     _deploymentReadinessCache.remove(twinId);
+    _twinUserFunctions.removeWhere((_, value) => value.twinId == twinId);
+    _twinUserFunctionSources.removeWhere(
+      (key, _) => key.startsWith('$twinId:'),
+    );
   }
 
   @override
@@ -673,275 +706,101 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> getPricingStatus() async {
-    await _pause();
-    final health = store.pricingHealth;
-    return {
-      'schema_version': health['schema_version'],
-      'providers': (health['providers'] as Map).map(
-        (key, value) => MapEntry(key.toString(), {
-          'status': (value as Map)['state'],
-          'updated_at': value['last_fetched_at'],
-        }),
-      ),
-    };
-  }
-
-  @override
-  Future<PricingHealthResponse> getPricingHealth() async {
-    await _pause();
-    return PricingHealthResponse.fromJson(store.pricingHealth);
-  }
-
-  @override
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  }) async {
-    await _pause();
-    final normalized = _provider(provider);
-    Map<String, dynamic>? connection;
-    if (normalized != 'azure') {
-      if (connectionId != null) {
-        connection = store.cloudConnection(connectionId);
-      } else {
-        final candidates = store.cloudConnections.where(
-          (item) =>
-              item['provider'] == normalized &&
-              item['purpose'] == 'pricing' &&
-              item['is_default_for_pricing'] == true,
-        );
-        connection = candidates.isEmpty ? null : candidates.first;
-      }
-      if (connection == null ||
-          connection['provider'] != normalized ||
-          connection['purpose'] != 'pricing') {
-        throw DemoApiException(
-          'DEMO_PRICING_ACCESS_MISSING',
-          '${normalized.toUpperCase()} pricing access is not configured.',
-        );
-      }
-    }
-    final now = store.clock();
-    final runId = store.nextId('demo-run-$normalized');
-    final activeReference = _demoPricingCatalogReference(normalized, now);
-    final hasReview = store
-        .pricingReports(normalized)
-        .any((report) => report['review_state'] == 'review_required');
-    store.updatePricingHealth(normalized, {
-      'state': hasReview ? 'review_required' : 'fresh',
-      'severity': hasReview ? 'warning' : 'success',
-      'review_required': hasReview,
-      'can_calculate': true,
-      'calculation_source': hasReview ? 'last_known_good' : 'latest_verified',
-      'pricing_freshness': 'fresh',
-      'age': 'just now',
-      'last_fetched_at': now.toIso8601String(),
-      'primary_message': hasReview
-          ? 'Pricing refresh completed and requires review.'
-          : 'Pricing refresh completed successfully.',
-    });
-    return PricingRefreshRun.fromJson({
-      'schema_version': 'pricing-refresh-run.v1',
-      'refresh_run_id': runId,
-      'provider': normalized,
-      'status': 'succeeded',
-      'credential_summary': connection == null
-          ? {
-              'connection_id': null,
-              'identity_label': 'Azure Retail Prices API',
-              'scope': 'public',
-            }
-          : {
-              'connection_id': connection['id'],
-              'identity_label': connection['display_name'],
-              'scope': 'user',
-              'provider_account_id':
-                  (connection['payload_summary'] as Map?)?['account_id'],
-              'provider_project_id':
-                  (connection['payload_summary'] as Map?)?['project_id'],
-              'provider_subscription_id':
-                  (connection['payload_summary'] as Map?)?['subscription_id'],
-            },
-      'force': force,
-      'sse_url': '/demo/pricing/$normalized/$runId',
-      'result_summary': {
-        'schemaVersion': 'pricing-catalog-refresh-result.v2',
-        'status': 'published',
-        'activeCalculationReference': activeReference,
-        if (normalized == 'aws')
-          'accountPricingContext': {
-            'schema_version': 'aws-twinmaker-account-pricing-context.v1',
-            'provider': 'aws',
-            'service': 'iot_twinmaker',
-            'region':
-                (connection?['cloud_scope'] as Map?)?['region'] ??
-                'eu-central-1',
-            'verified_account_id':
-                (connection?['payload_summary'] as Map?)?['account_id'],
-            'catalog_snapshot_digest': activeReference['contentDigest'],
-            'observed_at': now.toIso8601String(),
-            'current_plan': {
-              'mode': 'STANDARD',
-              'billable_entity_count': 42,
-              'effective_at': null,
-              'updated_at': now.toIso8601String(),
-              'update_reason': null,
-              'bundle': null,
-            },
-            'pending_plan': null,
-            'management_binding': {
-              'schema_version': 'aws-twinmaker-management-binding.v1',
-              'pricing_connection_id': connection?['id'],
-              'connection_fingerprint':
-                  'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-              'verified_account_id':
-                  (connection?['payload_summary'] as Map?)?['account_id'],
-              'configured_account_id':
-                  (connection?['payload_summary'] as Map?)?['account_id'],
-            },
-          },
-      },
-      'created_at': now.toIso8601String(),
-      'started_at': now.toIso8601String(),
-      'completed_at': now.toIso8601String(),
-    });
-  }
-
-  @override
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
-  ) async {
-    await _pause();
-    final normalized = _provider(provider);
-    final reports = store
-        .pricingReports(normalized)
-        .map((report) {
-          return {...report, 'refresh_run_id': refreshRunId};
-        })
-        .toList(growable: false);
-    return PricingCandidateReportList.fromJson({
-      'schema_version': 'pricing-candidate-report-list.v1',
-      'provider': normalized,
-      'refresh_run_id': refreshRunId,
-      'reports': reports,
-    });
-  }
-
-  @override
-  Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
-    await _pause();
-    final trace = store.pricingTrace(reportId);
-    if (trace == null) {
-      throw DemoApiException(
-        'DEMO_PRICING_TRACE_NOT_FOUND',
-        'Pricing trace "$reportId" does not exist.',
-      );
-    }
-    return PricingTrace.fromJson(trace);
-  }
-
-  @override
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  }) async {
-    await _pause();
-    final report = _findPricingReport(reportId);
-    final allowedDecisions = {'approve', 'select_alternative', 'defer'};
-    if (!allowedDecisions.contains(decision)) {
-      throw DemoApiException(
-        'DEMO_PRICING_DECISION_INVALID',
-        'Pricing review decision "$decision" is unsupported.',
-      );
-    }
-    if (decision != 'defer' && candidateId == null) {
-      throw const DemoApiException(
-        'DEMO_PRICING_CANDIDATE_REQUIRED',
-        'A selected pricing candidate is required for this decision.',
-      );
-    }
-    if (candidateId != null) {
-      final candidates = report['candidates'] as List? ?? const [];
-      if (!candidates.any(
-        (item) => item is Map && item['candidate_id'] == candidateId,
-      )) {
-        throw DemoApiException(
-          'DEMO_PRICING_CANDIDATE_NOT_FOUND',
-          'Pricing candidate "$candidateId" does not exist.',
-        );
-      }
-    }
-    final value = <String, dynamic>{
-      'schema_version': 'pricing-review-decision.v1',
-      'decision_id': store.nextId('demo-decision'),
-      'report_id': reportId,
-      'provider': report['provider'],
-      'intent_id': report['intent_id'],
-      'decision': decision,
-      'selected_candidate_id': candidateId,
-      'rationale': rationale,
-      'created_at': store.clock().toIso8601String(),
-    };
-    _decisions.add(value);
-    return PricingReviewDecision.fromJson(value);
-  }
-
-  @override
-  Future<Map<String, dynamic>> getRegionsStatus() async {
-    await _pause();
-    return {
-      'providers': {
-        for (final provider in CloudProvider.values)
-          provider.apiValue: {'status': 'fresh', 'regions': 3},
-      },
-    };
-  }
-
-  @override
   Future<OptimizerRunData> createOptimizerRun(
     String twinId,
     CalcParams params,
   ) async {
     await _pause();
     store.twin(twinId);
-    if (!params.isExecutableTopology) {
+    if (!params.isSixLayer) {
       throw const DemoApiException(
-        'UNSUPPORTED_ERROR_HANDLING_TOPOLOGY',
-        'The executable five-layer baseline does not deploy the requested '
-            'error-handling topology.',
+        'ARCH_WORKLOAD_INCOMPATIBLE',
+        'New demo calculations require a frozen Six-layer workload scenario.',
       );
     }
     final paramsJson = params.toJson();
+    final now = store.clock().toUtc();
+    final runId = _nextDemoRunId();
+    final scenario = params.scenario!.name;
+    final specification = store.sixLayerDeploymentSpecification(scenario)
+      ..['calculation_run_id'] = runId
+      ..['currency'] = params.currency;
+    _replaceCurrency(specification, params.currency);
+    specification['digest'] =
+        ResolvedDeploymentSpecificationData.calculateDigest(specification);
+    final parsedSpecification = ResolvedDeploymentSpecificationData.fromJson(
+      specification,
+    );
+    if (parsedSpecification is! ResolvedDeploymentSpecificationV2) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
+        'The canonical Six-layer demo specification is unsupported.',
+      );
+    }
+
+    final architecture = store.sixLayerResolvedArchitecture(scenario)
+      ..['calculation_run_id'] = runId;
+    _convertSixLayerArchitectureCurrency(architecture, params.currency);
+    final deploymentRef =
+        _copyMap(architecture['deployment_specification_ref'] as Map)
+          ..['calculation_run_id'] = runId
+          ..['digest'] = parsedSpecification.digest;
+    architecture['deployment_specification_ref'] = deploymentRef;
     final configured = store.optimizerConfig('demo-configured');
     final result = configured?['result'] is Map
         ? _copyMap(configured!['result'] as Map)
         : _defaultCalculationResult(paramsJson);
-    result['pricingCatalogs'] = _demoPricingCatalogContext(store.clock());
-    result['inputParamsUsed'] = {
-      'useEventChecking': paramsJson['useEventChecking'] == true,
-      'triggerNotificationWorkflow':
-          paramsJson['triggerNotificationWorkflow'] == true,
-      'returnFeedbackToDevice': paramsJson['returnFeedbackToDevice'] == true,
-      'integrateErrorHandling': paramsJson['integrateErrorHandling'] == true,
-      'needs3DModel': paramsJson['needs3DModel'] == true,
-    };
-    result.addAll(_defaultTransferEvidence(result, params.currency));
-    final optimization = OptimizationResultData.fromApiJson({'result': result});
-    final now = store.clock().toUtc();
-    final runId = _nextDemoRunId();
-    final cheapestPath = CheapestPath.fromSegments(
-      List<String>.from(result['cheapestPath'] as List),
+    final cheapestPath = _sixLayerCheapestPath(architecture);
+    final totalCostExact =
+        ((architecture['cost_summary'] as Map)['monthly_total']).toString();
+    architecture['content_digest'] = ResolvedTwinArchitecture.calculateDigest(
+      architecture,
     );
+    final resolvedRead = ResolvedTwinArchitectureRead.fromJson({
+      'twin_id': twinId,
+      'calculation_run_id': runId,
+      'selected_for_deployment_at': null,
+      'architecture_compatibility_status': 'ready',
+      'origin': 'native_v2',
+      'architecture': architecture,
+    });
+    _resolvedArchitectures[runId] = resolvedRead;
+
+    result
+      ..remove('transferPricingContext')
+      ..remove('optimizationDiagnostics')
+      ..remove('transferCosts')
+      ..remove('awsCosts')
+      ..remove('azureCosts')
+      ..remove('gcpCosts')
+      ..remove('inputParamsUsed')
+      ..['cheapestPath'] = cheapestPath
+      ..['calculationResult'] = _sixLayerCalculationResult(cheapestPath)
+      ..['totalCost'] = double.parse(totalCostExact)
+      ..['totalCostExact'] = totalCostExact
+      ..['currency'] = params.currency
+      ..['optimization_profile_id'] = 'cost-minimization-v2'
+      ..['result_schema_version'] = 'cost-result.v2'
+      ..['optimizationProfile'] = {
+        'enabled': true,
+        'profile_version': '2',
+        'scoring_strategy_id': 'profile-local-min-total-cost-v2',
+        'calculation_model_ids': ['profile-resolution-v2@2'],
+        'pricing_registry_version': 'phase-08-complete-service-pricing@1',
+      }
+      ..['evidenceReferences'] = {
+        'pricing_registry': 'phase-08-complete-service-pricing@1',
+      }
+      ..['resolvedTwinArchitecture'] = _copyMap(architecture)
+      ..['resolvedDeploymentSpecification'] = _copyMap(specification)
+      ..['pricingCatalogs'] = _demoPricingCatalogContext(store.clock());
+    final optimization = OptimizationResultData.fromApiJson({'result': result});
+    final parsedCheapestPath = CheapestPath.fromSegments(cheapestPath);
     final pricingCatalogContext = optimization.result.pricingCatalogContext!;
     store.setOptimizerConfig(twinId, {
       'params': _copyMap(paramsJson),
       'result': _copyMap(optimization.payload),
-      'cheapest_path': cheapestPath.toJson(),
+      'cheapest_path': parsedCheapestPath.toJson(),
       'pricing_catalog_context': pricingCatalogContext.toJson(),
       'calculated_at': now.toIso8601String(),
     });
@@ -951,11 +810,6 @@ class DemoManagementApi implements ManagementApi {
       ..['optimizer_result'] = _copyMap(optimization.payload);
     store.setTwinConfig(twinId, twinConfig);
 
-    final specification = _demoDeploymentSpecification(
-      runId: runId,
-      cheapestPath: cheapestPath,
-      pricingCatalogContext: pricingCatalogContext,
-    );
     final runJson = {
       'id': runId,
       'twin_id': twinId,
@@ -964,7 +818,7 @@ class DemoManagementApi implements ManagementApi {
       'total_monthly_cost': optimization.result.totalCost,
       'currency': params.currency,
       'deployment_compatibility_status': 'ready',
-      'deployment_specification_digest': specification['digest'],
+      'deployment_specification_digest': parsedSpecification.digest,
       'deployment_specification_version': specification['schema_version'],
       'resolved_deployment_specification': specification,
       'selected_for_deployment_at': null,
@@ -981,11 +835,7 @@ class DemoManagementApi implements ManagementApi {
   ) async {
     await _pause();
     store.twin(twinId);
-    var runs = store.optimizerRuns(twinId);
-    if (runs.isEmpty && store.optimizerConfig(twinId) != null) {
-      _seedExistingOptimizerRun(twinId);
-      runs = store.optimizerRuns(twinId);
-    }
+    final runs = store.optimizerRuns(twinId);
     if (runs.isEmpty) return null;
     runs.sort((left, right) {
       final leftCreated = DateTime.parse(left['created_at'].toString());
@@ -1016,6 +866,17 @@ class DemoManagementApi implements ManagementApi {
       throw DemoApiException(
         'DEMO_OPTIMIZER_RUN_NOT_SELECTABLE',
         'Optimizer run "$runId" is not selectable.',
+      );
+    }
+    final parsedSelectionSpecification =
+        ResolvedDeploymentSpecificationData.fromJson(
+          _copyMap(run['resolved_deployment_specification'] as Map),
+        );
+    if (parsedSelectionSpecification is ResolvedDeploymentSpecificationV2 &&
+        parsedSelectionSpecification.readiness.evaluationOnly) {
+      throw const DemoApiException(
+        'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
+        'The Six-layer result is evaluation-only until live readiness is approved.',
       );
     }
     final selectedAt = store.clock().toUtc().toIso8601String();
@@ -1166,62 +1027,6 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  ) async {
-    await _pause();
-    store.twin(twinId);
-    if (!filename.toLowerCase().endsWith('.zip') || _bytes(fileBytes).isEmpty) {
-      throw const DemoApiException(
-        'DEMO_ZIP_INVALID',
-        'A non-empty ZIP file is required.',
-      );
-    }
-    return {
-      'success': true,
-      'validation_errors': <String>[],
-      'warnings': <String>[],
-      'files': {
-        'config.json': {
-          'exists': true,
-          'content': '{"digital_twin_name":"demo-import"}',
-          'validation_error': null,
-        },
-        'config_events.json': {
-          'exists': true,
-          'content': '{}',
-          'validation_error': null,
-        },
-        'config_iot_devices.json': {
-          'exists': true,
-          'content': '{"devices":[]}',
-          'validation_error': null,
-        },
-        'iot_device_simulator/payloads.json': {
-          'exists': true,
-          'content': '{}',
-          'validation_error': null,
-        },
-      },
-      'functions': <String, dynamic>{},
-      'assets': {
-        'scene_glb': {'exists': false, 'saved': false},
-      },
-    };
-  }
-
-  @override
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
-    try {
-      return Success(await getPricingStatus());
-    } on DemoApiException catch (error) {
-      return Failure(AppException(error.message, code: error.code));
-    }
-  }
-
-  @override
   Future<Result<TwinConfigData>> getTwinConfigResult(String twinId) async {
     try {
       return Success(await getTwinConfig(twinId));
@@ -1310,6 +1115,48 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  ) async {
+    await _pause();
+    store.twin(twinId);
+    if (request.planDigest != _demoPreparationDigest ||
+        request.requirementsDigest != _demoRequirementsDigest) {
+      throw const DemoApiException(
+        'DEMO_DEPLOYMENT_PREPARATION_STALE',
+        'Run deployment preflight again before confirming preparation.',
+      );
+    }
+    final readiness = _buildDeploymentReadiness(twinId, executeChecks: true);
+    _deploymentReadinessCache[twinId] = {
+      ..._copyMap(readiness),
+      'schema_version': DeploymentReadinessSnapshot.cachedSchemaVersion,
+    };
+    readiness['schema_version'] =
+        DeploymentReadinessSnapshot.preflightSchemaVersion;
+    final response = {
+      'schema_version': DeploymentPreparationResponse.schemaVersion,
+      'twin_id': twinId,
+      'plan_digest': request.planDigest,
+      'requirements_digest': request.requirementsDigest,
+      'status': readiness['ready'] == true ? 'ready' : 'failed',
+      'completed_actions': <Map<String, dynamic>>[],
+      'failed_actions': <Map<String, dynamic>>[],
+      'remaining_action_ids': <String>[],
+      'acknowledged_manual_requirement_ids': request.manualRequirementIds,
+      'pending_manual_requirement_ids': <String>[],
+      'retry_safe': true,
+      'readiness': readiness,
+    };
+    return DeploymentPreparationResponse.fromJson(
+      response,
+      expectedTwinId: twinId,
+      expectedRequest: request,
+    );
+  }
+
+  @override
   Future<OperationSession> destroyTwin(String twinId) async {
     await _pause();
     final twin = store.twin(twinId);
@@ -1357,6 +1204,37 @@ class DemoManagementApi implements ManagementApi {
       'source_deployment': null,
       'redacted': true,
     });
+  }
+
+  @override
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
+    await _pause();
+    final twin = store.twin(twinId);
+    if (twin['state'] != 'deployed') {
+      throw DemoApiException(
+        'DEMO_DEPLOYMENT_ACCESS_STATE_CONFLICT',
+        'Twin "$twinId" must be deployed before layer access is available.',
+      );
+    }
+    final path = store.optimizerConfig(twinId)?['cheapest_path'];
+    final providers = path is Map ? path : const <String, dynamic>{};
+    final l4 = _demoProvider(providers['l4'], fallback: CloudProvider.azure);
+    final l5 = _demoProvider(providers['l5'], fallback: CloudProvider.aws);
+    final generatedAt =
+        store.deploymentOutput(twinId)?['deployed_at']?.toString() ??
+        store.clock().toUtc().toIso8601String();
+    return DeploymentAccessSnapshot.fromJson({
+      'schema_version': DeploymentAccessSnapshot.supportedSchemaVersion,
+      'twin_id': twinId,
+      'deployment_id': 'demo-deployment-$twinId',
+      'generated_at': generatedAt,
+      'availability': 'available',
+      'reason_code': null,
+      'surfaces': [
+        _demoAccessSurface(DeploymentLayer.l4, l4, twinId),
+        _demoAccessSurface(DeploymentLayer.l5, l5, twinId),
+      ],
+    }, expectedTwinId: twinId);
   }
 
   @override
@@ -1518,7 +1396,7 @@ class DemoManagementApi implements ManagementApi {
   }
 
   @override
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
   ) async {
@@ -1531,10 +1409,62 @@ class DemoManagementApi implements ManagementApi {
       );
     }
     final sessionId = store.nextId('demo-verification-session');
-    return {
-      'session_id': sessionId,
-      'sse_url': '/demo/verification/$twinId/$sessionId',
-    };
+    final verificationId = store.nextId('demo-verification');
+    final now = store.clock().toUtc();
+    final record = TelemetryVerificationRecord(
+      id: verificationId,
+      twinId: twinId,
+      sessionId: sessionId,
+      deviceId: payload['iotDeviceId'].toString(),
+      status: TelemetryVerificationStatus.notRun,
+      errorCode: 'DEMO_NOT_RUN',
+      errorMessage: 'Live telemetry verification is unavailable in demo mode.',
+      requestedAt: now,
+      completedAt: now,
+    );
+    _telemetryVerifications.putIfAbsent(twinId, () => []).insert(0, record);
+    return TelemetryVerificationStart(
+      schemaVersion: TelemetryVerificationStart.supportedSchemaVersion,
+      verificationId: verificationId,
+      sessionId: sessionId,
+      sseUrl: '/demo/verification/$twinId/$sessionId',
+      statusUrl: '/twins/$twinId/verify/dataflow/$verificationId',
+      status: TelemetryVerificationStatus.notRun,
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  }) async {
+    store.twin(twinId);
+    if (limit < 1 || limit > 25) {
+      throw const DemoApiException(
+        'DEMO_VERIFICATION_LIMIT_INVALID',
+        'Telemetry verification history limit must be between 1 and 25.',
+      );
+    }
+    final records = _telemetryVerifications[twinId] ?? const [];
+    return TelemetryVerificationHistory(
+      schemaVersion: TelemetryVerificationHistory.supportedSchemaVersion,
+      verifications: List.unmodifiable(records.take(limit)),
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
+  ) async {
+    store.twin(twinId);
+    for (final record in _telemetryVerifications[twinId] ?? const []) {
+      if (record.id == verificationId) return record;
+    }
+    throw const DemoApiException(
+      'DEMO_VERIFICATION_NOT_FOUND',
+      'Telemetry verification evidence does not exist.',
+    );
   }
 
   @override
@@ -1592,6 +1522,12 @@ class DemoManagementApi implements ManagementApi {
 
     final config = store.twinConfig(twinId) ?? const <String, dynamic>{};
     final checkedAt = store.clock().toIso8601String();
+    final graphDigest = executeChecks && requiredProviders.isNotEmpty
+        ? _demoGraphDigest
+        : null;
+    final requirementsDigest = executeChecks && requiredProviders.isNotEmpty
+        ? _demoRequirementsDigest
+        : null;
     final providers = requiredProviders
         .map(
           (provider) => _buildProviderReadiness(
@@ -1599,6 +1535,8 @@ class DemoManagementApi implements ManagementApi {
             config['${provider}_cloud_connection_id']?.toString(),
             executeChecks: executeChecks,
             checkedAt: checkedAt,
+            graphDigest: graphDigest,
+            requirementsDigest: requirementsDigest,
           ),
         )
         .toList(growable: false);
@@ -1624,6 +1562,18 @@ class DemoManagementApi implements ManagementApi {
       'required_providers': requiredProviders,
       'providers': providers,
       'checked_at': checkedProviders.isEmpty ? null : checkedAt,
+      'graph_digest': graphDigest,
+      'requirements_digest': requirementsDigest,
+      'preparation_plan': graphDigest == null
+          ? null
+          : {
+              'schema_version': DeploymentPreparationPlan.schemaVersion,
+              'graph_digest': graphDigest,
+              'requirements_digest': requirementsDigest,
+              'plan_digest': _demoPreparationDigest,
+              'actions': <Map<String, dynamic>>[],
+              'manual_requirements': <Map<String, dynamic>>[],
+            },
       'issues': issues,
     };
   }
@@ -1633,6 +1583,8 @@ class DemoManagementApi implements ManagementApi {
     String? connectionId, {
     required bool executeChecks,
     required String checkedAt,
+    required String? graphDigest,
+    required String? requirementsDigest,
   }) {
     Map<String, dynamic>? connection;
     if (connectionId != null) {
@@ -1642,14 +1594,6 @@ class DemoManagementApi implements ManagementApi {
         connection = null;
       }
     }
-    final expectedVersion = 'thesis-demo-v1';
-    final suppliedVersion = connection?['permission_set_version']?.toString();
-    final permissionStatus = suppliedVersion == null
-        ? 'missing'
-        : suppliedVersion == expectedVersion
-        ? 'matched'
-        : 'outdated';
-
     String failureCode;
     String failureMessage;
     String failureAction;
@@ -1678,11 +1622,6 @@ class DemoManagementApi implements ManagementApi {
       failureMessage =
           'Deployment preflight has not been run for this provider binding.';
       failureAction = 'Run deployment preflight before deploying this twin.';
-    } else if (permissionStatus != 'matched') {
-      failureCode = 'OUTDATED_PERMISSION_SET';
-      failureMessage =
-          'The deployment permission set does not match the active baseline.';
-      failureAction = 'Re-run provider bootstrap, then run preflight again.';
     } else {
       return {
         'provider': provider,
@@ -1691,10 +1630,9 @@ class DemoManagementApi implements ManagementApi {
         'ready': true,
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
-        'expected_permission_set_version': expectedVersion,
-        'supplied_permission_set_version': suppliedVersion,
-        'permission_set_status': permissionStatus,
         'checked_at': checkedAt,
+        'graph_digest': graphDigest,
+        'requirements_digest': requirementsDigest,
         'checks': [
           _readinessCheck(
             component: 'optimizer',
@@ -1711,6 +1649,7 @@ class DemoManagementApi implements ManagementApi {
             action: 'No action required.',
           ),
         ],
+        'requirements': [_demoProviderRequirement(provider, status: 'ready')],
       };
     }
 
@@ -1721,10 +1660,9 @@ class DemoManagementApi implements ManagementApi {
       'ready': false,
       'status': executeChecks ? 'review_required' : 'not_checked',
       'summary': failureMessage,
-      'expected_permission_set_version': expectedVersion,
-      'supplied_permission_set_version': suppliedVersion,
-      'permission_set_status': permissionStatus,
       'checked_at': null,
+      'graph_digest': graphDigest,
+      'requirements_digest': requirementsDigest,
       'checks': [
         _readinessCheck(
           component: 'configuration',
@@ -1733,6 +1671,37 @@ class DemoManagementApi implements ManagementApi {
           action: failureAction,
         ),
       ],
+      'requirements': executeChecks
+          ? [
+              _demoProviderRequirement(
+                provider,
+                status: 'replace_connection',
+                message: failureMessage,
+                action: failureAction,
+              ),
+            ]
+          : <Map<String, dynamic>>[],
+    };
+  }
+
+  Map<String, dynamic> _demoProviderRequirement(
+    String provider, {
+    required String status,
+    String message = 'Provider scope is ready for the resolved graph.',
+    String action = 'No action required.',
+  }) {
+    return {
+      'requirement_id': '$provider:provider_scope',
+      'requirement_type': 'provider_scope',
+      'provider': provider,
+      'capability_id': '$provider:provider_scope',
+      'preparation_mode': 'none',
+      'mandatory': true,
+      'status': status,
+      'message': message,
+      'action': action,
+      'source_node_ids': <String>[],
+      'source_edge_ids': <String>[],
     };
   }
 
@@ -1823,12 +1792,10 @@ class DemoManagementApi implements ManagementApi {
         final summary = connection?['payload_summary'] is Map
             ? Map<String, dynamic>.from(connection!['payload_summary'] as Map)
             : const <String, dynamic>{};
-        response
-          ..['gcp_project_id'] =
-              raw['gcp_project_id'] ??
-              scope['project_id'] ??
-              summary['project_id']
-          ..['gcp_billing_account_configured'] = false;
+        response['gcp_project_id'] =
+            raw['gcp_project_id'] ??
+            scope['project_id'] ??
+            summary['project_id'];
       }
     }
     response
@@ -1855,81 +1822,290 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  void _seedExistingOptimizerRun(String twinId) {
-    final raw = store.optimizerConfig(twinId);
-    if (raw == null) return;
-    final runId = _nextDemoRunId();
-    final createdAt =
-        DateTime.tryParse(raw['calculated_at']?.toString() ?? '')?.toUtc() ??
-        store.clock().toUtc();
-    store.addOptimizerRun(twinId, {
-      'id': runId,
-      'twin_id': twinId,
-      'status': 'succeeded',
-      'deployment_compatibility_status': 'legacy_not_deployable',
-      'deployment_specification_digest': null,
-      'deployment_specification_version': null,
-      'resolved_deployment_specification': null,
-      'selected_for_deployment_at': null,
-      'created_at': createdAt.toIso8601String(),
-    });
+  Map<String, dynamic> _architectureProfileSummaryJson(
+    String profileId,
+    String profileVersion,
+  ) {
+    final profile = store.architectureProfile(profileId, profileVersion);
+    final responsibilities =
+        (profile['responsibilities'] as List)
+            .cast<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList()
+          ..sort(
+            (left, right) => (left['evaluation_order'] as int).compareTo(
+              right['evaluation_order'] as int,
+            ),
+          );
+    final providers =
+        store.architectureProviderProfiles(profileId, profileVersion)..sort(
+          (left, right) => left['provider'].toString().compareTo(
+            right['provider'].toString(),
+          ),
+        );
+    Map<String, dynamic> providerSummary(Map<String, dynamic> item) => {
+      'provider': item['provider'],
+      'supported': item['supported'],
+      'profile_id': item['implementation_profile_id'],
+      'profile_version': item['implementation_profile_version'],
+      'reason_codes': [
+        for (final reason in (item['unsupported_reasons'] as List).cast<Map>())
+          reason['reason_code'],
+      ],
+    };
+    final capabilityIds = <String>{
+      for (final responsibility in responsibilities)
+        for (final capability
+            in (responsibility['capability_requirements'] as List))
+          capability.toString(),
+    }.toList()..sort();
+    final extensionSlots =
+        (profile['extension_slots'] as List)
+            .cast<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList()
+          ..sort((left, right) {
+            final idComparison = left['slot_id'].toString().compareTo(
+              right['slot_id'].toString(),
+            );
+            if (idComparison != 0) return idComparison;
+            return int.parse(
+              left['slot_version'].toString(),
+            ).compareTo(int.parse(right['slot_version'].toString()));
+          });
+    return {
+      'profile_id': profile['profile_id'],
+      'profile_version': profile['profile_version'],
+      'profile_digest': profile['content_digest'],
+      'display_name': profile['display_name'],
+      'description': profile['description'],
+      'lifecycle_status': 'active',
+      'responsibilities': [
+        for (final item in responsibilities)
+          {
+            'responsibility_id': item['responsibility_id'],
+            'display_name': item['display_name'],
+            'required': item['required'],
+            'capability_ids': List<String>.from(
+              item['capability_requirements'] as List,
+            )..sort(),
+            'workload_field_ids': List<String>.from(
+              item['workload_field_refs'] as List,
+            )..sort(),
+          },
+      ],
+      'capability_ids': capabilityIds,
+      'workload_contract_ref': _copyMap(
+        profile['workload_contract_ref'] as Map,
+      ),
+      'available_providers': [
+        for (final item in providers.where((item) => item['supported'] == true))
+          providerSummary(item),
+      ],
+      'unsupported_providers': [
+        for (final item in providers.where((item) => item['supported'] != true))
+          providerSummary(item),
+      ],
+      'extension_slots': [
+        for (final item in extensionSlots)
+          {
+            'slot_id': item['slot_id'],
+            'slot_version': item['slot_version'],
+            'logical_component_id': item['component_id'],
+          },
+      ],
+    };
   }
 
-  Map<String, dynamic> _demoDeploymentSpecification({
-    required String runId,
-    required CheapestPath cheapestPath,
-    required PricingCatalogContext pricingCatalogContext,
-  }) {
-    final specification = store.deploymentSpecificationTemplate()
-      ..['calculation_run_id'] = runId;
-    final optimizationContext =
-        _copyMap(specification['optimization_context'] as Map)
-          ..['catalog_references'] = {
-            for (final entry in pricingCatalogContext.catalogs.entries)
-              entry.key.apiValue: {
-                'snapshot_id': entry.value.snapshotId,
-                'pricing_region': entry.value.pricingRegion,
-                'content_digest': entry.value.contentDigest,
-              },
-          };
-    specification['optimization_context'] = optimizationContext;
-    final parsed = ResolvedDeploymentSpecificationData.fromJson(
-      specification
-        ..['digest'] = ResolvedDeploymentSpecificationData.calculateDigest(
-          specification,
-        ),
-    );
-    if (parsed is! ResolvedDeploymentSpecificationV1) {
-      throw const DemoApiException(
-        'DEMO_DEPLOYMENT_SPECIFICATION_INVALID',
-        'The canonical demo deployment specification is unsupported.',
-      );
-    }
-    final providersBySlot = {
-      for (final component in parsed.architectureComponents)
-        component.slot: component.provider,
+  Map<String, dynamic> _architectureProfileDetailJson(
+    String profileId,
+    String profileVersion,
+  ) {
+    final profile = store.architectureProfile(profileId, profileVersion);
+    final components = (profile['components'] as List)
+        .cast<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+    final edges = (profile['edges'] as List)
+        .cast<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList();
+    return {
+      ..._architectureProfileSummaryJson(profileId, profileVersion),
+      'logical_components': components,
+      'logical_edges': edges,
+      'visualization': {
+        'nodes': [
+          for (final component in components)
+            {
+              'id': component['component_id'],
+              'label': _componentLabel(component['component_id'].toString()),
+              'responsibility_id': component['responsibility_id'],
+            },
+        ],
+        'edges': [
+          for (final edge in edges)
+            {
+              'id': edge['edge_id'],
+              'source': edge['source_component_id'],
+              'destination': edge['destination_component_id'],
+            },
+        ],
+      },
     };
-    const pathSlots = <(ResolvedDeploymentSlot, String)>[
-      (ResolvedDeploymentSlot.l1Ingestion, 'l1'),
-      (ResolvedDeploymentSlot.l2Processing, 'l2'),
-      (ResolvedDeploymentSlot.l3HotStorage, 'l3_hot'),
-      (ResolvedDeploymentSlot.l3CoolStorage, 'l3_cool'),
-      (ResolvedDeploymentSlot.l3ArchiveStorage, 'l3_archive'),
-      (ResolvedDeploymentSlot.l4TwinState, 'l4'),
-      (ResolvedDeploymentSlot.l5Visualization, 'l5'),
-    ];
-    if (pathSlots.any(
-      (entry) =>
-          cheapestPath.providerForLayer(entry.$2) != providersBySlot[entry.$1],
-    )) {
-      throw const DemoApiException(
-        'DEMO_OPTIMIZER_PATH_CONTRACT_MISMATCH',
-        'Demo optimizer result differs from the canonical deployment fixture.',
+  }
+
+  String _componentLabel(String componentId) => componentId
+      .replaceFirst('component.', '')
+      .split('-')
+      .map(
+        (part) => part.isEmpty
+            ? part
+            : '${part.substring(0, 1).toUpperCase()}${part.substring(1)}',
+      )
+      .join(' ');
+
+  void _replaceCurrency(Object? value, String currency) {
+    if (value is Map) {
+      for (final entry in value.entries.toList()) {
+        if (entry.key == 'currency' && entry.value is String) {
+          value[entry.key] = currency;
+        } else {
+          _replaceCurrency(entry.value, currency);
+        }
+      }
+    } else if (value is List) {
+      for (final item in value) {
+        _replaceCurrency(item, currency);
+      }
+    }
+  }
+
+  void _convertSixLayerArchitectureCurrency(
+    Map<String, dynamic> architecture,
+    String currency,
+  ) {
+    final rate = switch (currency) {
+      'USD' => 1.0,
+      'EUR' => _sixLayerEurPerUsd,
+      _ => throw DemoApiException(
+        'DEMO_CURRENCY_UNSUPPORTED',
+        'The Six-layer demo currency "$currency" is unsupported.',
+      ),
+    };
+    int convertedMicros(Object? value) =>
+        (double.parse(value.toString()) * rate * 1000000).round();
+
+    _replaceCurrency(architecture, currency);
+    final componentMicros = <String, int>{};
+    final responsibilityMicros = <String, int>{};
+    for (final assignment in (architecture['component_assignments'] as List)) {
+      final item = assignment as Map;
+      final contribution = item['cost_contribution'] as Map;
+      final micros = convertedMicros(contribution['monthly_amount']);
+      contribution['monthly_amount'] = _demoMicrosText(micros);
+      componentMicros[item['logical_component_id'].toString()] = micros;
+      responsibilityMicros.update(
+        item['responsibility_id'].toString(),
+        (current) => current + micros,
+        ifAbsent: () => micros,
       );
     }
-    specification['digest'] =
-        ResolvedDeploymentSpecificationData.calculateDigest(specification);
-    return specification;
+    final edgeMicros = <String, int>{};
+    for (final edge in (architecture['resolved_edges'] as List)) {
+      final item = edge as Map;
+      final contribution = item['cost_contribution'] as Map;
+      final micros = convertedMicros(contribution['monthly_amount']);
+      contribution['monthly_amount'] = _demoMicrosText(micros);
+      edgeMicros[item['edge_id'].toString()] = micros;
+    }
+    final summary = architecture['cost_summary'] as Map;
+    for (final entry in {
+      'responsibility_totals': responsibilityMicros,
+      'component_totals': componentMicros,
+      'edge_totals': edgeMicros,
+    }.entries) {
+      final field = entry.key;
+      for (final item in (summary[field] as List)) {
+        final total = item as Map;
+        final micros = entry.value[total['item_id'].toString()];
+        if (micros == null) {
+          throw const DemoApiException(
+            'DEMO_SIX_LAYER_COST_INVALID',
+            'The canonical demo cost summary is incomplete.',
+          );
+        }
+        total['monthly_amount'] = _demoMicrosText(micros);
+      }
+    }
+    final totalMicros = [
+      ...componentMicros.values,
+      ...edgeMicros.values,
+    ].fold<int>(0, (total, micros) => total + micros);
+    summary['monthly_total'] = _demoMicrosText(totalMicros);
+  }
+
+  List<String> _sixLayerCheapestPath(Map<String, dynamic> architecture) {
+    final providers = <String, String>{};
+    for (final raw in (architecture['component_assignments'] as List)) {
+      final assignment = Map<String, dynamic>.from(raw as Map);
+      providers[assignment['logical_component_id'].toString()] =
+          assignment['provider'].toString();
+    }
+    String segment(String layer, String logicalComponentId) {
+      final provider = providers[logicalComponentId];
+      if (provider == null) {
+        throw const DemoApiException(
+          'DEMO_RESOLVED_ARCHITECTURE_INVALID',
+          'The canonical demo architecture is missing a logical component.',
+        );
+      }
+      final label = switch (provider) {
+        'aws' => 'AWS',
+        'azure' => 'Azure',
+        'gcp' => 'GCP',
+        _ => throw const DemoApiException(
+          'DEMO_RESOLVED_ARCHITECTURE_INVALID',
+          'The canonical demo architecture uses an unsupported provider.',
+        ),
+      };
+      return '${layer}_$label';
+    }
+
+    return [
+      segment('L1', 'component.ingestion'),
+      segment('L2', 'component.processing'),
+      segment('L3_hot', 'component.hot-storage'),
+      segment('L3_cool', 'component.cool-storage'),
+      segment('L3_archive', 'component.archive-storage'),
+      segment('L4', 'component.twin-state'),
+      segment('L5', 'component.visualization'),
+    ];
+  }
+
+  Map<String, dynamic> _sixLayerCalculationResult(List<String> cheapestPath) {
+    String providerFor(String prefix) => cheapestPath
+        .firstWhere((segment) => segment.startsWith(prefix))
+        .split('_')
+        .last;
+    return {
+      'L1': providerFor('L1_'),
+      'L2': providerFor('L2_'),
+      'L3': {
+        'Hot': providerFor('L3_hot_'),
+        'Cool': providerFor('L3_cool_'),
+        'Archive': providerFor('L3_archive_'),
+      },
+      'L4': providerFor('L4_'),
+      'L5': providerFor('L5_'),
+    };
+  }
+
+  String _demoMicrosText(int micros) {
+    final whole = micros ~/ 1000000;
+    final fraction = (micros % 1000000).abs().toString().padLeft(6, '0');
+    final trimmed = fraction.replaceFirst(RegExp(r'0+$'), '');
+    return trimmed.isEmpty ? '$whole' : '$whole.$trimmed';
   }
 
   String _nextDemoRunId() {
@@ -1938,67 +2114,6 @@ class DemoManagementApi implements ManagementApi {
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
         '5${hex.substring(13, 16)}-a${hex.substring(17, 20)}-'
         '${hex.substring(20, 32)}';
-  }
-
-  Map<String, dynamic> _accessEntry(Map<String, dynamic> connection) {
-    final id = connection['id'].toString();
-    final summary = connection['payload_summary'] as Map? ?? const {};
-    final scope = connection['cloud_scope'] as Map? ?? const {};
-    final bound = store.twinsBoundToConnection(id);
-    final validationStatus = connection['validation_status']?.toString();
-    return {
-      'connection_id': id,
-      'provider': connection['provider'],
-      'purpose': connection['purpose'],
-      'scope': connection['scope'] ?? 'user',
-      'identity_label': connection['display_name'],
-      'status': switch (validationStatus) {
-        'valid' => 'active',
-        'invalid' => 'needs_validation',
-        _ => 'needs_validation',
-      },
-      'provider_account_id': summary['account_id'] ?? scope['account_id'],
-      'provider_project_id': summary['project_id'] ?? scope['project_id'],
-      'provider_subscription_id':
-          summary['subscription_id'] ?? scope['subscription_id'],
-      'is_default_for_pricing': connection['is_default_for_pricing'] == true,
-      'last_validated_at': connection['last_validated_at'],
-      'last_used_at': connection['last_used_at'],
-      'permission_set_status': validationStatus,
-      'bound_twin_count': bound.length,
-      'bound_twin_labels': bound.map((item) => item['name']).toList(),
-      'actions': ['validate', 'edit', 'delete'],
-      'primary_message': connection['validation_message'],
-    };
-  }
-
-  Map<String, dynamic> _missingOrPublicPricingEntry(CloudProvider provider) {
-    if (provider == CloudProvider.azure) {
-      return {
-        'connection_id': null,
-        'provider': 'azure',
-        'purpose': 'pricing',
-        'scope': 'public',
-        'identity_label': 'Azure Retail Prices API',
-        'status': 'active',
-        'bound_twin_count': 0,
-        'bound_twin_labels': <String>[],
-        'actions': ['refresh'],
-        'primary_message': 'Public catalog access requires no credentials.',
-      };
-    }
-    return {
-      'connection_id': null,
-      'provider': provider.apiValue,
-      'purpose': 'pricing',
-      'scope': 'user',
-      'identity_label': '${provider.label} pricing access missing',
-      'status': 'missing',
-      'bound_twin_count': 0,
-      'bound_twin_labels': <String>[],
-      'actions': ['create'],
-      'primary_message': 'Create pricing access to refresh this provider.',
-    };
   }
 
   Map<String, dynamic> _payloadSummary(CloudConnectionCreateRequest request) {
@@ -2010,6 +2125,7 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => {
         if (request.cloudScope['subscription_id'] != null)
           'subscription_id': request.cloudScope['subscription_id'],
+        'client_configured': request.credentials['client_id'] != null,
       },
       CloudProvider.gcp => {
         if (request.cloudScope['project_id'] != null)
@@ -2024,18 +2140,6 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => 'service_principal',
       CloudProvider.gcp => 'service_account_key',
     };
-  }
-
-  Map<String, dynamic> _findPricingReport(String reportId) {
-    for (final provider in CloudProvider.values) {
-      for (final report in store.pricingReports(provider.apiValue)) {
-        if (report['report_id'] == reportId) return report;
-      }
-    }
-    throw DemoApiException(
-      'DEMO_PRICING_REPORT_NOT_FOUND',
-      'Pricing report "$reportId" does not exist.',
-    );
   }
 
   Map<String, dynamic> _jsonValidation(String content) {
@@ -2105,251 +2209,6 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
-  Map<String, dynamic> _defaultTransferEvidence(
-    Map<String, dynamic> result,
-    String currency,
-  ) {
-    final path = List<String>.from(result['cheapestPath'] as List);
-    String providerFor(String prefix) {
-      final segment = path.firstWhere((item) => item.startsWith(prefix));
-      final provider = segment.split('_').last.toLowerCase();
-      if (!const {'aws', 'azure', 'gcp'}.contains(provider)) {
-        throw const DemoApiException(
-          'DEMO_OPTIMIZER_PATH_INVALID',
-          'The demo optimizer path contains an unsupported provider.',
-        );
-      }
-      return provider;
-    }
-
-    final selected = <String, String>{
-      'L1': providerFor('L1_'),
-      'L2': providerFor('L2_'),
-      'L3_hot': providerFor('L3_hot_'),
-      'L3_cool': providerFor('L3_cool_'),
-      'L3_archive': providerFor('L3_archive_'),
-      'L4': providerFor('L4_'),
-      'L5': providerFor('L5_'),
-    };
-    const labels = {'aws': 'AWS', 'azure': 'Azure', 'gcp': 'GCP'};
-    result
-      ..['currency'] = currency
-      ..['calculationResult'] = {
-        'L1': labels[selected['L1']],
-        'L2': labels[selected['L2']],
-        'L3': {
-          'Hot': labels[selected['L3_hot']],
-          'Cool': labels[selected['L3_cool']],
-          'Archive': labels[selected['L3_archive']],
-        },
-        'L4': labels[selected['L4']],
-        'L5': labels[selected['L5']],
-      };
-
-    final catalogs =
-        (result['pricingCatalogs'] as Map)['catalogs'] as Map<dynamic, dynamic>;
-    final policies = <String, Map<String, dynamic>>{
-      'aws': {
-        'networkTier': 'provider_default',
-        'billingScope': 'account_aggregate_public_egress',
-        'billingUnit': 'gb',
-        'bytesPerBillingUnit': 1000000000,
-        'paidUnitPrice': 0.09,
-      },
-      'azure': {
-        'networkTier': 'microsoft_premium_global_network',
-        'billingScope': 'account_aggregate_public_egress',
-        'billingUnit': 'gb',
-        'bytesPerBillingUnit': 1000000000,
-        'paidUnitPrice': 0.087,
-      },
-      'gcp': {
-        'networkTier': 'premium',
-        'billingScope': 'sku_account_aggregate_public_egress',
-        'billingUnit': 'gib',
-        'bytesPerBillingUnit': 1073741824,
-        'paidUnitPrice': 0.12,
-      },
-    };
-    final edges = <(String, String, String, String, String)>[
-      ('L1_to_L2', 'L1', 'L2', 'L1_INGESTION', 'L2_PROCESSING'),
-      ('L2_to_L3_hot', 'L2', 'L3_hot', 'L2_PROCESSING', 'L3_HOT_STORAGE'),
-      (
-        'L3_hot_to_L3_cool',
-        'L3_hot',
-        'L3_cool',
-        'L3_HOT_STORAGE',
-        'L3_COOL_STORAGE',
-      ),
-      (
-        'L3_cool_to_L3_archive',
-        'L3_cool',
-        'L3_archive',
-        'L3_COOL_STORAGE',
-        'L3_ARCHIVE_STORAGE',
-      ),
-      ('L3_hot_to_L4', 'L3_hot', 'L4', 'L3_HOT_STORAGE', 'L4_TWIN_MANAGEMENT'),
-      ('L4_to_L5', 'L4', 'L5', 'L4_TWIN_MANAGEMENT', 'L5_VISUALIZATION'),
-    ];
-    final routes = <Map<String, dynamic>>[];
-    final routesByProvider = <String, List<Map<String, dynamic>>>{};
-    final consumedQuantityByProvider = <String, int>{};
-    for (final edge in edges) {
-      final sourceProvider = selected[edge.$2]!;
-      final destinationProvider = selected[edge.$3]!;
-      final sameProvider = sourceProvider == destinationProvider;
-      final policy = policies[sourceProvider]!;
-      final sourceCatalog = catalogs[sourceProvider] as Map;
-      final destinationCatalog = catalogs[destinationProvider] as Map;
-      final billingQuantity = sameProvider ? 1 : 2;
-      final paidUnitPrice = (policy['paidUnitPrice'] as num).toDouble();
-      final consumedQuantity = sameProvider
-          ? 0
-          : consumedQuantityByProvider[sourceProvider] ?? 0;
-      final freeQuantity = sameProvider || consumedQuantity > 0 ? 0 : 1;
-      final paidQuantity = sameProvider ? 0 : billingQuantity - freeQuantity;
-      final egressCost = paidQuantity * paidUnitPrice;
-      final tierContributions = <Map<String, dynamic>>[];
-      if (!sameProvider && freeQuantity > 0) {
-        tierContributions.add({
-          'tierId': 'demo_free_${edge.$1}',
-          'fromQuantity': consumedQuantity,
-          'toQuantity': consumedQuantity + freeQuantity,
-          'billableQuantity': freeQuantity,
-          'unitPrice': 0,
-          'cost': 0,
-        });
-      }
-      if (!sameProvider && paidQuantity > 0) {
-        final paidFrom = consumedQuantity + freeQuantity;
-        tierContributions.add({
-          'tierId': 'demo_paid_${edge.$1}',
-          'fromQuantity': paidFrom,
-          'toQuantity': paidFrom + paidQuantity,
-          'billableQuantity': paidQuantity,
-          'unitPrice': paidUnitPrice,
-          'cost': egressCost,
-        });
-      }
-      final route = <String, dynamic>{
-        'segmentId': edge.$1,
-        'source': {
-          'layer': edge.$4,
-          'provider': sourceProvider,
-          'region': sourceCatalog['pricingRegion'],
-          'geography': 'europe',
-        },
-        'destination': {
-          'layer': edge.$5,
-          'provider': destinationProvider,
-          'region': destinationCatalog['pricingRegion'],
-          'geography': 'europe',
-        },
-        'routeClass': sameProvider
-            ? 'same_provider_same_region'
-            : 'cross_provider_public_internet',
-        'networkTier': sameProvider ? 'not_applicable' : policy['networkTier'],
-        'volumeBytes': (policy['bytesPerBillingUnit'] as int) * billingQuantity,
-        'poolId': sameProvider ? null : 'pool:$sourceProvider:demo',
-        'catalogSnapshotId': sameProvider ? null : sourceCatalog['snapshotId'],
-        'evidenceId': sameProvider ? null : 'transfer.$sourceProvider.demo.v1',
-        'tierContributions': tierContributions,
-        'egressCost': egressCost,
-        'glueCost': 0,
-        'totalCost': egressCost,
-        'assumptions': [
-          'offline_demo_route=${edge.$1}',
-          if (!sameProvider) 'offline_demo_first_unit_free',
-        ],
-      };
-      routes.add(route);
-      if (!sameProvider) {
-        consumedQuantityByProvider[sourceProvider] =
-            consumedQuantity + billingQuantity;
-        routesByProvider.putIfAbsent(sourceProvider, () => []).add(route);
-      }
-    }
-    final pools = [
-      for (final entry in routesByProvider.entries)
-        {
-          'poolId': 'pool:${entry.key}:demo',
-          'provider': entry.key,
-          'routeClass': 'cross_provider_public_internet',
-          'sourceGeography': 'europe',
-          'destinationGeography': 'europe',
-          'networkTier': policies[entry.key]!['networkTier'],
-          'billingScope': policies[entry.key]!['billingScope'],
-          'billingUnit': policies[entry.key]!['billingUnit'],
-          'bytesPerBillingUnit': policies[entry.key]!['bytesPerBillingUnit'],
-          'catalogSnapshotId': (catalogs[entry.key] as Map)['snapshotId'],
-          'evidenceId': 'transfer.${entry.key}.demo.v1',
-          'aggregateVolumeBytes': entry.value.fold<int>(
-            0,
-            (sum, route) => sum + route['volumeBytes'] as int,
-          ),
-          'aggregateEgressCost': entry.value.fold<double>(
-            0,
-            (sum, route) => sum + (route['egressCost'] as num).toDouble(),
-          ),
-        },
-    ];
-    final chargedRoutes = routes
-        .where(
-          (route) => route['routeClass'] == 'cross_provider_public_internet',
-        )
-        .toList(growable: false);
-    final winningTransferCost = chargedRoutes.fold<double>(
-      0,
-      (sum, route) => sum + (route['totalCost'] as num).toDouble(),
-    );
-    final previousDiagnostics = result['optimizationDiagnostics'];
-    final winningLayerCost =
-        previousDiagnostics is Map &&
-            previousDiagnostics['winningLayerCost'] is num
-        ? (previousDiagnostics['winningLayerCost'] as num).toDouble()
-        : (result['totalCost'] as num).toDouble();
-    final winningScore = winningLayerCost + winningTransferCost;
-    result['totalCost'] = winningScore;
-    return {
-      'transferCosts': {
-        for (final route in chargedRoutes)
-          route['segmentId'].toString(): route['totalCost'],
-      },
-      'transferPricingContext': {
-        'schemaVersion': 'complete-path-transfer-pricing.v1',
-        'currency': currency,
-        'assumptions': ['offline_demo_europe_baseline'],
-        'routes': routes,
-        'pools': pools,
-      },
-      'optimizationDiagnostics': {
-        'schemaVersion': 'complete-path-optimization.v1',
-        'enumeratedPathCount': 972,
-        'evaluatedPathCount': 972,
-        'rejectedPathCount': 0,
-        'rejectedByErrorCode': <String, int>{},
-        'winningCandidateId': [
-          for (final layer in const [
-            'L1',
-            'L2',
-            'L3_hot',
-            'L3_cool',
-            'L3_archive',
-            'L4',
-            'L5',
-          ])
-            selected[layer],
-        ].join('|'),
-        'winningScore': winningScore,
-        'winningLayerCost': winningLayerCost,
-        'winningTransferCost': winningTransferCost,
-        'tieBreakPolicy': 'canonical_provider_order',
-        'canonicalProviderOrder': ['aws', 'azure', 'gcp'],
-        'scoreUnit': '$currency/month',
-      },
-    };
-  }
-
   Map<String, dynamic> _defaultVerification() {
     return {
       'infrastructure': {
@@ -2381,13 +2240,9 @@ class DemoManagementApi implements ManagementApi {
   }
 
   Map<String, dynamic> _demoProviderCapabilities() {
-    Map<String, dynamic> source({
-      required bool available,
-      required bool planned,
-    }) {
+    Map<String, dynamic> source({required bool available}) {
       return {
         'availability': available ? 'available' : 'unsupported',
-        'roadmap': planned ? 'planned' : 'none',
         'reason_code': available ? null : 'DEPLOYMENT_PATH_NOT_IMPLEMENTED',
         'reason': available
             ? null
@@ -2426,9 +2281,6 @@ class DemoManagementApi implements ManagementApi {
                       provider == 'gcp' && {'l4', 'l5'}.contains(layer)
                       ? 'unsupported'
                       : 'available',
-                  'roadmap': provider == 'gcp' && {'l4', 'l5'}.contains(layer)
-                      ? 'planned'
-                      : 'none',
                   'reason_code':
                       provider == 'gcp' && {'l4', 'l5'}.contains(layer)
                       ? 'DEPLOYMENT_PATH_NOT_IMPLEMENTED'
@@ -2451,14 +2303,10 @@ class DemoManagementApi implements ManagementApi {
                     'optimizer': source(
                       available:
                           !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
-                      planned:
-                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
                     ),
                     'deployer': source(
                       available:
                           !(provider == 'gcp' && {'l4', 'l5'}.contains(layer)),
-                      planned:
-                          provider == 'gcp' && {'l4', 'l5'}.contains(layer),
                     ),
                   },
                 },
@@ -2537,9 +2385,390 @@ class DemoManagementApi implements ManagementApi {
     };
   }
 
+  void _copyTwinUserFunctions(String sourceTwinId, String targetTwinId) {
+    final sources =
+        _twinUserFunctions.values
+            .where((item) => item.twinId == sourceTwinId)
+            .toList(growable: false)
+          ..sort((left, right) => left.slotId.compareTo(right.slotId));
+    for (final source in sources) {
+      final sourceKey = '$sourceTwinId:${source.slotId}';
+      final targetKey = '$targetTwinId:${source.slotId}';
+      final sourceFiles = _twinUserFunctionSources[sourceKey];
+      if (sourceFiles == null) {
+        throw const DemoApiException(
+          'EXTENSION_SOURCE_MISSING',
+          'The saved demo Twin function has no portable source.',
+        );
+      }
+      final now = store.clock().toUtc();
+      _twinUserFunctions[targetKey] = TwinUserFunction(
+        functionId: _nextUserFunctionId(),
+        twinId: targetTwinId,
+        artifactDigest: source.artifactDigest,
+        slotId: source.slotId,
+        slotVersion: source.slotVersion,
+        runtimeId: source.runtimeId,
+        configuration: _copyMap(source.configuration),
+        declaredCapabilities: List.of(source.declaredCapabilities),
+        validatorVersion: source.validatorVersion,
+        sourceFiles: List.of(source.sourceFiles),
+        dependencies: List.of(source.dependencies),
+        createdAt: now,
+        updatedAt: now,
+      );
+      _twinUserFunctionSources[targetKey] = Map.of(sourceFiles);
+    }
+  }
+
+  void _importTwinUserFunctions(String twinId, Object? rawDefinitions) {
+    final definitions = _portableUserFunctionDefinitions(rawDefinitions);
+    for (final definition in definitions) {
+      final slotId = definition['slot_id']! as String;
+      final sourceFiles = Map<String, String>.from(
+        definition['source_files']! as Map,
+      );
+      final now = store.clock().toUtc();
+      final key = '$twinId:$slotId';
+      final digest = sha256.convert(utf8.encode(jsonEncode(definition)));
+      _twinUserFunctions[key] = TwinUserFunction(
+        functionId: _nextUserFunctionId(),
+        twinId: twinId,
+        artifactDigest: 'sha256:$digest',
+        slotId: slotId,
+        slotVersion: definition['slot_version']! as String,
+        runtimeId: definition['runtime_id']! as String,
+        configuration: _copyMap(definition['configuration']! as Map),
+        declaredCapabilities: List<String>.from(
+          definition['declared_capabilities']! as List,
+        ),
+        validatorVersion: 'user-function-validator.v1',
+        sourceFiles: sourceFiles.keys.toList(growable: false)..sort(),
+        dependencies: const [],
+        createdAt: now,
+        updatedAt: now,
+      );
+      _twinUserFunctionSources[key] = sourceFiles;
+    }
+  }
+
+  List<Map<String, dynamic>> _portableTwinUserFunctions(String twinId) {
+    final functions =
+        _twinUserFunctions.values
+            .where((item) => item.twinId == twinId)
+            .toList(growable: false)
+          ..sort((left, right) => left.slotId.compareTo(right.slotId));
+    return functions
+        .map((function) {
+          final sourceFiles =
+              _twinUserFunctionSources['$twinId:${function.slotId}'];
+          if (sourceFiles == null) {
+            throw const DemoApiException(
+              'EXTENSION_SOURCE_MISSING',
+              'The saved demo Twin function has no portable source.',
+            );
+          }
+          return <String, dynamic>{
+            'slot_id': function.slotId,
+            'slot_version': function.slotVersion,
+            'runtime_id': function.runtimeId,
+            'configuration': function.configuration,
+            'declared_capabilities': function.declaredCapabilities,
+            'source_files': Map<String, String>.fromEntries(
+              sourceFiles.entries.toList()
+                ..sort((left, right) => left.key.compareTo(right.key)),
+            ),
+          };
+        })
+        .toList(growable: false);
+  }
+
+  String _nextUserFunctionId() {
+    var sequence = _twinUserFunctions.length + 1;
+    while (true) {
+      final id =
+          '00000000-0000-4000-8000-${sequence.toString().padLeft(12, '0')}';
+      if (_twinUserFunctions.values.every((item) => item.functionId != id)) {
+        return id;
+      }
+      sequence += 1;
+    }
+  }
+
   static Map<String, dynamic> _copyMap(Map<dynamic, dynamic> value) {
     return Map<String, dynamic>.from(jsonDecode(jsonEncode(value)) as Map);
   }
+}
+
+Uint8List _encodePortableTwinDefinition(Map<String, dynamic> definition) {
+  final definitionBytes = Uint8List.fromList(
+    utf8.encode(jsonEncode(definition)),
+  );
+  final digest = 'sha256:${sha256.convert(definitionBytes)}';
+  final manifestBytes = Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'schema_version': 'twin2multicloud-portable.v1',
+        'files': {'twin-definition.json': digest},
+      }),
+    ),
+  );
+  final archive = Archive()
+    ..addFile(ArchiveFile.bytes('manifest.json', manifestBytes))
+    ..addFile(ArchiveFile.bytes('twin-definition.json', definitionBytes));
+  return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
+
+Map<String, String> _decodeUserFunctionSource(Uint8List bytes) {
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    if (archive.length < 2 || archive.length > 64) {
+      throw const FormatException('Unexpected source archive size.');
+    }
+    final sourceFiles = <String, String>{};
+    var totalBytes = 0;
+    for (final file in archive) {
+      final path = file.name.replaceAll('\\', '/');
+      if (!file.isFile ||
+          file.isSymbolicLink ||
+          path != file.name ||
+          path.startsWith('/') ||
+          path.split('/').any((part) => part.isEmpty || part == '..') ||
+          sourceFiles.containsKey(path)) {
+        throw const FormatException('Unsafe source archive member.');
+      }
+      final content = file.readBytes();
+      if (content == null) {
+        throw const FormatException('Unreadable source archive member.');
+      }
+      totalBytes += content.length;
+      if (totalBytes > 2 * 1024 * 1024) {
+        throw const FormatException('Source archive exceeds its size limit.');
+      }
+      sourceFiles[path] = utf8.decode(content);
+    }
+    _validatePortableSourceFiles(sourceFiles);
+    return Map.unmodifiable(sourceFiles);
+  } catch (_) {
+    throw const DemoApiException(
+      'EXTENSION_ARCHIVE_UNSAFE',
+      'Choose a safe UTF-8 source ZIP with process.py and requirements.lock.',
+    );
+  }
+}
+
+List<Map<String, dynamic>> _portableUserFunctionDefinitions(Object? value) {
+  if (value == null) return const [];
+  if (value is! List || value.length > 4) {
+    throw const FormatException(
+      'Portable user functions must be a bounded list.',
+    );
+  }
+  final definitions = <Map<String, dynamic>>[];
+  final slots = <String>{};
+  for (final raw in value) {
+    if (raw is! Map) {
+      throw const FormatException('Portable user function must be an object.');
+    }
+    final definition = Map<String, dynamic>.from(raw);
+    const fields = {
+      'slot_id',
+      'slot_version',
+      'runtime_id',
+      'configuration',
+      'declared_capabilities',
+      'source_files',
+    };
+    if (definition.keys.toSet().difference(fields).isNotEmpty ||
+        !definition.keys.toSet().containsAll(fields) ||
+        definition['slot_id'] != 'processor.telemetry' ||
+        definition['slot_version'] != '1' ||
+        definition['runtime_id'] != 'python311' ||
+        definition['configuration'] is! Map ||
+        definition['declared_capabilities'] is! List ||
+        definition['source_files'] is! Map) {
+      throw const FormatException(
+        'Portable user function contract is invalid.',
+      );
+    }
+    final capabilities = definition['declared_capabilities']! as List;
+    if (capabilities.length != 1 ||
+        capabilities.single != 'capability.telemetry.process') {
+      throw const FormatException(
+        'Portable function capabilities are invalid.',
+      );
+    }
+    final configuration = Map<String, dynamic>.from(
+      definition['configuration']! as Map,
+    );
+    if (configuration.keys.any(
+      (key) => RegExp(
+        r'(secret|password|token|credential|private_key|api_key)',
+      ).hasMatch(key.toLowerCase()),
+    )) {
+      throw const FormatException('Portable function configuration is unsafe.');
+    }
+    final sourceFiles = Map<String, String>.from(
+      definition['source_files']! as Map,
+    );
+    _validatePortableSourceFiles(sourceFiles);
+    final slotKey = '${definition['slot_id']}:${definition['slot_version']}';
+    if (!slots.add(slotKey)) {
+      throw const FormatException('Portable function slots must be unique.');
+    }
+    definitions.add({
+      ...definition,
+      'configuration': configuration,
+      'declared_capabilities': List<String>.from(capabilities),
+      'source_files': sourceFiles,
+    });
+  }
+  return definitions;
+}
+
+void _validatePortableSourceFiles(Map<String, String> sourceFiles) {
+  if (sourceFiles.length < 2 ||
+      sourceFiles.length > 64 ||
+      !sourceFiles.containsKey('process.py') ||
+      !sourceFiles.containsKey('requirements.lock') ||
+      !RegExp(r'(^|\n)def process\s*\(').hasMatch(sourceFiles['process.py']!)) {
+    throw const FormatException('Portable function sources are invalid.');
+  }
+  var totalBytes = 0;
+  for (final entry in sourceFiles.entries) {
+    final path = entry.key.replaceAll('\\', '/');
+    totalBytes += utf8.encode(entry.value).length;
+    if (path != entry.key ||
+        path.startsWith('/') ||
+        path.split('/').any((part) => part.isEmpty || part == '..') ||
+        totalBytes > 2 * 1024 * 1024) {
+      throw const FormatException('Portable function sources are unsafe.');
+    }
+  }
+}
+
+Map<String, dynamic> _decodePortableTwinDefinition(Uint8List bytes) {
+  try {
+    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    final names = archive.map((file) => file.name).toSet();
+    if (archive.length != 2 ||
+        !names.containsAll(const {'manifest.json', 'twin-definition.json'})) {
+      throw const FormatException('Portable Twin archive members are invalid.');
+    }
+    final manifestBytes = archive.find('manifest.json')?.readBytes();
+    final definitionBytes = archive.find('twin-definition.json')?.readBytes();
+    if (manifestBytes == null || definitionBytes == null) {
+      throw const FormatException('Portable Twin archive is incomplete.');
+    }
+    final manifestValue = jsonDecode(utf8.decode(manifestBytes));
+    final definitionValue = jsonDecode(utf8.decode(definitionBytes));
+    if (manifestValue is! Map ||
+        manifestValue['schema_version'] != 'twin2multicloud-portable.v1' ||
+        manifestValue['files'] is! Map ||
+        (manifestValue['files'] as Map)['twin-definition.json'] !=
+            'sha256:${sha256.convert(definitionBytes)}' ||
+        definitionValue is! Map ||
+        definitionValue['schema_version'] != 'twin-definition.v1' ||
+        definitionValue['source_name'] is! String ||
+        definitionValue['provider_settings'] is! Map) {
+      throw const FormatException('Portable Twin archive contract is invalid.');
+    }
+    _portableUserFunctionDefinitions(definitionValue['user_functions']);
+    return Map<String, dynamic>.from(definitionValue);
+  } on DemoApiException {
+    rethrow;
+  } catch (_) {
+    throw const DemoApiException(
+      'DEMO_TWIN_ARCHIVE_INVALID',
+      'Portable Twin archive contract is invalid.',
+    );
+  }
+}
+
+CloudProvider _demoProvider(Object? value, {required CloudProvider fallback}) {
+  if (value == null) return fallback;
+  try {
+    return CloudProvider.fromApiValue(value.toString());
+  } on ArgumentError {
+    return fallback;
+  }
+}
+
+Map<String, dynamic> _demoAccessSurface(
+  DeploymentLayer layer,
+  CloudProvider provider,
+  String twinId,
+) {
+  final configuration = switch ((layer, provider)) {
+    (DeploymentLayer.l4, CloudProvider.aws) => (
+      'aws_iot_twinmaker',
+      'AWS IoT TwinMaker workspace',
+      'aws_identity_center',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l4, CloudProvider.azure) => (
+      'azure_digital_twins',
+      'Azure Digital Twins Explorer',
+      'azure_entra',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l4, CloudProvider.gcp) => (
+      'gcp_twin_explorer',
+      'GCP Twin Explorer',
+      'gcp_iap',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.aws) => (
+      'aws_l5_visualization',
+      'AWS Raw-history Reader',
+      'aws_sigv4',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.azure) => (
+      'azure_l5_visualization',
+      'Azure Raw-history Reader',
+      'azure_function_key',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.gcp) => (
+      'gcp_raw_history_reader',
+      'GCP Raw-history Reader',
+      'gcp_identity_token',
+      'demo@twin2multicloud.local',
+      'none',
+    ),
+  };
+  return {
+    'layer': layer.name,
+    'provider': provider.apiValue,
+    'service_id': configuration.$1,
+    'display_name': configuration.$2,
+    'url':
+        'https://${layer.name}-${provider.apiValue}-$twinId.demo.twin2multicloud.local/',
+    'auth': {
+      'mode': configuration.$3,
+      'principal_label': configuration.$4,
+      'credential_action': configuration.$5,
+    },
+    'readiness': {
+      'resource': 'ready',
+      'access_binding': 'ready',
+      'content': 'ready',
+      'data_probe': 'ready',
+      'browser_sign_in': 'unverified',
+    },
+    'capabilities': [
+      layer == DeploymentLayer.l4
+          ? 'Inspect the modeled twin surface.'
+          : 'Inspect bounded raw history and hourly rollups.',
+    ],
+    'limitations': ['Demo links do not create live cloud resources.'],
+  };
 }
 
 int _deploymentLogEventId(Map<String, dynamic> item) {

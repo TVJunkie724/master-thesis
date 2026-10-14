@@ -65,6 +65,9 @@ def send_test_message(
 
     device_id = payload.get("iotDeviceId")
     payload["trace_id"] = trace_id
+    # The canonical Six-layer envelope preserves source_sequence across every
+    # provider hop, making this bounded diagnostic correlation deterministic.
+    payload["source_sequence"] = trace_id
     payload["time"] = (
         datetime.now(timezone.utc)
         .isoformat(timespec="milliseconds")

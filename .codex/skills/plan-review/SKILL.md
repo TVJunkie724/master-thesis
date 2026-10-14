@@ -23,7 +23,7 @@ Every implementation plan MUST be checked against ALL the following criteria. **
 3. **No over-engineering** — Only what the phase demands. No speculative scaffolding.
 4. **No side effects** — Explicitly check that the plan doesn't break or negatively affect anything outside its declared scope (other screens, shared widgets, BLoCs, theme).
 5. **Datatype compatibility** — Verify datatype compatibility at every API boundary (Management API request / response shapes match the Dart models the plan introduces).
-6. **Documentation conformance** — The plan is 100 % conformant with the documentation hierarchy described in `../concept/references/pillar-organization.md` and the standards in `../concept/references/documentation-standards.md`.
+6. **Documentation conformance** — The plan follows the active planning lifecycle in `../concept/references/pillar-organization.md` and the standards in `../concept/references/documentation-standards.md`.
 7. **Mandatory hints** — Every step in the plan is marked as required ("must be done", "do not skip"). Builders must understand that every checkbox in the Definition of Done is binding.
 
 ### UI-Specific Criteria
@@ -45,7 +45,7 @@ Every implementation plan MUST be checked against ALL the following criteria. **
 
 ### Documentation & DoD
 
-19. **Documentation phase** — The plan includes an explicit documentation phase. Where appropriate, results land under `twin2multicloud_flutter/docs/<pillar>/phases/` and any new component gets a short reference doc in an `implementation/` subfolder.
+19. **Documentation phase** — The plan updates current architecture, user/developer documentation and durable decisions, then removes its temporary planning artifacts when they no longer guide unfinished work.
 20. **Exact Definition of Done** — The plan ends with a concrete, verifiable Definition of Done checklist (see `../architect/references/plan-template.md` Section 12).
 
 ## Review Perspectives
@@ -58,11 +58,11 @@ Review the plan from **both** perspectives:
 ## Process
 
 1. Read the underlying concept document fully and carefully.
-2. Read all referenced documents (concepts, roadmaps, test strategy notes, `FRONTEND_ARCHITECTURE.md`, `integration_vision.md`).
+2. Read the referenced current concept, active thesis scope/evaluation sources, `FRONTEND_ARCHITECTURE.md`, and `integration_vision.md`.
 3. Check the plan against ALL criteria above.
 4. Apply trivial corrections immediately.
 5. Surface decisions only when user input is required.
-6. Confirm 100 % conformance to the documentation hierarchy.
+6. Confirm conformance to the active planning lifecycle.
 7. Consider context around the change and the implications of every edit.
 8. **Repeat the dual-perspective review until ZERO gaps remain.**
 9. Present the result to the user.

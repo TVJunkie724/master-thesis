@@ -1,14 +1,30 @@
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/demo/demo_fixture_store.dart';
 import 'package:twin2multicloud_flutter/demo/demo_management_api.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
-import 'package:twin2multicloud_flutter/models/pricing_refresh_run.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
+import 'package:twin2multicloud_flutter/models/twin_transfer.dart';
+import 'package:twin2multicloud_flutter/models/user_function_extension.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
+
+Uint8List _sourceArchive() {
+  final archive = Archive()
+    ..addFile(
+      ArchiveFile.string(
+        'process.py',
+        'def process(payload, configuration, context):\n'
+            '    return payload\n',
+      ),
+    )
+    ..addFile(ArchiveFile.string('requirements.lock', '\n'));
+  return ZipEncoder().encodeBytes(archive, modified: DateTime.utc(2026));
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,11 +51,10 @@ void main() {
       expect(capabilities.capability('gcp', 'l5').selectable, isFalse);
     });
 
-    test('updates session state and user preferences in memory', () async {
-      api.setToken('session-token');
+    test('exposes its fixed transport token and updates preferences', () async {
       final user = await api.updateUserPreferences(themePreference: 'light');
 
-      expect(await api.getAuthToken(), 'session-token');
+      expect(await api.getAuthToken(), 'demo-token');
       expect(user['theme_preference'], 'light');
       expect(store.user['theme_preference'], 'light');
       await expectLater(
@@ -53,23 +68,19 @@ void main() {
       final created = await api.createCloudConnection(
         const CloudConnectionCreateRequest(
           provider: CloudProvider.aws,
-          purpose: CloudConnectionPurpose.pricing,
-          displayName: 'Secondary AWS reader',
+          displayName: 'Secondary AWS admin',
           cloudScope: {'account_id': '999999999999'},
           credentials: {
             'access_key_id': 'AKIADEMO',
             'secret_access_key': secret,
           },
-          isDefaultForPricing: true,
         ),
       );
 
-      expect(created.isDefaultForPricing, isTrue);
+      expect(created.provider, CloudProvider.aws);
       expect(
-        (await api.listCloudConnections(
-          provider: CloudProvider.aws,
-        )).where((item) => item.isDefaultForPricing),
-        hasLength(1),
+        await api.listCloudConnections(provider: CloudProvider.aws),
+        hasLength(2),
       );
       expect(
         store.cloudConnection(created.id).toString(),
@@ -78,18 +89,10 @@ void main() {
 
       final validated = await api.validateCloudConnection(created.id);
       expect(validated.valid, isTrue);
-      expect(
-        (await api.updateCloudConnection(
-          created.id,
-          displayName: 'Renamed AWS reader',
-        )).displayName,
-        'Renamed AWS reader',
-      );
-
       await api.deleteCloudConnection(created.id);
       expect(
         await api.listCloudConnections(provider: CloudProvider.aws),
-        hasLength(2),
+        hasLength(1),
       );
       await expectLater(
         api.deleteCloudConnection('demo-aws-deployment'),
@@ -107,13 +110,24 @@ void main() {
       );
     });
 
-    test('derives purpose-separated access inventory', () async {
-      final inventory = await api.getCloudAccessInventory();
+    test('imports one redacted deployment connection', () async {
+      final created = await api.importCloudConnection(
+        CloudConnectionImportRequest(
+          provider: CloudProvider.aws,
+          displayName: 'Imported AWS admin',
+          region: 'eu-central-1',
+          accountId: '999999999999',
+          filename: 'credentials.csv',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+      );
 
-      expect(inventory.schemaVersion, 'cloud-access-inventory.v1');
-      expect(inventory.pricingFor('aws')?.connectionId, 'demo-aws-pricing');
-      expect(inventory.pricingFor('azure')?.scope, 'public');
-      expect(inventory.providers['gcp']?.deployment, hasLength(1));
+      expect(created.provider, CloudProvider.aws);
+      expect(created.payloadSummary['credential_source'], 'aws_csv');
+      expect(
+        store.cloudConnection(created.id).toString(),
+        isNot(contains('1, 2, 3')),
+      );
     });
   });
 
@@ -122,7 +136,7 @@ void main() {
       final created = await api.createTwin('Session Twin');
       final id = created.id;
 
-      expect((await api.getDashboardStats()).totalTwins, 4);
+      expect(await api.getTwins(), hasLength(4));
       expect(
         (await api.updateTwin(id, name: 'Renamed Twin')).name,
         'Renamed Twin',
@@ -163,55 +177,59 @@ void main() {
       );
       await expectLater(
         api.updateTwinConfig('demo-draft', {
-          'cloud_connections': {'aws': 'demo-aws-pricing'},
+          'cloud_connections': {'aws': 'demo-azure-deployment'},
         }),
         throwsDemoCode('DEMO_CONNECTION_BINDING_INVALID'),
       );
     });
+
+    test('duplicates and round-trips a portable Twin archive', () async {
+      final slot = (await api.listExtensionSlots()).single;
+      await api.saveTwinUserFunction(
+        'demo-configured',
+        UserFunctionSourceUpload(
+          slot: slot,
+          draft: UserFunctionSourceDraft(
+            filename: 'processor.zip',
+            bytes: _sourceArchive(),
+            configuration: const {'scale_factor': 1},
+          ),
+        ),
+      );
+      final duplicate = await api.duplicateTwin(
+        'demo-configured',
+        TwinDuplicateRequest(name: 'Configured copy'),
+      );
+      final duplicateConfig = await api.getTwinConfig(duplicate.id);
+      expect(duplicate.state, 'draft');
+      expect(duplicateConfig.highestStepReached, 0);
+      expect(
+        duplicateConfig.provider(CloudProvider.aws).cloudConnectionId,
+        'demo-aws-deployment',
+      );
+      expect(await api.listTwinUserFunctions(duplicate.id), hasLength(1));
+
+      final archive = await api.exportTwin('demo-configured');
+      final imported = await api.importTwin(
+        TwinImportRequest(
+          newName: 'Portable import',
+          filename: archive.filename,
+          bytes: archive.bytes,
+        ),
+      );
+      final importedConfig = await api.getTwinConfig(imported.id);
+      expect(imported.state, 'draft');
+      expect(importedConfig.highestStepReached, 0);
+      expect(
+        importedConfig.provider(CloudProvider.aws).cloudConnectionId,
+        isNull,
+      );
+      expect(await api.listTwinUserFunctions(imported.id), hasLength(1));
+    });
   });
 
-  group('pricing and optimization', () {
-    test('refreshes each provider and exposes review evidence', () async {
-      final aws = await api.startPricingRefresh('aws');
-      final azure = await api.startPricingRefresh('azure');
-      final gcp = await api.startPricingRefresh('gcp');
-
-      expect(aws.credentialSummary.connectionId, 'demo-aws-pricing');
-      expect(aws.awsTwinMakerContext, isNotNull);
-      expect(
-        aws.awsTwinMakerContext!.currentPlan.mode,
-        AwsTwinMakerPricingPlanMode.standard,
-      );
-      expect(aws.awsTwinMakerContext!.verifiedAccountId, '123456789012');
-      expect(azure.credentialSummary.scope, 'public');
-      expect(gcp.credentialSummary.connectionId, 'demo-gcp-pricing');
-      final reports = await api.listPricingCandidateReports(
-        'gcp',
-        gcp.refreshRunId,
-      );
-      expect(reports.reports, hasLength(1));
-      expect(reports.reports.single.refreshRunId, gcp.refreshRunId);
-      final report = reports.reports.single;
-      final trace = await api.getPricingCandidateTrace(report.reportId);
-      expect(trace.sanitization.secretFree, isTrue);
-
-      final decision = await api.createPricingReviewDecision(
-        report.reportId,
-        'select_alternative',
-        candidateId: report.candidates.last.candidateId,
-        rationale: 'Selected during the demo.',
-      );
-      expect(decision.decision, 'select_alternative');
-      await expectLater(
-        api.createPricingReviewDecision(report.reportId, 'approve'),
-        throwsDemoCode('DEMO_PRICING_CANDIDATE_REQUIRED'),
-      );
-    });
-
-    test('supports health, catalog-bound calculation, and persistence', () async {
-      expect((await api.getPricingHealth()).providers, hasLength(3));
-      expect((await api.getPricingStatusResult()).isSuccess, isTrue);
-      expect((await api.getRegionsStatus())['providers'], hasLength(3));
+  group('optimization', () {
+    test('supports catalog-bound calculation and persistence', () async {
       final seeded = await api.getOptimizerConfig('demo-configured');
       expect(
         seeded?.pricingCatalogContext
@@ -220,11 +238,9 @@ void main() {
         'eu-central-1',
       );
 
-      final calculationParams = CalcParams.fromJson({
-        ...CalcParams.defaultParams().toJson(),
-        'needs3DModel': true,
-        'useEventChecking': true,
-      });
+      final calculationParams = CalcParams.sixLayer(
+        scenario: SixLayerWorkloadScenario.small,
+      );
       final run = await api.createOptimizerRun('demo-draft', calculationParams);
       final calculation = run.optimization;
       expect(run.twinId, 'demo-draft');
@@ -236,27 +252,23 @@ void main() {
           ),
         ),
       );
-      expect(calculation.result.totalCost, closeTo(85.371, 0.000001));
+      expect(calculation.result.totalCost, greaterThan(0));
       expect(calculation.result.pricingCatalogContext, isNotNull);
       expect(calculation.result.pricingCatalogContext!.catalogs, hasLength(3));
-      expect(calculation.result.transferPricingContext?.routes, hasLength(6));
+      expect(calculation.isNativeSixLayer, isTrue);
       expect(
-        calculation.result.transferPricingContext?.routes
-            .where((route) => route.isCrossProvider)
-            .every(
-              (route) =>
-                  route.totalCost > 0 && route.tierContributions.isNotEmpty,
-            ),
-        isTrue,
+        calculation.result.optimizationProfile?.profileId,
+        'cost-minimization-v2',
       );
       expect(
-        calculation.result.optimizationDiagnostics?.winningTransferCost,
-        closeTo(0.951, 0.000001),
+        calculation.result.optimizationProfile?.resultSchemaVersion,
+        'cost-result.v2',
       );
-      expect(
-        calculation.result.optimizationDiagnostics?.evaluatedPathCount,
-        972,
-      );
+      expect(calculation.result.cheapestPath, hasLength(7));
+      expect(calculation.result.transferPricingContext, isNull);
+      expect(calculation.result.optimizationDiagnostics, isNull);
+      expect(calculation.result.transferCosts, hasLength(9));
+      expect(calculation.result.transferCosts!.values, everyElement(0));
       final persisted = await api.getOptimizerConfig('demo-draft');
       expect(persisted?.optimization?.payload, isNotEmpty);
       expect(persisted?.params?.toJson(), calculationParams.toJson());
@@ -268,59 +280,137 @@ void main() {
       expect(latest?.id, run.id);
       expect(latest?.selectedForDeploymentAt, isNull);
       final specification =
-          latest?.specification as ResolvedDeploymentSpecificationV1;
+          latest?.specification as ResolvedDeploymentSpecificationV2;
+      expect(specification.architectureProfileRef.version, '1');
+      expect(specification.logicalComponentCount, 8);
+      expect(specification.providers, {CloudProvider.aws, CloudProvider.azure});
+      expect(specification.readiness.evaluationOnly, isTrue);
+      expect(specification.readiness.blockingGateIds, isEmpty);
       expect(
-        specification.components.map((component) => component.componentId),
-        containsAll(const [
-          'l1.gcp.pubsub',
-          'l1.gcp.dispatcher_function',
-          'l2.azure.function_plan',
-          'l3_hot.gcp.firestore',
-          'l3_hot.gcp.reader_function',
-          'l3_cool.aws.s3',
-          'l3_archive.gcp.cloud_storage',
-          'l4.azure.digital_twins',
-          'l4.azure.pusher_function',
-          'l5.aws.managed_grafana',
-          'transition.l3_hot_to_l3_cool.gcp.runtime',
-          'transition.l3_cool_to_l3_archive.aws.runtime',
-          'glue.aws.lambda',
-          'glue.azure.functions',
-          'glue.gcp.functions',
-        ]),
+        ResolvedDeploymentReview.fromRun(latest).state,
+        ResolvedDeploymentReviewState.evaluationOnly,
+      );
+      final architecture = await api.getRunResolvedArchitecture(run.id);
+      expect(
+        architecture.architecture.schemaVersion,
+        'resolved-twin-architecture.v2',
       );
       expect(
-        specification.components.any(
-          (component) =>
-              component.componentId.contains('gcp.managed_grafana') ||
-              component.componentId.contains('gcp.twin_state'),
-        ),
-        isFalse,
+        architecture.architecture.resolutionStatus,
+        'offline_contract_fixture',
+      );
+      expect(
+        architecture.architecture.deploymentSpecificationDigest,
+        specification.digest,
+      );
+      expect(
+        architecture.architecture.costSummary.monthlyTotal,
+        run.optimization.payload['totalCostExact'],
+      );
+      expect(
+        double.parse(architecture.architecture.costSummary.monthlyTotal),
+        run.totalMonthlyCost,
       );
 
-      final selection = await api.selectOptimizerRunForDeployment(
-        'demo-draft',
-        run.id,
+      await expectLater(
+        api.selectOptimizerRunForDeployment('demo-draft', run.id),
+        throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
       );
-      expect(selection.run.selectedForDeploymentAt, now);
-      expect(ResolvedDeploymentReview.fromRun(selection.run).ready, isTrue);
+      expect(
+        (await api.getLatestOptimizerRun(
+          'demo-draft',
+        ))?.selectedForDeploymentAt,
+        isNull,
+      );
+    });
+
+    test('rejects a legacy workload after Six-layer activation', () async {
+      final params = CalcParams.fromJson({
+        ...CalcParams.defaultParams().toJson(),
+        'integrateErrorHandling': true,
+      });
+
+      await expectLater(
+        api.createOptimizerRun('demo-draft', params),
+        throwsDemoCode('ARCH_WORKLOAD_INCOMPATIBLE'),
+      );
+      expect(await api.getOptimizerConfig('demo-draft'), isNull);
     });
 
     test(
-      'rejects unsupported error-handling topology without persistence',
+      'keeps every workload size paired with the canonical fixture',
       () async {
-        final params = CalcParams.fromJson({
-          ...CalcParams.defaultParams().toJson(),
-          'integrateErrorHandling': true,
-        });
+        const cases = <(SixLayerWorkloadScenario, String, Set<CloudProvider>)>[
+          (
+            SixLayerWorkloadScenario.small,
+            'USD',
+            {CloudProvider.aws, CloudProvider.azure},
+          ),
+          (
+            SixLayerWorkloadScenario.medium,
+            'EUR',
+            {CloudProvider.aws, CloudProvider.azure},
+          ),
+          (
+            SixLayerWorkloadScenario.large,
+            'USD',
+            {CloudProvider.aws, CloudProvider.azure},
+          ),
+        ];
 
-        await expectLater(
-          api.createOptimizerRun('demo-draft', params),
-          throwsDemoCode('UNSUPPORTED_ERROR_HANDLING_TOPOLOGY'),
-        );
-        expect(await api.getOptimizerConfig('demo-draft'), isNull);
+        for (final testCase in cases) {
+          final run = await api.createOptimizerRun(
+            'demo-draft',
+            CalcParams.sixLayer(scenario: testCase.$1, currency: testCase.$2),
+          );
+          final specification =
+              run.deploymentRun.specification
+                  as ResolvedDeploymentSpecificationV2;
+          final architecture = await api.getRunResolvedArchitecture(run.id);
+
+          expect(specification.currency, testCase.$2);
+          expect(specification.providers, testCase.$3);
+          expect(specification.readiness.evaluationOnly, isTrue);
+          expect(specification.readiness.blockingGateIds, isEmpty);
+          expect(architecture.architecture.costSummary.currency, testCase.$2);
+          expect(run.optimization.isNativeSixLayer, isTrue);
+          expect(run.optimization.payload, isNot(contains('inputParamsUsed')));
+          expect(run.optimization.result.cheapestPath, hasLength(7));
+          expect(
+            architecture.architecture.costSummary.monthlyTotal,
+            run.optimization.payload['totalCostExact'],
+          );
+          expect(
+            architecture.architecture.deploymentSpecificationDigest,
+            specification.digest,
+          );
+          await expectLater(
+            api.selectOptimizerRunForDeployment('demo-draft', run.id),
+            throwsDemoCode('DEPLOYMENT_CAPACITY_EVIDENCE_PENDING'),
+          );
+        }
       },
     );
+
+    test('uses the pinned Six-layer EUR conversion in demo results', () async {
+      final usd = await api.createOptimizerRun(
+        'demo-draft',
+        CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
+      );
+      final eur = await api.createOptimizerRun(
+        'demo-draft',
+        CalcParams.sixLayer(
+          scenario: SixLayerWorkloadScenario.small,
+          currency: 'EUR',
+        ),
+      );
+
+      expect(eur.currency, 'EUR');
+      expect(
+        eur.totalMonthlyCost,
+        closeTo(usd.totalMonthlyCost * 0.865948, 0.00001),
+      );
+    });
 
     test(
       'does not invent catalog evidence for a legacy saved result',
@@ -334,9 +424,7 @@ void main() {
 
         expect(loaded?.pricingCatalogContext, isNull);
         expect(loaded?.optimization?.result.pricingCatalogContext, isNull);
-        final run = await api.getLatestOptimizerRun('demo-configured');
-        expect(run?.compatibility, DeploymentCompatibility.legacyNotDeployable);
-        expect(run?.specification, isNull);
+        expect(await api.getLatestOptimizerRun('demo-configured'), isNull);
       },
     );
   });
@@ -403,14 +491,6 @@ void main() {
         (await api.getDeployerConfig('demo-draft'))?.sceneGlbUploaded,
         isFalse,
       );
-      expect(
-        (await api.uploadProjectZip(
-          'demo-draft',
-          Uint8List.fromList([1]),
-          'project.zip',
-        ))['success'],
-        isTrue,
-      );
     });
 
     test('deploys, exposes evidence, verifies, and destroys', () async {
@@ -435,6 +515,9 @@ void main() {
         (await api.getDeploymentOutputs('demo-configured')).outputs,
         isNotEmpty,
       );
+      final access = await api.getDeploymentAccess('demo-configured');
+      expect(access.surfaceFor(DeploymentLayer.l4)?.provider.name, 'azure');
+      expect(access.surfaceFor(DeploymentLayer.l5)?.provider.name, 'aws');
       expect(
         (await api.getDeploymentLogs('demo-configured')).logs,
         hasLength(1),
@@ -458,8 +541,15 @@ void main() {
       expect(
         (await api.verifyDataFlow('demo-configured', {
           'iotDeviceId': 'meter-001',
-        }))['sse_url'],
+        })).sseUrl,
         startsWith('/demo/verification/'),
+      );
+      final verificationHistory = await api.listDataFlowVerifications(
+        'demo-configured',
+      );
+      expect(
+        verificationHistory.verifications.single.status.apiValue,
+        'not_run',
       );
       expect(
         api.getSseUrl('/demo/path', lastEventId: 4),

@@ -27,6 +27,7 @@ def help_menu():
   print("""
     Available commands:
       send                        - Sends payload to IoT endpoint.
+      listen                      - Waits for one device command (up to 5 minutes).
       help                        - Show this help menu.
       exit                        - Exit the program.
   """)
@@ -86,6 +87,9 @@ def main():
 
       if command == "send":
         transmission.send()
+      elif command == "listen":
+        if not transmission.listen_for_command():
+          print("No command received before timeout.")
       elif command == "help":
         help_menu()
       elif command == "exit":

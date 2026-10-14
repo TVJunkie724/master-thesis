@@ -12,6 +12,13 @@ terraform {
       version = "~> 4.0"
     }
 
+    # Event Hubs Dedicated exposes cluster creation through azurerm, but its
+    # evaluated six-CU capacity is set through the ARM API surface.
+    azapi = {
+      source  = "Azure/azapi"
+      version = "= 2.10.0"
+    }
+
     # Azure AD provider (for Entra ID user management)
     azuread = {
       source  = "hashicorp/azuread"
@@ -35,7 +42,20 @@ terraform {
     # Google Cloud provider (for multi-cloud deployments)
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.12"
+      version = ">= 7.22.0, < 8.0.0"
+    }
+
+    # GKE workloads are applied in the reviewed post-cluster Terraform stage.
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.38.0, < 3.0.0"
+    }
+
+    # Generates the self-signed certificate for the CIDR-scoped GCP Grafana
+    # PoC endpoint. The private key remains in Terraform state/Kubernetes.
+    tls = {
+      source  = "hashicorp/tls"
+      version = ">= 4.3.0, < 5.0.0"
     }
 
     # Archive provider for creating ZIP files

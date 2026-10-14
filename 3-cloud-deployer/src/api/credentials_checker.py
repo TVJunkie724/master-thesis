@@ -9,8 +9,11 @@ This module is shared by both:
 - REST API endpoints (api/credentials.py)
 - CLI commands (src/main.py)
 """
+
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.loaders import create_loader
+from botocore.regions import EndpointResolver
 import json
 import logging
 import os
@@ -19,9 +22,9 @@ from logger import logger
 from src.core.observability import redact_sensitive
 
 # ==========================================
-# Shared Permission Sets (avoid duplication)
+# Shared permission lists used by provider validation checks
 # ==========================================
-# Define permission sets once, reference in layers that need them
+# Provider permissions checked by the PoC preflight.
 
 _IAM_ROLE_MANAGEMENT = [
     "iam:CreateRole",
@@ -242,18 +245,19 @@ REQUIRED_AWS_PERMISSIONS = {
 }
 
 
-
-
-def _get_all_required_permissions() -> dict:
+def _get_all_required_permissions(required_by_layer: dict | None = None) -> dict:
     """
     Flatten all required permissions into a single dict by service,
     with layer references. Removes duplicates.
-    
+
     Returns:
         Dict like: {"iam": {"actions": set(), "layers": set()}, ...}
     """
     result = {}
-    for layer_name, services in REQUIRED_AWS_PERMISSIONS.items():
+    permission_contract = (
+        REQUIRED_AWS_PERMISSIONS if required_by_layer is None else required_by_layer
+    )
+    for layer_name, services in permission_contract.items():
         for service_name, actions in services.items():
             if service_name not in result:
                 result[service_name] = {"actions": set(), "layers": set()}
@@ -264,51 +268,96 @@ def _get_all_required_permissions() -> dict:
 
 
 def _create_session(credentials: dict) -> boto3.Session:
-    """
-    Create boto3 session for credential validation.
-    
-    IMPORTANT: We ALWAYS use 'us-east-1' as the session region, regardless of
-    the user-provided region. This is intentional and necessary because:
-    
-    1. AWS STS endpoint URLs are region-based (e.g., sts.eu-central-1.amazonaws.com)
-    2. If the user provides an invalid region (e.g., "eu-central" instead of 
-       "eu-central-1"), boto3 constructs an invalid endpoint URL
-    3. This causes a connection error BEFORE we can validate credentials:
-       "Could not connect to endpoint URL: https://sts.eu-central.amazonaws.com/"
-    
-    Solution: Use a known-valid region (us-east-1) for authentication, then
-    validate the user's actual region in a separate step using EC2.describe_regions().
-    STS authentication is region-independent - the same credentials work globally.
-    
-    The user's actual region is validated later via _validate_aws_region().
-    
-    Note: This AWS-specific issue does NOT affect Azure or GCP, which use global
-    authentication endpoints (login.microsoftonline.com, oauth2.googleapis.com).
-    """
+    """Create a session bound to the requested deployment Region."""
+    region = str(credentials.get("aws_region") or "").strip()
     session_kwargs = {
         "aws_access_key_id": credentials.get("aws_access_key_id"),
         "aws_secret_access_key": credentials.get("aws_secret_access_key"),
-        # Always use us-east-1 for auth - user's region is validated separately
-        "region_name": "us-east-1",
+        "region_name": region,
     }
-    
+
     # Optional session token for temporary credentials
     if credentials.get("aws_session_token"):
         session_kwargs["aws_session_token"] = credentials["aws_session_token"]
-    
+
     return boto3.Session(**session_kwargs)
+
+
+def _regional_sts_endpoint(region: str) -> str:
+    """Resolve the partition-correct regional STS endpoint without a network call."""
+    resolver = EndpointResolver(create_loader().load_data("endpoints"))
+    endpoint = resolver.construct_endpoint("sts", region)
+    hostname = endpoint.get("hostname") if endpoint else None
+    if not hostname or region not in hostname:
+        raise ValueError(f"AWS Region '{region}' has no regional STS endpoint")
+    return f"https://{hostname}"
+
+
+def _create_regional_sts_client(session, region: str):
+    endpoint_url = _regional_sts_endpoint(region)
+    return session.client("sts", region_name=region, endpoint_url=endpoint_url)
+
+
+def _check_identity_center_region(session, sso_region: str | None) -> dict:
+    """Verify the configured IAM Identity Center primary Region, without mutation."""
+    region = str(sso_region or "").strip()
+    if not region:
+        return {
+            "status": "not_requested",
+            "region": None,
+            "message": "IAM Identity Center is not required by this credential check.",
+        }
+
+    try:
+        client = session.client("sso-admin", region_name=region)
+        response = client.list_instances(MaxResults=1)
+        instance_count = len(response.get("Instances") or [])
+        if instance_count:
+            return {
+                "status": "ready",
+                "region": region,
+                "instance_count": instance_count,
+                "message": "IAM Identity Center is available in the configured primary Region.",
+            }
+        return {
+            "status": "not_configured",
+            "region": region,
+            "instance_count": 0,
+            "message": (
+                "No IAM Identity Center instance is visible in the configured primary Region."
+            ),
+        }
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code") or "")
+        if code in {"AccessDenied", "AccessDeniedException", "UnauthorizedException"}:
+            return {
+                "status": "access_denied",
+                "region": region,
+                "message": "The credential cannot inspect IAM Identity Center instances.",
+            }
+        return {
+            "status": "check_failed",
+            "region": region,
+            "message": f"IAM Identity Center Region check failed ({code or 'AWS API error'}).",
+        }
+    except Exception as exc:
+        return {
+            "status": "check_failed",
+            "region": region,
+            "message": f"IAM Identity Center Region check failed: {redact_sensitive(exc)}",
+        }
 
 
 def _get_caller_identity(sts_client) -> dict:
     """
     Get caller identity to validate credentials and determine principal type.
-    
+
     Returns:
         Dict with account, arn, user_id, and principal_type
     """
     response = sts_client.get_caller_identity()
     arn = response["Arn"]
-    
+
     # Determine principal type from ARN
     if ":user/" in arn:
         principal_type = "user"
@@ -318,7 +367,7 @@ def _get_caller_identity(sts_client) -> dict:
         principal_type = "role"
     else:
         principal_type = "unknown"
-    
+
     return {
         "account": response["Account"],
         "arn": arn,
@@ -330,11 +379,11 @@ def _get_caller_identity(sts_client) -> dict:
 def _validate_aws_region(session, region: str) -> dict:
     """
     Validate AWS region exists and is enabled for the account.
-    
+
     Args:
         session: Authenticated boto3 session
         region: Region to validate (e.g., 'eu-central-1')
-    
+
     Returns:
         Dict with 'valid' bool and either 'region' or 'error'
     """
@@ -343,21 +392,24 @@ def _validate_aws_region(session, region: str) -> dict:
         ec2 = session.client("ec2", region_name="us-east-1")
         response = ec2.describe_regions(
             Filters=[{"Name": "region-name", "Values": [region]}],
-            AllRegions=False  # Only enabled regions
+            AllRegions=False,  # Only enabled regions
         )
-        
+
         if response.get("Regions"):
             return {"valid": True, "region": region}
-        
+
         # Region not found - get list of valid regions for helpful error
         all_regions = ec2.describe_regions(AllRegions=False)
         valid_names = sorted([r["RegionName"] for r in all_regions.get("Regions", [])])
         return {
             "valid": False,
-            "error": f"Region '{region}' is not available or not enabled. Valid regions: {', '.join(valid_names[:10])}..."
+            "error": f"Region '{region}' is not available or not enabled. Valid regions: {', '.join(valid_names[:10])}...",
         }
     except ClientError as e:
-        return {"valid": False, "error": f"Failed to validate region: {e.response['Error']['Message']}"}
+        return {
+            "valid": False,
+            "error": f"Failed to validate region: {e.response['Error']['Message']}",
+        }
     except Exception as exc:
         return {
             "valid": False,
@@ -368,24 +420,24 @@ def _validate_aws_region(session, region: str) -> dict:
 def _check_aws_account_status(session, account_id: str) -> dict:
     """
     Check AWS account status via Organizations API (if available).
-    
+
     AWS Account States:
         - ACTIVE: Account is fully operational (can deploy)
         - SUSPENDED: Account is unusable (billing issues, abuse, etc.)
         - PENDING_CLOSURE: Account closure in progress
         - CLOSED: Account is permanently closed
-    
+
     IMPORTANT LIMITATION:
         This check only works for accounts that are part of an AWS Organization,
         AND only if the caller has `organizations:DescribeAccount` permission.
         For standalone accounts or accounts without this permission, the check
         is gracefully skipped. Suspended standalone accounts will fail on first
         resource creation with an appropriate error message.
-    
+
     Args:
         session: Authenticated boto3 session
         account_id: AWS account ID from caller identity
-    
+
     Returns:
         Dict with:
         - status: "active", "suspended", "skipped", or "error"
@@ -394,12 +446,12 @@ def _check_aws_account_status(session, account_id: str) -> dict:
     """
     try:
         orgs_client = session.client("organizations", region_name="us-east-1")
-        
+
         try:
             response = orgs_client.describe_account(AccountId=account_id)
             account_status = response["Account"]["Status"]
             account_name = response["Account"].get("Name", "Unknown")
-            
+
             if account_status == "ACTIVE":
                 return {
                     "status": "active",
@@ -412,10 +464,10 @@ def _check_aws_account_status(session, account_id: str) -> dict:
                     "state": account_status,
                     "account_name": account_name,
                 }
-                
+
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
-            
+
             # Expected cases - gracefully skip
             if error_code == "AWSOrganizationsNotInUseException":
                 return {
@@ -439,7 +491,7 @@ def _check_aws_account_status(session, account_id: str) -> dict:
                     "status": "skipped",
                     "reason": f"Organizations API error: {error_code}",
                 }
-                
+
     except Exception as exc:
         return {"status": "error", "error": redact_sensitive(exc)}
 
@@ -455,11 +507,11 @@ class PolicyInspectionDenied(Exception):
 def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
     """
     Get all permissions from attached policies.
-    
+
     Args:
         iam_client: Boto3 IAM client
         caller_identity: Dict from _get_caller_identity()
-    
+
     Returns:
         Tuple of (permissions_set, error_permission or None)
         - If successful: (set of permissions, None)
@@ -468,54 +520,66 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
     arn = caller_identity["arn"]
     principal_type = caller_identity["principal_type"]
     permissions = set()
-    
+
     try:
         if principal_type == "user":
             # Extract username from ARN: arn:aws:iam::123456789012:user/username
             username = arn.split("/")[-1]
-            
+
             # List inline policies
             try:
                 response = iam_client.list_user_policies(UserName=username)
                 for policy_name in response.get("PolicyNames", []):
-                    policy_doc = iam_client.get_user_policy(UserName=username, PolicyName=policy_name)
+                    policy_doc = iam_client.get_user_policy(
+                        UserName=username, PolicyName=policy_name
+                    )
                     _extract_permissions(policy_doc["PolicyDocument"], permissions)
             except ClientError as e:
                 if e.response["Error"]["Code"] == "AccessDenied":
                     return set(), "iam:ListUserPolicies"
                 raise
-            
+
             # List attached managed policies
             try:
                 response = iam_client.list_attached_user_policies(UserName=username)
                 for policy in response.get("AttachedPolicies", []):
-                    _get_policy_permissions(iam_client, policy["PolicyArn"], permissions)
+                    _get_policy_permissions(
+                        iam_client, policy["PolicyArn"], permissions
+                    )
             except ClientError as e:
                 if e.response["Error"]["Code"] == "AccessDenied":
                     return set(), "iam:ListAttachedUserPolicies"
                 raise
-            
+
             # List group policies
             try:
                 groups_response = iam_client.list_groups_for_user(UserName=username)
                 for group in groups_response.get("Groups", []):
                     group_name = group["GroupName"]
-                    
+
                     # Group inline policies
-                    group_policies = iam_client.list_group_policies(GroupName=group_name)
+                    group_policies = iam_client.list_group_policies(
+                        GroupName=group_name
+                    )
                     for policy_name in group_policies.get("PolicyNames", []):
-                        policy_doc = iam_client.get_group_policy(GroupName=group_name, PolicyName=policy_name)
+                        policy_doc = iam_client.get_group_policy(
+                            GroupName=group_name, PolicyName=policy_name
+                        )
                         _extract_permissions(policy_doc["PolicyDocument"], permissions)
-                    
+
                     # Group attached policies
-                    attached = iam_client.list_attached_group_policies(GroupName=group_name)
+                    attached = iam_client.list_attached_group_policies(
+                        GroupName=group_name
+                    )
                     for policy in attached.get("AttachedPolicies", []):
-                        _get_policy_permissions(iam_client, policy["PolicyArn"], permissions)
+                        _get_policy_permissions(
+                            iam_client, policy["PolicyArn"], permissions
+                        )
             except ClientError as e:
                 if e.response["Error"]["Code"] == "AccessDenied":
                     return set(), "iam:ListGroupsForUser"
                 raise
-                
+
         elif principal_type in ("role", "assumed-role"):
             # Extract role name from ARN
             if principal_type == "assumed-role":
@@ -524,35 +588,39 @@ def _get_attached_permissions(iam_client, caller_identity: dict) -> tuple:
             else:
                 # arn:aws:iam::123456789012:role/role-name
                 role_name = arn.split("/")[-1]
-            
+
             # List inline policies
             try:
                 response = iam_client.list_role_policies(RoleName=role_name)
                 for policy_name in response.get("PolicyNames", []):
-                    policy_doc = iam_client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
+                    policy_doc = iam_client.get_role_policy(
+                        RoleName=role_name, PolicyName=policy_name
+                    )
                     _extract_permissions(policy_doc["PolicyDocument"], permissions)
             except ClientError as e:
                 if e.response["Error"]["Code"] == "AccessDenied":
                     return set(), "iam:ListRolePolicies"
                 raise
-            
+
             # List attached managed policies
             try:
                 response = iam_client.list_attached_role_policies(RoleName=role_name)
                 for policy in response.get("AttachedPolicies", []):
-                    _get_policy_permissions(iam_client, policy["PolicyArn"], permissions)
+                    _get_policy_permissions(
+                        iam_client, policy["PolicyArn"], permissions
+                    )
             except ClientError as e:
                 if e.response["Error"]["Code"] == "AccessDenied":
                     return set(), "iam:ListAttachedRolePolicies"
                 raise
         else:
             return set(), "unknown_principal_type"
-            
+
     except PolicyInspectionDenied as e:
         return set(), e.permission
     except ClientError as e:
         return set(), f"error:{e.response['Error']['Code']}"
-    
+
     return permissions, None
 
 
@@ -567,7 +635,9 @@ def _get_policy_permissions(iam_client, policy_arn: str, permissions: set):
 
     version_id = policy["Policy"]["DefaultVersionId"]
     try:
-        version = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)
+        version = iam_client.get_policy_version(
+            PolicyArn=policy_arn, VersionId=version_id
+        )
     except ClientError as exc:
         if exc.response["Error"]["Code"] == "AccessDenied":
             raise PolicyInspectionDenied("iam:GetPolicyVersion") from exc
@@ -583,19 +653,19 @@ def _extract_permissions(policy_document: dict, permissions: set):
     """
     if isinstance(policy_document, str):
         policy_document = json.loads(policy_document)
-    
+
     statements = policy_document.get("Statement", [])
     if isinstance(statements, dict):
         statements = [statements]
-    
+
     for statement in statements:
         if statement.get("Effect") != "Allow":
             continue
-        
+
         actions = statement.get("Action", [])
         if isinstance(actions, str):
             actions = [actions]
-        
+
         for action in actions:
             if action == "*":
                 # Full admin access - add a marker
@@ -615,27 +685,31 @@ def _check_permission(permission: str, available: set) -> bool:
     # Full admin access
     if "*" in available:
         return True
-    
+
     # Exact match
     if permission in available:
         return True
-    
+
     # Service wildcard match (e.g., "s3:*" covers "s3:GetObject")
     service = permission.split(":")[0]
     if f"{service}:*" in available:
         return True
-    
+
     return False
 
 
-def _compare_permissions(available: set, required: dict) -> dict:
+def _compare_permissions(
+    available: set,
+    required: dict,
+    required_by_layer: dict | None = None,
+) -> dict:
     """
     Compare available permissions against required permissions.
-    
+
     Args:
         available: Set of permissions the credentials have
         required: Dict from _get_all_required_permissions()
-    
+
     Returns:
         Dict with by_layer, by_service, and summary
     """
@@ -644,15 +718,15 @@ def _compare_permissions(available: set, required: dict) -> dict:
     total_valid = 0
     total_missing = 0
     all_required = set()
-    
+
     # Build by_service first (aggregated view)
     for service_name, data in required.items():
         actions = data["actions"]
         layers = data["layers"]
-        
+
         valid = []
         missing = []
-        
+
         for action in sorted(actions):
             all_required.add(action)
             if _check_permission(action, available):
@@ -661,43 +735,48 @@ def _compare_permissions(available: set, required: dict) -> dict:
             else:
                 missing.append(action)
                 total_missing += 1
-        
+
         by_service[service_name] = {
             "valid": valid,
             "missing": missing,
             "used_in_layers": sorted(layers),
         }
-    
+
     # Build by_layer view
-    for layer_name, services in REQUIRED_AWS_PERMISSIONS.items():
+    permission_contract = (
+        REQUIRED_AWS_PERMISSIONS if required_by_layer is None else required_by_layer
+    )
+    for layer_name, services in permission_contract.items():
         layer_status = "valid"
         layer_services = {}
-        
+
         for service_name, actions in services.items():
             if not actions:
                 continue
-            
+
             valid = []
             missing = []
-            
+
             for action in sorted(actions):
                 if _check_permission(action, available):
                     valid.append(action)
                 else:
                     missing.append(action)
                     layer_status = "partial" if valid else "invalid"
-            
+
             layer_services[service_name] = {
                 "valid": valid,
                 "missing": missing,
             }
-        
+
         if layer_services:
             by_layer[layer_name] = {
-                "status": layer_status if any(s["missing"] for s in layer_services.values()) else "valid",
+                "status": layer_status
+                if any(s["missing"] for s in layer_services.values())
+                else "valid",
                 "services": layer_services,
             }
-    
+
     return {
         "by_layer": by_layer,
         "by_service": by_service,
@@ -712,11 +791,11 @@ def _compare_permissions(available: set, required: dict) -> dict:
 def check_aws_credentials(credentials: dict) -> dict:
     """
     Main entry point. Validates AWS credentials against ALL required permissions.
-    
+
     Args:
-        credentials: Dict with aws_access_key_id, aws_secret_access_key, aws_region, 
+        credentials: Dict with aws_access_key_id, aws_secret_access_key, aws_region,
                      and optionally aws_session_token
-    
+
     Returns:
         Dict with status, caller_identity, and permission results by layer and service
     """
@@ -725,24 +804,49 @@ def check_aws_credentials(credentials: dict) -> dict:
         "message": "",
         "caller_identity": None,
         "region_validation": None,
+        "sts_region_validation": None,
+        "identity_center_region": None,
         "can_list_policies": False,
         "missing_check_permission": None,
         "by_layer": {},
         "by_service": {},
         "summary": {"total_required": 0, "valid": 0, "missing": 0},
     }
-    
+
     # Validate required fields
-    if not credentials.get("aws_access_key_id") or not credentials.get("aws_secret_access_key"):
-        result["message"] = "Missing required credentials: aws_access_key_id and aws_secret_access_key"
+    if not credentials.get("aws_access_key_id") or not credentials.get(
+        "aws_secret_access_key"
+    ):
+        result["message"] = (
+            "Missing required credentials: aws_access_key_id and aws_secret_access_key"
+        )
         return result
-    
+
     try:
-        # Create session
-        session = _create_session(credentials)
-        sts_client = session.client("sts")
+        region = str(credentials.get("aws_region") or "").strip()
+        if not region:
+            result["message"] = "Missing required credential setting: aws_region"
+            return result
+
+        # Resolve the regional STS endpoint before attempting authentication. This
+        # prevents a silent fallback to the legacy global STS endpoint.
+        try:
+            session = _create_session(credentials)
+            sts_client = _create_regional_sts_client(session, region)
+            result["sts_region_validation"] = {
+                "status": "ready",
+                "region": region,
+                "endpoint_mode": "regional",
+            }
+        except ValueError as exc:
+            result["sts_region_validation"] = {
+                "status": "invalid_region",
+                "region": region,
+            }
+            result["message"] = str(exc)
+            return result
         iam_client = session.client("iam")
-        
+
         # Step 1: Validate credentials with GetCallerIdentity
         try:
             caller_identity = _get_caller_identity(sts_client)
@@ -768,22 +872,21 @@ def check_aws_credentials(credentials: dict) -> dict:
         except NoCredentialsError:
             result["message"] = "No credentials provided"
             return result
-        
+
         # Step 2: Validate region
-        region = credentials.get("aws_region", "us-east-1")
         region_result = _validate_aws_region(session, region)
         result["region_validation"] = {"aws_region": region_result}
-        
+
         if not region_result.get("valid"):
             result["status"] = "invalid"
             result["message"] = region_result.get("error", f"Invalid region: {region}")
             return result
-        
+
         # Step 2.5: Check AWS account status (Organizations API - graceful skip if unavailable)
         # This catches suspended/closed accounts early before Terraform deployment
         account_status = _check_aws_account_status(session, caller_identity["account"])
         result["account_status"] = account_status
-        
+
         if account_status.get("status") == "suspended":
             result["status"] = "invalid"
             result["message"] = (
@@ -793,10 +896,20 @@ def check_aws_credentials(credentials: dict) -> dict:
             )
             return result
         # Note: "skipped" and "active" statuses proceed normally
-        
+
+        # Step 2.6: Verify the explicitly configured IAM Identity Center primary
+        # Region. The check is read-only; missing setup/authority remains a manual
+        # prerequisite in the graph-derived readiness contract.
+        result["identity_center_region"] = _check_identity_center_region(
+            session,
+            credentials.get("aws_sso_region"),
+        )
+
         # Step 3: Get permissions from attached policies
-        available_permissions, check_error = _get_attached_permissions(iam_client, caller_identity)
-        
+        available_permissions, check_error = _get_attached_permissions(
+            iam_client, caller_identity
+        )
+
         if check_error:
             principal_type = caller_identity["principal_type"]
             # Determine which permissions are needed based on principal type
@@ -804,7 +917,7 @@ def check_aws_credentials(credentials: dict) -> dict:
                 needed_permissions = SELF_CHECK_PERMISSIONS["role"]
             else:
                 needed_permissions = SELF_CHECK_PERMISSIONS["user"]
-            
+
             result["status"] = "check_failed"
             result["message"] = (
                 f"Cannot determine permissions - credentials lack '{check_error}' to inspect their own policies. "
@@ -815,36 +928,40 @@ def check_aws_credentials(credentials: dict) -> dict:
             result["self_check_help"] = {
                 "principal_type": principal_type,
                 "required_permissions": needed_permissions,
-                "policy_json_url": "/docs/references/aws_deployer_policy.json",
-                "docs_url": "/docs/docs-credentials-setup.html#aws-setup",
-                "hint": f"Your IAM {principal_type} needs permissions to read its own attached policies."
+                "hint": f"Your IAM {principal_type} needs permissions to read its own attached policies.",
             }
             return result
 
-        
         result["can_list_policies"] = True
-        
+
         # Step 3: Compare against required permissions
-        required = _get_all_required_permissions()
-        comparison = _compare_permissions(available_permissions, required)
-        
+        permission_contract = REQUIRED_AWS_PERMISSIONS
+        required = _get_all_required_permissions(permission_contract)
+        comparison = _compare_permissions(
+            available_permissions,
+            required,
+            permission_contract,
+        )
+
         result["by_layer"] = comparison["by_layer"]
         result["by_service"] = comparison["by_service"]
         result["summary"] = comparison["summary"]
-        
+
         # Determine overall status
         if comparison["summary"]["missing"] == 0:
             result["status"] = "valid"
             result["message"] = "All required permissions are present."
         elif comparison["summary"]["valid"] > 0:
             result["status"] = "partial"
-            result["message"] = f"Some permissions are missing: {comparison['summary']['missing']} of {comparison['summary']['total_required']}"
+            result["message"] = (
+                f"Some permissions are missing: {comparison['summary']['missing']} of {comparison['summary']['total_required']}"
+            )
         else:
             result["status"] = "invalid"
             result["message"] = "No required permissions are present."
-        
+
         return result
-        
+
     except Exception as exc:
         logger.error(
             "AWS credential check failed: %s",
@@ -859,10 +976,10 @@ def check_aws_credentials(credentials: dict) -> dict:
 def check_aws_credentials_from_config(project_name: str = None) -> dict:
     """
     Validate credentials from the project's config_credentials.json.
-    
+
     Args:
         project_name: Project name to read. Required; no global active project fallback.
-    
+
     Returns:
         Same format as check_aws_credentials()
     """
@@ -883,7 +1000,7 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
             }
 
         storage = get_project_storage()
-        
+
         # Determine project path
         project_dir = storage.context(project_name).project_path
         if not project_dir.exists():
@@ -896,13 +1013,13 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
                 "by_layer": {},
                 "by_service": {},
                 "summary": {"total_required": 0, "valid": 0, "missing": 0},
-                "project_name": project_name
+                "project_name": project_name,
             }
 
         # Load credentials from config
         config_path = project_dir / "config_credentials.json"
         if not os.path.exists(config_path):
-             return {
+            return {
                 "status": "error",
                 "message": "No config_credentials.json found in project.",
                 "caller_identity": None,
@@ -911,14 +1028,14 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
                 "by_layer": {},
                 "by_service": {},
                 "summary": {"total_required": 0, "valid": 0, "missing": 0},
-                "project_name": project_name
+                "project_name": project_name,
             }
 
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config_credentials = json.load(f)
         except json.JSONDecodeError:
-             return {
+            return {
                 "status": "error",
                 "message": "Invalid JSON in config_credentials.json",
                 "caller_identity": None,
@@ -927,11 +1044,11 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
                 "by_layer": {},
                 "by_service": {},
                 "summary": {"total_required": 0, "valid": 0, "missing": 0},
-                "project_name": project_name
+                "project_name": project_name,
             }
-        
+
         aws_creds = config_credentials.get("aws", {})
-        
+
         if not aws_creds:
             return {
                 "status": "error",
@@ -942,12 +1059,12 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
                 "by_layer": {},
                 "by_service": {},
                 "summary": {"total_required": 0, "valid": 0, "missing": 0},
-                "project_name": project_name
+                "project_name": project_name,
             }
-        
+
         # Check the credentials
         return check_aws_credentials(aws_creds)
-        
+
     except Exception as exc:
         logger.error(
             "Failed to load AWS credentials for project %s: %s",
@@ -964,7 +1081,7 @@ def check_aws_credentials_from_config(project_name: str = None) -> dict:
             "by_layer": {},
             "by_service": {},
             "summary": {"total_required": 0, "valid": 0, "missing": 0},
-            "project_name": project_name
+            "project_name": project_name,
         }
 
 

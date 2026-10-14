@@ -2,23 +2,52 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
-from pathlib import Path
 import stat
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts import verify_resolved_deployment_drift as verification
 
 
 class DeploymentDriftVerificationTests(unittest.TestCase):
-    def test_rejects_e2e_and_cloud_overlay_modes(self) -> None:
+    def test_workflow_triggers_cover_focused_gate_inputs(self) -> None:
+        workflow = (
+            verification.ROOT / ".github/workflows/deployment-contract.yml"
+        ).read_text(encoding="utf-8")
+        required_paths = (
+            "contracts/six-layer-workload/**",
+            "contracts/user-function-extension/**",
+            "scripts/sync_six_layer_contracts.py",
+            "scripts/sync_six_layer_workload_contract.py",
+            "scripts/sync_user_function_extension_contracts.py",
+            "scripts/materialize_live_evaluation_candidate.py",
+            "scripts/manage_live_evaluation_evidence.py",
+            "scripts/manage_live_evaluation_metrics.py",
+            "scripts/review_live_evaluation_budget.py",
+            "scripts/validate_live_evaluation_plan.py",
+            "scripts/tests/test_manage_live_evaluation_evidence.py",
+            "scripts/tests/test_manage_live_evaluation_metrics.py",
+            "scripts/tests/test_review_live_evaluation_budget.py",
+            "scripts/tests/test_validate_live_evaluation_plan.py",
+            "scripts/verify_six_layer_management_boundary.py",
+        )
+
+        for path in required_paths:
+            with self.subTest(path=path):
+                self.assertEqual(
+                    workflow.count(f'- "{path}"'),
+                    2,
+                    f"{path} must trigger both push and pull-request gates",
+                )
+
+    def test_rejects_cloud_overlay_modes(self) -> None:
         unsafe_environments = (
-            {"RUN_E2E_TESTS": "1"},
             {"THESIS_WITH_CREDENTIALS": "true"},
             {"THESIS_CLOUD_CREDENTIAL_OVERLAY": "yes"},
             {"WITH_CREDENTIALS": "on"},
@@ -26,11 +55,11 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
 
         for environment in unsafe_environments:
-            with self.subTest(environment=environment):
-                with self.assertRaises(
-                    verification.VerificationConfigurationError
-                ):
-                    verification.validate_safety(environment)
+            with (
+                self.subTest(environment=environment),
+                self.assertRaises(verification.VerificationConfigurationError),
+            ):
+                verification.validate_safety(environment)
 
     def test_sanitized_environment_removes_provider_credentials(self) -> None:
         environment = {
@@ -41,7 +70,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "GCP_SERVICE_ACCOUNT_JSON": "not-used",
             "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/not-used.json",
             "TF_VAR_cloud_secret": "not-used",
-            "RUN_E2E_TESTS": "false",
         }
         runtime_secrets = Path("/tmp/runtime-secrets")
 
@@ -51,7 +79,6 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["PATH"], environment["PATH"])
-        self.assertEqual(result["RUN_E2E_TESTS"], "0")
         self.assertEqual(
             result["THESIS_RUNTIME_SECRETS_DIR"],
             str(runtime_secrets),
@@ -74,15 +101,13 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 stat.S_IMODE(directory.stat().st_mode),
                 0o700,
             )
-            jwt_secret = (directory / "JWT_SECRET_KEY").read_text(
-                encoding="utf-8"
-            ).strip()
-            encryption_key = (directory / "ENCRYPTION_KEY").read_text(
-                encoding="utf-8"
-            ).strip()
-            self.assertGreaterEqual(len(jwt_secret), 64)
+            encryption_key = (
+                (directory / "ENCRYPTION_KEY").read_text(encoding="utf-8").strip()
+            )
             self.assertEqual(len(encryption_key), 44)
-            self.assertNotEqual(jwt_secret, encryption_key)
+            self.assertEqual(
+                {path.name for path in directory.iterdir()}, {"ENCRYPTION_KEY"}
+            )
             for path in directory.iterdir():
                 self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
@@ -96,6 +121,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             [
                 "Compose model",
                 "Verification images",
+                "Phase 8 decision evidence",
                 "Canonical contract and root tests",
                 "Optimizer formula-to-selection drift",
                 "Management persistence-to-manifest drift",
@@ -103,30 +129,83 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             ],
         )
         self.assertIn(
-            "tests/unit/calculation_v2/test_deployment_drift_matrix.py",
+            "tests/unit/architecture_profiles/test_six_layer_optimizer.py",
             rendered,
         )
         self.assertIn(
-            "scripts/sync_architecture_profile_contracts.py --check",
+            "tests/unit/architecture_profiles/test_contracts.py",
             rendered,
         )
         self.assertIn(
-            "scripts.tests.test_architecture_profile_contract_sync",
+            "scripts/tests/test_materialize_live_evaluation_candidate.py",
             rendered,
         )
+        self.assertIn(
+            "scripts/tests/test_review_live_evaluation_budget.py",
+            rendered,
+        )
+        self.assertNotIn("sync_architecture_profile_contracts.py", rendered)
         self.assertIn(
             "scripts/sync_user_function_extension_contracts.py --check",
             rendered,
         )
         self.assertIn(
-            "scripts.tests.test_user_function_extension_contract_sync",
+            "scripts/tests/test_user_function_extension_contract_sync.py",
             rendered,
         )
-        self.assertIn("tests/test_deployment_drift_matrix.py", rendered)
+        self.assertIn(
+            "scripts/sync_deployment_access_contracts.py --check",
+            rendered,
+        )
+        self.assertIn("scripts/validate_live_evaluation_plan.py", rendered)
+        self.assertIn(
+            "scripts/tests/test_deployment_access_contract_sync.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_manage_live_evaluation_evidence.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_manage_live_evaluation_metrics.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/tests/test_validate_live_evaluation_plan.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_eventing/calculate_scenarios.py --check",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/validate_decision_package.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/phase_08_service_bundles/freeze_decision.py --check",
+            rendered,
+        )
+        self.assertIn("tests/test_resolved_architecture_service.py", rendered)
         self.assertIn(
             "tests/unit/terraform/test_build_all_packages.py",
             rendered,
         )
+        self.assertIn(
+            "tests/unit/architecture_profiles/test_graph_requirements.py",
+            rendered,
+        )
+        for provider in ("aws", "azure", "gcp"):
+            with self.subTest(provider=provider):
+                self.assertIn(
+                    "tests/unit/terraform/"
+                    f"test_{provider}_deployment_specification_contract.py",
+                    rendered,
+                )
         self.assertIn(
             "tests/unit/terraform/test_graph_compatibility_projection.py",
             rendered,
@@ -137,6 +216,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         )
         self.assertIn(
             "tests/test_user_function_extension_contract.py",
+            rendered,
+        )
+        self.assertIn(
+            "scripts/verify_six_layer_management_boundary.py",
             rendered,
         )
         self.assertIn(
@@ -161,8 +244,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
         management_commands = [
             stage.command
             for stage in stages
-            if "management-api" in stage.command
-            and stage.name != "Verification images"
+            if "management-api" in stage.command and stage.name != "Verification images"
         ]
 
         self.assertEqual(len(management_commands), 2)
@@ -188,9 +270,10 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
                 "Repository static checks",
             ],
         )
-        self.assertIn("--ignore=tests/e2e", rendered)
+        self.assertNotIn("--ignore=tests/e2e", rendered)
         self.assertIn("thesis.sh test frontend", rendered)
         self.assertIn("mkdocs build --strict", rendered)
+        self.assertIn("PIP_CACHE_DIR=/tmp/management-pip-cache", rendered)
         deployer = next(
             stage for stage in stages if stage.name == "Deployer full quality gate"
         )

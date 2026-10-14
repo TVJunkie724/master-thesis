@@ -2,6 +2,7 @@
 // Unit tests for WizardInitService (stateless, no mocks required)
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/deployer_config.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/services/wizard_init_service.dart';
@@ -17,6 +18,29 @@ void main() {
   });
 
   group('WizardInitService', () {
+    test(
+      'deployed history locks a destroyed definition after direct navigation',
+      () {
+        final stamp = DateTime.utc(2026, 10, 10);
+        final result = service.initializeEditMode(
+          twinId: 'twin-123',
+          data: TwinEditData(
+            twin: Twin(
+              id: 'twin-123',
+              name: 'Immutable',
+              state: 'destroyed',
+              createdAt: stamp,
+              updatedAt: stamp,
+              deployedAt: stamp,
+            ),
+            config: TypedApiFixtures.twinConfig(twinState: 'destroyed'),
+          ),
+        );
+        expect(result.state.hasBeenDeployed, isTrue);
+        expect(result.state.canModify, isFalse);
+        expect(result.state.copyWith(twinState: 'error').canModify, isFalse);
+      },
+    );
     group('initializeCreateMode', () {
       test('returns fresh state with create mode', () {
         final state = service.initializeCreateMode();
@@ -144,12 +168,12 @@ void main() {
         final optimization = TypedApiFixtures.optimization(
           cheapestPath: const [
             'L1_AWS',
-            'L2_AWS',
-            'L3_hot_AWS',
-            'L3_cool_AWS',
-            'L3_archive_AWS',
-            'L4_AWS',
-            'L5_AWS',
+            'L2_AZURE',
+            'L3_hot_AZURE',
+            'L3_cool_AZURE',
+            'L3_archive_AZURE',
+            'L4_AZURE',
+            'L5_AZURE',
           ],
         );
         final data = TwinEditData(
@@ -181,12 +205,12 @@ void main() {
             optimization: TypedApiFixtures.optimization(
               cheapestPath: const [
                 'L1_AWS',
-                'L2_AWS',
-                'L3_hot_AWS',
-                'L3_cool_AWS',
-                'L3_archive_AWS',
-                'L4_AWS',
-                'L5_AWS',
+                'L2_AZURE',
+                'L3_hot_AZURE',
+                'L3_cool_AZURE',
+                'L3_archive_AZURE',
+                'L4_AZURE',
+                'L5_AZURE',
               ],
             ),
           ),

@@ -24,13 +24,14 @@ from src.schemas.credential_security_event import (
     CredentialSecurityOutcome,
 )
 from src.security.request_context import current_request_id
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 
 
 class CredentialRateClass(StrEnum):
     WRITE = "credential-write"
     VALIDATION = "credential-validation"
-    BOOTSTRAP = "credential-bootstrap"
 
 
 class CredentialRateLimitExceeded(RuntimeError):
@@ -47,7 +48,9 @@ class CredentialRateLimiter:
     """Async moving-window limiter backed by a configured limits storage."""
 
     def __init__(self, storage_uri: str):
-        async_uri = storage_uri if storage_uri.startswith("async+") else f"async+{storage_uri}"
+        async_uri = (
+            storage_uri if storage_uri.startswith("async+") else f"async+{storage_uri}"
+        )
         self._storage = storage_from_string(
             async_uri,
             wrap_exceptions=True,
@@ -55,7 +58,9 @@ class CredentialRateLimiter:
         )
         self._limiter = MovingWindowRateLimiter(self._storage)
 
-    async def hit(self, rate: str, rate_class: CredentialRateClass, user_id: str) -> dict[str, str]:
+    async def hit(
+        self, rate: str, rate_class: CredentialRateClass, user_id: str
+    ) -> dict[str, str]:
         item = parse(rate)
         actor_key = hashlib.sha256(f"credential-rate:{user_id}".encode()).hexdigest()
         allowed = await self._limiter.hit(item, rate_class.value, actor_key)
@@ -81,7 +86,9 @@ _rate_limiter: CredentialRateLimiter | None = None
 def _get_rate_limiter() -> CredentialRateLimiter:
     global _rate_limiter
     if _rate_limiter is None:
-        _rate_limiter = CredentialRateLimiter(settings.CREDENTIAL_RATE_LIMIT_STORAGE_URI)
+        _rate_limiter = CredentialRateLimiter(
+            settings.CREDENTIAL_RATE_LIMIT_STORAGE_URI
+        )
     return _rate_limiter
 
 
@@ -118,14 +125,15 @@ def credential_rate_limit(
         rate = {
             CredentialRateClass.WRITE: settings.CREDENTIAL_WRITE_RATE_LIMIT,
             CredentialRateClass.VALIDATION: settings.CREDENTIAL_VALIDATION_RATE_LIMIT,
-            CredentialRateClass.BOOTSTRAP: settings.CREDENTIAL_BOOTSTRAP_RATE_LIMIT,
         }[rate_class]
         try:
             headers = await _get_rate_limiter().hit(rate, rate_class, current_user.id)
         except CredentialRateLimitExceeded as exc:
             CredentialSecurityAuditService.commit_standalone(
                 db,
-                _attempt(current_user.id, action, CredentialSecurityOutcome.RATE_LIMITED, 429),
+                _attempt(
+                    current_user.id, action, CredentialSecurityOutcome.RATE_LIMITED, 429
+                ),
             )
             raise exc
         except (StorageError, OSError, ConnectionError) as exc:

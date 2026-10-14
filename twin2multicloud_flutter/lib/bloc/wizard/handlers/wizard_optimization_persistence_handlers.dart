@@ -15,7 +15,8 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         if (!state.canProceedToStep2) {
           emit(
             newState.copyWith(
-              errorMessage: 'Enter a twin name before continuing',
+              errorMessage:
+                  'Save the Twin and select an active architecture profile before continuing',
             ),
           );
           return;
@@ -80,7 +81,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   void _onGoToStep(WizardGoToStep event, Emitter<WizardState> emit) {
     final reachable = switch (event.step) {
       0 => true,
-      1 => state.twinName?.trim().isNotEmpty == true,
+      1 => state.canProceedToStep2,
       2 => state.canProceedToStep3,
       _ => false,
     };
@@ -110,42 +111,13 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
   // STEP 2 HANDLERS
   // ============================================================
 
-  Future<void> _onPricingHealthLoadRequested(
-    WizardPricingHealthLoadRequested event,
-    Emitter<WizardState> emit,
-  ) async {
-    if (state.isPricingHealthLoading) return;
-    emit(
-      state.copyWith(
-        isPricingHealthLoading: true,
-        clearPricingHealthError: true,
-      ),
-    );
-    try {
-      final health = await _api.getPricingHealth();
-      emit(
-        state.copyWith(
-          pricingHealth: health,
-          isPricingHealthLoading: false,
-          clearPricingHealthError: true,
-        ),
-      );
-    } catch (error) {
-      emit(
-        state.copyWith(
-          isPricingHealthLoading: false,
-          pricingHealthError: ApiErrorHandler.extractMessage(error),
-        ),
-      );
-    }
-  }
-
   void _onCalcParamsChanged(
     WizardCalcParamsChanged event,
     Emitter<WizardState> emit,
   ) {
     final inputsChanged =
         state.calcParams?.hasSameCalculationInputs(event.params) != true;
+    if (inputsChanged) _resolvedArchitectureGeneration++;
     emit(
       state.copyWith(
         calcParams: event.params,
@@ -160,6 +132,11 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         isSelectingDeploymentRun: inputsChanged
             ? false
             : state.isSelectingDeploymentRun,
+        resolvedArchitecturePhase: inputsChanged
+            ? ResolvedArchitecturePhase.idle
+            : state.resolvedArchitecturePhase,
+        clearResolvedArchitecture: inputsChanged,
+        clearResolvedArchitectureError: inputsChanged,
         clearError: inputsChanged,
         clearSuccess: inputsChanged,
       ),
@@ -188,16 +165,24 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       );
       return;
     }
-    if (!state.pricingCanCalculate) {
+    if (!state.architectureWorkflowReady) {
       emit(
         state.copyWith(
           errorMessage:
-              'Pricing data is not ready for calculation. Retry pricing readiness.',
+              'Select and load an active architecture profile before calculating.',
         ),
       );
       return;
     }
-
+    if (!state.architectureUserFunctionsReady) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Bind and validate the required user logic before calculating.',
+        ),
+      );
+      return;
+    }
     final requestedParams = state.calcParams!;
     emit(
       state.copyWith(
@@ -243,7 +228,9 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       final result = response.result;
 
       // Check for unconfigured providers in optimal path
-      final unconfigured = _getUnconfiguredProviders(result.cheapestPath);
+      final unconfigured = state.hasActiveArchitectureProfile
+          ? const <String>{}
+          : _getUnconfiguredProviders(result.cheapestPath);
 
       // Check if new result invalidates Step 3 config
       // Invalidation occurs when: hasSection3Data AND inputParamsUsed changed
@@ -266,10 +253,19 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
             'Deployment access is missing for: ${unconfigured.join(", ")}. Open Cloud access to continue.';
       }
 
+      final evaluationOnly =
+          ResolvedDeploymentReview.fromRun(run.deploymentRun).state ==
+          ResolvedDeploymentReviewState.evaluationOnly;
+      if (evaluationOnly) {
+        warning =
+            'This thesis calculation is evaluation-only: live capacity '
+            'evidence remains open, so deployment selection is blocked.';
+      }
+      _resolvedArchitectureGeneration++;
       emit(
         state.copyWith(
           isCalculating: false,
-          isSelectingDeploymentRun: true,
+          isSelectingDeploymentRun: !evaluationOnly,
           calcResult: result,
           optimizationResultData: response,
           deploymentRun: run.deploymentRun,
@@ -279,8 +275,17 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           clearSuccess:
               invalidatesStep3, // Clear success message when warning appears
           clearDeploymentRunSelectionError: true,
+          resolvedArchitecturePhase: ResolvedArchitecturePhase.idle,
+          clearResolvedArchitecture: true,
+          clearResolvedArchitectureError: true,
         ),
       );
+      if (evaluationOnly) {
+        add(
+          WizardResolvedArchitectureLoadRequested(runId: run.deploymentRun.id),
+        );
+        return;
+      }
       await _selectDeploymentRun(
         run.deploymentRun,
         emit,
@@ -351,6 +356,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
           clearError: true,
         ),
       );
+      add(WizardResolvedArchitectureLoadRequested(runId: selectedRun.id));
     } catch (error) {
       if (state.deploymentRun != run || !state.isSelectingDeploymentRun) {
         return;
@@ -431,6 +437,7 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       final newTwinState = configResponse.twinState;
       final bool stateRegressed =
           newTwinState != null &&
+          state.twinState != null &&
           newTwinState != state.twinState &&
           newTwinState == 'draft';
 
@@ -570,16 +577,28 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         step3Invalidated: false,
         // L1
         payloadsJson: null,
+        clearPayloadsJson: true,
         payloadsValidated: false,
         // L2
         processorContents: const {},
         processorValidated: const {},
+        processorRequirements: const {},
         eventFeedbackContent: null,
+        clearEventFeedbackContent: true,
         eventFeedbackValidated: false,
+        clearEventFeedbackRequirements: true,
         eventActionContents: const {},
         eventActionValidated: const {},
+        eventActionRequirements: const {},
         stateMachineContent: null,
+        clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
   }
@@ -603,6 +622,10 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
         successMessage: 'Changes discarded',
       ),
     );
+    final savedRun = state.savedDeploymentRun;
+    if (savedRun != null) {
+      add(WizardResolvedArchitectureLoadRequested(runId: savedRun.id));
+    }
   }
 
   // Combined handlers to avoid race condition
@@ -616,15 +639,27 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       state.copyWith(
         step3Invalidated: false,
         payloadsJson: null,
+        clearPayloadsJson: true,
         payloadsValidated: false,
         processorContents: const {},
         processorValidated: const {},
+        processorRequirements: const {},
         eventFeedbackContent: null,
+        clearEventFeedbackContent: true,
         eventFeedbackValidated: false,
+        clearEventFeedbackRequirements: true,
         eventActionContents: const {},
         eventActionValidated: const {},
+        eventActionRequirements: const {},
         stateMachineContent: null,
+        clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
     await _onSaveDraft(const WizardSaveDraft(), emit);
@@ -639,15 +674,27 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       state.copyWith(
         step3Invalidated: false,
         payloadsJson: null,
+        clearPayloadsJson: true,
         payloadsValidated: false,
         processorContents: const {},
         processorValidated: const {},
+        processorRequirements: const {},
         eventFeedbackContent: null,
+        clearEventFeedbackContent: true,
         eventFeedbackValidated: false,
+        clearEventFeedbackRequirements: true,
         eventActionContents: const {},
         eventActionValidated: const {},
+        eventActionRequirements: const {},
         stateMachineContent: null,
+        clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
       ),
     );
     _onNextStep(const WizardNextStep(), emit);
@@ -662,15 +709,27 @@ extension _WizardOptimizationPersistenceHandlers on WizardBloc {
       state.copyWith(
         step3Invalidated: false,
         payloadsJson: null,
+        clearPayloadsJson: true,
         payloadsValidated: false,
         processorContents: const {},
         processorValidated: const {},
+        processorRequirements: const {},
         eventFeedbackContent: null,
+        clearEventFeedbackContent: true,
         eventFeedbackValidated: false,
+        clearEventFeedbackRequirements: true,
         eventActionContents: const {},
         eventActionValidated: const {},
+        eventActionRequirements: const {},
         stateMachineContent: null,
+        clearStateMachineContent: true,
         stateMachineValidated: false,
+        clearHierarchyContent: true,
+        hierarchyValidated: false,
+        clearSceneConfigContent: true,
+        sceneConfigValidated: false,
+        sceneGlbUploaded: false,
+        userConfigValidated: false,
         clearWarning: true,
       ),
     );

@@ -1,104 +1,66 @@
-"""Project file browser API boundary tests."""
+"""Bounded Twin deployment-workspace API tests."""
 
-import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
-import constants as CONSTANTS
 import rest_api
-from src.core.project_storage import ProjectStorage
 import src.api.projects as project_routes
-
 
 client = TestClient(rest_api.app)
 
 
-@pytest.fixture
-def project_storage(tmp_path, monkeypatch):
-    storage = ProjectStorage(tmp_path)
-    project_name = "test_api_files"
-    project_dir = storage.deployment_project_path(project_name)
-    project_dir.mkdir(parents=True)
-    (project_dir / CONSTANTS.CONFIG_CREDENTIALS_FILE).write_text(
-        json.dumps({"aws": {"aws_secret_access_key": "do-not-expose"}}),
-        encoding="utf-8",
-    )
-    (project_dir / "config_credentials.json.example").write_text(
-        json.dumps({"aws": {"aws_access_key_id": "example"}}),
-        encoding="utf-8",
-    )
-    (project_dir / CONSTANTS.CONFIG_FILE).write_text(
-        json.dumps({"digital_twin_name": project_name}),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(project_routes, "get_project_storage", lambda: storage)
-    return project_name
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/projects"),
+        ("POST", "/projects"),
+        ("GET", "/projects/twin/validate"),
+        ("GET", "/projects/twin/config/config"),
+        ("PUT", "/projects/twin/config/config"),
+        ("POST", "/projects/twin/import"),
+        ("GET", "/projects/twin/export"),
+        ("GET", "/projects/twin/summary"),
+        ("GET", "/projects/twin/files"),
+        ("GET", "/projects/twin/files/config.json"),
+        ("PATCH", "/projects/twin/info"),
+        ("PUT", "/projects/twin/state_machines/aws"),
+        ("PUT", "/projects/twin/simulator/payloads"),
+        ("DELETE", "/projects/twin/cleanup/aws-twinmaker"),
+    ],
+)
+def test_product_style_project_surfaces_are_not_routed(method, path):
+    response = client.request(method, path)
+
+    assert response.status_code == 404
 
 
-def test_project_file_tree_hides_runtime_credentials(project_storage):
-    response = client.get(f"/projects/{project_storage}/files")
-
-    assert response.status_code == 200
-    paths = {
-        item["path"] for item in response.json()["files"] if item["type"] == "file"
-    }
-    assert "config_credentials.json" not in paths
-    assert "config_credentials.json.example" in paths
-
-
-def test_project_file_content_blocks_runtime_credentials(project_storage):
-    response = client.get(f"/projects/{project_storage}/files/config_credentials.json")
-
-    assert response.status_code == 403
-    assert "protected" in response.json()["detail"]
-
-
-def test_project_file_content_allows_credential_examples(project_storage):
-    response = client.get(
-        f"/projects/{project_storage}/files/config_credentials.json.example"
-    )
-
-    assert response.status_code == 200
-    assert response.json()["content"]["aws"]["aws_access_key_id"] == "example"
-
-
-def test_project_import_rejects_oversized_upload_before_processing(
+def test_operation_package_rejects_oversized_upload_before_processing(
     monkeypatch,
 ):
-    class ExistingStorage:
+    stage_called = False
+
+    class FakeStore:
         @staticmethod
-        def exists(_project_name):
-            return True
+        def stage(_project_name, _content):
+            nonlocal stage_called
+            stage_called = True
 
-    update_called = False
-
-    def unexpected_update(*_args, **_kwargs):
-        nonlocal update_called
-        update_called = True
-
-    monkeypatch.setattr(project_routes, "get_project_storage", ExistingStorage)
+    monkeypatch.setattr(project_routes, "get_operation_package_store", FakeStore)
     monkeypatch.setattr(project_routes, "MAX_COMPRESSED_ARCHIVE_BYTES", 8)
-    monkeypatch.setattr(
-        project_routes.file_manager,
-        "update_project_from_zip",
-        unexpected_update,
-    )
 
     response = client.post(
-        "/projects/test/import",
+        "/projects/test/operation-package",
         files={"file": ("project.zip", b"123456789", "application/zip")},
     )
 
     assert response.status_code == 413
-    assert update_called is False
+    assert stage_called is False
 
 
-def test_operation_package_endpoint_stages_token_and_persists_project_definition(
-    monkeypatch,
-):
+def test_operation_package_stages_token_and_persists_definition(monkeypatch):
     calls = []
 
     class FakeStore:
@@ -144,7 +106,7 @@ def test_operation_package_endpoint_stages_token_and_persists_project_definition
     assert calls == [("stage", "test_operation", b"deployment-package")]
 
 
-def test_operation_package_endpoint_discards_stage_when_definition_update_fails(
+def test_operation_package_discards_stage_when_definition_update_fails(
     monkeypatch,
 ):
     discarded = []
@@ -187,7 +149,7 @@ def test_operation_package_endpoint_discards_stage_when_definition_update_fails(
     assert discarded == ["opaque-operation-token"]
 
 
-def test_project_delete_invalidates_operation_packages_before_storage(monkeypatch):
+def test_workspace_delete_invalidates_packages_before_storage(monkeypatch):
     calls = []
 
     class FakeOperationStore:
@@ -201,10 +163,14 @@ def test_project_delete_invalidates_operation_packages_before_storage(monkeypatc
             calls.append(("delete_state", project_name))
 
     monkeypatch.setattr(
-        project_routes, "get_operation_package_store", FakeOperationStore
+        project_routes,
+        "get_operation_package_store",
+        FakeOperationStore,
     )
     monkeypatch.setattr(
-        project_routes, "get_runtime_state_store", FakeRuntimeStateStore
+        project_routes,
+        "get_runtime_state_store",
+        FakeRuntimeStateStore,
     )
     monkeypatch.setattr(
         project_routes.file_manager,
@@ -222,7 +188,7 @@ def test_project_delete_invalidates_operation_packages_before_storage(monkeypatc
     ]
 
 
-def test_project_delete_rejects_active_operation(monkeypatch):
+def test_workspace_delete_rejects_active_operation(monkeypatch):
     class ActiveOperationStore:
         @staticmethod
         def discard_project(_project_name):
@@ -231,7 +197,9 @@ def test_project_delete_rejects_active_operation(monkeypatch):
             )
 
     monkeypatch.setattr(
-        project_routes, "get_operation_package_store", ActiveOperationStore
+        project_routes,
+        "get_operation_package_store",
+        ActiveOperationStore,
     )
 
     response = client.delete("/projects/test_operation")

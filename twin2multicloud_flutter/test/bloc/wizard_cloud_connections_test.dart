@@ -78,12 +78,12 @@ void main() {
     );
 
     blocTest<WizardBloc, WizardState>(
-      'wizard inventory excludes pricing-purpose connections',
+      'wizard inventory groups deployment connections by provider',
       build: () {
         when(() => api.listCloudConnections()).thenAnswer(
           (_) async => [
-            _connection('pricing', CloudConnectionPurpose.pricing),
-            _connection('deployment', CloudConnectionPurpose.deployment),
+            _connection('aws-deployment', CloudProvider.aws),
+            _connection('azure-deployment', CloudProvider.azure),
           ],
         );
         return WizardBloc(api: api);
@@ -100,13 +100,13 @@ void main() {
               ?.map((connection) => connection.id)
               .toList(),
           'deployment connection ids',
-          ['deployment'],
+          ['aws-deployment'],
         ),
       ],
     );
 
     blocTest<WizardBloc, WizardState>(
-      'a named twin is proceedable independently of Cloud Connections',
+      'a named twin still requires a persisted active architecture profile',
       build: () => WizardBloc(api: api),
       seed: () => const WizardState(twinName: 'Twin'),
       act: (bloc) => bloc.add(
@@ -122,7 +122,7 @@ void main() {
               'selected aws id',
               'connection-aws',
             )
-            .having((state) => state.canProceedToStep2, 'can proceed', true),
+            .having((state) => state.canProceedToStep2, 'can proceed', false),
       ],
     );
 
@@ -272,11 +272,10 @@ void main() {
   });
 }
 
-CloudConnection _connection(String id, CloudConnectionPurpose purpose) =>
+CloudConnection _connection(String id, CloudProvider provider) =>
     CloudConnection(
       id: id,
-      provider: CloudProvider.aws,
-      purpose: purpose,
+      provider: provider,
       displayName: id,
       authType: 'access_key',
       cloudScope: const {},

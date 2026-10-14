@@ -1,7 +1,4 @@
-"""Immutable architecture-profile contract reader for the Optimizer.
-
-Phase 8.2 deliberately does not connect this reader to calculation paths.
-"""
+"""Immutable Six-layer architecture-contract reader for Optimizer resolution."""
 
 from __future__ import annotations
 
@@ -13,18 +10,19 @@ from types import ModuleType
 from typing import Any, Iterable, Mapping
 
 
-CONTRACT_ROOT = (
+CONTRACT_BUNDLE_ROOT = (
     Path(__file__).resolve().parents[1]
     / "contracts"
     / "generated"
     / "architecture-profiles"
-    / "v1"
 )
+CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v2"
 
 
-def _load_runtime() -> ModuleType:
-    path = CONTRACT_ROOT / "runtime.py"
-    module_name = "_optimizer_architecture_profile_contract_runtime"
+def _load_runtime(version: str) -> ModuleType:
+    root = CONTRACT_BUNDLE_ROOT / version
+    path = root / "runtime.py"
+    module_name = f"_optimizer_architecture_profile_contract_runtime_{version}"
     existing = sys.modules.get(module_name)
     if existing is not None:
         return existing
@@ -37,12 +35,40 @@ def _load_runtime() -> ModuleType:
     return module
 
 
-_runtime = _load_runtime()
-ContractError = _runtime.ContractError
+_runtime = _load_runtime("v2")
 ValidatedContract = _runtime.ValidatedContract
 calculate_digest = _runtime.calculate_digest
 calculate_resolution_id = _runtime.calculate_resolution_id
 canonical_json = _runtime.canonical_json
+
+
+def calculate_document_digest(document: Mapping[str, Any]) -> str:
+    """Calculate a digest with the runtime matching the document version."""
+
+    return _runtime.calculate_digest(document)
+
+
+def calculate_document_resolution_id(document: Mapping[str, Any]) -> str:
+    """Calculate a resolution ID with the matching contract runtime."""
+
+    return _runtime.calculate_resolution_id(document)
+
+
+class ContractError(ValueError):
+    """Version-neutral architecture-contract validation failure."""
+
+    def __init__(self, code: str, path: str, message: str) -> None:
+        super().__init__(message.replace("\n", " ")[:400])
+        self.code = code
+        self.path = path[:240]
+
+
+def _translate(exc: Exception) -> ContractError:
+    return ContractError(
+        str(getattr(exc, "code", "ARCH_SCHEMA_INVALID")),
+        str(getattr(exc, "path", "$")),
+        str(exc),
+    )
 
 
 def read_contract(
@@ -53,13 +79,17 @@ def read_contract(
     correlation_id: str | None = None,
 ) -> Any:
     """Validate a document and return the generated immutable read model."""
-    return _runtime.validate_document(
-        document,
-        bundle_root=CONTRACT_ROOT,
-        linked_documents=linked_documents,
-        logger=logger,
-        correlation_id=correlation_id,
-    )
+    linked = tuple(linked_documents)
+    try:
+        return _runtime.validate_document(
+            document,
+            bundle_root=CONTRACT_ROOT,
+            linked_documents=linked,
+            logger=logger,
+            correlation_id=correlation_id,
+        )
+    except _runtime.ContractError as exc:
+        raise _translate(exc) from exc
 
 
 def read_contract_file(
@@ -87,4 +117,8 @@ def read_contract_file(
 def read_contract_bundle(
     documents: Iterable[Mapping[str, Any]],
 ) -> tuple[Any, ...]:
-    return _runtime.validate_bundle(documents, bundle_root=CONTRACT_ROOT)
+    copied = tuple(documents)
+    try:
+        return tuple(_runtime.validate_bundle(copied, bundle_root=CONTRACT_ROOT))
+    except _runtime.ContractError as exc:
+        raise _translate(exc) from exc

@@ -49,7 +49,7 @@ class ExtensionSlotPanel extends StatelessWidget {
     final phase = state.extensionPhase(slot.slotId);
     final draft = state.extensionDraft(slot.slotId);
     final validation = state.extensionValidation(slot.slotId);
-    final binding = state.extensionBinding(slot.slotId);
+    final userFunction = state.twinUserFunction(slot.slotId);
     final error = state.extensionErrors[slot.slotId];
     return Semantics(
       key: ValueKey('extension-slot-${slot.slotId}'),
@@ -123,25 +123,45 @@ class ExtensionSlotPanel extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: AppSpacing.sm),
-                  ValidationDetails(validation: validation, binding: binding),
+                  ValidationDetails(
+                    validation: validation,
+                    userFunction: userFunction,
+                  ),
                   const SizedBox(height: AppSpacing.md),
                   Align(
                     alignment: compact
                         ? Alignment.centerLeft
                         : Alignment.centerRight,
-                    child: _AsyncActionButton(
-                      key: ValueKey('extension-bind-${slot.slotId}'),
-                      label: binding == null
-                          ? 'Bind validated artifact'
-                          : 'Replace bound artifact',
-                      isLoading: phase == UserFunctionWorkflowPhase.binding,
-                      onPressed:
-                          phase == UserFunctionWorkflowPhase.valid &&
-                              state.twinId != null
-                          ? () => onEvent(
-                              WizardExtensionBindRequested(slot.slotId),
-                            )
-                          : null,
+                    child: Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        if (userFunction != null)
+                          OutlinedButton.icon(
+                            key: ValueKey('extension-delete-${slot.slotId}'),
+                            onPressed: phase == UserFunctionWorkflowPhase.saving
+                                ? null
+                                : () => onEvent(
+                                    WizardExtensionDeleteRequested(slot.slotId),
+                                  ),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Remove function'),
+                          ),
+                        _AsyncActionButton(
+                          key: ValueKey('extension-save-${slot.slotId}'),
+                          label: userFunction == null
+                              ? 'Save function'
+                              : 'Replace function',
+                          isLoading: phase == UserFunctionWorkflowPhase.saving,
+                          onPressed:
+                              phase == UserFunctionWorkflowPhase.valid &&
+                                  state.twinId != null
+                              ? () => onEvent(
+                                  WizardExtensionSaveRequested(slot.slotId),
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -167,8 +187,8 @@ class _StatusHeader extends StatelessWidget {
       UserFunctionWorkflowPhase.validating => 'Validating',
       UserFunctionWorkflowPhase.invalid => 'Invalid',
       UserFunctionWorkflowPhase.valid => 'Valid',
-      UserFunctionWorkflowPhase.binding => 'Binding',
-      UserFunctionWorkflowPhase.bound => 'Bound',
+      UserFunctionWorkflowPhase.saving => 'Saving',
+      UserFunctionWorkflowPhase.saved => 'Saved',
       UserFunctionWorkflowPhase.stale => 'Stale',
       UserFunctionWorkflowPhase.error => 'Error',
     };
@@ -447,12 +467,12 @@ class DynamicConfigurationForm extends StatelessWidget {
 
 class ValidationDetails extends StatelessWidget {
   final UserFunctionValidationResult? validation;
-  final TwinExtensionBinding? binding;
+  final TwinUserFunction? userFunction;
 
   const ValidationDetails({
     super.key,
     required this.validation,
-    required this.binding,
+    required this.userFunction,
   });
 
   @override
@@ -474,12 +494,12 @@ class ValidationDetails extends StatelessWidget {
               leading: const Icon(Icons.check, size: AppSpacing.iconSm),
               title: Text(check.replaceAll('_', ' ')),
             ),
-        if (binding != null)
+        if (userFunction != null)
           ListTile(
             dense: true,
-            leading: const Icon(Icons.link, size: AppSpacing.iconSm),
-            title: Text('Binding revision ${binding!.revision}'),
-            subtitle: Text(binding!.artifactDigest),
+            leading: const Icon(Icons.save_outlined, size: AppSpacing.iconSm),
+            title: const Text('Current Twin function'),
+            subtitle: Text(userFunction!.artifactDigest),
           ),
       ],
     );
@@ -507,8 +527,8 @@ class _AsyncActionButton extends StatelessWidget {
               dimension: AppSpacing.md,
               child: CircularProgressIndicator(strokeWidth: AppSpacing.xxs),
             )
-          : const Icon(Icons.link),
-      label: Text(isLoading ? 'Binding' : label),
+          : const Icon(Icons.save_outlined),
+      label: Text(isLoading ? 'Saving' : label),
     );
   }
 }

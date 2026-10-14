@@ -155,3 +155,72 @@ def test_azure_partial_results_are_retained(monkeypatch):
     assert result.error == "query partially completed"
     assert "isfuzzy=true" in captured["query"]
     assert captured["kwargs"]["timespan"][0] == started_at
+
+
+def test_azure_fetch_queries_each_active_six_layer_workspace(monkeypatch):
+    from azure.monitor import query as monitor_query
+
+    queried = []
+
+    class Credential:
+        def __init__(self, **kwargs):
+            pass
+
+    class Client:
+        def __init__(self, credential):
+            pass
+
+        def query_workspace(self, workspace_id, query, **kwargs):
+            queried.append(workspace_id)
+            return SimpleNamespace(tables=[])
+
+    monkeypatch.setattr("azure.identity.ClientSecretCredential", Credential)
+    monkeypatch.setattr(monitor_query, "LogsQueryClient", Client)
+
+    result = fetchers.fetch_azure_logs(
+        {"six-layer": "workspace-main", "eventing": "workspace-event"},
+        "TRACE-1234ABCD",
+        {},
+        datetime.now(timezone.utc),
+    )
+
+    assert queried == ["workspace-event", "workspace-main"]
+    assert result.error is None
+
+
+def test_gcp_fetch_includes_worker_pool_and_gke_runtime_types(monkeypatch, tmp_path):
+    captured = {}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        def list_entries(self, **kwargs):
+            captured.update(kwargs)
+            return [
+                SimpleNamespace(
+                    payload="TRACE-1234ABCD observed",
+                    timestamp=datetime.now(timezone.utc),
+                    resource=SimpleNamespace(
+                        labels={"worker_pool_name": "factory-eventing-worker"}
+                    ),
+                )
+            ]
+
+    monkeypatch.setattr(
+        fetchers, "parse_gcp_service_account", lambda value: ({}, {}, object())
+    )
+    monkeypatch.setattr(cloud_logging, "Client", Client)
+
+    result = fetchers.fetch_gcp_logs(
+        "factory-project",
+        "TRACE-1234ABCD",
+        {"gcp_credentials_file": "credentials.json"},
+        tmp_path,
+        datetime.now(timezone.utc),
+    )
+
+    assert 'resource.type="cloud_run_workerpool"' in captured["filter_"]
+    assert 'resource.type="k8s_container"' in captured["filter_"]
+    assert result.entries[0].function == "factory-eventing-worker"
+    assert result.entries[0].layer == "EVENT"

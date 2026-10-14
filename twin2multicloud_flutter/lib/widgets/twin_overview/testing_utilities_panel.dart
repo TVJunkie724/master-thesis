@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 class TestingUtilitiesPanel extends StatelessWidget {
   final String provider;
@@ -45,7 +46,7 @@ class TestingUtilitiesPanel extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Validate telemetry flow or run the standalone device simulator.',
+              TwinOverviewStrings.simulatorScope,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -275,6 +276,8 @@ String _traceStatus(TraceViewState trace) => switch (trace.phase) {
   TraceViewPhase.starting => 'Starting the provider trace.',
   TraceViewPhase.streaming => 'Collecting provider logs.',
   TraceViewPhase.completed => 'Trace completed (${trace.totalLogs ?? 0} logs).',
+  TraceViewPhase.partial =>
+    'Trace completed with missing evidence (${trace.totalLogs ?? 0} logs).',
   TraceViewPhase.failed => trace.message ?? 'Trace failed.',
   TraceViewPhase.cancelled => 'Trace cancelled.',
 };

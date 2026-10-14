@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Any
 
-from src.providers.cleanup_observability import CleanupRun
+from src.providers.cleanup_observability import CleanupRun, ProviderCleanupReport
 from src.providers.cleanup_registry import resource_name_owned_by_prefix
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,12 @@ def _delete_or_log(
     resource: str,
     delete,
 ) -> None:
+    context.run.record_discovery(step)
     logger.info("  Found orphan: %s", resource)
     if context.dry_run:
         logger.info("    [DRY RUN] Would delete")
         return
+
     def execute_delete() -> bool:
         delete()
         return True
@@ -73,6 +75,7 @@ def _cleanup_twinmaker(context: _AwsCleanupContext) -> None:
         workspace_id = workspace["workspaceId"]
         if not _owned(workspace_id, context):
             continue
+        context.run.record_discovery("TwinMaker")
         logger.info("  Found orphan: %s", workspace_id)
         if context.dry_run:
             logger.info("    [DRY RUN] Would delete workspace and contents")
@@ -119,7 +122,9 @@ def _delete_twinmaker_workspace(
             break
         time.sleep(3)
     else:
-        raise TimeoutError("TwinMaker entities did not finish deleting within 60 seconds")
+        raise TimeoutError(
+            "TwinMaker entities did not finish deleting within 60 seconds"
+        )
 
     for scene in _items(
         client,
@@ -145,7 +150,9 @@ def _delete_twinmaker_workspace(
     logger.info("    Deleted")
 
 
-def _delete_component_type_with_retry(client, workspace_id: str, component_type_id: str) -> None:
+def _delete_component_type_with_retry(
+    client, workspace_id: str, component_type_id: str
+) -> None:
     for attempt in range(3):
         try:
             client.delete_component_type(
@@ -397,7 +404,7 @@ def cleanup_aws_resources(
     cleanup_identity_user: bool = False,
     platform_user_email: str = "",
     dry_run: bool = False,
-) -> None:
+) -> ProviderCleanupReport:
     """Clean AWS resources and raise one typed aggregate for incomplete work."""
     aws_creds = credentials.get("aws", {})
     region = aws_creds.get("aws_region", "eu-central-1")
@@ -427,3 +434,4 @@ def cleanup_aws_resources(
 
     run.raise_if_failed()
     logger.info("[AWS SDK] Fallback cleanup complete")
+    return run.report()

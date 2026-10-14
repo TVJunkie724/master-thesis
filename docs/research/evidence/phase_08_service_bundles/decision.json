@@ -1,0 +1,80 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "decision",
+  "decision_status": "approved",
+  "approval_scope": "standalone_six_layer_offline_contract_and_capacity",
+  "approved_on": "2026-08-26",
+  "research_cutoff": "2026-08-26",
+  "pre_activation_refreeze": {
+    "refrozen_on": "2026-08-26",
+    "reason": "remove intermediate-profile inheritance and deployment-identity provisioning from the PoC scope",
+    "scope_change": true,
+    "activated_or_deployed_before_refreeze": false
+  },
+  "scope_revision": {
+    "date": "2026-10-08",
+    "reason": "retain L3 reader ownership; add provider-local AWS Lambda and Azure Flex graphical L5 consumers and owner-scoped fixed HTML access; integrated live evidence remains separate from implementation admission",
+    "cloud_execution_authorized": false,
+    "historical_reviews_do_not_verify_current_graphical_l5": true
+  },
+  "regions": {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1"
+  },
+  "profile_decisions": [
+    {
+      "profile_ref": "six-layer-eventing@1",
+      "status": "approved_standalone_poc_profile"
+    }
+  ],
+  "artifact_byte_digests": {
+    "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:e89b43bb77ddaafeaa54463420b2c6292e2c29fd288b67a122884d7e8ca4ba86",
+    "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+    "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:90147e4b992de47533ebe4b91a9634201a1cbd503b957d79631256b4f65c6019",
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:85ae8c0a02290a8b27382172cf5ce6ad7a30c698ca5c9653f943efc67bf7f353",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:23b863a6ac784b97c32ca7279961551aa3e96c8dd84e511848639879865e8438",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:d991c3635456589917ee7bcd692a211bbec51bb12c6c824ca14629686235dbfb",
+    "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
+    "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:b7fba186a5dea6517fcacf8b68827d15a687d4ae5d725d822b84ae61550d6e6a"
+  },
+  "immutable_input_byte_digests": {
+    "docs/research/evidence/phase_08_eventing/decision.json": "sha256:3f74c8325b85581f119cb7f66acd3d2187c1d6ef96f2d442863c08d3f05dabc7",
+    "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
+  },
+  "package_digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90",
+  "reviews": [
+    {
+      "review_id": "six-layer-architecture",
+      "reviewed_on": "2026-08-26",
+      "scope": "standalone Six-layer architecture",
+      "unresolved_findings": 0
+    },
+    {
+      "review_id": "provider-bundles",
+      "reviewed_on": "2026-08-26",
+      "scope": "provider service bundles",
+      "unresolved_findings": 0
+    },
+    {
+      "review_id": "capacity-model",
+      "reviewed_on": "2026-08-26",
+      "scope": "capacity and workload mappings",
+      "unresolved_findings": 0
+    },
+    {
+      "review_id": "pricing-model",
+      "reviewed_on": "2026-08-26",
+      "scope": "pricing ownership and formulas",
+      "unresolved_findings": 0
+    },
+    {
+      "review_id": "iac-boundary",
+      "reviewed_on": "2026-08-26",
+      "scope": "Terraform and runtime ownership",
+      "unresolved_findings": 0
+    }
+  ]
+}

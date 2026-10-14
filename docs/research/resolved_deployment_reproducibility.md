@@ -55,10 +55,10 @@ forbidden as tfvars.
 
 ## Independent Verification Matrix
 
-The new package path requires a resolved architecture, while profile resolution
-defaults to off. The graph compiler is implemented; activation and live runtime
-evidence remain separate. See the current
-[execution boundary](../../docs-site/docs/runtime/known-limitations.md).
+The counts below describe the recorded original specification study, not the
+complete current Six-layer evaluation. New packages require Manifest v3 and
+the pinned resolved architecture. Current activation and measured runtime
+limits are recorded in the [execution plan](../plans/2026-08-26_thesis_poc_execution_plan.md).
 
 The production source of truth is `deployment-dimensions.json`. A separate
 `verification-matrix.json` contains reviewed expected outcomes and is never

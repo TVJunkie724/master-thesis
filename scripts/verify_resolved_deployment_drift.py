@@ -5,17 +5,16 @@ from __future__ import annotations
 
 import argparse
 import base64
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import secrets
 import shlex
 import subprocess
 import sys
 import tempfile
 import time
-from typing import Mapping, Sequence
-
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILE = ROOT / "compose.yaml"
@@ -61,18 +60,13 @@ def _is_truthy(value: str | None) -> bool:
 
 
 def validate_safety(environment: Mapping[str, str]) -> None:
-    """Reject explicit live/E2E modes before starting any subprocess."""
+    """Reject credential-bearing modes before starting any subprocess."""
 
-    if _is_truthy(environment.get("RUN_E2E_TESTS")):
-        raise VerificationConfigurationError(
-            "RUN_E2E_TESTS must be disabled for the deployment contract gate."
-        )
     for key in OVERLAY_ENV_KEYS:
         if _is_truthy(environment.get(key)):
             raise VerificationConfigurationError(
                 f"{key} enables a credential overlay and is forbidden."
             )
-
     compose_files = environment.get("COMPOSE_FILE", "")
     if "compose.cloud.local" in compose_files:
         raise VerificationConfigurationError(
@@ -85,7 +79,7 @@ def sanitized_environment(
     *,
     runtime_secrets_dir: Path,
 ) -> dict[str, str]:
-    """Return an environment without provider credentials or live-test flags."""
+    """Return an environment without provider credentials or cloud overlays."""
 
     sanitized = {
         key: value
@@ -95,7 +89,6 @@ def sanitized_environment(
     }
     sanitized.update(
         {
-            "RUN_E2E_TESTS": "0",
             "THESIS_RUNTIME_SECRETS_DIR": str(runtime_secrets_dir),
             "TF_IN_AUTOMATION": "1",
             "TF_INPUT": "0",
@@ -111,7 +104,6 @@ def create_ephemeral_runtime_secrets(directory: Path) -> None:
 
     directory.mkdir(mode=0o700, parents=True, exist_ok=False)
     values = {
-        "JWT_SECRET_KEY": secrets.token_urlsafe(64),
         "ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(
             "ascii"
         ),
@@ -188,6 +180,29 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             ),
         ),
         Stage(
+            "Phase 8 decision evidence",
+            _compose_run(
+                project,
+                "3cloud-deployer",
+                "sh",
+                "-lc",
+                (
+                    "python scripts/phase_08_eventing/calculate_scenarios.py --check "
+                    "&& python scripts/phase_08_eventing/validate_decision_package.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_eventing/tests -p 'test_*.py' "
+                    "&& python scripts/phase_08_service_bundles/calculate_capacity.py "
+                    "&& python scripts/phase_08_service_bundles/generate_manifests.py "
+                    "&& python scripts/phase_08_service_bundles/freeze_decision.py --check "
+                    "&& python scripts/phase_08_service_bundles/validate_decision_package.py "
+                    "&& python scripts/phase_08_service_bundles/verify_sources.py "
+                    "&& python -m unittest discover "
+                    "-s scripts/phase_08_service_bundles/tests -p 'test_*.py'"
+                ),
+                root_mount=True,
+            ),
+        ),
+        Stage(
             "Canonical contract and root tests",
             _compose_run(
                 project,
@@ -195,18 +210,21 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "sh",
                 "-lc",
                 (
-                    "python scripts/sync_resolved_deployment_contract.py --check "
-                    "&& python scripts/sync_architecture_profile_contracts.py --check "
-                    "&& python scripts/sync_deployment_manifest_contract.py --check "
-                    "&& python scripts/sync_user_function_extension_contracts.py --check "
-                    "&& python -m unittest "
-                    "scripts.tests.test_resolved_deployment_contract_sync "
-                    "scripts.tests.test_architecture_profile_contract_sync "
-                    "scripts.tests.test_user_function_extension_contract_sync "
-                    "scripts.tests.test_verify_resolved_deployment_drift "
-                    "scripts.tests.test_thesis_entrypoint "
-                    "&& python -m pytest -q "
-                    "scripts/tests/test_deployment_manifest_contract_sync.py"
+                    "python scripts/sync_user_function_extension_contracts.py --check "
+                    "&& python scripts/sync_deployment_access_contracts.py --check "
+                    "&& python scripts/sync_six_layer_workload_contract.py --check "
+                    "&& python scripts/sync_six_layer_contracts.py --check "
+                    "&& python scripts/validate_live_evaluation_plan.py "
+                    "&& python -m pytest -q -p no:cacheprovider "
+                    "scripts/tests/test_user_function_extension_contract_sync.py "
+                    "scripts/tests/test_deployment_access_contract_sync.py "
+                    "scripts/tests/test_six_layer_workload_contract.py "
+                    "scripts/tests/test_six_layer_contracts.py "
+                    "scripts/tests/test_manage_live_evaluation_evidence.py "
+                    "scripts/tests/test_manage_live_evaluation_metrics.py "
+                    "scripts/tests/test_validate_live_evaluation_plan.py "
+                    "scripts/tests/test_verify_resolved_deployment_drift.py "
+                    "scripts/tests/test_thesis_entrypoint.py"
                 ),
                 root_mount=True,
             ),
@@ -219,18 +237,17 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 "sh",
                 "-lc",
                 (
-                    "cd /app "
-                    "&& python /workspace/scripts/"
-                    "generate_deployment_manifest_fixtures.py --check "
-                    "&& python -m pytest -q "
-                    "tests/unit/calculation_v2/"
-                    "test_deployment_drift_matrix.py "
-                    "tests/unit/test_resolved_deployment_contract.py"
+                    "cd /workspace "
+                    "&& PYTHONPATH=/app:/workspace python -m pytest -q "
+                    "/app/tests/unit/architecture_profiles/test_contracts.py "
+                    "/app/tests/unit/architecture_profiles/"
+                    "test_six_layer_optimizer.py "
+                    "scripts/tests/"
+                    "test_materialize_live_evaluation_candidate.py "
+                    "scripts/tests/test_review_live_evaluation_budget.py"
                 ),
                 root_mount=True,
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
-                ),
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -238,14 +255,19 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
             _compose_run(
                 project,
                 "management-api",
-                "python",
-                "-m",
-                "pytest",
-                "-q",
-                "tests/test_deployment_drift_matrix.py",
-                "tests/test_resolved_deployment_contract.py",
-                "tests/test_resolved_deployment_specification_service.py",
-                "tests/test_user_function_extension_contract.py",
+                "sh",
+                "-lc",
+                (
+                    "cd /app "
+                    "&& python -m pytest -q "
+                    "tests/test_resolved_architecture_service.py "
+                    "tests/test_resolved_deployment_contract.py "
+                    "tests/test_resolved_deployment_specification_service.py "
+                    "tests/test_user_function_extension_contract.py "
+                    "&& cd /workspace "
+                    "&& python scripts/verify_six_layer_management_boundary.py"
+                ),
+                root_mount=True,
                 environment=(
                     "APP_ENV=test",
                     "DEBUG=false",
@@ -267,15 +289,20 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 (
                     "terraform fmt -check -recursive src/terraform "
                     "&& python -m pytest -q "
-                    "tests/unit/deployment_specification/"
-                    "test_deployment_drift_matrix.py "
+                    "tests/unit/architecture_profiles/"
+                    "test_graph_requirements.py "
                     "tests/unit/architecture_profiles/"
                     "test_graph_resolver.py "
                     "tests/unit/terraform/"
                     "test_graph_compatibility_projection.py "
                     "tests/unit/test_operation_packages.py "
                     "tests/unit/terraform/test_build_all_packages.py "
-                    "tests/unit/terraform/test_deployment_target_bindings.py "
+                    "tests/unit/terraform/"
+                    "test_aws_deployment_specification_contract.py "
+                    "tests/unit/terraform/"
+                    "test_azure_deployment_specification_contract.py "
+                    "tests/unit/terraform/"
+                    "test_gcp_deployment_specification_contract.py "
                     "tests/unit/terraform/test_native_mock_plans.py "
                     "tests/unit/terraform/test_tfvars_generator.py "
                     "tests/unit/test_resolved_deployment_contract.py "
@@ -284,6 +311,7 @@ def focused_stages(project: str) -> tuple[Stage, ...]:
                 environment=(
                     "DEPLOYER_RUNTIME_STATE_ROOT=/tmp/deployment-contract-state",
                 ),
+                root_mount=True,
             ),
         ),
     )
@@ -317,9 +345,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "&& python -m compileall -q api backend rest_api.py "
                     "&& python -m pip check"
                 ),
-                environment=(
-                    "PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",
-                ),
+                environment=("PRICING_CATALOG_STORE_ROOT=/tmp/pricing-catalogs",),
             ),
         ),
         Stage(
@@ -330,7 +356,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                 "sh",
                 "-lc",
                 (
-                    "python -m pytest tests --ignore=tests/e2e -q "
+                    "python -m pytest tests -q "
                     "&& ruff check src migrations scripts tests "
                     "&& python -m bandit -q -r src migrations scripts "
                     "&& python -m compileall -q src migrations scripts "
@@ -343,6 +369,7 @@ def full_stages(project: str) -> tuple[Stage, ...]:
                     "UPLOAD_DIR=/tmp/deployment-contract-full-uploads",
                     "SEED_DATA=false",
                     "ENABLE_TEST_ENDPOINTS=false",
+                    "PIP_CACHE_DIR=/tmp/management-pip-cache",
                 ),
                 user=_host_user_spec(),
             ),
@@ -431,8 +458,7 @@ def run_stages(
         elapsed = time.monotonic() - stage_started
         if result.returncode != 0:
             print(
-                f"FAILED: {stage.name} after {elapsed:.1f}s\n"
-                f"Command: {rendered}",
+                f"FAILED: {stage.name} after {elapsed:.1f}s\nCommand: {rendered}",
                 file=sys.stderr,
                 flush=True,
             )

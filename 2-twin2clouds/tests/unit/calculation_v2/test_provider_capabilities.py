@@ -41,14 +41,13 @@ def test_capability_registry_matches_calculator_contracts():
             )
 
 
-def test_gcp_l4_and_l5_are_explicitly_planned_but_not_available():
+def test_gcp_l4_and_l5_are_explicitly_unsupported():
     contract = get_provider_capabilities()
     gcp = next(item for item in contract.providers if item.provider == "gcp")
 
     for layer_id in ("l4", "l5"):
         layer = next(item for item in gcp.layers if item.layer == layer_id)
         assert layer.availability is CapabilityAvailability.UNSUPPORTED
-        assert layer.roadmap.value == "planned"
         assert layer.reason_code == "CALCULATION_NOT_IMPLEMENTED"
         assert layer.verification_level is CapabilityVerificationLevel.NOT_VERIFIED
 

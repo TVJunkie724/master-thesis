@@ -2,6 +2,8 @@
 // State classes for the twin overview BLoC
 
 import 'package:equatable/equatable.dart';
+import '../../models/cleanup_evidence.dart';
+import '../../models/deployment_access.dart';
 import '../../models/deployment_readiness.dart';
 import '../../models/deployment_operations.dart';
 import '../../models/deployer_config.dart';
@@ -186,7 +188,15 @@ class DeploymentReadinessViewState extends Equatable {
   List<Object?> get props => [phase, snapshot, errorMessage];
 }
 
-enum TraceViewPhase { idle, starting, streaming, completed, failed, cancelled }
+enum TraceViewPhase {
+  idle,
+  starting,
+  streaming,
+  completed,
+  partial,
+  failed,
+  cancelled,
+}
 
 class TraceViewState extends Equatable {
   static const maxDiagnosticEntries = 500;
@@ -329,6 +339,50 @@ class SimulatorDownloadViewState extends Equatable {
   List<Object?> get props => [phase, filename, provider, message, requestToken];
 }
 
+enum LayerAccessViewPhase { idle, loading, ready, unsupported, failed }
+
+class LayerAccessViewState extends Equatable {
+  final LayerAccessViewPhase phase;
+  final DeploymentAccessSnapshot? snapshot;
+  final String? errorMessage;
+
+  const LayerAccessViewState({
+    this.phase = LayerAccessViewPhase.idle,
+    this.snapshot,
+    this.errorMessage,
+  });
+
+  factory LayerAccessViewState.fromSnapshot(DeploymentAccessSnapshot snapshot) {
+    return LayerAccessViewState(
+      phase: snapshot.availability == DeploymentAccessAvailability.available
+          ? LayerAccessViewPhase.ready
+          : LayerAccessViewPhase.unsupported,
+      snapshot: snapshot,
+    );
+  }
+
+  bool get hasAvailableSurfaces =>
+      phase == LayerAccessViewPhase.ready &&
+      snapshot?.availability == DeploymentAccessAvailability.available;
+
+  LayerAccessViewState copyWith({
+    LayerAccessViewPhase? phase,
+    DeploymentAccessSnapshot? snapshot,
+    String? errorMessage,
+    bool clearSnapshot = false,
+    bool clearError = false,
+  }) {
+    return LayerAccessViewState(
+      phase: phase ?? this.phase,
+      snapshot: clearSnapshot ? null : (snapshot ?? this.snapshot),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    );
+  }
+
+  @override
+  List<Object?> get props => [phase, snapshot, errorMessage];
+}
+
 abstract class TwinOverviewState extends Equatable {
   const TwinOverviewState();
 
@@ -357,6 +411,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String projectName;
   final String? cloudResourceName;
   final String twinState;
+  final bool hasBeenDeployed;
 
   // Calculated permissions based on state
   final bool canDeploy;
@@ -365,6 +420,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final bool canDelete;
 
   final DeploymentReadinessViewState deploymentReadiness;
+  final LayerAccessViewState layerAccess;
 
   // Deployment operation and independent testing utility states
   final DeploymentOperationViewState deploymentOperation;
@@ -387,16 +443,22 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final DeploymentOutputsSnapshot? deploymentOutputs;
   final String? outputsError;
 
+  // Persisted proof from the latest destroy operation.
+  final CleanupEvidence? cleanupEvidence;
+  final String? cleanupEvidenceError;
+
   const TwinOverviewLoaded({
     required this.twinId,
     required this.projectName,
     this.cloudResourceName,
     required this.twinState,
+    this.hasBeenDeployed = false,
     required this.canDeploy,
     required this.canDestroy,
     required this.canEdit,
     required this.canDelete,
     this.deploymentReadiness = const DeploymentReadinessViewState.initial(),
+    this.layerAccess = const LayerAccessViewState(),
     this.deploymentOperation = const DeploymentOperationViewState(),
     this.trace = const TraceViewState(),
     this.simulatorDownload = const SimulatorDownloadViewState(),
@@ -409,6 +471,8 @@ class TwinOverviewLoaded extends TwinOverviewState {
     this.infoMessage,
     this.deploymentOutputs,
     this.outputsError,
+    this.cleanupEvidence,
+    this.cleanupEvidenceError,
   });
 
   bool get isDeploying =>
@@ -431,11 +495,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? projectName,
     String? cloudResourceName,
     String? twinState,
+    bool? hasBeenDeployed,
     bool? canDeploy,
     bool? canDestroy,
     bool? canEdit,
     bool? canDelete,
     DeploymentReadinessViewState? deploymentReadiness,
+    LayerAccessViewState? layerAccess,
     DeploymentOperationViewState? deploymentOperation,
     TraceViewState? trace,
     SimulatorDownloadViewState? simulatorDownload,
@@ -448,23 +514,29 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? infoMessage,
     DeploymentOutputsSnapshot? deploymentOutputs,
     String? outputsError,
+    CleanupEvidence? cleanupEvidence,
+    String? cleanupEvidenceError,
     bool clearSuccess = false,
     bool clearError = false,
     bool clearInfo = false,
     bool clearOutputsError = false,
     bool clearLastError = false,
     bool clearDeploymentOutputs = false,
+    bool clearCleanupEvidence = false,
+    bool clearCleanupEvidenceError = false,
   }) {
     return TwinOverviewLoaded(
       twinId: twinId ?? this.twinId,
       projectName: projectName ?? this.projectName,
       cloudResourceName: cloudResourceName ?? this.cloudResourceName,
       twinState: twinState ?? this.twinState,
+      hasBeenDeployed: hasBeenDeployed ?? this.hasBeenDeployed,
       canDeploy: canDeploy ?? this.canDeploy,
       canDestroy: canDestroy ?? this.canDestroy,
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
       deploymentReadiness: deploymentReadiness ?? this.deploymentReadiness,
+      layerAccess: layerAccess ?? this.layerAccess,
       deploymentOperation: deploymentOperation ?? this.deploymentOperation,
       trace: trace ?? this.trace,
       simulatorDownload: simulatorDownload ?? this.simulatorDownload,
@@ -483,6 +555,12 @@ class TwinOverviewLoaded extends TwinOverviewState {
       outputsError: clearOutputsError
           ? null
           : (outputsError ?? this.outputsError),
+      cleanupEvidence: clearCleanupEvidence
+          ? null
+          : (cleanupEvidence ?? this.cleanupEvidence),
+      cleanupEvidenceError: clearCleanupEvidenceError
+          ? null
+          : (cleanupEvidenceError ?? this.cleanupEvidenceError),
     );
   }
 
@@ -492,11 +570,13 @@ class TwinOverviewLoaded extends TwinOverviewState {
     projectName,
     cloudResourceName,
     twinState,
+    hasBeenDeployed,
     canDeploy,
     canDestroy,
     canEdit,
     canDelete,
     deploymentReadiness,
+    layerAccess,
     deploymentOperation,
     trace,
     simulatorDownload,
@@ -509,5 +589,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     infoMessage,
     deploymentOutputs,
     outputsError,
+    cleanupEvidence,
+    cleanupEvidenceError,
   ];
 }

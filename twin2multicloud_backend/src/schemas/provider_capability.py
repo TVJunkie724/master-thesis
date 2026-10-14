@@ -32,11 +32,6 @@ class CapabilityAvailability(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
-class CapabilityRoadmap(str, Enum):
-    NONE = "none"
-    PLANNED = "planned"
-
-
 class CapabilityVerificationLevel(str, Enum):
     NOT_VERIFIED = "not_verified"
     CONTRACT_TESTED = "contract_tested"
@@ -48,7 +43,6 @@ class ServiceLayerCapability(BaseModel):
 
     layer: LayerId
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap
     reason_code: str | None
     reason: str | None
     verification_level: CapabilityVerificationLevel
@@ -58,7 +52,7 @@ class ServiceLayerCapability(BaseModel):
         has_reason = bool((self.reason or "").strip())
         has_code = bool((self.reason_code or "").strip())
         if self.availability is CapabilityAvailability.AVAILABLE:
-            if has_reason or has_code or self.roadmap is not CapabilityRoadmap.NONE:
+            if has_reason or has_code:
                 raise ValueError("Available capability metadata is inconsistent")
         elif not has_reason or not has_code:
             raise ValueError("Unavailable capabilities require a reason code and reason")
@@ -97,7 +91,6 @@ class CapabilitySource(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap
     reason_code: str | None
     reason: str | None
     verification_level: CapabilityVerificationLevel
@@ -115,7 +108,6 @@ class PlatformLayerCapability(BaseModel):
 
     layer: LayerId
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap
     reason_code: str | None
     reason: str | None
     selectable: bool

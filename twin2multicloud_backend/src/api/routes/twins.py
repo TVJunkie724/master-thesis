@@ -2,22 +2,30 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.api.upload_limits import UploadLimitExceeded, read_upload_bounded
 from src.models.database import get_db
-from src.models.twin import DigitalTwin
+from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.schemas.management_contracts import MessageResponse
 from src.schemas.twin import TwinCreate, TwinResponse, TwinUpdate
+from src.schemas.twin_transfer import TwinDuplicateRequest
 from src.services.configuration_validation_service import ConfigurationValidationService
 from src.services.errors import ConfigurationValidationFailed
-from src.services.service_errors import ConflictError, DownstreamServiceError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    DownstreamServiceError,
+    EntityNotFoundError,
+    ValidationError,
+)
+from src.services.twin_export_service import MAX_ARCHIVE_BYTES, TwinExportService
 from src.services.twin_lifecycle_service import TwinLifecycleService, TwinReadService
 
 router = APIRouter(prefix="/twins", tags=["twins"])
@@ -31,6 +39,10 @@ def _twin_read_service(db: Session) -> TwinReadService:
 def _twin_lifecycle_service(db: Session) -> TwinLifecycleService:
     """Build the write-side twin lifecycle service for this request."""
     return TwinLifecycleService(db=db, twin_repository=TwinRepository(db))
+
+
+def _twin_transfer_service(db: Session) -> TwinExportService:
+    return TwinExportService(db=db, twin_repository=TwinRepository(db))
 
 
 def _raise_service_http_error(exc: Exception) -> None:
@@ -51,7 +63,7 @@ def _raise_service_http_error(exc: Exception) -> None:
     response_model=List[TwinResponse],
     operation_id="listDigitalTwins",
     summary="List all digital twins for current user",
-    description="Returns all active Digital Twins owned by the authenticated user for dashboard and overview screens.",
+    description="Returns all active Digital Twins owned by the authenticated user for selection and lifecycle workflows.",
     responses={401: ERROR_RESPONSES[401]},
 )
 async def list_twins(
@@ -86,6 +98,46 @@ async def create_twin(
         _raise_service_http_error(exc)
 
 
+@router.post(
+    "/import",
+    response_model=TwinResponse,
+    operation_id="importPortableDigitalTwin",
+    summary="Import a portable Twin definition",
+    description=(
+        "Validates a versioned credential-free .twin.zip archive and creates a new DRAFT "
+        "Twin. Cloud Connections, optimizer results, deployments, and history are never imported."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        409: {"description": "Twin with this name already exists"},
+    },
+)
+async def import_twin(
+    new_name: Annotated[str, Form(min_length=1, max_length=120)],
+    archive: Annotated[UploadFile, File(description="Portable .twin.zip archive")],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    filename = (archive.filename or "").lower()
+    if not filename.endswith(".twin.zip"):
+        raise HTTPException(status_code=400, detail="Expected a .twin.zip archive")
+    try:
+        content = await read_upload_bounded(archive, max_bytes=MAX_ARCHIVE_BYTES)
+        return _twin_transfer_service(db).import_twin(
+            content,
+            current_user.id,
+            new_name,
+        )
+    except UploadLimitExceeded as exc:
+        raise HTTPException(
+            status_code=413,
+            detail="Portable Twin archive is too large",
+        ) from exc
+    except (ConflictError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
 @router.get(
     "/{twin_id}",
     response_model=TwinResponse,
@@ -106,15 +158,45 @@ async def get_twin(
         _raise_service_http_error(exc)
 
 
+@router.post(
+    "/{twin_id}/duplicate",
+    response_model=TwinResponse,
+    operation_id="duplicateDigitalTwin",
+    summary="Duplicate a Twin as a new draft",
+    description=(
+        "Copies authored Twin inputs and the optional scene under a required new name. "
+        "Same-owner Cloud Connection selections are retained, while validation evidence, "
+        "optimizer results, operations, and deployment history are reset."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: {"description": "Twin with this name already exists"},
+    },
+)
+async def duplicate_twin(
+    twin_id: str,
+    request: TwinDuplicateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _twin_transfer_service(db).duplicate_twin(
+            twin_id,
+            current_user.id,
+            request.name,
+        )
+    except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
 @router.put(
     "/{twin_id}",
     response_model=TwinResponse,
     operation_id="updateDigitalTwin",
     summary="Update a digital twin",
-    description=(
-        "Updates twin name and/or lifecycle state. Transitioning to CONFIGURED runs distributed "
-        "Optimizer and Deployer validation before persisting the state change."
-    ),
+    description="Renames an editable draft Twin. Lifecycle state is controlled by explicit operations.",
     responses={
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
@@ -128,16 +210,48 @@ async def update_twin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update twin name and/or lifecycle state."""
+    """Rename an editable draft Twin."""
     try:
         return await _twin_lifecycle_service(db).update_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             name=update.name,
-            state=update.state,
+            state=None,
             configured_validator=_validate_configured_transition,
         )
     except (ConflictError, EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/configure",
+    response_model=TwinResponse,
+    operation_id="configureDigitalTwin",
+    summary="Validate and configure a draft Twin",
+    description=(
+        "Runs the distributed configuration validation and transitions an editable draft "
+        "Twin to CONFIGURED. Deployment and destroy states cannot be set by clients."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def configure_twin(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _twin_lifecycle_service(db).update_twin(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            name=None,
+            state=TwinState.CONFIGURED,
+            configured_validator=_validate_configured_transition,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 
 
@@ -175,5 +289,5 @@ async def delete_twin(
     """Soft-delete a twin and clean up its uploaded scene file."""
     try:
         return _twin_lifecycle_service(db).delete_twin(twin_id, current_user.id)
-    except EntityNotFoundError as exc:
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)

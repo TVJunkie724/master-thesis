@@ -247,7 +247,10 @@ Map<String, dynamic> _optimizerRunJson(
   'deployment_compatibility_status': 'ready',
   'deployment_specification_digest':
       TypedApiFixtures.deploymentSpecificationJson(runId: runId)['digest'],
-  'deployment_specification_version': 'resolved-deployment-specification.v1',
+  'deployment_specification_version':
+      TypedApiFixtures.deploymentSpecificationJson(
+        runId: runId,
+      )['schema_version'],
   'resolved_deployment_specification':
       TypedApiFixtures.deploymentSpecificationJson(runId: runId),
   'selected_for_deployment_at': null,

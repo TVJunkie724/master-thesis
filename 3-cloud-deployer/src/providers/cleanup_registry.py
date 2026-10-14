@@ -10,6 +10,9 @@ from dataclasses import dataclass
 import re
 from typing import Callable
 
+from src.providers.cleanup_observability import ProviderCleanupReport
+
+
 @dataclass(frozen=True)
 class CleanupRequest:
     """Inputs required to clean provider resources for one twin prefix."""
@@ -22,25 +25,25 @@ class CleanupRequest:
     dry_run: bool = False
 
 
-def cleanup_aws_resources(*args, **kwargs) -> None:
+def cleanup_aws_resources(*args, **kwargs) -> ProviderCleanupReport:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
     from src.providers.aws.cleanup import cleanup_aws_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    return provider_cleanup(*args, **kwargs)
 
 
-def cleanup_azure_resources(*args, **kwargs) -> None:
+def cleanup_azure_resources(*args, **kwargs) -> ProviderCleanupReport:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
     from src.providers.azure.cleanup import cleanup_azure_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    return provider_cleanup(*args, **kwargs)
 
 
-def cleanup_gcp_resources(*args, **kwargs) -> None:
+def cleanup_gcp_resources(*args, **kwargs) -> ProviderCleanupReport:
     """Lazy wrapper kept monkeypatchable for tests and integration seams."""
     from src.providers.gcp.cleanup import cleanup_gcp_resources as provider_cleanup
 
-    provider_cleanup(*args, **kwargs)
+    return provider_cleanup(*args, **kwargs)
 
 
 def resource_name_owned_by_prefix(
@@ -61,7 +64,9 @@ def resource_name_owned_by_prefix(
 
     for candidate in candidates:
         for variant in variants:
-            if candidate == variant or candidate.startswith((f"{variant}-", f"{variant}_")):
+            if candidate == variant or candidate.startswith(
+                (f"{variant}-", f"{variant}_")
+            ):
                 return True
             if allow_embedded and re.search(
                 rf"(?:^|[-_/]){re.escape(variant)}(?:$|[-_/])",
@@ -72,8 +77,7 @@ def resource_name_owned_by_prefix(
     if allow_compact:
         compact_prefix = prefix.replace("-", "").replace("_", "")
         return any(
-            candidate.startswith(f"{compact_prefix}st")
-            for candidate in candidates
+            candidate.startswith(f"{compact_prefix}st") for candidate in candidates
         )
     return False
 
@@ -86,8 +90,8 @@ def normalize_cleanup_provider(provider: str) -> str:
     return provider_name
 
 
-def _cleanup_aws(request: CleanupRequest) -> None:
-    cleanup_aws_resources(
+def _cleanup_aws(request: CleanupRequest) -> ProviderCleanupReport:
+    return cleanup_aws_resources(
         request.credentials,
         request.prefix,
         cleanup_identity_user=request.cleanup_identity_user,
@@ -96,8 +100,8 @@ def _cleanup_aws(request: CleanupRequest) -> None:
     )
 
 
-def _cleanup_azure(request: CleanupRequest) -> None:
-    cleanup_azure_resources(
+def _cleanup_azure(request: CleanupRequest) -> ProviderCleanupReport:
+    return cleanup_azure_resources(
         request.credentials,
         request.prefix,
         cleanup_entra_user=request.cleanup_identity_user,
@@ -106,15 +110,18 @@ def _cleanup_azure(request: CleanupRequest) -> None:
     )
 
 
-def _cleanup_gcp(request: CleanupRequest) -> None:
-    cleanup_gcp_resources(
+def _cleanup_gcp(request: CleanupRequest) -> ProviderCleanupReport:
+    return cleanup_gcp_resources(
         request.credentials,
         request.prefix,
         dry_run=request.dry_run,
     )
 
 
-_CLEANUP_DISPATCHERS: dict[str, Callable[[CleanupRequest], None]] = {
+_CLEANUP_DISPATCHERS: dict[
+    str,
+    Callable[[CleanupRequest], ProviderCleanupReport],
+] = {
     "aws": _cleanup_aws,
     "azure": _cleanup_azure,
     "gcp": _cleanup_gcp,
@@ -126,7 +133,7 @@ def supported_cleanup_providers() -> tuple[str, ...]:
     return tuple(sorted(_CLEANUP_DISPATCHERS.keys()))
 
 
-def cleanup_provider_resources(request: CleanupRequest) -> None:
+def cleanup_provider_resources(request: CleanupRequest) -> ProviderCleanupReport:
     """Run provider-specific cleanup through the central registry."""
     provider = normalize_cleanup_provider(request.provider)
     dispatcher = _CLEANUP_DISPATCHERS.get(provider)
@@ -145,7 +152,7 @@ def cleanup_provider_resources(request: CleanupRequest) -> None:
             f"{provider.upper()} cleanup request must contain only scoped {provider} credentials"
         )
 
-    dispatcher(
+    report = dispatcher(
         CleanupRequest(
             provider=provider,
             credentials=request.credentials,
@@ -155,3 +162,12 @@ def cleanup_provider_resources(request: CleanupRequest) -> None:
             dry_run=request.dry_run,
         )
     )
+    if report is None:
+        # Compatibility for injected test doubles. Production providers always
+        # return a report, so a real inventory can never silently become empty.
+        return ProviderCleanupReport(provider, 0, ())
+    if not isinstance(report, ProviderCleanupReport):
+        raise ValueError("Provider cleanup returned an invalid report")
+    if report.provider != provider:
+        raise ValueError("Cleanup report provider does not match its request")
+    return report

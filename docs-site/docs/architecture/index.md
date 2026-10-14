@@ -23,4 +23,4 @@ Read in this order:
 
 For activation and verification boundaries, see
 [Results and Limits](../runtime/known-limitations.md). Ownership and security
-details remain under Reference.
+details remain in the linked architecture reference pages.

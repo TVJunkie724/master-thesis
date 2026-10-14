@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import json
+from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Iterator
 
@@ -159,14 +161,46 @@ def cleanup_twinmaker_entities(
                     break
 
 
+def disable_owned_sns_archives(context, state_path: Path | None, *, dry_run: bool) -> None:
+    """SNS requires archive removal before deletion; use only this run's state."""
+    credentials = context.credentials.get("aws", {})
+    if not credentials or state_path is None or not Path(state_path).is_file():
+        return
+    state = json.loads(Path(state_path).read_text())
+    topics = []
+    for resource in state.get("resources", []):
+        if resource.get("mode") != "managed" or resource.get("type") != "aws_sns_topic":
+            continue
+        for instance in resource.get("instances", []):
+            attributes = instance.get("attributes", {})
+            arn = attributes.get("arn", "")
+            if attributes.get("archive_policy") and resource_name_owned_by_prefix(
+                arn.rsplit(":", 1)[-1], context.config.digital_twin_name
+            ):
+                topics.append(arn)
+    if dry_run or not topics:
+        return
+    import boto3
+    client = boto3.client(
+        "sns", region_name=credentials["aws_region"],
+        aws_access_key_id=credentials["aws_access_key_id"],
+        aws_secret_access_key=credentials["aws_secret_access_key"],
+        aws_session_token=credentials.get("aws_session_token"),
+    )
+    for arn in topics:
+        client.set_topic_attributes(TopicArn=arn, AttributeName="ArchivePolicy", AttributeValue="{}")
+
+
 def run_pre_destroy_cleanup(
     context: "DeploymentContext",
     providers_config: dict,
     *,
     dry_run: bool,
+    state_path: Path | None = None,
 ) -> None:
     """Run independent pre-destroy cleanup steps without hiding diagnostics."""
     steps = (
+        ("SNS archives", lambda: disable_owned_sns_archives(context, state_path, dry_run=dry_run)),
         (
             "TwinMaker",
             lambda: cleanup_twinmaker_entities(

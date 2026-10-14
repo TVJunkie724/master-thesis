@@ -1,5 +1,5 @@
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.schemas.twin_config import AWSCredentials, AzureCredentials, GCPCredentials
 
 CloudProvider = Literal["aws", "azure", "gcp"]
-CloudConnectionPurpose = Literal["pricing", "deployment"]
+CloudConnectionPurpose = Literal["deployment"]
 CloudConnectionScope = Literal["user"]
 CloudAuthType = Literal[
     "access_key",
@@ -17,21 +17,15 @@ CloudAuthType = Literal[
     "workload_identity",
 ]
 
+
 class CloudConnectionCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     provider: CloudProvider
     purpose: CloudConnectionPurpose = "deployment"
     scope: CloudConnectionScope = "user"
-    is_default_for_pricing: bool = False
     display_name: str = Field(..., min_length=1, max_length=120)
     auth_type: CloudAuthType | None = None
-    permission_set_version: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=80,
-        description="Versioned deployment permission-set baseline for this connection.",
-    )
     cloud_scope: dict[str, Any] = Field(default_factory=dict)
     aws: AWSCredentials | None = None
     azure: AzureCredentials | None = None
@@ -44,7 +38,8 @@ class CloudConnectionCreate(BaseModel):
             raise ValueError(f"{self.provider} payload is required")
 
         extra_payloads = [
-            provider for provider, provider_payload in payload.items()
+            provider
+            for provider, provider_payload in payload.items()
             if provider != self.provider and provider_payload is not None
         ]
         if extra_payloads:
@@ -56,9 +51,13 @@ class CloudConnectionCreate(BaseModel):
             "gcp": {"service_account_key"},
         }
         if self.auth_type and self.auth_type not in supported_auth_types[self.provider]:
-            raise ValueError(f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet")
+            raise ValueError(
+                f"{self.auth_type} is not supported for {self.provider} Cloud Connections yet"
+            )
         if self.provider == "gcp" and self.gcp and not self.gcp.service_account_json:
-            raise ValueError("gcp service_account_json is required for service_account_key Cloud Connections")
+            raise ValueError(
+                "gcp service_account_json is required for service_account_key Cloud Connections"
+            )
         if self.provider == "aws" and self.aws:
             cloud_scope = dict(self.cloud_scope)
             configured_region = str(cloud_scope.get("region") or "").strip()
@@ -76,13 +75,38 @@ class CloudConnectionCreate(BaseModel):
                     )
                 cloud_scope["account_id"] = normalized_account_id
             self.cloud_scope = cloud_scope
-        if self.purpose == "pricing":
-            if self.provider == "azure":
-                raise ValueError("Azure pricing uses the public Retail Prices API")
-            if self.permission_set_version is not None:
-                raise ValueError("permission_set_version is only supported for deployment Cloud Connections")
-        elif self.is_default_for_pricing:
-            raise ValueError("Only pricing Cloud Connections may be selected as pricing default")
+        return self
+
+
+class CloudConnectionImportMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: CloudProvider
+    purpose: CloudConnectionPurpose = "deployment"
+    display_name: str = Field(min_length=1, max_length=120)
+    region: str = Field(min_length=1, max_length=80)
+    target_scope_id: str | None = Field(default=None, min_length=1, max_length=256)
+    account_id: str | None = Field(default=None, pattern=r"^\d{12}$")
+    sso_region: str | None = Field(default=None, min_length=1, max_length=80)
+    region_iothub: str | None = Field(default=None, min_length=1, max_length=80)
+    region_digital_twin: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=80,
+    )
+    @model_validator(mode="after")
+    def validate_target_scope(self):
+        if self.provider in {"azure", "gcp"} and not self.target_scope_id:
+            raise ValueError(
+                "target_scope_id is required for Azure subscriptions and GCP projects"
+            )
+        if self.provider != "aws" and (self.account_id or self.sso_region):
+            raise ValueError("AWS import metadata is only valid for AWS")
+        if self.provider != "azure" and (
+            self.region_iothub
+            or self.region_digital_twin
+        ):
+            raise ValueError("Azure region overrides are only valid for Azure")
         return self
 
 
@@ -90,9 +114,7 @@ class CloudConnectionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
-    permission_set_version: str | None = Field(default=None, min_length=1, max_length=80)
     cloud_scope: dict[str, Any] | None = None
-    is_default_for_pricing: bool | None = None
 
 
 class CloudConnectionResponse(BaseModel):
@@ -102,10 +124,8 @@ class CloudConnectionResponse(BaseModel):
     provider: CloudProvider
     purpose: CloudConnectionPurpose
     scope: CloudConnectionScope
-    is_default_for_pricing: bool
     display_name: str
     auth_type: str
-    permission_set_version: str | None = None
     cloud_scope: dict[str, Any]
     payload_fingerprint: str
     payload_summary: dict[str, Any]
@@ -123,12 +143,11 @@ class CloudConnectionValidationResponse(BaseModel):
     valid: bool
     validation_status: str
     message: str
-    optimizer: dict[str, Any] | None = None
     deployer: dict[str, Any] | None = None
 
 
 class CloudPreflightCheck(BaseModel):
-    component: Literal["optimizer", "deployer"]
+    component: str = Field(pattern=r"^deployer(?:\.[A-Za-z0-9_.-]+)?$")
     status: Literal["passed", "failed"]
     code: str
     message: str
@@ -139,9 +158,6 @@ class CloudPreflightCheck(BaseModel):
 class CloudConnectionPreflightResponse(BaseModel):
     id: str
     provider: CloudProvider
-    expected_permission_set_version: str
-    supplied_permission_set_version: str | None = None
-    permission_set_status: Literal["matched", "missing", "outdated"]
     ready: bool
     summary: str
     checks: list[CloudPreflightCheck]

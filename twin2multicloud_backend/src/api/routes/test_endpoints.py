@@ -2,38 +2,44 @@
 """
 Test endpoints for UI testing and development.
 
-These endpoints simulate deployment/destroy operations without actually 
+These endpoints simulate deployment/destroy operations without actually
 creating cloud resources. They are gated by ENABLE_TEST_ENDPOINTS=true.
 
 Consolidated from twins.py to keep production code clean and test code separate.
 """
 
-import os
+import asyncio
 import json
 import logging
 import secrets
-import asyncio
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from src.api.dependencies import get_current_user
+from src.api.routes.error_models import ERROR_RESPONSES
+from src.config import settings
 from src.models.database import get_db
 from src.models.twin import DigitalTwin
 from src.models.user import User
-from src.api.dependencies import get_current_user
-from src.api.routes.error_models import ERROR_RESPONSES
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_orchestrator import DeploymentOrchestrator
-from src.services.service_errors import ConflictError, EntityNotFoundError, ValidationError
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
 from src.services.test_deployment_service import TestDeploymentService
+from src.services.test_layer_access_service import seed_layer_access_fixtures
 from src.services.twin_lifecycle_service import TwinLifecycleService
 
 router = APIRouter(prefix="/twins", tags=["twins-test"])
 logger = logging.getLogger(__name__)
 
 # Gate all test endpoints behind env var
-TEST_ENDPOINTS_ENABLED = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+TEST_ENDPOINTS_ENABLED = settings.ENABLE_TEST_ENDPOINTS
 
 
 def _require_test_endpoints():
@@ -64,8 +70,28 @@ def _raise_service_http_error(exc: Exception) -> None:
 
 
 # =============================================================================
+# Layer Access integration fixtures
+# =============================================================================
+
+
+@router.post(
+    "/test-fixtures/layer-access",
+    operation_id="testSeedLayerAccessFixtures",
+    summary="[TEST] Seed the credential-free Layer Access placement matrix",
+)
+async def seed_layer_access_test_fixtures(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create deterministic local records; never contact a cloud provider."""
+    _require_test_endpoints()
+    return seed_layer_access_fixtures(db, owner=current_user)
+
+
+# =============================================================================
 # Test Deploy Endpoint
 # =============================================================================
+
 
 @router.post(
     "/{twin_id}/test-deploy",
@@ -83,18 +109,20 @@ def _raise_service_http_error(exc: Exception) -> None:
     responses={
         404: ERROR_RESPONSES[404],
         409: ERROR_RESPONSES[409],
-    }
+    },
 )
 async def test_deploy_twin(
     twin_id: str,
-    duration: int = Query(30, ge=5, le=120, description="Simulated duration in seconds"),
+    duration: int = Query(
+        30, ge=5, le=120, description="Simulated duration in seconds"
+    ),
     should_fail: bool = Query(False, description="Simulate failure at end"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Test deployment for UI testing - simulates realistic deployment with SSE logs.
-    
+
     Requires ENABLE_TEST_ENDPOINTS=true environment variable.
     No real cloud resources are created.
     """
@@ -121,6 +149,7 @@ async def test_deploy_twin(
 # Test Destroy Endpoint
 # =============================================================================
 
+
 @router.post(
     "/{twin_id}/test-destroy",
     operation_id="testDestroyDigitalTwin",
@@ -137,18 +166,18 @@ async def test_deploy_twin(
     responses={
         404: ERROR_RESPONSES[404],
         409: ERROR_RESPONSES[409],
-    }
+    },
 )
 async def test_destroy_twin(
     twin_id: str,
     duration: int = Query(20, ge=5, le=60, description="Simulated duration in seconds"),
     should_fail: bool = Query(False, description="Simulate failure at end"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Test destroy for UI testing - simulates realistic destruction with SSE logs.
-    
+
     Requires ENABLE_TEST_ENDPOINTS=true environment variable.
     """
     _require_test_endpoints()
@@ -171,8 +200,9 @@ async def test_destroy_twin(
 
 
 # =============================================================================
-# Test Log Trace Endpoint  
+# Test Log Trace Endpoint
 # =============================================================================
+
 
 @router.post(
     "/{twin_id}/test-log-trace/start",
@@ -189,18 +219,18 @@ async def test_destroy_twin(
     ),
     responses={
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def test_log_trace_start(
     twin_id: str,
     duration: int = Query(30, ge=5, le=90, description="Simulated duration in seconds"),
     should_fail: bool = Query(False, description="Simulate trace failure"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Test log trace for UI testing - simulates realistic multi-cloud log streaming.
-    
+
     Requires ENABLE_TEST_ENDPOINTS=true environment variable.
     No real cloud resources are queried.
     """
@@ -222,6 +252,7 @@ async def test_log_trace_start(
 # Test Download Simulator Endpoint
 # =============================================================================
 
+
 @router.get(
     "/{twin_id}/simulator/test-download",
     operation_id="testDownloadIoTSimulator",
@@ -237,16 +268,16 @@ async def test_log_trace_start(
     responses={
         200: {"description": "Mock simulator zip package for UI testing"},
         404: ERROR_RESPONSES[404],
-    }
+    },
 )
 async def test_download_simulator(
     twin_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Mock endpoint for UI testing - returns a sample simulator zip.
-    
+
     Does NOT require real deployment or Deployer connectivity.
     Use when kUseTestDeploy = true in Flutter.
     """
@@ -263,7 +294,7 @@ async def test_download_simulator(
     return StreamingResponse(
         archive.content,
         media_type=archive.media_type,
-        headers={"Content-Disposition": f"attachment; filename={archive.filename}"}
+        headers={"Content-Disposition": f"attachment; filename={archive.filename}"},
     )
 
 
@@ -271,36 +302,22 @@ async def test_download_simulator(
 # Background Task: Test Deploy Stream
 # =============================================================================
 
+
 async def _run_test_deploy_stream(
-    session_id: str,
-    twin_id: str,
-    twin_name: str,
-    duration: int,
-    should_fail: bool
+    session_id: str, twin_id: str, twin_name: str, duration: int, should_fail: bool
 ):
     """
     Background task that simulates Terraform deployment and streams logs via SSE.
     Creates its own DB session to avoid session scoping issues.
     """
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
-    
+    from src.services.deployment_stream_service import get_session
+
     session = await get_session(session_id)
     if not session:
         return
-    
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="deploy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
-    
+
     def _get_mock_terraform_outputs(name: str) -> dict:
         """Generate comprehensive mock terraform outputs matching outputs.tf"""
         return {
@@ -384,7 +401,7 @@ async def _run_test_deploy_stream(
             "gcp_archive_writer_url": "https://archive-writer-efg123-uc.a.run.app",
             "inter_cloud_token": f"mock-{secrets.token_urlsafe(24)}",
         }
-    
+
     try:
         steps = [
             (0.02, "=" * 60),
@@ -408,7 +425,10 @@ async def _run_test_deploy_stream(
             (0.02, "✓ All packages built"),
             (0.03, ""),
             (0.02, "[STEP 3/9] Generating tfvars.json..."),
-            (0.02, f"✓ Generated: /app/upload/{twin_name}/terraform/generated.tfvars.json"),
+            (
+                0.02,
+                f"✓ Generated: /app/upload/{twin_name}/terraform/generated.tfvars.json",
+            ),
             (0.03, ""),
             (0.02, "[STEP 4/9] Terraform init..."),
             (0.03, "Initializing provider plugins..."),
@@ -420,12 +440,21 @@ async def _run_test_deploy_stream(
             (0.04, f"aws_iot_thing.{twin_name}_thing: Creating..."),
             (0.05, f"aws_dynamodb_table.{twin_name}_hot_storage: Creating..."),
             (0.03, f"aws_iot_thing.{twin_name}_thing: Creation complete after 2s"),
-            (0.05, f"aws_dynamodb_table.{twin_name}_hot_storage: Creation complete after 8s"),
+            (
+                0.05,
+                f"aws_dynamodb_table.{twin_name}_hot_storage: Creation complete after 8s",
+            ),
             (0.04, f"aws_lambda_function.{twin_name}_dispatcher: Creating..."),
-            (0.05, f"aws_lambda_function.{twin_name}_dispatcher: Creation complete after 12s"),
+            (
+                0.05,
+                f"aws_lambda_function.{twin_name}_dispatcher: Creation complete after 12s",
+            ),
             (0.02, ""),
             (0.02, "Apply complete! Resources: 15 added, 0 changed, 0 destroyed."),
-            (0.02, "✓ Terraform outputs: ['aws_iot_endpoint', 'aws_dynamodb_table_name', 'aws_l1_dispatcher_function_name', ...]"),
+            (
+                0.02,
+                "✓ Terraform outputs: ['aws_iot_endpoint', 'aws_dynamodb_table_name', 'aws_l1_dispatcher_function_name', ...]",
+            ),
             (0.03, ""),
             (0.02, "[STEP 6/9] Deploying Azure function code..."),
             (0.02, "  No Azure layers configured, skipping Kudu deployment"),
@@ -435,27 +464,33 @@ async def _run_test_deploy_stream(
             (0.02, "  ✓ 3 devices registered"),
             (0.03, ""),
         ]
-        
+
         total_fraction = sum(s[0] for s in steps)
         for fraction, msg in steps:
             if msg:
                 print(msg, flush=True)
                 await session.push_log(msg)
             await asyncio.sleep(duration * fraction / total_fraction)
-        
+
         if should_fail:
-            error_msg = "Simulated deployment failure: Terraform apply failed with exit code 1"
+            error_msg = (
+                "Simulated deployment failure: Terraform apply failed with exit code 1"
+            )
             print(f"✗ {error_msg}", flush=True)
             await session.push_log(f"✗ {error_msg}", level="error")
-            
+
             db = SessionLocal()
             try:
                 twin = db.query(DigitalTwin).get(twin_id)
                 if twin:
                     TwinLifecycleService.fail_deploy(twin, error_msg)
                     db.commit()
-                
-                deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+                deployment = (
+                    db.query(Deployment)
+                    .filter(Deployment.session_id == session_id)
+                    .first()
+                )
                 if deployment:
                     deployment.status = "failed"
                     deployment.error_message = error_msg
@@ -463,23 +498,27 @@ async def _run_test_deploy_stream(
                     db.commit()
             finally:
                 db.close()
-            
+
             session.on_complete(success=False, message=error_msg)
             return
-        
+
         # Success path
         for msg in ["=" * 60, "  TERRAFORM DEPLOYMENT - COMPLETE", "=" * 60]:
             print(msg, flush=True)
             await session.push_log(msg)
-        
+
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                TwinLifecycleService.complete_deploy(twin, deployed_at=datetime.utcnow())
+                TwinLifecycleService.complete_deploy(
+                    twin, deployed_at=datetime.utcnow()
+                )
                 db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+            deployment = (
+                db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            )
             if deployment:
                 deployment.status = "success"
                 deployment.terraform_outputs = _get_mock_terraform_outputs(twin_name)
@@ -487,13 +526,13 @@ async def _run_test_deploy_stream(
                 db.commit()
         finally:
             db.close()
-        
+
         session.on_complete(
             success=True,
             message="Deployment complete (test mode)",
-            outputs=_get_mock_terraform_outputs(twin_name)
+            outputs=None,
         )
-        
+
     except Exception as e:
         db = None
         try:
@@ -502,15 +541,19 @@ async def _run_test_deploy_stream(
             if twin:
                 TwinLifecycleService.fail_deploy(twin, str(e))
                 db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+            deployment = (
+                db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            )
             if deployment:
                 deployment.status = "failed"
                 deployment.error_message = str(e)
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
         except Exception:
-            logger.exception("Failed to mark test deployment as failed after stream error")
+            logger.exception(
+                "Failed to mark test deployment as failed after stream error"
+            )
         finally:
             if db is not None:
                 db.close()
@@ -521,35 +564,21 @@ async def _run_test_deploy_stream(
 # Background Task: Test Destroy Stream
 # =============================================================================
 
+
 async def _run_test_destroy_stream(
-    session_id: str,
-    twin_id: str,
-    twin_name: str,
-    duration: int,
-    should_fail: bool
+    session_id: str, twin_id: str, twin_name: str, duration: int, should_fail: bool
 ):
     """
     Background task that simulates Terraform destruction and streams logs via SSE.
     """
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.deployment import Deployment
-    
+    from src.services.deployment_stream_service import get_session
+
     session = await get_session(session_id)
     if not session:
         return
-    
-    db = SessionLocal()
-    deployment = Deployment(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="destroy",
-        status="running"
-    )
-    db.add(deployment)
-    db.commit()
-    db.close()
-    
+
     try:
         steps = [
             (0.05, "=" * 60),
@@ -558,33 +587,43 @@ async def _run_test_destroy_stream(
             (0.08, ""),
             (0.08, "[STEP 1/2] Terraform destroy..."),
             (0.12, f"aws_lambda_function.{twin_name}_dispatcher: Destroying..."),
-            (0.12, f"aws_lambda_function.{twin_name}_dispatcher: Destruction complete after 5s"),
+            (
+                0.12,
+                f"aws_lambda_function.{twin_name}_dispatcher: Destruction complete after 5s",
+            ),
             (0.08, f"aws_dynamodb_table.{twin_name}_hot_storage: Destroying..."),
-            (0.12, f"aws_dynamodb_table.{twin_name}_hot_storage: Destruction complete after 10s"),
+            (
+                0.12,
+                f"aws_dynamodb_table.{twin_name}_hot_storage: Destruction complete after 10s",
+            ),
             (0.05, ""),
             (0.05, "Destroy complete! Resources: 15 destroyed."),
         ]
-        
+
         total_fraction = sum(s[0] for s in steps)
         for fraction, msg in steps:
             if msg:
                 print(msg, flush=True)
                 await session.push_log(msg)
             await asyncio.sleep(duration * fraction / total_fraction)
-        
+
         if should_fail:
             error_msg = "Simulated destroy failure: Resource still in use"
             print(f"✗ {error_msg}", flush=True)
             await session.push_log(f"✗ {error_msg}", level="error")
-            
+
             db = SessionLocal()
             try:
                 twin = db.query(DigitalTwin).get(twin_id)
                 if twin:
                     TwinLifecycleService.fail_destroy(twin, error_msg)
                     db.commit()
-                
-                deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+                deployment = (
+                    db.query(Deployment)
+                    .filter(Deployment.session_id == session_id)
+                    .first()
+                )
                 if deployment:
                     deployment.status = "failed"
                     deployment.error_message = error_msg
@@ -592,32 +631,36 @@ async def _run_test_destroy_stream(
                     db.commit()
             finally:
                 db.close()
-            
+
             session.on_complete(success=False, message=error_msg)
             return
-        
+
         # Success path
         for msg in ["=" * 60, "  TERRAFORM DESTROY - COMPLETE", "=" * 60]:
             print(msg, flush=True)
             await session.push_log(msg)
-        
+
         db = SessionLocal()
         try:
             twin = db.query(DigitalTwin).get(twin_id)
             if twin:
-                TwinLifecycleService.complete_destroy(twin, destroyed_at=datetime.utcnow())
+                TwinLifecycleService.complete_destroy(
+                    twin, destroyed_at=datetime.utcnow()
+                )
                 db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+            deployment = (
+                db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            )
             if deployment:
                 deployment.status = "success"
                 deployment.completed_at = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
-        
+
         session.on_complete(success=True, message="Destruction complete (test mode)")
-        
+
     except Exception as e:
         db = None
         try:
@@ -626,8 +669,10 @@ async def _run_test_destroy_stream(
             if twin:
                 TwinLifecycleService.fail_destroy(twin, str(e))
                 db.commit()
-            
-            deployment = db.query(Deployment).filter(Deployment.session_id == session_id).first()
+
+            deployment = (
+                db.query(Deployment).filter(Deployment.session_id == session_id).first()
+            )
             if deployment:
                 deployment.status = "failed"
                 deployment.error_message = str(e)
@@ -645,159 +690,156 @@ async def _run_test_destroy_stream(
 # Background Task: Test Log Trace Stream
 # =============================================================================
 
+
 async def _run_test_log_trace_stream(
     session_id: str,
     twin_id: str,
     trace_id: str,
     providers: list,
     duration: int,
-    should_fail: bool
+    should_fail: bool,
 ):
     """
     Background task that simulates multi-cloud log streaming via SSE.
     Generates realistic log events based on configured providers.
     """
     from src.services.deployment_stream_service import get_session
-    
+
     session = await get_session(session_id)
     if not session:
         return
-    
+
     try:
         steps = []
         storage_names = {"aws": "DynamoDB", "azure": "CosmosDB", "gcp": "Firestore"}
-        
+
         primary = providers[0] if providers else "aws"
         storage_name = storage_names.get(primary, "Database")
-        
-        steps.extend([
-            (0.02, "log", {"layer": "L1", "provider": primary, "function": "dispatcher",
-             "message": f'{{"device_id":"test-sensor","trace_id":"{trace_id}"}}'}),
-            (0.02, "log", {"layer": "L1", "provider": primary, "function": "dispatcher",
-             "message": "Routing to L2 persister"}),
-            (0.05, "log", {"layer": "L2", "provider": primary, "function": "persister",
-             "message": "Processing payload for device: test-sensor"}),
-            (0.05, "log", {"layer": "L2", "provider": primary, "function": "persister",
-             "message": f"PutItem: pk=test-sensor, sk={datetime.now(timezone.utc).isoformat()}"}),
-            (0.05, "log", {"layer": "L3", "provider": primary, "function": storage_name,
-             "message": "Write succeeded, RCU: 1"}),
-        ])
-        
+
+        steps.extend(
+            [
+                (
+                    0.02,
+                    "log",
+                    {
+                        "layer": "L1",
+                        "provider": primary,
+                        "function": "dispatcher",
+                        "message": f'{{"device_id":"test-sensor","trace_id":"{trace_id}"}}',
+                    },
+                ),
+                (
+                    0.02,
+                    "log",
+                    {
+                        "layer": "L1",
+                        "provider": primary,
+                        "function": "dispatcher",
+                        "message": "Routing to L2 persister",
+                    },
+                ),
+                (
+                    0.05,
+                    "log",
+                    {
+                        "layer": "L2",
+                        "provider": primary,
+                        "function": "persister",
+                        "message": "Processing payload for device: test-sensor",
+                    },
+                ),
+                (
+                    0.05,
+                    "log",
+                    {
+                        "layer": "L2",
+                        "provider": primary,
+                        "function": "persister",
+                        "message": f"PutItem: pk=test-sensor, sk={datetime.now(timezone.utc).isoformat()}",
+                    },
+                ),
+                (
+                    0.05,
+                    "log",
+                    {
+                        "layer": "L3",
+                        "provider": primary,
+                        "function": storage_name,
+                        "message": "Write succeeded, RCU: 1",
+                    },
+                ),
+            ]
+        )
+
         for idx, prov in enumerate(providers[1:], start=1):
             sec_storage = storage_names.get(prov, "Database")
-            steps.extend([
-                (0.08, "log", {"layer": "L0", "provider": prov, "function": "l0-ingestion",
-                 "message": f"HTTP 200: Ingested from {primary.upper()}, trace_id={trace_id}"}),
-                (0.05, "log", {"layer": "L2", "provider": prov, "function": "dispatcher",
-                 "message": "Processing cross-cloud payload"}),
-                (0.05, "log", {"layer": "L3", "provider": prov, "function": sec_storage,
-                 "message": "Write succeeded"}),
-            ])
-        
+            steps.extend(
+                [
+                    (
+                        0.08,
+                        "log",
+                        {
+                            "layer": "L0",
+                            "provider": prov,
+                            "function": "l0-ingestion",
+                            "message": f"HTTP 200: Ingested from {primary.upper()}, trace_id={trace_id}",
+                        },
+                    ),
+                    (
+                        0.05,
+                        "log",
+                        {
+                            "layer": "L2",
+                            "provider": prov,
+                            "function": "dispatcher",
+                            "message": "Processing cross-cloud payload",
+                        },
+                    ),
+                    (
+                        0.05,
+                        "log",
+                        {
+                            "layer": "L3",
+                            "provider": prov,
+                            "function": sec_storage,
+                            "message": "Write succeeded",
+                        },
+                    ),
+                ]
+            )
+
         steps.append((0.30, "heartbeat", {"elapsed_seconds": duration // 2}))
-        
+
         total_fraction = sum(s[0] for s in steps)
         log_count = 0
-        
+
         for fraction, event_type, data in steps:
             await asyncio.sleep(duration * fraction / total_fraction)
-            
+
             data["timestamp"] = datetime.now(timezone.utc).isoformat()
-            
+
             if event_type == "log":
                 log_count += 1
                 await session.push_log(json.dumps(data))
             else:
                 await session.push_event(event_type, data)
-        
+
         if should_fail:
             error_data = {
                 "message": "Simulated trace failure: CloudWatch query timeout",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             await session.push_event("error", error_data)
             session.on_complete(success=False, message="Trace failed")
             return
-        
+
         done_data = {
             "message": "Trace complete",
             "log_count": log_count,
-            "duration_seconds": duration
+            "duration_seconds": duration,
         }
         await session.push_event("done", done_data)
         session.on_complete(success=True, message="Trace complete")
-        
+
     except Exception as e:
         session.on_complete(success=False, message=str(e))
-
-
-# =============================================================================
-# Legacy Simulation Functions (kept for backward compatibility)
-# =============================================================================
-
-async def _simulate_deployment(name: str, duration: int, should_fail: bool, logger) -> list:
-    """Print realistic terraform-style deployment logs. Returns collected logs."""
-    collected_logs = []
-    
-    steps = [
-        (0.02, "=" * 60),
-        (0.02, "  TERRAFORM DEPLOYMENT - STARTING (TEST MODE)"),
-        (0.02, "=" * 60),
-        (0.05, ""),
-        (0.05, f"[STEP 0/9] Validating cloud credentials for '{name}'..."),
-        (0.03, "  Configured clouds: aws, azure"),
-        (0.02, "✓ Deploy complete!"),
-    ]
-    
-    total_fraction = sum(s[0] for s in steps)
-    for fraction, msg in steps:
-        if msg:
-            logger.info(msg)
-            collected_logs.append(msg)
-        await asyncio.sleep(duration * fraction / total_fraction)
-    
-    if should_fail:
-        error_msg = "Simulated deployment failure: Terraform apply failed with exit code 1"
-        collected_logs.append(f"✗ {error_msg}")
-        raise Exception(error_msg)
-    
-    return collected_logs
-
-
-async def _simulate_destroy(name: str, duration: int, should_fail: bool, logger) -> list:
-    """Print realistic terraform-style destruction logs. Returns collected logs."""
-    collected_logs = []
-    
-    steps = [
-        (0.05, "=" * 60),
-        (0.05, "  TERRAFORM DESTROY - STARTING (TEST MODE)"),
-        (0.05, "=" * 60),
-        (0.10, ""),
-        (0.10, "[STEP 1/2] Terraform destroy..."),
-        (0.15, f"aws_lambda_function.{name}_dispatcher: Destroying..."),
-        (0.15, f"aws_lambda_function.{name}_dispatcher: Destruction complete after 5s"),
-        (0.10, f"aws_dynamodb_table.{name}_hot_storage: Destroying..."),
-        (0.15, f"aws_dynamodb_table.{name}_hot_storage: Destruction complete after 10s"),
-        (0.05, ""),
-        (0.05, "Destroy complete! Resources: 15 destroyed."),
-        (0.05, "=" * 60),
-        (0.05, "  TERRAFORM DESTROY - COMPLETE"),
-        (0.05, "=" * 60),
-    ]
-    
-    total_fraction = sum(s[0] for s in steps)
-    for fraction, msg in steps:
-        if msg:
-            logger.info(msg)
-            print(msg, flush=True)
-            collected_logs.append(msg)
-        await asyncio.sleep(duration * fraction / total_fraction)
-    
-    if should_fail:
-        error_msg = "Simulated destroy failure: Resource still in use"
-        logger.error(f"✗ {error_msg}")
-        print(f"✗ {error_msg}", flush=True)
-        collected_logs.append(f"✗ {error_msg}")
-        raise Exception(error_msg)
-    
-    return collected_logs

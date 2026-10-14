@@ -21,7 +21,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'validates, persists, and binds one provider-neutral artifact offline',
+    'validates and saves one provider-neutral Twin function offline',
     (tester) async {
       final slots = await _api.listExtensionSlots();
       expect(slots.map((slot) => slot.slotId), contains('processor.telemetry'));
@@ -32,7 +32,7 @@ void main() {
         'Extension contract ${DateTime.now().microsecondsSinceEpoch}',
       );
       try {
-        final upload = UserFunctionArtifactUpload(
+        final upload = UserFunctionSourceUpload(
           slot: slot,
           draft: UserFunctionSourceDraft(
             filename: 'processor.zip',
@@ -40,23 +40,15 @@ void main() {
             configuration: const {'scale_factor': 1},
           ),
         );
-        final validation = await _api.validateUserFunctionArtifact(upload);
+        final validation = await _api.validateTwinUserFunction(twin.id, upload);
         expect(validation.artifactDigest, startsWith('sha256:'));
         expect(validation.checks, contains('secret_scan_passed'));
 
-        final artifact = await _api.createUserFunctionArtifact(upload);
-        expect(artifact.isValid, isTrue);
-        expect(artifact.sourceFiles, contains('process.py'));
-
-        final binding = await _api.bindTwinExtensionArtifact(
-          twin.id,
-          slot,
-          artifact.artifactId,
-        );
-        expect(binding.artifactDigest, artifact.artifactDigest);
+        final userFunction = await _api.saveTwinUserFunction(twin.id, upload);
+        expect(userFunction.sourceFiles, contains('process.py'));
         expect(
-          await _api.listTwinExtensionBindings(twin.id),
-          contains(binding),
+          await _api.listTwinUserFunctions(twin.id),
+          contains(userFunction),
         );
       } finally {
         await _api.deleteTwin(twin.id);

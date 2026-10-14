@@ -18,7 +18,6 @@ from backend.pricing_catalog_repository import (
 )
 from backend.pricing_catalog_resolver import PricingCatalogResolver
 
-
 FETCHED_AT = datetime.now(timezone.utc)
 
 
@@ -77,10 +76,9 @@ def _seed_repository(tmp_path: Path) -> tuple[
         target.parent.mkdir(parents=True)
         target.write_bytes(canonical_json_bytes(snapshot.to_storage_dict()))
     repository = PricingCatalogRepository(
-        runtime_root=tmp_path / "runtime",
         baseline_root=baseline_root,
     )
-    repository.initialize_from_baseline()
+    repository.verify_readiness()
     return repository, PricingCatalogContext(catalogs=references)
 
 
@@ -105,7 +103,7 @@ def test_resolver_resolves_all_snapshots_before_returning(tmp_path):
     repository, context = _seed_repository(tmp_path)
     missing = context.catalogs["gcp"]
     target = (
-        repository.runtime_root
+        repository.baseline_root
         / "gcp"
         / missing.pricing_region
         / "snapshots"
@@ -115,33 +113,3 @@ def test_resolver_resolves_all_snapshots_before_returning(tmp_path):
 
     with pytest.raises(PricingCatalogNotFoundError):
         PricingCatalogResolver(repository).resolve_context(context)
-
-
-def test_resolver_ignores_pointer_movement_after_context_selection(tmp_path):
-    repository, context = _seed_repository(tmp_path)
-    updated = repository.store_candidate(
-        provider="azure",
-        pricing_region="westeurope",
-        pricing={
-            "__schema__": {
-                "schema_version": "pricing-provider-schema.v1",
-                "contract_version": "2026.07.17",
-                "provider": "azure",
-            },
-            "service": {"price": 0.75},
-        },
-        provider_schema_version="pricing-provider-schema.v1",
-        contract_version="2026.07.17",
-        registry_version="2026.07.17",
-        mapping_versions=("2026.07.17",),
-        fetched_at=datetime.now(timezone.utc),
-        source="provider_api",
-        review_status="reviewed",
-        calculation_source="fresh",
-    )
-    repository.publish(updated.reference)
-
-    resolved = PricingCatalogResolver(repository).resolve_context(context)
-
-    assert resolved.pricing["azure"]["service"]["price"] == 0.25
-    assert resolved.context.catalogs["azure"] == context.catalogs["azure"]

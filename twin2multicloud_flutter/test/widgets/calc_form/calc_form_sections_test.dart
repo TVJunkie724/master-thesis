@@ -4,64 +4,121 @@ import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/widgets/calc_form/calc_form.dart';
 
 void main() {
-  testWidgets('device traffic shows only its focused field group', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CalcForm(
-              section: CalcFormSection.deviceTraffic,
+  for (final profile in [null, 'five-layer', 'unknown']) {
+    testWidgets('missing or retired profile $profile cannot emit a workload', (
+      tester,
+    ) async {
+      CalcParams? changed;
+      bool? valid;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CalcForm(
+              profileId: profile,
+              profileVersion: '1',
               initialParams: CalcParams.defaultParams(),
+              onChanged: (value) => changed = value,
+              onValidChanged: (value) => valid = value,
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
+      expect(changed, isNull);
+      expect(valid, isFalse);
+      expect(
+        find.textContaining('verified Six-layer architecture'),
+        findsOneWidget,
+      );
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.byType(Switch), findsNothing);
+    });
+  }
 
-    expect(find.text('Number of IoT Devices'), findsOneWidget);
-    expect(find.text('Hot Storage Duration'), findsNothing);
-    expect(find.text('Enable Event Checking'), findsNothing);
-    expect(find.text('Currency:'), findsNothing);
-  });
-
-  testWidgets('twin capabilities combines 3D and dashboard intent', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
+  testWidgets(
+    'profile arrival restores saved scenario and removal blocks output',
+    (tester) async {
+      final saved = CalcParams.sixLayer(
+        scenario: SixLayerWorkloadScenario.medium,
+        currency: 'EUR',
+      );
+      final changes = <CalcParams>[];
+      bool? valid;
+      Widget form(String? profile, String? version) => MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              section: CalcFormSection.twinCapabilities,
-              initialParams: CalcParams.defaultParams(),
+              profileId: profile,
+              profileVersion: version,
+              initialParams: saved,
+              section: CalcFormSection.processing,
+              onChanged: changes.add,
+              onValidChanged: (value) => valid = value,
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pumpWidget(form(null, null));
+      await tester.pump();
+      expect(changes, isEmpty);
+      await tester.pumpWidget(form('six-layer-eventing', '1'));
+      await tester.pump();
+      expect(changes.last.scenario, SixLayerWorkloadScenario.medium);
+      expect(changes.last.currency, 'EUR');
+      expect(valid, isTrue);
+      final count = changes.length;
+      await tester.pumpWidget(form('six-layer-eventing', '2'));
+      await tester.pump();
+      expect(changes.length, count);
+      expect(valid, isFalse);
+    },
+  );
 
-    expect(find.text('Is a 3D Model Necessary?'), findsOneWidget);
-    expect(find.text('Dashboard Refreshes per Hour'), findsOneWidget);
-    expect(find.text('Number of IoT Devices'), findsNothing);
-  });
+  testWidgets(
+    'historical input stays readable but cannot restore legacy controls',
+    (tester) async {
+      final historical = CalcParams.defaultParams();
+      final original = historical.toJson();
+      CalcParams? changed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CalcForm(
+                profileId: 'six-layer-eventing',
+                profileVersion: '1',
+                initialParams: historical,
+                section: CalcFormSection.deviceTraffic,
+                onChanged: (value) => changed = value,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(historical.toJson(), original);
+      expect(changed?.scenario, SixLayerWorkloadScenario.small);
+      expect(changed?.numberOfDevices, 100);
+      expect(find.text('Devices'), findsOneWidget);
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('Currency:'), findsNothing);
+    },
+  );
 
-  testWidgets('ADT billing assumptions stay collapsed and emit valid values', (
+  testWidgets('Six-layer initializes Small and emits only canonical fields', (
     tester,
   ) async {
     CalcParams? changed;
-    await tester.binding.setSurfaceSize(const Size(1000, 1000));
+    await tester.binding.setSurfaceSize(const Size(1000, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
             child: CalcForm(
-              section: CalcFormSection.twinCapabilities,
-              initialParams: CalcParams.defaultParams(),
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.scenarioAndCurrency,
               onChanged: (params) => changed = params,
             ),
           ),
@@ -70,60 +127,181 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Azure Digital Twins assumptions'), findsOneWidget);
-    expect(find.text('Query Units per Query'), findsNothing);
-
-    await tester.tap(find.text('Azure Digital Twins assumptions'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-units-input')),
-      '2.5',
+    expect(changed?.scenario, SixLayerWorkloadScenario.small);
+    expect(changed?.toJson()['eventingScenarioId'], 'eventing-small-v1');
+    expect(changed?.toJson(), isNot(contains('useEventChecking')));
+    expect(
+      find.text(
+        'Events use the independent Event Layer and are always active in the standalone Six-layer profile. '
+        'They are part of the canonical PoC workload and cannot be disabled.',
+      ),
+      findsOneWidget,
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-response-size-input')),
-      '1.25',
-    );
-    await tester.pump();
-
-    expect(changed?.averageDigitalTwinQueryUnitsPerQuery, 2.5);
-    expect(changed?.averageDigitalTwinQueryResponseSizeInKb, 1.25);
-
-    await tester.enterText(
-      find.byKey(const ValueKey('adt-query-units-input')),
-      '0',
-    );
-    await tester.pump();
-
-    expect(find.text('Must be greater than 0.0'), findsOneWidget);
-    expect(changed?.averageDigitalTwinQueryUnitsPerQuery, 2.5);
   });
 
-  testWidgets(
-    'processing exposes legacy unsupported topology without coercion',
-    (tester) async {
-      bool? isValid;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: CalcForm(
-                section: CalcFormSection.processing,
-                initialParams: CalcParams.fromJson({
-                  ...CalcParams.defaultParams().toJson(),
-                  'integrateErrorHandling': true,
-                }),
-                onValidChanged: (value) => isValid = value,
+  testWidgets('Six-layer scenario and currency selection stays frozen', (
+    tester,
+  ) async {
+    CalcParams? changed;
+    await tester.binding.setSurfaceSize(const Size(1000, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.scenarioAndCurrency,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.small,
+              ),
+              onChanged: (params) => changed = params,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('six-layer-scenario-large')));
+    await tester.pump();
+    await tester.tap(find.text('EUR (€)'));
+    await tester.pump();
+
+    expect(changed?.scenario, SixLayerWorkloadScenario.large);
+    expect(changed?.currency, 'EUR');
+    expect(changed?.eventingScenarioId, 'eventing-large-v1');
+    expect(changed?.numberOfDevices, 30000);
+    expect(changed?.hotStorageDurationInMonths, 1);
+  });
+
+  testWidgets('Six-layer processing is read-only embedded event evidence', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.processing,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.medium,
               ),
             ),
           ),
         ),
-      );
-      await tester.pump();
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      expect(find.text('Legacy, not deployable'), findsOneWidget);
-      expect(tester.widget<Switch>(find.byType(Switch).last).value, isTrue);
-      expect(isValid, isFalse);
+    expect(find.text('eventing-medium-v1'), findsOneWidget);
+    expect(find.text('Mandatory'), findsNWidgets(2));
+    expect(find.byType(Switch), findsNothing);
+    expect(find.byType(TextFormField), findsNothing);
+  });
+
+  testWidgets('Six-layer v1 reuses the frozen workload without an event flag', (
+    tester,
+  ) async {
+    CalcParams? changed;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.processing,
+              onChanged: (params) => changed = params,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(changed?.eventingScenarioId, 'eventing-small-v1');
+    expect(changed?.toJson(), isNot(contains('useEventChecking')));
+    expect(find.text('Independent Event Layer workload'), findsOneWidget);
+    expect(find.byType(Switch), findsNothing);
+  });
+
+  testWidgets('Phase 8 twin capabilities omit historical 3D language', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CalcForm(
+              profileId: 'six-layer-eventing',
+              profileVersion: '1',
+              section: CalcFormSection.twinCapabilities,
+              initialParams: CalcParams.sixLayer(
+                scenario: SixLayerWorkloadScenario.small,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Twin state and modeled L5 reads'), findsOneWidget);
+    expect(find.text('Twin entities'), findsOneWidget);
+    expect(find.textContaining('3D representation'), findsNothing);
+    expect(find.text('Is a 3D Model Necessary?'), findsNothing);
+  });
+
+  testWidgets(
+    'Six-layer scenario cards follow all supported responsive boundaries',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      for (final width in [640.0, 719.0, 720.0, 959.0, 960.0, 1199.0, 1200.0]) {
+        tester.view.physicalSize = Size(width, 1800);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: CalcForm(
+                  profileId: 'six-layer-eventing',
+                  profileVersion: '1',
+                  section: CalcFormSection.scenarioAndCurrency,
+                  initialParams: CalcParams.sixLayer(
+                    scenario: SixLayerWorkloadScenario.small,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final columns = width >= 1200
+            ? 3
+            : width >= 960
+            ? 2
+            : 1;
+        final expectedWidth = (width - (columns - 1) * 16) / columns;
+        for (final scenario in SixLayerWorkloadScenario.values) {
+          final size = tester.getSize(
+            find.byKey(ValueKey('six-layer-scenario-card-${scenario.name}')),
+          );
+          expect(size.width, closeTo(expectedWidth, 0.01), reason: '$width');
+        }
+        expect(tester.takeException(), isNull, reason: '$width');
+      }
     },
   );
 }

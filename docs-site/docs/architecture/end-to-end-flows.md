@@ -1,47 +1,56 @@
 # End-to-End Flows
 
-## From workload to infrastructure
+## Configuration and calculation
 
-```mermaid
-sequenceDiagram
-    participant UI as Flutter
-    participant API as Management
-    participant Optimizer
-    participant Dep as Deployer
-    UI->>API: Workload + calculate
-    API->>Optimizer: Workload + exact pricing references
-    Optimizer-->>API: Costed provider paths + evidence
-    API->>API: Validate and persist immutable run
-    UI->>API: Select compatible run
-    API->>API: Verify selection and readiness
-    UI->>API: Deploy
-    API->>Dep: Manifest v3 + resolved architecture
-    Dep->>Dep: Compile graph, package, execute
-    Dep-->>API: Status, logs, outputs
-    API-->>UI: Persisted results via REST / SSE
+```text
+typed Twin draft
+  -> canonical six-layer-eventing@1 pin
+  -> fixed Small/Medium/Large workload contract
+  -> exact frozen AWS/Azure/GCP pricing references
+  -> provider capability and functional-completeness gate
+  -> cost-only candidate ranking
+  -> immutable result, trace, deployment specification and resolved graph
+  -> Management validation and atomic persistence
+  -> read-only Flutter review
 ```
 
-The Optimizer compares complete paths including connection costs. With profile
-resolution enabled, the saved run includes a frozen architecture. The Deployer
-executes Terraform and provider SDK work from the validated operation package.
+Provider-native billing quantities remain provider-specific until formulas
+normalize them into the common monthly monetary metric. Complete admissible
+paths are compared; a cheap individual service does not bypass missing
+responsibilities or edge capabilities.
 
-Profile resolution defaults to off. The sequence above describes the
-implemented deployment contract, not a guarantee that a fresh local startup
-can complete a cloud deployment. See [Results and Limits](../runtime/known-limitations.md).
+## Credential readiness and repair
 
-## Detailed flows
+```text
+select named deployment CloudConnections
+  -> identity probe
+  -> graph-derived non-mutating readiness
+  -> optional digest-bound preparation plan
+  -> explicit confirmation
+  -> bounded idempotent preparation
+  -> readiness rerun
+  -> deploy review OR typed manual repair / replacement connection
+```
 
-| Flow | What the reference explains |
-|---|---|
-| [Pricing and optimization](../contracts-and-data-flow/pricing-optimization.md) | source acquisition, review, complete-path selection and cost evidence |
-| [Credentials and trust](../contracts-and-data-flow/credentials-and-trust.md) | external bootstrap, encrypted Cloud Connections and operation-local secrets |
-| [Deployment lifecycle](../contracts-and-data-flow/deployment-lifecycle.md) | immutable run → Manifest v3 → graph → packages/Terraform → outputs |
-| [State ownership](../contracts-and-data-flow/state-ownership.md) | durable records, selections and failure behavior |
-| [Current cloud graph](current-deployment-graph.md) | actual provider data paths and known divergences |
-| [Azure Twin updates](../components/deployer.md) | Persister → ADT Pusher delivery, ownership and retry behavior |
+Preparation is limited to reviewed graph requirements. Billing recovery, quota
+approval, organization policy, tenant-wide consent, legal approval, and
+provider-side credential lifecycle remain external.
 
-## Offline demo
+## Deployment and cleanup
 
-Demo mode substitutes in-memory API/log adapters behind the same Flutter
-screens. It performs no HTTP or provider operations and resets on restart.
-Use the [PoC Walkthrough](../user-guide/multi-cloud-walkthrough.md) to inspect it.
+```text
+selected immutable calculation
+  -> current readiness and graph digest
+  -> explicit deployment confirmation
+  -> one-use operation package
+  -> persisted operation + SSE replay
+  -> Terraform/provider execution
+  -> verification probes and telemetry roundtrip
+  -> typed L4/L5 access bundle
+  -> explicit Destroy confirmation
+  -> cleanup inventory and residual evidence
+```
+
+A reconnect reads persisted progress before resuming the live stream. It never
+starts a second provider mutation. Provider dashboard links may be opened, but
+Twin2MultiCloud does not administer those dashboards.

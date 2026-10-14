@@ -1,55 +1,36 @@
-# Extension Points
+# Extension boundaries
 
-## Add A Flutter Feature
+The PoC keeps a few clean internal boundaries so its design is understandable
+and testable. It does not expose unused extensions as runtime capabilities.
 
-1. define/extend the `ManagementApi` contract and typed models;
-2. implement network and demo adapters;
-3. choose Riverpod for composition/simple global state or BLoC for a complex workflow;
-4. add route/screen/task and responsive widget tests;
-5. pass the frontend architecture script, analysis, tests, and builds.
+## Cost calculation
 
-## Add A Management Workflow
+Provider calculators implement shared typed workload and result contracts. A
+new provider component must add formula provenance, pricing evidence, unit
+normalization, capability admission and deterministic tests. Monetary cost is
+the only scoring strategy used by the application.
 
-1. add Pydantic request/response contracts;
-2. implement application service and repository/client dependencies;
-3. keep the route as HTTP mapping;
-4. add an idempotent migration for persistence changes;
-5. test ownership, lifecycle, errors, redaction, and downstream failures;
-6. expose it through Flutter/demo only after the public contract is stable.
+Other objectives belong to future research until their measurements,
+normalization and evaluation method are defined. Do not add disabled objective
+descriptors or a public selector.
 
-## Add Pricing Or An Optimization Objective
+## Provider deployment components
 
-For a field: intent, provider mapping, source classification, normalizer, provider
-pricing contract, formula binding, evidence fixtures, accepted/rejected candidates, and
-tier/unit tests must advance together.
+Provider-specific implementations are bound through the canonical Six-layer
+component and edge definitions. A new component requires matching package,
+Terraform, identity, permission, observability, verification, cleanup and cost
+evidence. It cannot become selectable merely by registering a class.
 
-For an objective: metric provider, intent group, calculation model, workload/provider
-contracts, formula set, scoring strategy, result schema, enabled profile, traceability,
-and broad verification are all required. A disabled declaration alone is not a feature.
+## Bounded user functions
 
-## Add Deployer Provider Behavior
+The typed Twin configuration accepts only the reviewed processor, action and
+feedback source shapes. Validation, size limits, supported runtimes and
+provider adapters are closed-world. See User-Function Extension Development
+for the retained boundary.
 
-Implement the provider protocol/registry entry, package builder, capability declaration,
-preflight permissions, cleanup/destroy behavior, outputs, status/verification probes,
-and mocked tests. Add workspace synchronization only for state required by later
-operations and use the explicit allowlist.
+## Future architecture variants
 
-## Add Provider-Layer Capability
-
-Do not edit a copied UI matrix. Implement calculation support in the Optimizer and
-provisioning support in the Deployer, then update each owning runtime registry. The
-Management API derives the platform row and Flutter consumes it. A planned issue or
-price mapping is insufficient evidence for `available`; follow the ordered gate in
-[Provider Capabilities](../architecture/provider-capabilities.md).
-
-## Add A User Function
-
-Register layer/role metadata, preserve provider entrypoint/package conventions, validate
-source/dependencies, generate deterministic archives, and test both local validation and
-provider package structure. Do not add one-off upload endpoints for a single function.
-
-## Add Documentation
-
-Place current material under `docs-site/docs`; update `mkdocs.yml`; keep diagrams in
-context; use an issue for active future work; and update the provenance appendix if an
-old HTML/Markdown source is replaced.
+An alternative architecture is a separate research design with its own
+contract and evaluation, not a child profile or plugin of
+`six-layer-eventing@1`. The conceptual boundary is summarized in
+`docs/future-work.md`.

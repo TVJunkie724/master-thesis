@@ -7,15 +7,35 @@ including build_user_packages (which was previously missing).
 
 import json
 from pathlib import Path
+import tarfile
+from types import MappingProxyType
 from unittest.mock import patch
 import zipfile
 
 import pytest
 
 from src.architecture_profiles import resolve_deployment_graph
-from src.deployment_specification import validate_deployment_manifest
+from src.deployment_specification import (
+    ValidatedDeploymentManifest,
+    validate_resolved_deployment_specification,
+)
 from src.providers.terraform.package_builders.azure import (
     build_azure_graph_bundles,
+)
+from src.providers.terraform.package_builders.azure_six_layer import (
+    build_azure_six_layer_graph_apps,
+)
+from src.providers.terraform.package_builders.azure_six_layer_container import (
+    PACKAGE_ID as AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID,
+    build_azure_six_layer_storage_mover_context,
+)
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
+from src.providers.terraform.package_builder import (
+    _aws_six_layer_bridge_selected,
+    _selected_static_function_packages,
+    _validate_graph_package_selection,
 )
 
 
@@ -29,6 +49,38 @@ MANIFEST_ROOT = (
     / "fixtures"
     / "valid"
 )
+SIX_LAYER_MANIFEST_ROOT = (
+    MANIFEST_ROOT.parent.parent.parent / "v4" / "fixtures" / "valid"
+)
+SIX_LAYER_LOGICAL_TO_SLOT = {
+    "component.ingestion": "l1_ingestion",
+    "component.processing": "l2_processing",
+    "component.hot-storage": "l3_hot_storage",
+    "component.cool-storage": "l3_cool_storage",
+    "component.archive-storage": "l3_archive_storage",
+    "component.twin-state": "l4_twin_state",
+    "component.visualization": "l5_visualization",
+}
+
+
+def _resolve_offline_v4(name: str):
+    manifest = json.loads((SIX_LAYER_MANIFEST_ROOT / name).read_text("utf-8"))
+    specification = validate_resolved_deployment_specification(
+        manifest["resolved_deployment_specification"]
+    )
+    provider_by_slot = {
+        SIX_LAYER_LOGICAL_TO_SLOT[item["logical_component_id"]]: item["provider"]
+        for item in manifest["resolved_twin_architecture"]["component_assignments"]
+        if item["logical_component_id"] in SIX_LAYER_LOGICAL_TO_SLOT
+    }
+    validated = ValidatedDeploymentManifest(
+        manifest=MappingProxyType(manifest),
+        specification=specification,
+        provider_by_slot=MappingProxyType(provider_by_slot),
+        manifest_version="4.0",
+        architecture=MappingProxyType(manifest["resolved_twin_architecture"]),
+    )
+    return resolve_deployment_graph(validated)
 
 
 def test_azure_graph_bundles_are_selected_and_deterministic(tmp_path):
@@ -48,6 +100,139 @@ def test_azure_graph_bundles_are_selected_and_deterministic(tmp_path):
     assert "ingestion/function_app.py" in names
     assert "hot_writer/function_app.py" not in names
     assert "ingestion_bp" in main
+
+
+def test_azure_six_layer_graph_app_is_a_standalone_deterministic_package(tmp_path):
+    first = build_azure_six_layer_graph_apps(tmp_path, ("six-layer-domain",))
+    first_bytes = first["azure_six-layer-domain"].read_bytes()
+    second = build_azure_six_layer_graph_apps(tmp_path, ("six-layer-domain",))
+
+    assert second["azure_six-layer-domain"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["azure_six-layer-domain"]) as archive:
+        assert {
+            "bridge_core.py",
+            "core.py",
+            "function_app.py",
+            "host.json",
+            "phase8_eventing/aws/bridge.py",
+            "phase8_eventing/aws/runtime.py",
+            "phase8_eventing/azure/bridge.py",
+            "phase8_eventing/azure/runtime.py",
+            "phase8_eventing/bridge_application.py",
+            "phase8_eventing/destination_identity.py",
+            "phase8_eventing/destination_publishers.py",
+            "phase8_eventing/gcp/bridge.py",
+            "phase8_eventing/gcp/runtime.py",
+            "requirements.txt",
+        } <= set(archive.namelist())
+        function_app = archive.read("function_app.py").decode("utf-8")
+        requirements = archive.read("requirements.txt").decode("utf-8")
+        host = json.loads(archive.read("host.json"))
+        assert host["extensionBundle"] == {
+            "id": "Microsoft.Azure.Functions.ExtensionBundle",
+            "version": "[4.0.0, 5.0.0)",
+        }
+        assert "cross_cloud_telemetry_bridge" in function_app
+        assert "cross_cloud_control_bridge" in function_app
+        assert 'max_retry_count="5"' in function_app
+        assert "_event_hub_delivery_attempt(context)" in function_app
+        assert "google-auth==2.56.0" in requirements
+        assert "requests==2.34.2" in requirements
+        assert "google-cloud-pubsub" not in requirements
+        assert "boto3==1.43.47" in requirements
+
+
+def test_azure_six_layer_storage_mover_context_is_complete_and_deterministic(tmp_path):
+    first = build_azure_six_layer_storage_mover_context(tmp_path)
+    first_bytes = first[AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID].read_bytes()
+    second = build_azure_six_layer_storage_mover_context(tmp_path)
+
+    assert second[AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID].read_bytes() == first_bytes
+    with tarfile.open(
+        second[AZURE_SIX_LAYER_STORAGE_MOVER_PACKAGE_ID], mode="r:gz"
+    ) as archive:
+        assert set(archive.getnames()) == {
+            "Dockerfile",
+            "constraints.txt",
+            "requirements.txt",
+            "storage_mover.py",
+        }
+
+
+def test_aws_eventing_app_is_standalone_and_deterministic(tmp_path):
+    first = build_aws_eventing_app(tmp_path)
+    first_bytes = first["aws_six-layer-eventing"].read_bytes()
+    second = build_aws_eventing_app(tmp_path)
+
+    assert second["aws_six-layer-eventing"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["aws_six-layer-eventing"]) as archive:
+        names = set(archive.namelist())
+        handler = archive.read("lambda_function.py").decode("utf-8")
+    assert {
+        "lambda_function.py",
+        "phase8_eventing/bridge_core.py",
+        "phase8_eventing/aws/bridge.py",
+    } <= names
+    assert "def lambda_handler" in handler
+    assert "function_url" not in handler
+
+
+def test_azure_eventing_app_is_standalone_and_deterministic(tmp_path):
+    first = build_azure_six_layer_graph_apps(tmp_path, ("six-layer-eventing",))
+    first_bytes = first["azure_six-layer-eventing"].read_bytes()
+    second = build_azure_six_layer_graph_apps(tmp_path, ("six-layer-eventing",))
+
+    assert second["azure_six-layer-eventing"].read_bytes() == first_bytes
+    with zipfile.ZipFile(second["azure_six-layer-eventing"]) as archive:
+        names = set(archive.namelist())
+        function_app = archive.read("function_app.py").decode("utf-8")
+        host = json.loads(archive.read("host.json"))
+        assert host["extensionBundle"] == {
+            "id": "Microsoft.Azure.Functions.ExtensionBundle",
+            "version": "[4.0.0, 5.0.0)",
+        }
+    assert {
+        "function_app.py",
+        "host.json",
+        "requirements.txt",
+        "phase8_eventing/bridge_core.py",
+    } <= names
+    assert "event-telemetry-processor" in function_app
+    assert "EVENT_DOMAIN_DELIVERY_KEY" in function_app
+
+
+def test_six_layer_cross_cloud_graph_selects_event_and_bridge_packages():
+    graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
+
+    selected, package_ids = _selected_static_function_packages(graph)
+
+    assert selected["aws"] == ("six-layer-domain",)
+    assert selected["azure"] == ("six-layer-domain", "six-layer-eventing")
+    assert {
+        "aws_six-layer-domain",
+        "azure_six-layer-domain",
+        "azure_six-layer-eventing",
+    } <= package_ids
+    assert _aws_six_layer_bridge_selected(graph)
+
+
+def test_six_layer_event_owner_is_resolved_from_the_graph():
+    graph = _resolve_offline_v4("six-layer-aws-azure-eventing-small.json")
+    providers = {
+        "layer_1_provider": "aws",
+        "layer_2_provider": "azure",
+        "layer_3_hot_provider": "azure",
+        "layer_3_cold_provider": "azure",
+        "layer_3_archive_provider": "azure",
+        "layer_4_provider": "azure",
+        "layer_5_provider": "azure",
+    }
+
+    with patch(
+        "src.providers.terraform.package_builder._artifact_source_digest",
+        side_effect=lambda artifact: artifact["source_digest"],
+    ):
+        _validate_graph_package_selection(graph, providers)
 
 
 class TestBuildAllPackages:
@@ -230,124 +415,3 @@ class TestBuildAllPackages:
 
             # build_user_packages should always be called
             mock_user.assert_called_once()
-
-    def test_graph_builds_exact_catalog_selected_packages(self, tmp_path):
-        """The activated path must not consult the legacy function registry."""
-        from src.providers.terraform.package_builder import build_all_packages
-
-        manifest = json.loads(
-            (MANIFEST_ROOT / "mixed-providers.json").read_text("utf-8")
-        )
-        graph = resolve_deployment_graph(
-            validate_deployment_manifest(manifest, manifest["providers"])
-        )
-        terraform_dir = tmp_path / "terraform"
-        terraform_dir.mkdir()
-        project_path = tmp_path / "project"
-        project_path.mkdir()
-        extension_path = project_path / "extension.zip"
-        extension_path.write_bytes(b"extension")
-        extension_ref = next(
-            node.extension_artifact_refs[0]
-            for node in graph.nodes
-            if node.extension_artifact_refs
-        )
-
-        def build_selected(
-            provider: str,
-            _terraform_dir: Path,
-            _project_path: Path,
-            _providers: dict,
-            *,
-            selected_function_names,
-        ) -> dict[str, Path]:
-            packages = {}
-            for name in selected_function_names:
-                path = project_path / f"{provider}-{name}.zip"
-                path.write_bytes(f"{provider}:{name}".encode())
-                packages[f"{provider}_{name}"] = path
-            return packages
-
-        with (
-            patch(
-                "src.providers.terraform.package_builder."
-                "build_bound_extension_packages",
-                return_value={
-                    "extension:processor.telemetry": extension_path
-                },
-            ),
-            patch(
-                "src.providers.terraform.package_builder.load_package_evidence",
-                return_value=[dict(extension_ref)],
-            ),
-            patch(
-                "src.providers.terraform.package_builder.build_aws_lambda_packages",
-                side_effect=lambda *args, **kwargs: build_selected(
-                    "aws", *args, **kwargs
-                ),
-            ) as mock_aws,
-            patch(
-                "src.providers.terraform.package_builder.build_azure_graph_bundles",
-                side_effect=lambda _project_path, names: {
-                    package_id: (project_path / f"{package_id}.zip")
-                    for package_id in {
-                        "azure_bundle_l0",
-                        "azure_bundle_l2",
-                        "azure_bundle_l3",
-                    }
-                },
-            ) as mock_azure,
-            patch(
-                "src.providers.terraform.package_builder."
-                "build_gcp_cloud_function_packages",
-                side_effect=lambda *args, **kwargs: build_selected(
-                    "gcp", *args, **kwargs
-                ),
-            ) as mock_gcp,
-            patch(
-                "src.providers.terraform.package_builder.build_user_packages"
-            ) as mock_user,
-        ):
-            for package_id in (
-                "azure_bundle_l0",
-                "azure_bundle_l2",
-                "azure_bundle_l3",
-            ):
-                (project_path / f"{package_id}.zip").write_bytes(package_id.encode())
-            result = build_all_packages(
-                terraform_dir,
-                project_path,
-                manifest["providers"],
-                graph=graph,
-            )
-
-        assert mock_aws.call_args.kwargs["selected_function_names"] == (
-            "connector",
-            "dispatcher",
-        )
-        assert "ingestion" in mock_azure.call_args.args[1]
-        assert mock_gcp.call_args.kwargs["selected_function_names"] == ()
-        mock_user.assert_not_called()
-        assert set(result) == {
-            *{
-                f"aws_{name}"
-                for name in mock_aws.call_args.kwargs["selected_function_names"]
-            },
-            *{
-                f"gcp_{name}"
-                for name in mock_gcp.call_args.kwargs["selected_function_names"]
-            },
-            "azure_bundle_l0",
-            "azure_bundle_l2",
-            "azure_bundle_l3",
-            "extension:processor.telemetry",
-        }
-        evidence = json.loads(
-            (
-                project_path / ".twin2multicloud" / "graph" / "package-evidence.json"
-            ).read_text("utf-8")
-        )
-        assert evidence["graph_digest"] == graph.content_digest
-        assert {item["package_id"] for item in evidence["built_packages"]} == set(
-            result
-        )

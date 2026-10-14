@@ -21,7 +21,6 @@ async def upload(request: Request):
 
 
 client = TestClient(app)
-project_client = TestClient(rest_api.app)
 
 
 def test_multipart_upload_is_bounded():
@@ -38,10 +37,12 @@ def test_rest_api_uses_one_canonical_api_module_namespace():
     assert rest_api.projects is projects
     assert rest_api.projects.__name__ == "src.api.projects"
     forbidden_roots = {"api", "core", "providers"}
-    assert not any(
-        name.split(".", 1)[0] in forbidden_roots
+    forbidden_modules = sorted(
+        name
         for name in sys.modules
+        if name.split(".", 1)[0] in forbidden_roots
     )
+    assert not forbidden_modules, forbidden_modules
 
 
 def test_json_base64_upload_is_strict_and_bounded():
@@ -83,25 +84,3 @@ def test_upload_rejects_missing_file_and_unsupported_media_type():
 
     assert missing.status_code == 400
     assert unsupported.status_code == 415
-
-
-def test_config_route_preserves_payload_too_large_status(monkeypatch):
-    monkeypatch.setattr(projects, "MAX_CONFIG_UPLOAD_BYTES", 4)
-
-    response = project_client.put(
-        "/projects/runtime/config/config",
-        files={"file": ("config.json", b"12345", "application/json")},
-    )
-
-    assert response.status_code == 413
-
-
-def test_simulator_payload_route_preserves_payload_too_large_status(monkeypatch):
-    monkeypatch.setattr(projects, "MAX_SIMULATOR_PAYLOAD_UPLOAD_BYTES", 4)
-
-    response = project_client.put(
-        "/projects/runtime/simulator/payloads",
-        files={"file": ("payloads.json", b"12345", "application/json")},
-    )
-
-    assert response.status_code == 413

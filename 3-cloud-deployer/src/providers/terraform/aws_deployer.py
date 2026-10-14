@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote
+from urllib.parse import unquote, urlencode
 
 from src.core.secure_files import atomic_write_private_bytes
+from src.deployment_access.runtime_evidence import (
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
+)
 from src.providers.terraform.runtime_outcome import RuntimeRun
 
 if TYPE_CHECKING:
@@ -17,8 +21,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SIX_LAYER_SEED_ROOT_ID = "twin2multicloud-poc-root"
+SIX_LAYER_SEED_DEVICE_ID = "twin2multicloud-poc-device"
+SIX_LAYER_SEED_COMPONENT_NAME = "telemetry"
 
-def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic: str) -> dict:
+
+def _is_active_phase8_profile(context: "DeploymentContext") -> bool:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    return (
+        profile_ref.get("id"),
+        str(profile_ref.get("version")),
+    ) in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES
+
+
+def _active_phase8_profile(context: "DeploymentContext") -> str:
+    graph = getattr(context, "resolved_deployment_graph", None)
+    profile_ref = getattr(graph, "profile_ref", {}) if graph is not None else {}
+    profile = (profile_ref.get("id"), str(profile_ref.get("version")))
+    if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+        raise RuntimeError("Active Phase 8 architecture profile is required")
+    return f"{profile[0]}@{profile[1]}"
+
+
+def _simulator_iot_policy(
+    *,
+    region: str,
+    account_id: str,
+    device_id: str,
+    topic: str,
+    command_target_id: str,
+) -> dict:
     """Return the exact runtime permissions needed by one simulator device."""
     return {
         "Version": "2012-10-17",
@@ -34,6 +67,33 @@ def _simulator_iot_policy(*, region: str, account_id: str, device_id: str, topic
                 "Effect": "Allow",
                 "Action": "iot:Publish",
                 "Resource": f"arn:aws:iot:{region}:{account_id}:topic/{topic}",
+            },
+            {
+                "Sid": "SubscribeToDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Subscribe",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topicfilter/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/request/json"
+                ),
+            },
+            {
+                "Sid": "ReceiveDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Receive",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topic/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/request/json"
+                ),
+            },
+            {
+                "Sid": "AcknowledgeDeviceCommands",
+                "Effect": "Allow",
+                "Action": "iot:Publish",
+                "Resource": (
+                    f"arn:aws:iot:{region}:{account_id}:topic/"
+                    f"$aws/commands/things/{command_target_id}/executions/*/response/json"
+                ),
             },
         ],
     }
@@ -66,14 +126,18 @@ def _ensure_iot_policy(iot, *, policy_name: str, policy_document: dict) -> None:
     if _policy_document(current["policyDocument"]) == policy_document:
         return
 
-    versions = iot.list_policy_versions(policyName=policy_name).get("policyVersions", [])
+    versions = iot.list_policy_versions(policyName=policy_name).get(
+        "policyVersions", []
+    )
     if len(versions) >= 5:
         removable = sorted(
             (version for version in versions if not version.get("isDefaultVersion")),
             key=lambda version: str(version.get("createDate") or ""),
         )
         if not removable:
-            raise RuntimeError(f"AWS IoT policy '{policy_name}' has no removable version")
+            raise RuntimeError(
+                f"AWS IoT policy '{policy_name}' has no removable version"
+            )
         iot.delete_policy_version(
             policyName=policy_name,
             policyVersionId=removable[0]["versionId"],
@@ -92,22 +156,120 @@ def _require_aws_provider(context: "DeploymentContext"):
     return provider
 
 
-def _resolve_lambda_arn(lambda_client, outputs: dict, output_key: str, name: str) -> str | None:
+def _resolve_lambda_arn(
+    lambda_client, outputs: dict, output_key: str, name: str
+) -> str | None:
     arn = outputs.get(output_key)
     if arn:
         return str(arn)
     try:
-        return lambda_client.get_function(FunctionName=name)["Configuration"]["FunctionArn"]
+        return lambda_client.get_function(FunctionName=name)["Configuration"][
+            "FunctionArn"
+        ]
     except lambda_client.exceptions.ResourceNotFoundException:
         return None
 
 
-def _hierarchy_contains_component(nodes: list[dict]) -> bool:
+def _hierarchy_requires_connector(nodes: list[dict]) -> bool:
     return any(
-        node.get("type") == "component"
-        or _hierarchy_contains_component(node.get("children", []))
+        (node.get("type") == "component" and not node.get("currentState"))
+        or _hierarchy_requires_connector(node.get("children", []))
         for node in nodes
     )
+
+
+def _six_layer_seed(context: "DeploymentContext") -> dict:
+    """Return the deterministic minimal TwinMaker graph used by the thesis PoC."""
+    configured_devices = getattr(context.config, "iot_devices", [])
+    devices = configured_devices if isinstance(configured_devices, list) else []
+    device_ids = [
+        str(device.get("id") or device.get("device_id"))
+        for device in devices
+        if isinstance(device, dict)
+        and isinstance(device.get("id") or device.get("device_id"), str)
+        and str(device.get("id") or device.get("device_id")).strip()
+    ]
+    if not device_ids:
+        device_ids = [SIX_LAYER_SEED_DEVICE_ID]
+    return {
+        "type": "entity",
+        "id": SIX_LAYER_SEED_ROOT_ID,
+        "children": [
+            {
+                "type": "entity",
+                "id": device_id,
+                "children": [
+                    {
+                        "type": "component",
+                        "name": SIX_LAYER_SEED_COMPONENT_NAME,
+                        "componentTypeId": SIX_LAYER_SEED_COMPONENT_NAME,
+                        "currentState": True,
+                        "properties": [
+                            {"name": "value", "dataType": "DOUBLE"},
+                            {"name": "metric", "dataType": "STRING"},
+                            {"name": "sourceSequence", "dataType": "STRING"},
+                            {"name": "observedAt", "dataType": "STRING"},
+                            {"name": "lastEventId", "dataType": "STRING"},
+                        ],
+                        "constProperties": [
+                            {
+                                "name": "schemaVersion",
+                                "dataType": "STRING",
+                                "value": "twin-state.v1",
+                            }
+                        ],
+                    }
+                ],
+            }
+            for device_id in dict.fromkeys(device_ids)
+        ],
+    }
+
+
+def _probe_six_layer_seed(
+    twinmaker,
+    *,
+    workspace_id: str,
+    twin_name: str,
+    device_id: str,
+) -> None:
+    """Read back the bounded seed graph through the deployed TwinMaker API."""
+    component_type_id = f"{twin_name}-{SIX_LAYER_SEED_COMPONENT_NAME}"
+    run = RuntimeRun("AWS", "TwinMaker content probe", logger)
+
+    def read_component_type() -> None:
+        response = twinmaker.get_component_type(
+            workspaceId=workspace_id,
+            componentTypeId=component_type_id,
+        )
+        if response.get("status", {}).get("state") != "ACTIVE":
+            raise RuntimeError("TwinMaker seed component type is not active")
+
+    def read_root() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=SIX_LAYER_SEED_ROOT_ID,
+        )
+        if response.get("entityId") != SIX_LAYER_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed root readback returned the wrong entity")
+
+    def read_device() -> None:
+        response = twinmaker.get_entity(
+            workspaceId=workspace_id,
+            entityId=device_id,
+        )
+        if response.get("parentEntityId") != SIX_LAYER_SEED_ROOT_ID:
+            raise RuntimeError("TwinMaker seed relationship is not readable")
+        component = response.get("components", {}).get(
+            SIX_LAYER_SEED_COMPONENT_NAME, {}
+        )
+        if component.get("componentTypeId") != component_type_id:
+            raise RuntimeError("TwinMaker seed component is not readable")
+
+    run.attempt(component_type_id, read_component_type)
+    run.attempt(SIX_LAYER_SEED_ROOT_ID, read_root)
+    run.attempt(device_id, read_device)
+    run.raise_if_failed()
 
 
 def create_twinmaker_entities(
@@ -118,30 +280,41 @@ def create_twinmaker_entities(
     """Create every configured TwinMaker entity and component fail-closed."""
     del project_path
     provider = _require_aws_provider(context)
-    workspace_id = terraform_outputs.get("aws_twinmaker_workspace_id")
+    active_profile = _is_active_phase8_profile(context)
+    workspace_id = (
+        terraform_outputs.get("aws_component_twin_state_output", {}).get("workspace_id")
+        if active_profile else terraform_outputs.get("aws_twinmaker_workspace_id")
+    )
     if not workspace_id:
-        raise RuntimeError("Terraform output aws_twinmaker_workspace_id is required")
+        raise RuntimeError("Terraform output for TwinMaker workspace_id is required")
     hierarchy = context.config.hierarchy
-    if not isinstance(hierarchy, list) or not hierarchy:
+    if not isinstance(hierarchy, list):
+        raise ValueError("AWS TwinMaker hierarchy must be a list")
+    if active_profile:
+        hierarchy = [*hierarchy, _six_layer_seed(context)]
+    elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
     twinmaker = provider.clients["twinmaker"]
-    lambda_client = provider.clients["lambda"]
     twin_name = context.config.digital_twin_name
-    connector_arn = _resolve_lambda_arn(
-        lambda_client,
-        terraform_outputs,
-        "aws_l4_connector_function_arn",
-        f"{twin_name}-l4-connector",
-    )
-    connector_last_entry_arn = _resolve_lambda_arn(
-        lambda_client,
-        terraform_outputs,
-        "aws_l4_connector_last_entry_function_arn",
-        f"{twin_name}-l4-connector-last-entry",
-    ) or connector_arn
-    if _hierarchy_contains_component(hierarchy) and not connector_arn:
-        raise RuntimeError("TwinMaker hierarchy contains components but no L4 connector exists")
+    connector_arn = connector_last_entry_arn = None
+    if _hierarchy_requires_connector(hierarchy):
+        lambda_client = provider.clients["lambda"]
+        connector_arn = _resolve_lambda_arn(
+            lambda_client,
+            terraform_outputs,
+            "aws_l4_connector_function_arn",
+            f"{twin_name}-l4-connector",
+        )
+        connector_last_entry_arn = _resolve_lambda_arn(
+            lambda_client, terraform_outputs,
+            "aws_l4_connector_last_entry_function_arn",
+            f"{twin_name}-l4-connector-last-entry",
+        ) or connector_arn
+        if not connector_arn:
+            raise RuntimeError(
+                "TwinMaker hierarchy contains external components but no L4 connector exists"
+            )
 
     run = RuntimeRun("AWS", "TwinMaker", logger)
     for root in hierarchy:
@@ -154,8 +327,19 @@ def create_twinmaker_entities(
             parent_id=None,
             connector_arn=connector_arn,
             connector_last_entry_arn=connector_last_entry_arn,
+            wait_for_active=active_profile,
         )
     run.raise_if_failed()
+    if _is_active_phase8_profile(context):
+        seed = _six_layer_seed(context)
+        seed_devices = seed.get("children", [])
+        first_seed_device = seed_devices[0].get("id", SIX_LAYER_SEED_DEVICE_ID)
+        _probe_six_layer_seed(
+            twinmaker,
+            workspace_id=str(workspace_id),
+            twin_name=twin_name,
+            device_id=str(first_seed_device),
+        )
 
 
 def _create_twinmaker_node(
@@ -168,17 +352,23 @@ def _create_twinmaker_node(
     parent_id: str | None,
     connector_arn: str | None,
     connector_last_entry_arn: str | None,
+    wait_for_active: bool = False,
 ) -> None:
     node_type = node.get("type")
     if node_type == "entity":
         entity_id = node.get("id")
         if not isinstance(entity_id, str) or not entity_id:
-            run.attempt("invalid entity", lambda: (_ for _ in ()).throw(
-                ValueError("TwinMaker entity is missing a non-empty id")
-            ))
+            run.attempt(
+                "invalid entity",
+                lambda: (_ for _ in ()).throw(
+                    ValueError("TwinMaker entity is missing a non-empty id")
+                ),
+            )
             return
         if not _create_entity(run, twinmaker, workspace_id, entity_id, parent_id):
             return
+        if wait_for_active:
+            _wait_for_entity(twinmaker, workspace_id, entity_id)
         for child in node.get("children", []):
             _create_twinmaker_node(
                 run,
@@ -189,6 +379,7 @@ def _create_twinmaker_node(
                 parent_id=entity_id,
                 connector_arn=connector_arn,
                 connector_last_entry_arn=connector_last_entry_arn,
+                wait_for_active=wait_for_active,
             )
         return
     if node_type == "component":
@@ -211,7 +402,9 @@ def _create_twinmaker_node(
     )
 
 
-def _create_entity(run, twinmaker, workspace_id: str, entity_id: str, parent_id: str | None) -> bool:
+def _create_entity(
+    run, twinmaker, workspace_id: str, entity_id: str, parent_id: str | None
+) -> bool:
     def create() -> bool:
         params = {
             "workspaceId": workspace_id,
@@ -234,8 +427,8 @@ def _component_properties(node: dict) -> dict:
     properties = {
         prop["name"]: {
             "dataType": {"type": prop.get("dataType", "STRING")},
-            "isTimeSeries": True,
-            "isStoredExternally": True,
+            "isTimeSeries": not node.get("currentState", False),
+            "isStoredExternally": not node.get("currentState", False),
         }
         for prop in node.get("properties", [])
     }
@@ -265,34 +458,59 @@ def _create_component(
 ) -> None:
     name = node.get("name", node.get("componentTypeId"))
     if not isinstance(name, str) or not name:
-        run.attempt("invalid component", lambda: (_ for _ in ()).throw(
-            ValueError("TwinMaker component is missing a non-empty name")
-        ))
+        run.attempt(
+            "invalid component",
+            lambda: (_ for _ in ()).throw(
+                ValueError("TwinMaker component is missing a non-empty name")
+            ),
+        )
         return
     if not parent_id:
-        run.attempt(name, lambda: (_ for _ in ()).throw(
-            ValueError("TwinMaker component must be nested below an entity")
-        ))
+        run.attempt(
+            name,
+            lambda: (_ for _ in ()).throw(
+                ValueError("TwinMaker component must be nested below an entity")
+            ),
+        )
         return
     component_type_id = f"{twin_name}-{name}"
 
     def create_and_attach() -> bool:
-        functions = {"dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}}
-        if connector_last_entry_arn:
-            functions["attributePropertyValueReaderByEntity"] = {
-                "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+        extra = {}
+        if not node.get("currentState"):
+            functions = {
+                "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
             }
+            if connector_last_entry_arn:
+                functions["attributePropertyValueReaderByEntity"] = {
+                    "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+                }
+            extra["functions"] = functions
         try:
             twinmaker.create_component_type(
                 workspaceId=workspace_id,
                 componentTypeId=component_type_id,
                 propertyDefinitions=_component_properties(node),
-                functions=functions,
+                **extra,
             )
         except twinmaker.exceptions.ConflictException:
-            logger.info("TwinMaker component type already exists: %s", component_type_id)
+            logger.info(
+                "TwinMaker component type already exists: %s", component_type_id
+            )
         else:
             _wait_for_component_type(twinmaker, workspace_id, component_type_id)
+        if node.get("currentState"):
+            definitions = twinmaker.get_component_type(
+                workspaceId=workspace_id, componentTypeId=component_type_id
+            ).get("propertyDefinitions", {})
+            for key, expected in _component_properties(node).items():
+                definition = definitions.get(key)
+                if (definition is None or definition.get("isTimeSeries")
+                        or definition.get("isStoredExternally")
+                        or definition.get("dataType") != expected["dataType"]
+                        or ("defaultValue" in expected
+                            and definition.get("defaultValue") != expected["defaultValue"])):
+                    raise RuntimeError("TwinMaker component is not a native current-state model")
         try:
             twinmaker.update_entity(
                 workspaceId=workspace_id,
@@ -301,12 +519,28 @@ def _create_component(
             )
         except twinmaker.exceptions.ConflictException:
             logger.info("TwinMaker component already attached: %s", name)
+        if node.get("currentState"):
+            _wait_for_entity(twinmaker, workspace_id, parent_id)
         return True
 
     run.attempt(component_type_id, create_and_attach, default=False)
 
 
-def _wait_for_component_type(twinmaker, workspace_id: str, component_type_id: str) -> None:
+def _wait_for_entity(twinmaker, workspace_id: str, entity_id: str) -> None:
+    for _ in range(30):
+        response = twinmaker.get_entity(workspaceId=workspace_id, entityId=entity_id)
+        state = response.get("status", {}).get("state")
+        if state == "ACTIVE":
+            return
+        if state in {"ERROR", "DELETING"}:
+            raise RuntimeError("TwinMaker entity entered a terminal state")
+        time.sleep(1)
+    raise TimeoutError("TwinMaker entity did not become active within 30 seconds")
+
+
+def _wait_for_component_type(
+    twinmaker, workspace_id: str, component_type_id: str
+) -> None:
     for _ in range(30):
         response = twinmaker.get_component_type(
             workspaceId=workspace_id,
@@ -342,9 +576,12 @@ def register_aws_iot_devices(
     for device in devices:
         device_id = device.get("id")
         if not isinstance(device_id, str) or not device_id:
-            run.attempt("invalid device", lambda: (_ for _ in ()).throw(
-                ValueError("IoT device is missing a non-empty id")
-            ))
+            run.attempt(
+                "invalid device",
+                lambda: (_ for _ in ()).throw(
+                    ValueError("IoT device is missing a non-empty id")
+                ),
+            )
             continue
         run.attempt(
             device_id,
@@ -360,7 +597,14 @@ def register_aws_iot_devices(
     run.raise_if_failed()
 
 
-def _register_iot_device(provider, project_path: Path, device: dict, twin_name: str, account_id: str, endpoint: str) -> None:
+def _register_iot_device(
+    provider,
+    project_path: Path,
+    device: dict,
+    twin_name: str,
+    account_id: str,
+    endpoint: str,
+) -> None:
     iot = provider.clients["iot"]
     device_id = device["id"]
     thing_name = f"{twin_name}-{device_id}"
@@ -376,10 +620,16 @@ def _register_iot_device(provider, project_path: Path, device: dict, twin_name: 
     key_path = cert_dir / "private.pem.key"
     created_certificate_id: str | None = None
     if cert_path.is_file() and key_path.is_file():
-        principals = iot.list_thing_principals(thingName=thing_name).get("principals", [])
-        certificate_arns = [principal for principal in principals if ":cert/" in principal]
+        principals = iot.list_thing_principals(thingName=thing_name).get(
+            "principals", []
+        )
+        certificate_arns = [
+            principal for principal in principals if ":cert/" in principal
+        ]
         if len(certificate_arns) != 1:
-            raise RuntimeError(f"Cannot prove exactly one certificate for '{device_id}'")
+            raise RuntimeError(
+                f"Cannot prove exactly one certificate for '{device_id}'"
+            )
         certificate_arn = certificate_arns[0]
         certificate_id = certificate_arn.rsplit("/", 1)[-1]
         remote_certificate = iot.describe_certificate(certificateId=certificate_id)[
@@ -422,6 +672,7 @@ def _register_iot_device(provider, project_path: Path, device: dict, twin_name: 
                 account_id=account_id,
                 device_id=device_id,
                 topic=topic,
+                command_target_id=thing_name,
             ),
         )
         iot.attach_thing_principal(thingName=thing_name, principal=certificate_arn)
@@ -467,7 +718,9 @@ def _rollback_created_certificate(
                 certificateId=certificate_id,
                 newStatus="INACTIVE",
             ),
-            lambda: iot.delete_certificate(certificateId=certificate_id, forceDelete=True),
+            lambda: iot.delete_certificate(
+                certificateId=certificate_id, forceDelete=True
+            ),
         )
     )
     for operation in operations:
@@ -493,6 +746,11 @@ def _generate_aws_simulator_config(
     config_data = {
         "endpoint": iot_endpoint,
         "topic": f"dt/{digital_twin_name}/{device_id}/telemetry",
+        "command_target_id": f"{digital_twin_name}-{device_id}",
+        "command_topic_filter": (
+            f"$aws/commands/things/{digital_twin_name}-{device_id}/"
+            "executions/+/request/json"
+        ),
         "device_id": device_id,
         "cert_path": f"../../../iot_devices_auth/{device_id}/certificate.pem.crt",
         "key_path": f"../../../iot_devices_auth/{device_id}/private.pem.key",
@@ -505,7 +763,7 @@ def _generate_aws_simulator_config(
         "payload_path": "../../payloads.json",
         "credential_class": "aws_iot_device_certificate",
         "credential_contract_version": 1,
-        "permission_scope": "exact_client_and_telemetry_topic",
+        "permission_scope": "exact_client_telemetry_and_command_topics",
     }
     target = (
         project_path
@@ -520,14 +778,47 @@ def _generate_aws_simulator_config(
     )
 
 
-def configure_aws_grafana(
+def verify_aws_storage_read_access(
     context: "DeploymentContext",
     terraform_outputs: dict,
 ) -> None:
-    """Create the required Grafana datasource or fail the deployment."""
+    """Verify the L3-owned reader; this is not graphical L5 evidence."""
+    provider = _require_aws_provider(context)
+    bundle = terraform_outputs.get("aws_component_storage_read_access_output")
+    if not isinstance(bundle, dict):
+        raise RuntimeError(
+            "Terraform output aws_component_storage_read_access_output is required"
+        )
+    required = {"access_url", "reader_function_name"}
+    missing = sorted(key for key in required if not bundle.get(key))
+    if missing:
+        raise RuntimeError("AWS storage-read output is missing: " + ", ".join(missing))
+    device_id, metric = _default_v2_dashboard_series(context.config)
+    _probe_aws_raw_history_reader(
+        provider=provider,
+        reader_url=str(bundle["access_url"]),
+        device_id=device_id,
+        metric=metric,
+    )
+    logger.info(
+        "  AWS %s raw-history surface is ready", _active_phase8_profile(context)
+    )
+    return
+
+
+def configure_aws_visualization(
+    context: "DeploymentContext",
+    terraform_outputs: dict,
+) -> None:
+    """Verify active-profile L5 or configure the historical Grafana path."""
+    _require_aws_provider(context)
+    if _is_active_phase8_profile(context):
+        from src.deployment_access.visualization import fetch_visualization
+        fetch_visualization("aws", _require_aws_provider(context), terraform_outputs, verify_auth=True)
+        return
+
     import requests
 
-    _require_aws_provider(context)
     required = {
         "endpoint": terraform_outputs.get("aws_grafana_endpoint"),
         "api_key": terraform_outputs.get("aws_grafana_api_key"),
@@ -553,3 +844,64 @@ def configure_aws_grafana(
     )
     if response.status_code not in {200, 201, 409}:
         raise RuntimeError(f"Grafana API returned HTTP {response.status_code}")
+
+
+def _probe_aws_raw_history_reader(
+    *,
+    provider,
+    reader_url: str,
+    device_id: str,
+    metric: str,
+) -> None:
+    """Exercise both bounded L3 query modes through the IAM-protected URL."""
+
+    import requests
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    signer = provider.clients["lambda"]._request_signer
+    credentials = signer._credentials.get_frozen_credentials()
+    now = datetime.now(timezone.utc)
+    for bucket, start in (
+        (0, now - timedelta(hours=24)),
+        (3600, now - timedelta(days=30)),
+    ):
+        query = urlencode(
+            {
+                "device_id": device_id,
+                "metric": metric,
+                "from": start.isoformat().replace("+00:00", "Z"),
+                "to": now.isoformat().replace("+00:00", "Z"),
+                "bucket_seconds": str(bucket),
+                "limit": "1",
+            }
+        )
+        url = f"{reader_url.rstrip('/')}?{query}"
+        request = AWSRequest(method="GET", url=url)
+        SigV4Auth(credentials, "lambda", provider.region).add_auth(request)
+        response = requests.get(url, headers=dict(request.headers), timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"AWS raw-history query probe returned HTTP {response.status_code}"
+            )
+        body = response.json()
+        if body.get("schema_version") != "raw-history-query.v1":
+            raise RuntimeError(
+                "AWS raw-history query probe returned an invalid contract"
+            )
+
+
+def _default_v2_dashboard_series(config) -> tuple[str, str]:
+    devices = config.iot_devices if isinstance(config.iot_devices, list) else []
+    device = devices[0] if devices and isinstance(devices[0], dict) else {}
+    device_id = str(device.get("id") or device.get("device_id") or "poc-device-001")
+    properties = device.get("properties", [])
+    first_property = (
+        properties[0]
+        if isinstance(properties, list)
+        and properties
+        and isinstance(properties[0], dict)
+        else {}
+    )
+    metric = str(first_property.get("name") or "temperature")
+    return device_id, metric

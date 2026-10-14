@@ -20,9 +20,8 @@ export PYTHONPATH=/app
 echo "[INFO] Running tests..."
 echo ""
 
-# E2E is excluded by pyproject.toml and the collection guard unless explicitly enabled.
 python -m pytest -q -W error \
-    && ruff check src rest_api.py app.py tests --exclude tests/e2e \
+    && ruff check src rest_api.py app.py tests \
     && python -m bandit -q -r src \
     && python -m compileall -q src rest_api.py app.py \
     && python -m pip check

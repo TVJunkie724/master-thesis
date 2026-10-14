@@ -9,13 +9,6 @@ from src.main import app
 PUBLIC_ROUTE_KEYS = {
     ("GET", "/"),
     ("GET", "/health"),
-    ("POST", "/auth/providers/{provider}/login"),
-    ("GET", "/auth/google/callback"),
-    ("POST", "/auth/uibk/callback"),
-    ("GET", "/auth/uibk/metadata"),
-    ("GET", "/auth/providers"),
-    ("POST", "/auth/session/exchange"),
-    ("POST", "/auth/session/cancel"),
 }
 
 
@@ -24,7 +17,9 @@ def _included_api_routes() -> list[APIRoute]:
     for route in app.routes:
         included_router = getattr(route, "original_router", None)
         candidates = included_router.routes if included_router is not None else [route]
-        routes.extend(candidate for candidate in candidates if isinstance(candidate, APIRoute))
+        routes.extend(
+            candidate for candidate in candidates if isinstance(candidate, APIRoute)
+        )
     return routes
 
 

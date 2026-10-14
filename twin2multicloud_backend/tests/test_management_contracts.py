@@ -25,18 +25,22 @@ def _response_ref(path: str, method: str = "get") -> str | None:
 def test_management_json_contracts_have_response_models():
     """Stable Flutter-facing JSON endpoints expose explicit OpenAPI schemas."""
     expected_refs = {
-        ("/auth/providers/{provider}/login", "post"): "#/components/schemas/AuthStartResponse",
-        ("/auth/session/exchange", "post"): "#/components/schemas/AuthSessionExchangeResponse",
-        ("/auth/session/cancel", "post"): "#/components/schemas/MessageResponse",
-        ("/auth/logout", "post"): "#/components/schemas/MessageResponse",
         ("/auth/me", "get"): "#/components/schemas/CurrentUserResponse",
         ("/auth/me", "patch"): "#/components/schemas/CurrentUserResponse",
-        ("/auth/providers", "get"): "#/components/schemas/AuthProvidersResponse",
         ("/health", "get"): "#/components/schemas/HealthResponse",
+        ("/twins/import", "post"): "#/components/schemas/TwinResponse",
         (
-            "/twins/{twin_id}/can-redeploy",
+            "/twins/{twin_id}/duplicate",
+            "post",
+        ): "#/components/schemas/TwinResponse",
+        (
+            "/twins/{twin_id}/configure",
+            "post",
+        ): "#/components/schemas/TwinResponse",
+        (
+            "/twins/{twin_id}/deployment-access",
             "get",
-        ): "#/components/schemas/RedeployReadinessResponse",
+        ): "#/components/schemas/DeploymentAccessSnapshot",
         (
             "/twins/{twin_id}/deploy",
             "post",
@@ -65,13 +69,6 @@ def test_management_json_contracts_have_response_models():
             "/twins/{twin_id}/deployments",
             "get",
         ): "#/components/schemas/DeploymentHistoryResponse",
-        ("/twins/{twin_id}/config/validate-stored/{provider}", "post"): (
-            "#/components/schemas/DualCredentialValidationResponse"
-        ),
-        (
-            "/config/validate-dual",
-            "post",
-        ): "#/components/schemas/DualCredentialValidationResponse",
         (
             "/twins/{twin_id}/optimizer-config/cheapest-path",
             "get",
@@ -84,27 +81,10 @@ def test_management_json_contracts_have_response_models():
             "/twins/{twin_id}/deployer/upload-glb",
             "delete",
         ): "#/components/schemas/MessageResponse",
-        (
-            "/twins/{twin_id}/deployer/upload-zip",
-            "post",
-        ): "#/components/schemas/ProjectZipExtractionContract",
     }
 
     for (path, method), expected_ref in expected_refs.items():
         assert _response_ref(path, method) == expected_ref
-
-
-def test_auth_response_secrets_are_not_misclassified_as_write_only():
-    components = app.openapi()["components"]["schemas"]
-
-    poll_verifier = components["AuthStartResponse"]["properties"]["poll_verifier"]
-    access_token = components["AuthSessionExchangeResponse"]["properties"][
-        "access_token"
-    ]
-    assert poll_verifier["x-sensitive"] is True
-    assert access_token["x-sensitive"] is True
-    assert "writeOnly" not in poll_verifier
-    assert "writeOnly" not in access_token
 
 
 def test_twin_routes_keep_openapi_summaries_and_descriptions():
@@ -115,7 +95,9 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
         ("/twins/{twin_id}", "get"),
         ("/twins/{twin_id}", "put"),
         ("/twins/{twin_id}", "delete"),
-        ("/twins/{twin_id}/can-redeploy", "get"),
+        ("/twins/import", "post"),
+        ("/twins/{twin_id}/duplicate", "post"),
+        ("/twins/{twin_id}/configure", "post"),
         ("/twins/{twin_id}/deploy", "post"),
         ("/twins/{twin_id}/destroy", "post"),
         ("/twins/{twin_id}/deployment-readiness", "get"),
@@ -141,24 +123,6 @@ def test_twin_routes_keep_openapi_summaries_and_descriptions():
     assert missing == []
 
 
-def test_documented_raw_payload_exceptions_remain_unmodeled():
-    """Streaming, downloads, and dynamic downstream payloads stay explicitly raw."""
-    raw_json_paths = [
-        ("/optimizer/calculate", "put"),
-        (
-            "/optimizer/pricing/catalogs/{provider}/{pricing_region}/"
-            "snapshots/{snapshot_id}",
-            "get",
-        ),
-        ("/optimizer/pricing-status", "get"),
-        ("/optimizer/regions-status", "get"),
-        ("/optimizer/refresh-pricing/{provider}", "post"),
-    ]
-
-    for path, method in raw_json_paths:
-        assert _response_ref(path, method) is None
-
-
 def _public_client_methods(client_cls) -> set[str]:
     return {
         name
@@ -173,24 +137,18 @@ def test_downstream_client_contract_surface_is_explicit():
     assert _public_client_methods(OptimizerClient) == {
         "calculate",
         "get_exact_pricing_catalog_reference",
-        "get_exact_pricing_catalog_snapshot",
-        "get_cache_status",
         "get_pricing_catalog_baseline",
         "get_provider_capabilities",
-        "refresh_pricing",
-        "refresh_azure_pricing",
-        "refresh_pricing_with_credentials",
-        "stream_pricing_refresh",
         "validate_optimizer_config",
-        "verify_permissions",
     }
     assert _public_client_methods(DeployerClient) == {
-        "check_cooldown",
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
-        "extract_project_zip",
+        "get_visualization",
         "get_provider_capabilities",
+        "inspect_deployment_requirements",
+        "prepare_deployment_account",
         "stage_operation_package",
         "start_log_trace",
         "stream_log_trace",
@@ -229,3 +187,17 @@ def test_downstream_http_access_is_centralized_in_client_layer():
                 findings.append(f"{relative}: contains {token}")
 
     assert findings == []
+
+
+def test_azure_split_principal_secrets_are_request_only_in_openapi():
+    schema = app.openapi()["components"]["schemas"]["AzureCredentials"]
+    properties = schema["properties"]
+
+    assert {
+        "client_id",
+        "client_secret",
+    }.issubset(schema["required"])
+    assert properties["client_secret"]["writeOnly"] is True
+    assert "writeOnly" not in properties["client_id"]
+    assert "preparation_client_id" not in properties
+    assert "preparation_client_secret" not in properties

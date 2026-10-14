@@ -1,5 +1,7 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -15,10 +17,12 @@ from src.schemas.cost_calculation import (
     CostCalculationRunSelectResponse,
     CostCalculationRunSummaryResponse,
     PricingEvidenceDetailResponse,
+    SupervisedEvaluationRunCreate,
 )
 from src.schemas.resolved_deployment_specification import (
-    ResolvedDeploymentSpecification,
+    ResolvedDeploymentSpecificationDocument,
 )
+from src.services.architecture_errors import ArchitectureDomainError
 from src.services.cost_calculation_run_service import (
     CostCalculationRunService,
     _json_loads,
@@ -34,8 +38,16 @@ from src.services.errors import (
     TwinNotFound,
 )
 
-
 router = APIRouter(prefix="/twins/{twin_id}/optimizer-runs", tags=["optimizer-runs"])
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Restore the API's UTC contract after SQLite drops timezone metadata."""
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def get_optimizer_client() -> OptimizerClient:
@@ -80,7 +92,9 @@ async def create_optimizer_run(
     except ExternalServiceUnavailable:
         raise HTTPException(
             status_code=503,
-            detail=_error_detail("OPTIMIZER_UNAVAILABLE", "Optimizer service is unavailable."),
+            detail=_error_detail(
+                "OPTIMIZER_UNAVAILABLE", "Optimizer service is unavailable."
+            ),
         )
     except ExternalServiceError as exc:
         if exc.error_code is not None:
@@ -93,7 +107,9 @@ async def create_optimizer_run(
             )
         raise HTTPException(
             status_code=502,
-            detail=_error_detail("OPTIMIZER_ERROR", "Optimizer service returned an error."),
+            detail=_error_detail(
+                "OPTIMIZER_ERROR", "Optimizer service returned an error."
+            ),
         )
     except OptimizerContractError as exc:
         raise HTTPException(
@@ -104,6 +120,76 @@ async def create_optimizer_run(
         raise HTTPException(
             status_code=409,
             detail=_error_detail(exc.error_code, exc.message),
+        )
+
+
+@router.post(
+    "/supervised-evaluation",
+    response_model=CostCalculationRunDetailResponse,
+    operation_id="materializeSupervisedEvaluationRun",
+    summary="Materialize one digest-bound supervised Small candidate",
+    description=(
+        "Operator-only thesis evaluation hook. Disabled by default and not used "
+        "by the normal UI or optimizer-run endpoint. The resulting run enters "
+        "the same selection, preflight, Apply, replay, and Destroy lifecycle."
+    ),
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        502: {"description": "Optimizer contract or service error"},
+        503: {"description": "Optimizer unavailable"},
+    },
+)
+async def materialize_supervised_evaluation_run(
+    twin_id: str,
+    request: SupervisedEvaluationRunCreate,
+    service: CostCalculationRunService = Depends(get_cost_calculation_run_service),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        run = await service.create_run(
+            twin_id,
+            current_user.id,
+            request.params,
+            pricing_evidence_version=request.pricing_evidence_version,
+            supervised_evaluation={
+                "scenario_id": request.scenario_id,
+                "candidate_id": request.candidate_id,
+                "candidate_evidence_digest": request.candidate_evidence_digest,
+                "plan_digest": request.plan_digest,
+                "candidate_pack_manifest_digest": (
+                    request.candidate_pack_manifest_digest
+                ),
+            },
+        )
+        return _run_detail_response(run)
+    except TwinNotFound as exc:
+        raise HTTPException(status_code=404, detail=exc.message)
+    except ExternalServiceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail=_error_detail(
+                "OPTIMIZER_UNAVAILABLE", "Optimizer service is unavailable."
+            ),
+        )
+    except ExternalServiceError as exc:
+        raise HTTPException(
+            status_code=409 if exc.error_code else 502,
+            detail=_error_detail(
+                exc.error_code or "OPTIMIZER_ERROR",
+                "Optimizer rejected the supervised evaluation candidate.",
+            ),
+        )
+    except OptimizerContractError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=_error_detail("OPTIMIZER_CONTRACT_INVALID", exc.message, exc.errors),
+        )
+    except ArchitectureDomainError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=_error_detail(exc.code, exc.message),
         )
 
 
@@ -123,7 +209,10 @@ async def list_optimizer_runs(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        return [_run_summary_response(run) for run in service.list_runs(twin_id, current_user.id)]
+        return [
+            _run_summary_response(run)
+            for run in service.list_runs(twin_id, current_user.id)
+        ]
     except TwinNotFound as exc:
         raise HTTPException(status_code=404, detail=exc.message)
 
@@ -204,11 +293,9 @@ async def select_optimizer_run_for_deployment(
         )
         return CostCalculationRunSelectResponse(
             run=_run_summary_response(run),
-            selected_for_deployment_at=run.selected_for_deployment_at,
+            selected_for_deployment_at=_as_utc(run.selected_for_deployment_at),
             resolved_deployment_specification=(
-                validate_persisted_run_deployment_specification(
-                    run
-                ).specification
+                validate_persisted_run_deployment_specification(run).specification
             ),
         )
     except TwinNotFound as exc:
@@ -261,23 +348,22 @@ def _run_summary_response(run: CostCalculationRun) -> CostCalculationRunSummaryR
         calculation_model_version=run.calculation_model_version,
         pricing_registry_version=run.pricing_registry_version,
         pricing_evidence_version=run.pricing_evidence_version,
-        pricing_run_reference=run.pricing_run_reference,
         pricing_catalog_context=safe_pricing_catalog_context(
             run.pricing_catalog_context_json
         ),
         deployment_specification_digest=run.deployment_specification_digest,
         deployment_specification_version=run.deployment_specification_version,
         deployment_compatibility_status=(
-            run.deployment_compatibility_status or "legacy_not_deployable"
+            run.deployment_compatibility_status or "unavailable"
         ),
         architecture_compatibility_status=(
-            run.architecture_compatibility_status or "legacy_not_resolvable"
+            run.architecture_compatibility_status or "unavailable"
         ),
         resolved_architecture_version=run.resolved_architecture_version,
         resolved_architecture_digest=run.resolved_architecture_digest,
-        created_at=run.created_at,
-        completed_at=run.completed_at,
-        selected_for_deployment_at=run.selected_for_deployment_at,
+        created_at=_as_utc(run.created_at),
+        completed_at=_as_utc(run.completed_at),
+        selected_for_deployment_at=_as_utc(run.selected_for_deployment_at),
         error_code=run.error_code,
         error_message=run.error_message,
     )
@@ -295,12 +381,12 @@ def _run_detail_response(run: CostCalculationRun) -> CostCalculationRunDetailRes
 
 def _safe_deployment_specification(
     run: CostCalculationRun,
-) -> ResolvedDeploymentSpecification | None:
+) -> ResolvedDeploymentSpecificationDocument | None:
     raw = _json_loads(run.deployment_specification_json)
     if raw is None:
         return None
     try:
-        return ResolvedDeploymentSpecification.model_validate(raw)
+        return TypeAdapter(ResolvedDeploymentSpecificationDocument).validate_python(raw)
     except ValidationError:
         return None
 
@@ -324,7 +410,7 @@ def _result_item_response(
         service_model_id=item.service_model_id,
         calculation_notes=_json_loads(item.calculation_notes_json),
         review_status=item.review_status,
-        created_at=item.created_at,
+        created_at=_as_utc(item.created_at),
     )
 
 

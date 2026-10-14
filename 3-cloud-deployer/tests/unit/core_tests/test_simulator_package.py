@@ -25,7 +25,7 @@ def _source_root(tmp_path: Path, provider: str) -> Path:
     templates.mkdir(parents=True)
     for name in ("main.py", "transmission.py", "globals.py"):
         (provider_dir / name).write_text(f"# {name}\n", encoding="utf-8")
-    for name in ("README.md.template", "requirements.txt", "Dockerfile", "docker-compose.yml.template"):
+    for name in ("README.md.template", "requirements.txt", "Dockerfile", ".dockerignore", "docker-compose.yml.template"):
         (templates / name).write_text("project={{project_name}}\n", encoding="utf-8")
     if provider == "aws":
         (provider_dir / "AmazonRootCA1.pem").write_text(
@@ -45,15 +45,22 @@ def _project(tmp_path: Path, provider: str, config: dict) -> tuple[Path, Path]:
     credential_classes = {
         "aws": "aws_iot_device_certificate",
         "azure": "azure_iot_hub_device_identity",
-        "google": "gcp_pubsub_topic_publisher",
+        "google": "gcp_mqtt_deployment_credential",
     }
     config.setdefault("credential_class", credential_classes[provider])
     config.setdefault("credential_contract_version", 1)
     if provider == "aws":
-        config.setdefault("permission_scope", "exact_client_and_telemetry_topic")
+        config.setdefault("command_target_id", "factory-twin-device-1")
+        config.setdefault(
+            "command_topic_filter",
+            "$aws/commands/things/factory-twin-device-1/executions/+/request/json",
+        )
+        config.setdefault(
+            "permission_scope", "exact_client_telemetry_and_command_topics"
+        )
     config_path = device / "config_generated.json"
     config_path.write_text(json.dumps(config), encoding="utf-8")
-    if provider == "azure":
+    if provider in {"azure", "google"}:
         config_path.chmod(0o600)
     return project, device
 
@@ -93,6 +100,7 @@ def test_builds_azure_archive_with_only_device_identity_and_allowlisted_files(tm
     assert package.provider == "azure"
     assert package.credential_class == "azure_iot_hub_device_identity"
     assert sorted(entries) == [
+        ".dockerignore",
         "Dockerfile",
         "README.md",
         "config.json",
@@ -100,6 +108,7 @@ def test_builds_azure_archive_with_only_device_identity_and_allowlisted_files(tm
         "docker-compose.yml",
         "payloads.json",
         "requirements.txt",
+        "src/__init__.py",
         "src/globals.py",
         "src/main.py",
         "src/transmission.py",
@@ -119,7 +128,12 @@ def test_builds_aws_archive_with_device_scoped_certificate_material(tmp_path):
             "topic": "dt/factory-twin/device-1/telemetry",
             "credential_class": "aws_iot_device_certificate",
             "credential_contract_version": 1,
-            "permission_scope": "exact_client_and_telemetry_topic",
+            "command_target_id": "factory-twin-device-1",
+            "command_topic_filter": (
+                "$aws/commands/things/factory-twin-device-1/"
+                "executions/+/request/json"
+            ),
+            "permission_scope": "exact_client_telemetry_and_command_topics",
         },
     )
     auth = project / "iot_devices_auth" / "device-1"
@@ -147,31 +161,30 @@ def test_builds_aws_archive_with_device_scoped_certificate_material(tmp_path):
     assert "public.pem.key" not in " ".join(entries)
 
 
-def test_gcp_archive_uses_only_dedicated_topic_publisher_key(tmp_path):
-    email = "factory-simulator@example.iam.gserviceaccount.com"
+def test_gcp_archive_uses_only_deployment_scoped_mqtt_credentials(tmp_path):
     project, _ = _project(
         tmp_path,
         "google",
         {
             "device_id": "device-1",
-            "project_id": "example",
-            "topic_name": "factory-telemetry",
-            "service_account_key_path": "/tmp/admin-credentials.json",
-            "simulator_service_account_email": email,
-            "credential_class": "gcp_pubsub_topic_publisher",
+            "endpoint": "203.0.113.10",
+            "port": 8883,
+            "username": "device-user",
+            "password": "device-password",
+            "telemetry_topic": "devices/device-1/telemetry",
+            "command_topic": "devices/device-1/commands",
+            "server_ca_path": "../../_runtime/server-ca.pem",
+            "permission_scope": "deployment_device_telemetry_and_command_topics",
+            "credential_class": "gcp_mqtt_deployment_credential",
             "credential_contract_version": 1,
         },
     )
     runtime = project / "iot_device_simulator" / "google" / "_runtime"
     runtime.mkdir()
-    runtime_key = {
-        "type": "service_account",
-        "project_id": "example",
-        "client_email": email,
-        "private_key": "-----BEGIN PRIVATE KEY-----\nRUNTIME\n-----END PRIVATE KEY-----\n",
-    }
-    (runtime / "service_account.json").write_text(json.dumps(runtime_key), encoding="utf-8")
-    (runtime / "service_account.json").chmod(0o600)
+    (runtime / "server-ca.pem").write_text(
+        "-----BEGIN CERTIFICATE-----\nPUBLIC\n-----END CERTIFICATE-----\n",
+        encoding="utf-8",
+    )
     (project / "service_account.json").write_text("ADMIN-KEY-MUST-NOT-BE-READ", encoding="utf-8")
     package = SimulatorPackageService(
         project_path=project,
@@ -181,8 +194,9 @@ def test_gcp_archive_uses_only_dedicated_topic_publisher_key(tmp_path):
     entries = _entries(package.content)
 
     assert package.provider == "gcp"
-    assert package.credential_class == "gcp_pubsub_topic_publisher"
-    assert json.loads(entries["service_account.json"])["private_key"].find("RUNTIME") >= 0
+    assert package.credential_class == "gcp_mqtt_deployment_credential"
+    assert b"BEGIN CERTIFICATE" in entries["server-ca.pem"]
+    assert json.loads(entries["config.json"])["password"] == "device-password"
     assert b"ADMIN-KEY" not in b"".join(entries.values())
 
 
@@ -204,7 +218,7 @@ def test_gcp_archive_uses_only_dedicated_topic_publisher_key(tmp_path):
                 "topic": "dt/factory-twin/other/telemetry",
                 "credential_class": "aws_iot_device_certificate",
                 "credential_contract_version": 1,
-                "permission_scope": "exact_client_and_telemetry_topic",
+                "permission_scope": "exact_client_telemetry_and_command_topics",
             },
         ),
     ],
@@ -238,22 +252,25 @@ def test_rejects_symbolic_links_in_provider_directory(tmp_path):
 
 
 def test_rejects_unexpected_gcp_runtime_credential_file(tmp_path):
-    email = "factory-simulator@example.iam.gserviceaccount.com"
     project, _ = _project(
         tmp_path,
         "google",
         {
             "device_id": "device-1",
-            "project_id": "example",
-            "topic_name": "factory-telemetry",
-            "simulator_service_account_email": email,
-            "credential_class": "gcp_pubsub_topic_publisher",
+            "endpoint": "203.0.113.10",
+            "port": 8883,
+            "username": "device-user",
+            "password": "device-password",
+            "telemetry_topic": "devices/device-1/telemetry",
+            "command_topic": "devices/device-1/commands",
+            "permission_scope": "deployment_device_telemetry_and_command_topics",
+            "credential_class": "gcp_mqtt_deployment_credential",
             "credential_contract_version": 1,
         },
     )
     runtime = project / "iot_device_simulator" / "google" / "_runtime"
     runtime.mkdir()
-    (runtime / "service_account.json").write_text("{}", encoding="utf-8")
+    (runtime / "server-ca.pem").write_text("certificate", encoding="utf-8")
     (runtime / "admin.json").write_text("{}", encoding="utf-8")
 
     with pytest.raises(SimulatorPackageInvalid, match="unexpected files"):
@@ -355,33 +372,35 @@ def test_rejects_payload_above_explicit_size_limit(tmp_path):
         ).build(project_name="factory-twin", provider="azure")
 
 
-def test_rejects_gcp_runtime_key_with_group_or_world_permissions(tmp_path):
-    email = "factory-simulator@example.iam.gserviceaccount.com"
+def test_rejects_gcp_config_with_group_or_world_permissions(tmp_path):
     project, _ = _project(
         tmp_path,
         "google",
         {
             "device_id": "device-1",
-            "project_id": "example",
-            "topic_name": "factory-telemetry",
-            "simulator_service_account_email": email,
+            "endpoint": "203.0.113.10",
+            "port": 8883,
+            "username": "device-user",
+            "password": "device-password",
+            "telemetry_topic": "devices/device-1/telemetry",
+            "command_topic": "devices/device-1/commands",
+            "permission_scope": "deployment_device_telemetry_and_command_topics",
         },
     )
     runtime = project / "iot_device_simulator" / "google" / "_runtime"
     runtime.mkdir()
-    key_path = runtime / "service_account.json"
-    key_path.write_text(
-        json.dumps(
-            {
-                "type": "service_account",
-                "project_id": "example",
-                "client_email": email,
-                "private_key": "-----BEGIN PRIVATE KEY-----\nRUNTIME\n-----END PRIVATE KEY-----",
-            }
-        ),
+    (runtime / "server-ca.pem").write_text(
+        "-----BEGIN CERTIFICATE-----\nPUBLIC\n-----END CERTIFICATE-----\n",
         encoding="utf-8",
     )
-    key_path.chmod(0o640)
+    config_path = (
+        project
+        / "iot_device_simulator"
+        / "google"
+        / "device-1"
+        / "config_generated.json"
+    )
+    config_path.chmod(0o640)
 
     with pytest.raises(SimulatorPackageInvalid, match="permissions"):
         SimulatorPackageService(

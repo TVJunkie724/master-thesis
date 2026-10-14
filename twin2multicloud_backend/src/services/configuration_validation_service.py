@@ -97,7 +97,7 @@ class ConfigurationValidationService:
             return errors
 
         required_providers = (
-            self.credential_resolution_service.required_providers_for_compatibility(
+            self.credential_resolution_service.required_providers_from_architecture(
                 twin
             )
         )
@@ -140,6 +140,13 @@ class ConfigurationValidationService:
             "params": optimizer_params,
             "result": optimizer_result,
         }
+        architecture_profile_ref = None
+        if twin.architecture_selection is not None:
+            architecture_profile_ref = {
+                "id": twin.architecture_selection.profile_id,
+                "version": twin.architecture_selection.profile_version,
+                "digest": twin.architecture_selection.profile_digest,
+            }
 
         deployer_payload = {
             "deployer_digital_twin_name": deployer_config.deployer_digital_twin_name
@@ -182,6 +189,7 @@ class ConfigurationValidationService:
             else None,
             "optimizer_params": optimizer_params,
             "cheapest_path": cheapest_path,
+            "architecture_profile_ref": architecture_profile_ref,
         }
 
         return optimizer_payload, deployer_payload, errors

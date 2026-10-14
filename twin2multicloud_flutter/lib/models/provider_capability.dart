@@ -2,20 +2,16 @@ import 'package:equatable/equatable.dart';
 
 enum CapabilityAvailability { available, disabled, unsupported }
 
-enum CapabilityRoadmap { none, planned }
-
 enum CapabilityVerificationLevel { notVerified, contractTested, liveVerified }
 
 class CapabilitySource extends Equatable {
   final CapabilityAvailability availability;
-  final CapabilityRoadmap roadmap;
   final String? reasonCode;
   final String? reason;
   final CapabilityVerificationLevel verificationLevel;
 
   const CapabilitySource({
     required this.availability,
-    required this.roadmap,
     required this.reasonCode,
     required this.reason,
     required this.verificationLevel,
@@ -24,14 +20,12 @@ class CapabilitySource extends Equatable {
   factory CapabilitySource.fromJson(Map<String, dynamic> json) {
     _expectKeys(json, const {
       'availability',
-      'roadmap',
       'reason_code',
       'reason',
       'verification_level',
     }, 'capability source');
     return CapabilitySource(
       availability: _availability(json['availability']),
-      roadmap: _roadmap(json['roadmap']),
       reasonCode: _nullableString(json['reason_code'], 'reason_code'),
       reason: _nullableString(json['reason'], 'reason'),
       verificationLevel: _verification(json['verification_level']),
@@ -41,7 +35,6 @@ class CapabilitySource extends Equatable {
   @override
   List<Object?> get props => [
     availability,
-    roadmap,
     reasonCode,
     reason,
     verificationLevel,
@@ -73,7 +66,6 @@ class CapabilitySources extends Equatable {
 class PlatformLayerCapability extends Equatable {
   final String layer;
   final CapabilityAvailability availability;
-  final CapabilityRoadmap roadmap;
   final String? reasonCode;
   final String? reason;
   final bool selectable;
@@ -85,7 +77,6 @@ class PlatformLayerCapability extends Equatable {
   const PlatformLayerCapability({
     required this.layer,
     required this.availability,
-    required this.roadmap,
     required this.reasonCode,
     required this.reason,
     required this.selectable,
@@ -99,7 +90,6 @@ class PlatformLayerCapability extends Equatable {
     _expectKeys(json, const {
       'layer',
       'availability',
-      'roadmap',
       'reason_code',
       'reason',
       'selectable',
@@ -131,7 +121,6 @@ class PlatformLayerCapability extends Equatable {
     return PlatformLayerCapability(
       layer: layer,
       availability: availability,
-      roadmap: _roadmap(json['roadmap']),
       reasonCode: _nullableString(json['reason_code'], 'reason_code'),
       reason: _nullableString(json['reason'], 'reason'),
       selectable: selectable,
@@ -148,7 +137,6 @@ class PlatformLayerCapability extends Equatable {
   List<Object?> get props => [
     layer,
     availability,
-    roadmap,
     reasonCode,
     reason,
     selectable,
@@ -299,12 +287,6 @@ CapabilityAvailability _availability(dynamic value) => switch (value) {
   'disabled' => CapabilityAvailability.disabled,
   'unsupported' => CapabilityAvailability.unsupported,
   _ => throw FormatException('Unsupported capability availability: $value'),
-};
-
-CapabilityRoadmap _roadmap(dynamic value) => switch (value) {
-  'none' => CapabilityRoadmap.none,
-  'planned' => CapabilityRoadmap.planned,
-  _ => throw FormatException('Unsupported capability roadmap state: $value'),
 };
 
 CapabilityVerificationLevel _verification(dynamic value) => switch (value) {

@@ -4,26 +4,31 @@
 
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../core/app_logger.dart';
+import '../../core/result.dart';
+import '../../models/architecture_profile.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/optimizer_config.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/resolved_twin_architecture.dart';
 import '../../models/user_function_extension.dart';
 import '../../services/management_api.dart';
 import '../../utils/api_error_handler.dart';
+import 'helpers/helpers.dart';
+import 'services/wizard_deployer_validation_service.dart';
+import 'services/wizard_glb_cleanup_service.dart';
+import 'services/wizard_init_service.dart';
 import 'wizard_event.dart';
 import 'wizard_state.dart';
-import 'helpers/helpers.dart';
-import 'services/wizard_glb_cleanup_service.dart';
-import 'services/wizard_deployer_validation_service.dart';
-import 'services/wizard_init_service.dart';
-import 'services/wizard_zip_service.dart';
 
 part 'handlers/wizard_artifact_content_handlers.dart';
+part 'handlers/wizard_architecture_profile_handlers.dart';
 part 'handlers/wizard_initialization_cloud_access_handlers.dart';
 part 'handlers/wizard_optimization_persistence_handlers.dart';
 part 'handlers/wizard_transfer_command_handlers.dart';
@@ -38,38 +43,42 @@ part 'handlers/wizard_user_function_extension_handlers.dart';
 /// - Create vs Edit mode distinction
 class WizardBloc extends Bloc<WizardEvent, WizardState> {
   final WizardInitService _initService;
-  final WizardZipService _zipService;
   final WizardGlbCleanupService _glbCleanupService;
   final WizardDeployerValidationService _deployerValidationService;
   final ManagementApi _api;
   final AppLogger _logger;
   final int _maxSceneGlbBytes;
-  final int _maxProjectZipBytes;
+  int _architectureDetailGeneration = 0;
+  int _resolvedArchitectureGeneration = 0;
 
   WizardBloc({
     required ManagementApi api,
     WizardInitService? initService,
-    WizardZipService? zipService,
     WizardGlbCleanupService? glbCleanupService,
     AppLogger logger = const AppLogger(),
     int maxSceneGlbBytes = 100 * 1024 * 1024,
-    int maxProjectZipBytes = 100 * 1024 * 1024,
+    WizardState initialState = const WizardState(),
   }) : _api = api,
        _initService = initService ?? WizardInitService(),
-       _zipService = zipService ?? WizardZipService(),
        _glbCleanupService =
            glbCleanupService ?? WizardGlbCleanupService(api: api),
        _deployerValidationService = WizardDeployerValidationService(api: api),
        _logger = logger,
        _maxSceneGlbBytes = maxSceneGlbBytes,
-       _maxProjectZipBytes = maxProjectZipBytes,
-       super(const WizardState()) {
+       super(initialState) {
     // === Initialization ===
     on<WizardInitCreate>(_onInitCreate);
     on<WizardInitEdit>(_onInitEdit);
     on<WizardProviderCapabilitiesLoadRequested>(
       _onProviderCapabilitiesLoadRequested,
     );
+    on<WizardCanonicalArchitectureLoadRequested>(
+      _onCanonicalArchitectureLoadRequested,
+    );
+    on<WizardResolvedArchitectureLoadRequested>(
+      _onResolvedArchitectureLoadRequested,
+    );
+    on<WizardResolvedArchitectureRetried>(_onResolvedArchitectureRetried);
 
     // === Navigation ===
     on<WizardNextStep>(_onNextStep);
@@ -92,7 +101,6 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     on<WizardCloudConnectionDeleteRequested>(_onCloudConnectionDeleteRequested);
 
     // === Step 2: Optimizer ===
-    on<WizardPricingHealthLoadRequested>(_onPricingHealthLoadRequested);
     on<WizardCalcParamsChanged>(_onCalcParamsChanged);
     on<WizardCalcFormValidChanged>(_onCalcFormValidChanged);
     on<WizardCalculateRequested>(_onCalculateRequested);
@@ -151,14 +159,12 @@ class WizardBloc extends Bloc<WizardEvent, WizardState> {
     // === Step 3: L4 Cleanup ===
     on<WizardL4CleanupRequested>(_onL4CleanupRequested);
 
-    // === Step 3: Zip Upload ===
-    on<WizardZipUploadRequested>(_onZipUploadRequested);
-
     // === User-function extension contract ===
-    on<WizardExtensionCatalogLoadRequested>(_onExtensionCatalogLoadRequested);
+    on<WizardUserFunctionsLoadRequested>(_onUserFunctionsLoadRequested);
     on<WizardExtensionSourceSelected>(_onExtensionSourceSelected);
     on<WizardExtensionConfigurationChanged>(_onExtensionConfigurationChanged);
     on<WizardExtensionValidationRequested>(_onExtensionValidationRequested);
-    on<WizardExtensionBindRequested>(_onExtensionBindRequested);
+    on<WizardExtensionSaveRequested>(_onExtensionSaveRequested);
+    on<WizardExtensionDeleteRequested>(_onExtensionDeleteRequested);
   }
 }

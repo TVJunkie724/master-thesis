@@ -8,7 +8,10 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/twin.dart';
+import 'package:twin2multicloud_flutter/models/cleanup_evidence.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
@@ -169,6 +172,445 @@ void main() {
     });
   });
 
+  group('TwinOverviewBloc layer access', () {
+    late MockApiService api;
+
+    setUp(() => api = MockApiService());
+
+    for (final lifecycle in [
+      DeploymentTwinState.error,
+      DeploymentTwinState.destroyed,
+      DeploymentTwinState.configured,
+    ]) {
+      blocTest<TwinOverviewBloc, TwinOverviewState>(
+        'deployed history disables re-deploy and edit in ${lifecycle.apiValue}',
+        setUp: () {
+          _stubLoad(
+            api,
+            status: DeploymentStatusSnapshot(
+              schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+              state: lifecycle,
+            ),
+            readiness: _readiness(ready: true),
+          );
+          final stamp = DateTime.utc(2026, 10, 10);
+          when(() => api.getTwin('test-id')).thenAnswer(
+            (_) async => Twin(
+              id: 'test-id',
+              name: 'History',
+              state: lifecycle.apiValue,
+              createdAt: stamp,
+              updatedAt: stamp,
+              deployedAt: stamp,
+            ),
+          );
+        },
+        build: () => _buildBloc(api),
+        act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+        expect: () => [
+          isA<TwinOverviewLoading>(),
+          isA<TwinOverviewLoaded>()
+              .having((s) => s.hasBeenDeployed, 'history', isTrue)
+              .having((s) => s.canDeploy, 'deploy', isFalse)
+              .having((s) => s.canEdit, 'edit', isFalse)
+              .having(
+                (s) => s.canDelete,
+                'delete',
+                lifecycle == DeploymentTwinState.destroyed,
+              ),
+        ],
+        verify: (_) => verifyNever(() => api.deployTwin(any())),
+      );
+    }
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'loads one ready access snapshot for an initially deployed twin',
+      setUp: () {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenAnswer((_) async => _accessSnapshot());
+      },
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.layerAccess.phase,
+              'access phase',
+              LayerAccessViewPhase.ready,
+            )
+            .having(
+              (state) => state.layerAccess.snapshot?.surfaces.length,
+              'surface count',
+              2,
+            ),
+      ],
+      verify: (_) => verify(() => api.getDeploymentAccess('test-id')).called(1),
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'configured twins keep layer access idle and perform no access request',
+      setUp: () => _stubLoad(
+        api,
+        status: const DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.configured,
+        ),
+        readiness: _readiness(ready: true),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.layerAccess.phase,
+          'access phase',
+          LayerAccessViewPhase.idle,
+        ),
+      ],
+      verify: (_) {
+        verifyNever(() => api.getDeploymentAccess(any()));
+        verifyNever(() => api.getDeploymentOutputs(any()));
+      },
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'loads access independently while retaining successful outputs',
+      setUp: () {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenThrow(const AppException('read model missing', code: 'MISSING'));
+      },
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentOutputs?.outputs?['endpoint'],
+              'outputs',
+              'safe',
+            )
+            .having(
+              (state) => state.layerAccess.phase,
+              'access phase',
+              LayerAccessViewPhase.failed,
+            ),
+      ],
+    );
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'retries only the access read model',
+      seed: () => _loaded(
+        twinState: 'deployed',
+        layerAccess: const LayerAccessViewState(
+          phase: LayerAccessViewPhase.failed,
+          errorMessage: 'old error',
+        ),
+      ),
+      setUp: () => when(
+        () => api.getDeploymentAccess('test-id'),
+      ).thenAnswer((_) async => _accessSnapshot()),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewRetryLayerAccess()),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.layerAccess.phase,
+          'loading',
+          LayerAccessViewPhase.loading,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.layerAccess.phase,
+              'ready',
+              LayerAccessViewPhase.ready,
+            )
+            .having(
+              (state) => state.layerAccess.errorMessage,
+              'error cleared',
+              isNull,
+            ),
+      ],
+      verify: (_) => verifyNever(() => api.getDeploymentOutputs(any())),
+    );
+
+    test(
+      'late access response for an old twin generation is ignored',
+      () async {
+        final delayedAccess = Completer<DeploymentAccessSnapshot>();
+        when(() => api.getTwin(any())).thenAnswer((invocation) async {
+          final twinId = invocation.positionalArguments.single as String;
+          return TypedApiFixtures.twin(id: twinId, name: 'Twin $twinId');
+        });
+        when(() => api.getDeploymentStatus(any())).thenAnswer((
+          invocation,
+        ) async {
+          final twinId = invocation.positionalArguments.single as String;
+          return DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: twinId == 'old-twin'
+                ? DeploymentTwinState.deployed
+                : DeploymentTwinState.configured,
+          );
+        });
+        when(() => api.getOptimizerConfig(any())).thenAnswer((_) async => null);
+        when(() => api.getDeployerConfig(any())).thenAnswer((_) async => null);
+        when(
+          () => api.getDeploymentReadiness(any()),
+        ).thenAnswer((_) async => _readiness(ready: true));
+        when(
+          () => api.getDeploymentOutputs('old-twin'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'old'}));
+        when(
+          () => api.getDeploymentAccess('old-twin'),
+        ).thenAnswer((_) => delayedAccess.future);
+        final bloc = _buildBloc(api);
+
+        bloc.add(const TwinOverviewLoad('old-twin'));
+        await pumpEventQueue(times: 10);
+        bloc.add(const TwinOverviewLoad('new-twin'));
+        await pumpEventQueue(times: 20);
+        delayedAccess.complete(_accessSnapshot());
+        await pumpEventQueue(times: 20);
+
+        final loaded = bloc.state as TwinOverviewLoaded;
+        expect(loaded.twinId, 'new-twin');
+        expect(loaded.layerAccess.phase, LayerAccessViewPhase.idle);
+        verify(() => api.getDeploymentAccess('old-twin')).called(1);
+        verifyNever(() => api.getDeploymentAccess('new-twin'));
+        await bloc.close();
+      },
+    );
+
+    test('a newer refresh wins over an older retry response', () async {
+      _stubLoad(
+        api,
+        status: const DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.deployed,
+        ),
+        readiness: _readiness(ready: true),
+      );
+      when(
+        () => api.getDeploymentOutputs('test-id'),
+      ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+      when(
+        () => api.getDeploymentAccess('test-id'),
+      ).thenAnswer((_) async => _accessSnapshot());
+      final bloc = _buildBloc(api);
+      bloc.add(const TwinOverviewLoad('test-id'));
+      await pumpEventQueue(times: 20);
+
+      final older = Completer<DeploymentAccessSnapshot>();
+      final newer = Completer<DeploymentAccessSnapshot>();
+      var accessRequest = 0;
+      when(() => api.getDeploymentAccess('test-id')).thenAnswer((_) {
+        accessRequest += 1;
+        return accessRequest == 1 ? older.future : newer.future;
+      });
+      bloc.add(const TwinOverviewRetryLayerAccess());
+      await pumpEventQueue(times: 5);
+      bloc.add(const TwinOverviewRefresh());
+      await pumpEventQueue(times: 10);
+      newer.complete(
+        _accessSnapshot(l4: CloudProvider.gcp, l5: CloudProvider.azure),
+      );
+      await pumpEventQueue(times: 20);
+      older.complete(
+        _accessSnapshot(l4: CloudProvider.aws, l5: CloudProvider.aws),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.layerAccess.phase, LayerAccessViewPhase.ready);
+      expect(
+        loaded.layerAccess.snapshot?.surfaceFor(DeploymentLayer.l4)?.provider,
+        CloudProvider.gcp,
+      );
+      expect(accessRequest, 2);
+      await bloc.close();
+    });
+
+    test(
+      'successful deployment completion refreshes layer access exactly once',
+      () async {
+        _stubLoad(
+          api,
+          status: const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deploying,
+          ),
+          readiness: _readiness(ready: true),
+        );
+        final bloc = _buildBloc(api);
+        bloc.add(const TwinOverviewLoad('test-id'));
+        await pumpEventQueue(times: 20);
+        expect((bloc.state as TwinOverviewLoaded).twinState, 'deploying');
+
+        when(() => api.getDeploymentStatus('test-id')).thenAnswer(
+          (_) async => const DeploymentStatusSnapshot(
+            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+            state: DeploymentTwinState.deployed,
+          ),
+        );
+        when(
+          () => api.getDeploymentOutputs('test-id'),
+        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
+        when(
+          () => api.getDeploymentAccess('test-id'),
+        ).thenAnswer((_) async => _accessSnapshot());
+        bloc.add(
+          const TwinOverviewDeploymentComplete(
+            success: true,
+            newState: 'deployed',
+            message: 'Deployment completed.',
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 650));
+        await pumpEventQueue(times: 20);
+
+        final loaded = bloc.state as TwinOverviewLoaded;
+        expect(loaded.layerAccess.phase, LayerAccessViewPhase.ready);
+        expect(loaded.layerAccess.snapshot?.surfaces, hasLength(2));
+        verify(() => api.getDeploymentAccess('test-id')).called(1);
+        await bloc.close();
+      },
+    );
+  });
+
+  group('TwinOverviewBloc cleanup evidence', () {
+    late MockApiService api;
+
+    setUp(() => api = MockApiService());
+
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'restores persisted cleanup evidence from the latest operation',
+      setUp: () => _stubLoad(
+        api,
+        status: DeploymentStatusSnapshot(
+          schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+          state: DeploymentTwinState.destroyed,
+          latestDeployment: DeploymentOperationSummary(
+            id: 'deployment-1',
+            sessionId: 'session-1',
+            operationType: DeploymentOperationType.destroy,
+            status: DeploymentOperationStatus.success,
+            cleanupEvidence: CleanupEvidence.fromJson(_cleanupEvidenceJson()),
+          ),
+        ),
+        readiness: _readiness(ready: true),
+      ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+      expect: () => [
+        isA<TwinOverviewLoading>(),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.cleanupEvidence?.status,
+              'cleanup status',
+              CleanupEvidenceStatus.complete,
+            )
+            .having(
+              (state) => state.cleanupEvidence?.providers.single.provider,
+              'provider',
+              'aws',
+            ),
+      ],
+    );
+
+    test('exposes strict Destroy terminal evidence before refresh', () async {
+      _stubConfiguredLoad(api);
+      when(() => api.destroyTwin('test-id')).thenAnswer(
+        (_) async => const OperationSession(
+          sessionId: 'session-1',
+          sseUrl: '/sse/destroy/session-1',
+        ),
+      );
+      _stubEmptyLogPage(api);
+      final streams = ControlledLogStreamFactory();
+      final bloc = _buildBloc(api, streams: streams);
+
+      await _loadConfigured(bloc);
+      bloc.add(const TwinOverviewDestroy());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        SseLogEvent(
+          id: 1,
+          type: 'complete',
+          message: 'Resources destroyed.',
+          outputs: {'cleanup_evidence': _cleanupEvidenceJson()},
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.twinState, 'destroyed');
+      expect(loaded.cleanupEvidence?.status, CleanupEvidenceStatus.complete);
+      expect(loaded.cleanupEvidenceError, isNull);
+      await bloc.close();
+      await streams.dispose();
+    });
+
+    test('keeps malformed terminal evidence visible as an error', () async {
+      _stubConfiguredLoad(api);
+      when(() => api.destroyTwin('test-id')).thenAnswer(
+        (_) async => const OperationSession(
+          sessionId: 'session-1',
+          sseUrl: '/sse/destroy/session-1',
+        ),
+      );
+      _stubEmptyLogPage(api);
+      final streams = ControlledLogStreamFactory();
+      final bloc = _buildBloc(api, streams: streams);
+
+      await _loadConfigured(bloc);
+      bloc.add(const TwinOverviewDestroy());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        const SseLogEvent(
+          id: 1,
+          type: 'complete',
+          message: 'Resources destroyed.',
+          outputs: {
+            'cleanup_evidence': {'schema_version': 'cleanup-evidence.v1'},
+          },
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final loaded = bloc.state as TwinOverviewLoaded;
+      expect(loaded.cleanupEvidence, isNull);
+      expect(loaded.cleanupEvidenceError, contains('fields do not match'));
+      expect(loaded.successMessage, isNull);
+      expect(loaded.deploymentOperation.logs, isEmpty);
+      await bloc.close();
+      await streams.dispose();
+    });
+  });
+
   group('TwinOverviewBloc messages and permissions', () {
     late MockApiService api;
 
@@ -239,7 +681,7 @@ void main() {
             .having((state) => state.twinState, 'state', 'destroyed')
             .having((state) => state.lastError, 'lastError', isNull)
             .having((state) => state.deploymentOutputs, 'outputs', isNull)
-            .having((state) => state.canDeploy, 'canDeploy', isTrue)
+            .having((state) => state.canDeploy, 'canDeploy', isFalse)
             .having((state) => state.canDestroy, 'canDestroy', isFalse),
       ],
     );
@@ -351,6 +793,56 @@ void main() {
         ),
       ],
       verify: (_) => verifyNever(() => api.deployTwin(any())),
+    );
+
+    final preparable = _preparableReadiness();
+    final request = DeploymentPreparationRequest(
+      planDigest: preparable.preparationPlan!.planDigest,
+      requirementsDigest: preparable.preparationPlan!.requirementsDigest,
+    );
+    blocTest<TwinOverviewBloc, TwinOverviewState>(
+      'confirms graph-bound preparation and replaces readiness evidence',
+      seed: () => _loaded(readiness: preparable),
+      setUp: () =>
+          when(() => api.prepareDeployment('test-id', request)).thenAnswer(
+            (_) async => DeploymentPreparationResponse(
+              twinId: 'test-id',
+              planDigest: request.planDigest,
+              requirementsDigest: request.requirementsDigest,
+              status: DeploymentPreparationStatus.ready,
+              completedActions: const [],
+              failedActions: const [],
+              remainingActionIds: const [],
+              acknowledgedManualRequirementIds: const [],
+              pendingManualRequirementIds: const [],
+              readiness: _readiness(
+                ready: true,
+                source: DeploymentReadinessSource.preflight,
+              ),
+            ),
+          ),
+      build: () => _buildBloc(api),
+      act: (bloc) => bloc.add(TwinOverviewPrepareDeployment(request)),
+      expect: () => [
+        isA<TwinOverviewLoaded>().having(
+          (state) => state.deploymentReadiness.phase,
+          'loading',
+          DeploymentReadinessViewPhase.loading,
+        ),
+        isA<TwinOverviewLoaded>()
+            .having(
+              (state) => state.deploymentReadiness.phase,
+              'ready',
+              DeploymentReadinessViewPhase.ready,
+            )
+            .having(
+              (state) => state.successMessage,
+              'success message',
+              contains('completed'),
+            ),
+      ],
+      verify: (_) =>
+          verify(() => api.prepareDeployment('test-id', request)).called(1),
     );
   });
 
@@ -815,6 +1307,97 @@ void main() {
         expect(streams.clients.single.requestedUrl, contains('TRACE-1'));
       },
     );
+
+    test(
+      'renders the real Deployer checkpoint summary on trace completion',
+      () async {
+        when(() => api.startLogTrace('test-id')).thenAnswer(
+          (_) async => LogTraceStartResult(
+            traceId: 'TRACE-1',
+            sentAt: DateTime.utc(2026, 7, 14, 12),
+            l1Provider: 'aws',
+            providers: const ['aws', 'azure'],
+            message: 'Trace started.',
+            sseUrl: '/twins/test-id/log-trace/stream/TRACE-1',
+          ),
+        );
+        final bloc = _buildBloc(api, streams: streams);
+        bloc.emit(_loaded(twinState: 'deployed'));
+
+        bloc.add(const TwinOverviewStartLogTrace());
+        await pumpEventQueue(times: 20);
+        streams.clients.single.controller.add(
+          const SseLogEvent(
+            id: 1,
+            type: 'done',
+            message: 'Trace complete',
+            data: {
+              'status': 'partial',
+              'total_logs': 4,
+              'expected_checkpoints': [
+                'l1_accepted',
+                'event_layer_durable',
+                'l2_started',
+                'l2_completed',
+                'l3_hot_persisted',
+              ],
+              'observed_checkpoints': [
+                'l1_accepted',
+                'event_layer_durable',
+                'l2_started',
+                'l2_completed',
+              ],
+              'missing_checkpoints': ['l3_hot_persisted'],
+            },
+          ),
+        );
+        await pumpEventQueue(times: 20);
+
+        final trace = (bloc.state as TwinOverviewLoaded).trace;
+        expect(trace.phase, TraceViewPhase.partial);
+        expect(trace.totalLogs, 4);
+        expect(trace.diagnostics, contains('Checkpoints observed: 4/5.'));
+        expect(
+          trace.diagnostics,
+          contains('Missing checkpoints: l3_hot_persisted.'),
+        );
+        await bloc.close();
+      },
+    );
+
+    test('keeps tracing after a recoverable provider warning', () async {
+      when(() => api.startLogTrace('test-id')).thenAnswer(
+        (_) async => LogTraceStartResult(
+          traceId: 'TRACE-1',
+          sentAt: DateTime.utc(2026, 7, 14, 12),
+          l1Provider: 'aws',
+          providers: const ['aws', 'azure'],
+          message: 'Trace started.',
+          sseUrl: '/twins/test-id/log-trace/stream/TRACE-1',
+        ),
+      );
+      final bloc = _buildBloc(api, streams: streams);
+      bloc.emit(_loaded(twinState: 'deployed'));
+
+      bloc.add(const TwinOverviewStartLogTrace());
+      await pumpEventQueue(times: 20);
+      streams.clients.single.controller.add(
+        const SseLogEvent(
+          id: 1,
+          type: 'warning',
+          message: 'Provider log query unavailable',
+        ),
+      );
+      await pumpEventQueue(times: 20);
+
+      final trace = (bloc.state as TwinOverviewLoaded).trace;
+      expect(trace.phase, TraceViewPhase.streaming);
+      expect(
+        trace.diagnostics,
+        contains('Warning: Provider log query unavailable'),
+      );
+      await bloc.close();
+    });
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'reports a rate-limited trace start without retaining stale metadata',
@@ -1366,11 +1949,13 @@ TwinOverviewBloc _buildBloc(
 TwinOverviewLoaded _loaded({
   String twinState = 'deploying',
   bool readinessReady = true,
+  DeploymentReadinessSnapshot? readiness,
   DeploymentOperationViewState operation = const DeploymentOperationViewState(),
   TraceViewState trace = const TraceViewState(),
   String? lastError,
   DeploymentOutputsSnapshot? deploymentOutputs,
   SimulatorDownloadViewState simulator = const SimulatorDownloadViewState(),
+  LayerAccessViewState layerAccess = const LayerAccessViewState(),
 }) {
   final canDeploy = {'configured', 'destroyed', 'error'}.contains(twinState);
   final canDestroy = {'deployed', 'error'}.contains(twinState);
@@ -1384,14 +1969,161 @@ TwinOverviewLoaded _loaded({
     canEdit: canEdit,
     canDelete: canEdit,
     deploymentReadiness: DeploymentReadinessViewState.fromSnapshot(
-      _readiness(ready: readinessReady),
+      readiness ?? _readiness(ready: readinessReady),
     ),
     deploymentOperation: operation,
     trace: trace,
     lastError: lastError,
     deploymentOutputs: deploymentOutputs,
     simulatorDownload: simulator,
+    layerAccess: layerAccess,
   );
+}
+
+DeploymentReadinessSnapshot _preparableReadiness() {
+  const graphDigest =
+      'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+  const requirementsDigest =
+      'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+  const planDigest =
+      'sha256:3333333333333333333333333333333333333333333333333333333333333333';
+  const check = DeploymentReadinessCheck(
+    component: 'deployer',
+    status: DeploymentReadinessCheckStatus.passed,
+    code: 'OK',
+    message: 'Connection access passed.',
+    action: 'No action required.',
+    permissions: [],
+  );
+  const requirement = DeploymentRequirementReadiness(
+    requirementId: 'gcp:serviceusage.googleapis.com',
+    requirementType: 'provider_api',
+    provider: CloudProvider.gcp,
+    capabilityId: 'serviceusage.googleapis.com',
+    preparationMode: DeploymentPreparationMode.confirmedAccount,
+    mandatory: true,
+    status: DeploymentRequirementReadinessStatus.preparable,
+    message: 'The project API can be enabled automatically.',
+    action: 'Confirm the account-level preparation.',
+    sourceNodeIds: ['l1'],
+    sourceEdgeIds: [],
+  );
+  const action = AccountPreparationAction(
+    actionId: 'gcp:enable:serviceusage.googleapis.com',
+    provider: CloudProvider.gcp,
+    actionType: 'enable_project_api',
+    capabilityId: 'serviceusage.googleapis.com',
+    scope: 'project',
+    requirementIds: ['gcp:serviceusage.googleapis.com'],
+    reason: 'Required by the resolved deployment graph.',
+  );
+  const plan = DeploymentPreparationPlan(
+    graphDigest: graphDigest,
+    requirementsDigest: requirementsDigest,
+    planDigest: planDigest,
+    actions: [action],
+    manualRequirements: [],
+  );
+  return DeploymentReadinessSnapshot(
+    schemaVersion: DeploymentReadinessSnapshot.preflightSchemaVersion,
+    source: DeploymentReadinessSource.preflight,
+    twinId: 'test-id',
+    ready: false,
+    summary: 'Provider preparation is required.',
+    requiredProviders: const [CloudProvider.gcp],
+    providers: const [
+      ProviderDeploymentReadiness(
+        provider: CloudProvider.gcp,
+        connectionId: 'connection-1',
+        connectionDisplayName: 'GCP deployment',
+        ready: false,
+        status: ProviderDeploymentReadinessStatus.reviewRequired,
+        summary: 'One project API must be enabled.',
+        graphDigest: graphDigest,
+        requirementsDigest: requirementsDigest,
+        checks: [check],
+        requirements: [requirement],
+      ),
+    ],
+    graphDigest: graphDigest,
+    requirementsDigest: requirementsDigest,
+    preparationPlan: plan,
+    issues: const [],
+  );
+}
+
+DeploymentAccessSnapshot _accessSnapshot({
+  CloudProvider l4 = CloudProvider.azure,
+  CloudProvider l5 = CloudProvider.aws,
+}) {
+  Map<String, dynamic> surface(DeploymentLayer layer, CloudProvider provider) {
+    final config = switch ((layer, provider)) {
+      (DeploymentLayer.l4, CloudProvider.aws) => (
+        'aws_iot_twinmaker',
+        'aws_identity_center',
+        'none',
+      ),
+      (DeploymentLayer.l4, CloudProvider.azure) => (
+        'azure_digital_twins',
+        'azure_entra',
+        'none',
+      ),
+      (DeploymentLayer.l4, CloudProvider.gcp) => (
+        'gcp_twin_explorer',
+        'gcp_iap',
+        'none',
+      ),
+      (DeploymentLayer.l5, CloudProvider.aws) => (
+        'aws_l5_visualization',
+        'aws_sigv4',
+        'none',
+      ),
+      (DeploymentLayer.l5, CloudProvider.azure) => (
+        'azure_l5_visualization',
+        'azure_function_key',
+        'none',
+      ),
+      (DeploymentLayer.l5, CloudProvider.gcp) => (
+        'gcp_raw_history_reader',
+        'gcp_identity_token',
+        'none',
+      ),
+    };
+    return {
+      'layer': layer.name,
+      'provider': provider.apiValue,
+      'service_id': config.$1,
+      'display_name': '${layer.name} ${provider.name}',
+      'url': 'https://${layer.name}-${provider.name}.example.invalid/',
+      'auth': {
+        'mode': config.$2,
+        'principal_label': 'viewer@example.invalid',
+        'credential_action': config.$3,
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['browse'],
+      'limitations': <String>[],
+    };
+  }
+
+  return DeploymentAccessSnapshot.fromJson({
+    'schema_version': 'deployment-access.v1',
+    'twin_id': 'test-id',
+    'deployment_id': 'deployment-1',
+    'generated_at': '2026-07-14T12:00:00Z',
+    'availability': 'available',
+    'reason_code': null,
+    'surfaces': [
+      surface(DeploymentLayer.l4, l4),
+      surface(DeploymentLayer.l5, l5),
+    ],
+  });
 }
 
 DeploymentOutputsSnapshot _outputs(
@@ -1425,6 +2157,29 @@ DeploymentOperationViewState _operation({
     showLogs: showLogs,
   );
 }
+
+Map<String, dynamic> _cleanupEvidenceJson() => {
+  'schema_version': 'cleanup-evidence.v1',
+  'status': 'complete',
+  'terraform': {
+    'destroy_status': 'completed',
+    'observed_before_resource_count': 9,
+    'post_destroy_inventory': 'empty',
+    'residual_resource_count': 0,
+  },
+  'providers': [
+    {
+      'provider': 'aws',
+      'cleanup_status': 'completed',
+      'discovered_during_cleanup_count': 4,
+      'discovered_resource_kinds': ['Cloud Functions'],
+      'post_destroy_inventory': 'empty',
+      'residual_resource_count': 0,
+    },
+  ],
+  'retained_shared_prerequisites': <Object>[],
+  'residual_failures': <Object>[],
+};
 
 DeploymentLogEntry _log(
   int eventId, {
@@ -1552,9 +2307,6 @@ DeploymentReadinessSnapshot _readiness({
             ? ProviderDeploymentReadinessStatus.ready
             : ProviderDeploymentReadinessStatus.notChecked,
         summary: check.message,
-        expectedPermissionSetVersion: 'thesis-demo-v1',
-        suppliedPermissionSetVersion: 'thesis-demo-v1',
-        permissionSetStatus: PermissionSetReadinessStatus.matched,
         checks: [check],
       ),
     ],

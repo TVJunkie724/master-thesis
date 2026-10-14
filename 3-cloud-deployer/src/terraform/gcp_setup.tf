@@ -4,14 +4,12 @@
 # Resources are created conditionally based on whether any layer uses GCP.
 #
 # Resources Created:
-# - GCP Project: Resource container (only for org accounts with billing_account)
 # - Service Account for function deployment
 # - Enabled APIs for required services
 # - Cloud Storage bucket for function source code
 #
-# Supports two modes:
-# - Private Account Mode: Uses existing project via gcp_project_id
-# - Organization Account Mode: Creates new project via gcp_billing_account
+# The PoC always deploys into an existing billing-enabled project selected via
+# gcp_project_id. Project creation and billing-account management are external.
 
 # ==============================================================================
 # Locals for GCP
@@ -24,24 +22,14 @@ locals {
     managed-by   = "terraform"
   }
 
-  # Dual-mode detection: private account (existing project) vs org account (auto-create)
-  gcp_use_existing_project = var.gcp_project_id != ""
-
-  # Generated project ID (for org account mode)
-  gcp_generated_project_id = "${var.digital_twin_name}-project"
-
-  # Unified project ID - used by all other GCP resources
-  # Uses existing project if provided, otherwise uses the auto-created one
-  gcp_project_id = local.gcp_use_existing_project ? var.gcp_project_id : (
-    local.deploy_gcp && !local.gcp_use_existing_project ? google_project.main[0].project_id : ""
-  )
+  gcp_project_id = var.gcp_project_id
 
   # GCP-specific layer checks
-  gcp_l1_enabled         = var.layer_1_provider == "google"
-  gcp_l2_enabled         = var.layer_2_provider == "google"
-  gcp_l3_hot_enabled     = var.layer_3_hot_provider == "google"
-  gcp_l3_cold_enabled    = var.layer_3_cold_provider == "google"
-  gcp_l3_archive_enabled = var.layer_3_archive_provider == "google"
+  gcp_l1_enabled         = var.layer_1_provider == "google" && !local.six_layer_enabled
+  gcp_l2_enabled         = var.layer_2_provider == "google" && !local.six_layer_enabled
+  gcp_l3_hot_enabled     = var.layer_3_hot_provider == "google" && !local.six_layer_enabled
+  gcp_l3_cold_enabled    = var.layer_3_cold_provider == "google" && !local.six_layer_enabled
+  gcp_l3_archive_enabled = var.layer_3_archive_provider == "google" && !local.six_layer_enabled
 
   # Multi-cloud detection for GCP
   gcp_needs_ingestion      = local.gcp_l2_enabled && var.layer_1_provider != "google"
@@ -70,9 +58,6 @@ locals {
   # ===========================================================================
   # GCP Resource Names - Single Source of Truth
   # ===========================================================================
-
-  # Project
-  gcp_project_name = "${var.digital_twin_name}-project"
 
   # Service Account
   gcp_functions_sa_id      = "${var.digital_twin_name}-functions-sa"
@@ -128,7 +113,7 @@ locals {
 # Fail before provider execution if an active GCP component is missing its
 # immutable optimizer-owned deployment selection.
 resource "terraform_data" "gcp_deployment_specification_guard" {
-  count = local.deploy_gcp ? 1 : 0
+  count = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
 
   input = {
     l1_function_memory_mb               = var.gcp_l1_function_memory_mb
@@ -220,26 +205,12 @@ resource "terraform_data" "gcp_deployment_specification_guard" {
 }
 
 # ==============================================================================
-# GCP Project (Resource Container - only for Organization Account Mode)
-# ==============================================================================
-
-# Only create project in org account mode (when billing_account provided but no project_id)
-resource "google_project" "main" {
-  count           = local.deploy_gcp && !local.gcp_use_existing_project ? 1 : 0
-  name            = local.gcp_project_name
-  project_id      = local.gcp_generated_project_id
-  billing_account = var.gcp_billing_account
-
-  labels = local.gcp_common_labels
-}
-
-# ==============================================================================
 # Enable Required APIs
 # ==============================================================================
 
 # Cloud Resource Manager API is required to enable other APIs
 resource "google_project_service" "cloudresourcemanager" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudresourcemanager.googleapis.com"
 
@@ -247,7 +218,7 @@ resource "google_project_service" "cloudresourcemanager" {
 }
 
 resource "google_project_service" "pubsub" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "pubsub.googleapis.com"
 
@@ -256,7 +227,7 @@ resource "google_project_service" "pubsub" {
 }
 
 resource "google_project_service" "cloudfunctions" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudfunctions.googleapis.com"
 
@@ -265,7 +236,7 @@ resource "google_project_service" "cloudfunctions" {
 }
 
 resource "google_project_service" "run" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "run.googleapis.com"
 
@@ -292,7 +263,7 @@ resource "google_project_service" "storage" {
 }
 
 resource "google_project_service" "eventarc" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "eventarc.googleapis.com"
 
@@ -301,7 +272,7 @@ resource "google_project_service" "eventarc" {
 }
 
 resource "google_project_service" "cloudbuild" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "cloudbuild.googleapis.com"
 
@@ -319,7 +290,7 @@ resource "google_project_service" "cloudscheduler" {
 }
 
 resource "google_project_service" "iam" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   service = "iam.googleapis.com"
 
@@ -332,7 +303,7 @@ resource "google_project_service" "iam" {
 # ==============================================================================
 
 resource "google_service_account" "functions" {
-  count        = local.deploy_gcp ? 1 : 0
+  count        = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project      = local.gcp_project_id
   account_id   = local.gcp_functions_sa_id
   display_name = local.gcp_functions_sa_display
@@ -345,7 +316,7 @@ resource "google_service_account" "functions" {
 # ==============================================================================
 
 resource "google_project_iam_custom_role" "functions_role" {
-  count       = local.deploy_gcp ? 1 : 0
+  count       = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project     = local.gcp_project_id
   role_id     = "${replace(var.digital_twin_name, "-", "_")}_functions_role_${local.deployment_suffix}"
   title       = local.gcp_functions_role_title
@@ -385,7 +356,7 @@ resource "google_project_iam_custom_role" "functions_role" {
 
 # Bind custom role to service account
 resource "google_project_iam_member" "functions_custom_role" {
-  count   = local.deploy_gcp ? 1 : 0
+  count   = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = google_project_iam_custom_role.functions_role[0].id
   member  = "serviceAccount:${google_service_account.functions[0].email}"
@@ -396,7 +367,7 @@ resource "google_project_iam_member" "functions_custom_role" {
 # ==============================================================================
 
 resource "google_storage_bucket" "function_source" {
-  count         = local.deploy_gcp ? 1 : 0
+  count         = local.deploy_gcp && !local.six_layer_enabled ? 1 : 0
   project       = local.gcp_project_id
   name          = local.gcp_function_source_bucket
   location      = var.gcp_region

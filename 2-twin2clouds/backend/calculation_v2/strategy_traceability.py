@@ -7,7 +7,6 @@ from typing import Any
 from backend.calculation_v2.strategy_context import CalculationStrategyExecutionContext
 from backend.pricing_registry_service import PricingRegistryService
 
-
 TRACE_SCHEMA_VERSION = "intent-to-result-trace.v1"
 MAX_TRACE_ITEMS = 64
 
@@ -60,10 +59,6 @@ _FIELD_RESULT_MAP = {
             "azure": "digital_twins_query_units",
             "gcp": "self_hosted_twin",
         },
-    ),
-    "digital_twin.account_bundle_month": (
-        "L4",
-        {"aws": "twinmaker"},
     ),
     "grafana.editor_user_month": (
         "L5",
@@ -337,9 +332,6 @@ def _trace_item(
         "runtime_selected_evidence_available": False,
         "evidence_reference_kind": "registry_contract_reference",
     }
-    pricing_context = _provider_pricing_context(contract, result_payload)
-    if pricing_context is not None:
-        payload["provider_pricing_context"] = pricing_context
     return _sanitize_value(payload)
 
 
@@ -347,7 +339,7 @@ def _runtime_applicability(
     contract: dict[str, Any],
     result_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    """Resolve mutually exclusive TwinMaker Standard and bundle contracts."""
+    """Return runtime applicability for the static Standard pricing model."""
 
     if contract.get("provider") != "aws":
         return {"applicable": True, "reason": None}
@@ -358,62 +350,9 @@ def _runtime_applicability(
         "digital_twin.api_call",
         "digital_twin.query",
     }
-    bundle_field = "digital_twin.account_bundle_month"
-    if field not in standard_fields | {bundle_field}:
+    if field not in standard_fields:
         return {"applicable": True, "reason": None}
-
-    contexts = result_payload.get("providerPricingContexts")
-    context = (
-        contexts.get("awsTwinMaker")
-        if isinstance(contexts, dict)
-        else None
-    )
-    mode = context.get("observedMode") if isinstance(context, dict) else None
-    context_status = context.get("status") if isinstance(context, dict) else None
-    if context_status != "compatible":
-        return {
-            "applicable": False,
-            "reason": (
-                context.get("reasonCode")
-                if isinstance(context, dict)
-                else "AWS_TWINMAKER_PRICING_CONTEXT_UNAVAILABLE"
-            )
-            or "AWS_TWINMAKER_PRICING_CONTEXT_UNAVAILABLE",
-        }
-    if mode == "STANDARD" and field == bundle_field:
-        return {
-            "applicable": False,
-            "reason": "AWS_TWINMAKER_STANDARD_MODE",
-        }
-    if mode == "TIERED_BUNDLE" and field in standard_fields:
-        return {
-            "applicable": False,
-            "reason": "AWS_TWINMAKER_TIERED_BUNDLE_MODE",
-        }
     return {"applicable": True, "reason": None}
-
-
-def _provider_pricing_context(
-    contract: dict[str, Any],
-    result_payload: dict[str, Any],
-) -> dict[str, Any] | None:
-    if contract.get("provider") != "aws":
-        return None
-    field = contract.get("field")
-    if field not in {
-        "digital_twin.entity_month",
-        "digital_twin.api_call",
-        "digital_twin.query",
-        "digital_twin.account_bundle_month",
-    }:
-        return None
-    contexts = result_payload.get("providerPricingContexts")
-    context = (
-        contexts.get("awsTwinMaker")
-        if isinstance(contexts, dict)
-        else None
-    )
-    return dict(context) if isinstance(context, dict) else None
 
 
 def _workload_inputs(

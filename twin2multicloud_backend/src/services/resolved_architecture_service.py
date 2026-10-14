@@ -20,7 +20,7 @@ from src.models.architecture_profile import (
     ResolvedTwinArchitectureRecord,
 )
 from src.models.cost_calculation import CostCalculationRun
-from src.models.user_function_extension import TwinExtensionBinding
+from src.models.user_function_extension import TwinUserFunction
 from src.repositories.architecture_repository import ArchitectureRepository
 from src.schemas.architecture_profile import ResolvedArchitectureReadResponse
 from src.security.request_context import current_request_id
@@ -38,29 +38,10 @@ from src.services.architecture_profile_service import (
     _catalog_documents,
     _provider_documents,
 )
-from src.services.user_function_extension_service import (
-    runtime as extension_contract,
-)
 
 
-SCHEMA_VERSION = "resolved-twin-architecture.v1"
+V2_SCHEMA_VERSION = "resolved-twin-architecture.v2"
 READY = "ready"
-LEGACY_NOT_RESOLVABLE = "legacy_not_resolvable"
-BASELINE_PROFILE = ("five-layer-baseline", "1")
-COMPONENT_TO_FIXED_FIELD = {
-    "component.ingestion": "cheapest_l1",
-    "component.processing": "cheapest_l2",
-    "component.hot-storage": "cheapest_l3_hot",
-    "component.cool-storage": "cheapest_l3_cool",
-    "component.archive-storage": "cheapest_l3_archive",
-    "component.twin-state": "cheapest_l4",
-    "component.visualization": "cheapest_l5",
-}
-LEGACY_PROVIDER_LABELS = {
-    "aws": "AWS",
-    "azure": "Azure",
-    "gcp": "GCP",
-}
 ARCHITECTURE_METRICS: Counter[tuple[str, str]] = Counter()
 
 
@@ -81,10 +62,7 @@ def _contract_error(exc: Exception) -> ArchitectureDomainError:
     path = str(getattr(exc, "path", ""))
     if code == "ARCH_DIGEST_MISMATCH":
         mapped = "ARCH_RESOLUTION_DIGEST_MISMATCH"
-    elif (
-        code == "ARCH_SCHEMA_INVALID"
-        and path.startswith("functional_completeness")
-    ):
+    elif code == "ARCH_SCHEMA_INVALID" and path.startswith("functional_completeness"):
         mapped = "ARCH_RESOLUTION_INCOMPLETE"
     elif code in {
         "ARCH_REFERENCE_UNRESOLVED",
@@ -122,13 +100,20 @@ class ResolvedArchitectureService:
         *,
         run: CostCalculationRun,
         raw_architecture: Mapping[str, Any],
-        origin: str = "native_v1",
+        origin: str = "native_v2",
         linked_documents: Iterable[Mapping[str, Any]] | None = None,
-        apply_legacy_projection: bool = True,
     ) -> ResolvedTwinArchitectureRecord:
         """Validate and stage one resolution and all projections atomically."""
 
-        if origin not in {"native_v1", "reconstructed_v1"}:
+        raw_schema_version = (
+            str(raw_architecture.get("schema_version"))
+            if isinstance(raw_architecture, Mapping)
+            else ""
+        )
+        expected_origin = (
+            "native_v2" if raw_schema_version == V2_SCHEMA_VERSION else None
+        )
+        if not isinstance(raw_architecture, Mapping) or origin != expected_origin:
             raise architecture_error(
                 "ARCH_RESOLUTION_INVALID",
                 "The resolved architecture origin is invalid.",
@@ -140,8 +125,7 @@ class ResolvedArchitectureService:
                     duplicate = (
                         self.db.query(ResolvedTwinArchitectureRecord)
                         .filter(
-                            ResolvedTwinArchitectureRecord.calculation_run_id
-                            == run.id
+                            ResolvedTwinArchitectureRecord.calculation_run_id == run.id
                         )
                         .first()
                         is not None
@@ -164,25 +148,15 @@ class ResolvedArchitectureService:
                 record = self._build_record(run, architecture, origin=origin)
                 self.db.add(record)
                 run.architecture_compatibility_status = READY
-                run.resolved_architecture_version = architecture[
-                    "schema_version"
-                ]
-                run.resolved_architecture_digest = architecture[
-                    "content_digest"
-                ]
-                if apply_legacy_projection:
-                    self.apply_fixed_projection(run, architecture)
+                run.resolved_architecture_version = architecture["schema_version"]
+                run.resolved_architecture_digest = architecture["content_digest"]
             self.db.flush()
         except ArchitectureDomainError as exc:
             profile_version = "unknown"
             if isinstance(raw_architecture, Mapping):
-                profile_ref = raw_architecture.get(
-                    "architecture_profile_ref"
-                )
+                profile_ref = raw_architecture.get("architecture_profile_ref")
                 if isinstance(profile_ref, Mapping):
-                    profile_version = str(
-                        profile_ref.get("version") or "unknown"
-                    )
+                    profile_version = str(profile_ref.get("version") or "unknown")
             _metric(exc.code, profile_version)
             raise
         except IntegrityError as exc:
@@ -193,11 +167,7 @@ class ResolvedArchitectureService:
         self._audit(
             run,
             architecture=architecture,
-            action=(
-                "resolution.reconstruction"
-                if origin == "reconstructed_v1"
-                else "resolution.persistence"
-            ),
+            action="resolution.persistence",
             outcome="succeeded",
         )
         _metric("persisted", architecture["architecture_profile_ref"]["version"])
@@ -233,7 +203,7 @@ class ResolvedArchitectureService:
             linked_documents
             or (
                 profile,
-                *_provider_documents(profile_id, profile_version),
+                *_provider_documents(),
                 *_catalog_documents(),
             )
         )
@@ -243,7 +213,7 @@ class ResolvedArchitectureService:
             )
         except (ContractError, ValueError, TypeError) as exc:
             raise _contract_error(exc) from exc
-        architecture = validated_bundle[-1].as_dict()
+        architecture = json.loads(_json(validated_bundle[-1].as_dict()))
         self._validate_management_references(run, architecture, profile)
         self._validate_deployment_component_references(run, architecture)
         self._validate_extension_bindings(run, architecture)
@@ -297,10 +267,20 @@ class ResolvedArchitectureService:
     def require_selectable(self, run: CostCalculationRun) -> None:
         """Enforce the run/specification/resolution readiness invariant."""
 
-        self._require_resolution(
+        resolution = self._require_resolution(
             run,
             require_current_profile=True,
         )
+        architecture = _loaded(resolution.canonical_json)
+        if (
+            architecture.get("schema_version") == V2_SCHEMA_VERSION
+            and architecture.get("resolution_status") != "publishable"
+        ):
+            raise architecture_error(
+                "ARCH_RESOLUTION_INCOMPLETE",
+                "The resolved architecture is evaluation-only until its live "
+                "capacity evidence gates are satisfied.",
+            )
 
     def _require_resolution(
         self,
@@ -310,8 +290,8 @@ class ResolvedArchitectureService:
     ) -> ResolvedTwinArchitectureRecord:
         if run.architecture_compatibility_status != READY:
             raise architecture_error(
-                "ARCH_LEGACY_NOT_RESOLVABLE",
-                "This calculation run has no deployment-ready architecture.",
+                "ARCH_RESOLUTION_INCOMPLETE",
+                "This calculation run has no resolved architecture.",
             )
         resolution = self.repository.get_resolution_for_run(run.id, run.user_id)
         if resolution is None:
@@ -323,8 +303,7 @@ class ResolvedArchitectureService:
             resolution.functional_completeness_status != "complete"
             or resolution.twin_id != run.twin_id
             or resolution.user_id != run.user_id
-            or resolution.schema_version
-            != run.resolved_architecture_version
+            or resolution.schema_version != run.resolved_architecture_version
             or not hmac.compare_digest(
                 run.resolved_architecture_digest or "",
                 resolution.content_digest,
@@ -359,64 +338,6 @@ class ResolvedArchitectureService:
                     "The calculation run does not match the selected profile.",
                 )
         return resolution
-
-    def apply_fixed_projection(
-        self,
-        run: CostCalculationRun,
-        architecture: Mapping[str, Any],
-    ) -> dict[str, str]:
-        """Derive the seven legacy provider fields from component assignments."""
-
-        profile_ref = architecture["architecture_profile_ref"]
-        if (profile_ref["id"], profile_ref["version"]) != BASELINE_PROFILE:
-            raise architecture_error(
-                "ARCH_LEGACY_PROJECTION_UNSUPPORTED",
-                "This architecture profile has no fixed-field projection.",
-            )
-        config = run.optimizer_config
-        if config is None:
-            raise architecture_error(
-                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
-                "The calculation run optimizer configuration is missing.",
-            )
-        assignments = {
-            item["logical_component_id"]: item["provider"]
-            for item in architecture["component_assignments"]
-        }
-        if set(assignments) != set(COMPONENT_TO_FIXED_FIELD):
-            raise architecture_error(
-                "ARCH_RESOLUTION_INCOMPLETE",
-                "The baseline component projection is incomplete.",
-            )
-        projected = {
-            field: LEGACY_PROVIDER_LABELS[assignments[component]]
-            for component, field in COMPONENT_TO_FIXED_FIELD.items()
-        }
-        for field, provider in projected.items():
-            setattr(config, field, provider)
-        self.assert_fixed_projection_round_trip(config, architecture)
-        return projected
-
-    @staticmethod
-    def assert_fixed_projection_round_trip(
-        config,
-        architecture: Mapping[str, Any],
-    ) -> None:
-        expected = {
-            COMPONENT_TO_FIXED_FIELD[item["logical_component_id"]]: item[
-                "provider"
-            ]
-            for item in architecture["component_assignments"]
-        }
-        actual = {
-            field: str(getattr(config, field) or "").strip().lower()
-            for field in COMPONENT_TO_FIXED_FIELD.values()
-        }
-        if actual != expected:
-            raise architecture_error(
-                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
-                "The fixed-field architecture projection is inconsistent.",
-            )
 
     @staticmethod
     def reproduce_components(
@@ -478,9 +399,7 @@ class ResolvedArchitectureService:
                         "monthly_amount": item.cost_contribution,
                     },
                     "trust_contract_ref": _loaded(item.trust_ref_json),
-                    "observability_contract_ref": _loaded(
-                        item.observability_ref_json
-                    ),
+                    "observability_contract_ref": _loaded(item.observability_ref_json),
                     "deployment_input_binding_ids": bindings["input"],
                     "deployment_output_binding_ids": bindings["output"],
                 }
@@ -493,8 +412,7 @@ class ResolvedArchitectureService:
     ) -> None:
         architecture = _loaded(record.canonical_json)
         if (
-            self.reproduce_components(record)
-            != architecture["component_assignments"]
+            self.reproduce_components(record) != architecture["component_assignments"]
             or self.reproduce_edges(record) != architecture["resolved_edges"]
         ):
             raise architecture_error(
@@ -532,8 +450,7 @@ class ResolvedArchitectureService:
         deployment_ref = architecture["deployment_specification_ref"]
         if (
             deployment_ref["calculation_run_id"] != run.id
-            or deployment_ref["schema_version"]
-            != run.deployment_specification_version
+            or deployment_ref["schema_version"] != run.deployment_specification_version
             or deployment_ref["digest"] != run.deployment_specification_digest
         ):
             raise architecture_error(
@@ -569,23 +486,69 @@ class ResolvedArchitectureService:
             )
         }
         result_profile = result.get("optimizationProfile")
-        result_strategy = result.get("calculationStrategy")
-        if (
-            bundle != expected_bundle
-            or not isinstance(result_profile, dict)
-            or not isinstance(result_strategy, dict)
-            or bundle["optimization_strategy_id"]
-            != result.get("optimization_profile_id")
-            or bundle["calculation_strategy_id"]
-            != result.get("calculation_strategy_id")
-            or bundle["formula_set_id"]
-            != result_strategy.get("formula_set_id")
-            or bundle["scoring_strategy_id"]
-            != result_profile.get("scoring_strategy_id")
-        ):
+        if bundle != expected_bundle or not isinstance(result_profile, dict):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The resolution optimization bundle does not match the run.",
+            )
+        try:
+            specification = json.loads(run.deployment_specification_json or "")
+        except json.JSONDecodeError as exc:
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The calculation deployment evidence is unavailable.",
+            ) from exc
+        if (
+            not isinstance(specification, dict)
+            or specification.get("schema_version")
+            != "resolved-deployment-specification.v2"
+        ):
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The calculation deployment evidence is incompatible.",
+            )
+        readiness = specification.get("readiness")
+        if readiness == {
+            "status": "deployment_ready",
+            "blocking_gate_ids": [],
+        }:
+            expected_resolution_status = "publishable"
+        elif (
+            isinstance(readiness, dict)
+            and readiness.get("status") == "offline_contract_fixture"
+            and isinstance(readiness.get("blocking_gate_ids"), list)
+        ):
+            expected_resolution_status = "offline_contract_fixture"
+        else:
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The resolution readiness evidence is inconsistent.",
+            )
+        expected_calculation_model = (
+            f"{bundle['calculation_strategy_id']}@"
+            f"{bundle['calculation_strategy_version']}"
+        )
+        if (
+            architecture.get("resolution_status") != expected_resolution_status
+            or result.get("result_schema_version") != "cost-result.v2"
+            or not isinstance(result.get("totalCostExact"), str)
+            or bundle["optimization_strategy_id"]
+            != result.get("optimization_profile_id")
+            or result_profile.get("profile_version")
+            != bundle["optimization_strategy_version"]
+            or result_profile.get("scoring_strategy_id")
+            != bundle["scoring_strategy_id"]
+            or result_profile.get("calculation_model_ids")
+            != [expected_calculation_model]
+            or run.optimization_profile_id != bundle["optimization_strategy_id"]
+            or run.optimization_profile_version
+            != bundle["optimization_strategy_version"]
+            or run.scoring_strategy_id != bundle["scoring_strategy_id"]
+            or run.calculation_model_version != expected_calculation_model
+        ):
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The resolution strategy metadata does not match the run.",
             )
         used_providers = {
             item["provider"] for item in architecture["component_assignments"]
@@ -642,67 +605,49 @@ class ResolvedArchitectureService:
         run: CostCalculationRun,
         architecture: Mapping[str, Any],
     ) -> None:
-        queried_bindings = (
-            self.db.query(TwinExtensionBinding)
+        current_functions = (
+            self.db.query(TwinUserFunction)
             .filter(
-                TwinExtensionBinding.twin_id == run.twin_id,
-                TwinExtensionBinding.user_id == run.user_id,
-                TwinExtensionBinding.active.is_(True),
+                TwinUserFunction.twin_id == run.twin_id,
             )
             .all()
         )
-        active = [binding for binding in queried_bindings if binding.active]
-        active_by_identity = {
-            (item.slot_id, item.slot_version, item.artifact_id): item
-            for item in active
+        current_by_identity = {
+            (item.slot_id, item.slot_version, item.id): item
+            for item in current_functions
         }
         resolved = architecture["extension_bindings"]
         resolved_identities = {
             (item["slot_id"], item["slot_version"], item["artifact_id"])
             for item in resolved
         }
-        if resolved_identities != set(active_by_identity):
+        if resolved_identities != set(current_by_identity):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The resolution extension binding set is not current.",
             )
         for item in resolved:
-            binding = active_by_identity[
+            user_function = current_by_identity[
                 (item["slot_id"], item["slot_version"], item["artifact_id"])
             ]
-            artifact = binding.artifact
-            expected_binding_digest = extension_contract.binding_digest(
-                twin_id=binding.twin_id,
-                slot_id=binding.slot_id,
-                slot_version=binding.slot_version,
-                artifact_id=binding.artifact_id,
-                artifact_digest=(
-                    artifact.artifact_digest if artifact is not None else ""
-                ),
-            )
-            if (
-                artifact is None
-                or artifact.artifact_state != "valid"
-                or artifact.artifact_digest != item["artifact_digest"]
-                or not hmac.compare_digest(
-                    binding.binding_digest,
-                    expected_binding_digest,
-                )
-            ):
+            if user_function.artifact_digest != item["artifact_digest"]:
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                     "The resolution contains an unresolved extension binding.",
                 )
             try:
-                configuration = json.loads(artifact.configuration_json)
+                configuration = json.loads(user_function.configuration_json)
             except json.JSONDecodeError as exc:
                 raise architecture_error(
                     "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                     "The extension configuration is not canonical.",
                 ) from exc
-            expected_digest = "sha256:" + hashlib.sha256(
-                canonical_json(configuration).encode("utf-8")
-            ).hexdigest()
+            expected_digest = (
+                "sha256:"
+                + hashlib.sha256(
+                    canonical_json(configuration).encode("utf-8")
+                ).hexdigest()
+            )
             if not hmac.compare_digest(
                 expected_digest,
                 item["configuration_digest"],
@@ -718,48 +663,91 @@ class ResolvedArchitectureService:
         architecture: Mapping[str, Any],
     ) -> None:
         try:
-            specification = json.loads(
-                run.deployment_specification_json or ""
-            )
+            specification = json.loads(run.deployment_specification_json or "")
         except json.JSONDecodeError as exc:
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The run deployment specification is unavailable.",
             ) from exc
-        raw_components = specification.get("components")
-        if not isinstance(raw_components, list):
+        if specification.get("schema_version") != (
+            "resolved-deployment-specification.v2"
+        ):
+            raise architecture_error(
+                "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                "The run deployment specification is incompatible.",
+            )
+        ResolvedArchitectureService._validate_v2_deployment_components(
+            specification,
+            architecture,
+        )
+
+    @staticmethod
+    def _validate_v2_deployment_components(
+        specification: Mapping[str, Any],
+        architecture: Mapping[str, Any],
+    ) -> None:
+        raw_selections = specification.get("component_selections")
+        if not isinstance(raw_selections, list):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "The run deployment component set is unavailable.",
             )
-        specification_components = {
-            item.get("component_id"): item
-            for item in raw_components
-            if isinstance(item, dict)
-            and isinstance(item.get("component_id"), str)
-        }
+        selections_by_logical: dict[str, list[Mapping[str, Any]]] = {}
+        selected_ids: set[str] = set()
+        for selection in raw_selections:
+            if not isinstance(selection, Mapping):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The run deployment component set is malformed.",
+                )
+            logical = selection.get("logical_component_id")
+            component_id = selection.get("implementation_component_id")
+            if (
+                not isinstance(logical, str)
+                or not isinstance(component_id, str)
+                or component_id in selected_ids
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "The run deployment component set is malformed.",
+                )
+            selections_by_logical.setdefault(logical, []).append(selection)
+            selected_ids.add(component_id)
         assigned_ids: set[str] = set()
         for assignment in architecture["component_assignments"]:
-            for component_id in assignment[
+            logical = assignment["logical_component_id"]
+            selections = selections_by_logical.get(logical, [])
+            actual_ids = sorted(
+                str(item["implementation_component_id"]) for item in selections
+            )
+            if actual_ids != assignment[
                 "deployment_specification_component_ids"
-            ]:
-                component = specification_components.get(component_id)
-                if (
-                    component is None
-                    or component.get("provider") != assignment["provider"]
-                ):
-                    raise architecture_error(
-                        "ARCH_RESOLUTION_REFERENCE_MISMATCH",
-                        "Architecture and deployment component references differ.",
-                    )
-                assigned_ids.add(component_id)
-        non_auxiliary = {
-            component_id
-            for component_id, component in specification_components.items()
-            if component.get("slot_id")
-            not in {"transition_runtime", "cross_cloud_glue"}
+            ] or any(
+                item.get("provider") != assignment["provider"]
+                or item.get("architecture_assignment_id") != assignment["assignment_id"]
+                for item in selections
+            ):
+                raise architecture_error(
+                    "ARCH_RESOLUTION_REFERENCE_MISMATCH",
+                    "Architecture and deployment component references differ.",
+                )
+            assigned_ids.update(actual_ids)
+        expected_selected_logical = {
+            item["logical_component_id"]
+            for item in architecture["component_assignments"]
         }
-        if assigned_ids != non_auxiliary:
+        if (
+            architecture["resolution_status"] == "offline_contract_fixture"
+            and specification.get("readiness", {}).get("status")
+            == "offline_contract_fixture"
+            and "gate.implementation.l5-visualization-pending"
+            in specification.get("readiness", {}).get("blocking_gate_ids", [])
+        ):
+            expected_selected_logical.discard("component.visualization")
+        if (
+            assigned_ids != selected_ids
+            or set(selections_by_logical) != expected_selected_logical
+        ):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "Architecture and deployment component sets differ.",
@@ -808,18 +796,16 @@ class ResolvedArchitectureService:
             deployment_specification_digest=deployment["digest"],
             total_monthly_cost=architecture["cost_summary"]["monthly_total"],
             currency=architecture["cost_summary"]["currency"],
-            functional_completeness_status=architecture[
-                "functional_completeness"
-            ]["status"],
+            functional_completeness_status=architecture["functional_completeness"][
+                "status"
+            ],
             canonical_json=_json(architecture),
             content_digest=architecture["content_digest"],
             origin=origin,
         )
         record.components = [
             self._component_row(record.id, item, ordinal)
-            for ordinal, item in enumerate(
-                architecture["component_assignments"]
-            )
+            for ordinal, item in enumerate(architecture["component_assignments"])
         ]
         record.edges = [
             self._edge_row(record.id, item, ordinal)
@@ -884,9 +870,7 @@ class ResolvedArchitectureService:
                 }
             ),
             trust_ref_json=_json(item["trust_contract_ref"]),
-            observability_ref_json=_json(
-                item["observability_contract_ref"]
-            ),
+            observability_ref_json=_json(item["observability_contract_ref"]),
             formula_refs_json=_json(item["formula_refs"]),
             evidence_refs_json=_json(item["transfer_evidence_refs"]),
             ordinal=ordinal,
@@ -901,8 +885,8 @@ class ResolvedArchitectureService:
     ) -> ResolvedArchitectureReadResponse:
         if run.architecture_compatibility_status != READY:
             raise architecture_error(
-                "ARCH_LEGACY_NOT_RESOLVABLE",
-                "This legacy run has no resolvable architecture.",
+                "ARCH_RESOLUTION_INCOMPLETE",
+                "This calculation run has no resolved architecture.",
             )
         record = self._require_resolution(
             run,

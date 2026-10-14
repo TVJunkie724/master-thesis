@@ -10,8 +10,8 @@ from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_operation_service import DeploymentOperationService
-from src.services.deployment_service import PreparedDeploymentProject
 from src.services.deployment_orchestrator import DeploymentOrchestrator
+from src.services.deployment_service import PreparedDeploymentProject
 from src.services.service_errors import ConflictError, DownstreamServiceError
 from src.services.simulator_service import SimulatorDownload
 
@@ -19,10 +19,6 @@ from src.services.simulator_service import SimulatorDownload
 class FakeReadService:
     def __init__(self) -> None:
         self.calls = []
-
-    async def can_redeploy(self, twin_id, user_id):
-        self.calls.append(("can_redeploy", twin_id, user_id))
-        return {"ready": True, "remaining_seconds": 0}
 
     async def get_status(self, twin_id, user_id, active_session_provider=None):
         self.calls.append(("get_status", twin_id, user_id, active_session_provider))
@@ -76,7 +72,7 @@ class FakeSimulatorService:
 
 
 def _create_user(db, email: str = "deployment-orchestrator@example.test") -> User:
-    user = User(email=email, name="Deployment Orchestrator", auth_provider="google")
+    user = User(email=email, name="Deployment Orchestrator")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -187,6 +183,7 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
                 "test_mode": True,
                 "test_stream_runner": runner,
                 "skip_state_validation": False,
+                "idempotency_key": None,
             },
         ),
         (
@@ -197,6 +194,7 @@ async def test_orchestrator_delegates_deploy_and_destroy(orchestrator):
                 "test_mode": False,
                 "test_stream_runner": None,
                 "skip_state_validation": False,
+                "idempotency_key": None,
             },
         ),
     ]
@@ -312,6 +310,7 @@ async def test_orchestrator_uses_configured_test_runners_when_route_does_not_ove
                 "test_mode": True,
                 "test_stream_runner": deploy_runner,
                 "skip_state_validation": True,
+                "idempotency_key": None,
             },
         ),
         (
@@ -322,6 +321,7 @@ async def test_orchestrator_uses_configured_test_runners_when_route_does_not_ove
                 "test_mode": True,
                 "test_stream_runner": destroy_runner,
                 "skip_state_validation": True,
+                "idempotency_key": None,
             },
         ),
     ]
@@ -370,7 +370,6 @@ async def test_orchestrator_delegates_read_side_workflows(orchestrator):
     async def active_sessions(_twin_id):
         return []
 
-    cooldown = await facade.can_redeploy("twin-1", "user-1")
     status = await facade.get_status(
         "twin-1",
         "user-1",
@@ -379,12 +378,10 @@ async def test_orchestrator_delegates_read_side_workflows(orchestrator):
     outputs = facade.get_outputs("twin-1", "user-1")
     history = facade.get_history("twin-1", "user-1", 5)
 
-    assert cooldown["ready"] is True
     assert status["state"] == "configured"
     assert outputs == {"outputs": None, "deployed_at": None}
     assert history == {"deployments": []}
     assert read.calls == [
-        ("can_redeploy", "twin-1", "user-1"),
         ("get_status", "twin-1", "user-1", active_sessions),
         ("get_outputs", "twin-1", "user-1"),
         ("get_history", "twin-1", "user-1", 5),

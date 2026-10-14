@@ -22,29 +22,20 @@ No runtime code or cloud resource is changed by this evidence.
 
 ## Profile Boundary
 
-The evaluated profiles have three different roles:
+This package evaluates one standalone runtime profile:
+`six-layer-eventing@1`. Rule evaluation, extension action, notification
+workflow, and device-command feedback are mandatory domain behavior. Routing,
+buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud
+transport belong to its independent Eventing responsibility.
 
-| Profile | Role |
-|---|---|
-| `five-layer-baseline@1` | Immutable historical/paper-compatible reference. Its omitted optional event paths remain omitted. |
-| `five-layer-baseline@2` | Five-responsibility control profile. Rule evaluation, extension action, notification workflow, and device-command feedback are always present as embedded L1/L2 behavior. |
-| `six-layer-eventing@1` | Treatment profile with the same domain-event behavior as `five-layer-baseline@2`, plus independent routing, buffering, fan-out, retry/DLQ, replay, ordering, observability, and cross-cloud transport ownership. |
-
-The new profiles contain no `useEventChecking`,
+The profile contains no `useEventChecking`,
 `triggerNotificationWorkflow`, or `returnFeedbackToDevice` switch. A typed rule
 match controls invocation volume; it does not control component presence.
 
-The fair comparison is therefore not "without events" versus "with events".
-It is embedded event behavior versus the same behavior with a separately owned
-Eventing responsibility. The historical `@1` result is reproduced separately.
-
-Functional parity covers the same event types, rule matches, actions,
-workflows, device commands, outcomes, and scenario volumes. It does not claim
-identical transport quality. The embedded profile records what its direct
-edges actually provide; the treatment must additionally satisfy the
-Event-Layer at-least-once, ordering, fan-out, replay, DLQ, and observability
-contract. That quality delta is an evaluation result, not a hidden baseline
-requirement.
+Five-layer v1 remains an Optimizer-only historical reproduction and is outside
+this runtime evidence package. The evaluation therefore reports the Six-layer
+capability, topology, cost, and limitation results directly; it does not claim
+a second deployable control profile.
 
 ## Shared Domain Flow
 
@@ -65,6 +56,14 @@ device telemetry
 Each extension action, workflow, and device command emits one typed terminal
 outcome. Storage lifecycle movement stays storage-owned and does not send object
 payloads through the event broker. Query/read traffic remains synchronous.
+
+The diagram and the standalone Phase 8.8 cost fixture cover the eight core
+operational channels above. The closed bridge registry additionally admits the
+four `twin_projection.v1` profile extensions (`twin.state.upserted`,
+`twin.model.upserted`, `twin.relationship.upserted`, and
+`twin.relationship.deleted`). Their explicit projection workload and route
+costs belong to the complete-service profile calculation, so they are not
+silently added to or double-counted in these earlier event-domain estimates.
 
 The reference notification workflow has four steps: three provider-local
 orchestration/control steps and one external notification delivery. This keeps
@@ -108,7 +107,7 @@ Capacity allocations below include at least 20% headroom over serialized
 application bytes. Provider-internal replication and network protocol overhead
 are not invented as payload. They remain explicit sensitivity limitations.
 
-## Selected Embedded Bundles: `five-layer-baseline@2`
+## Selected Embedded Components Inside `six-layer-eventing@1`
 
 These resources belong to their existing L1/L2 responsibilities. They do not
 create an independently selectable Eventing layer.
@@ -119,13 +118,29 @@ create an independently selectable Eventing layer.
 | Azure | IoT Hub; Event Hubs-compatible route to the processor avoids the Event Grid Basic throughput ceiling | Azure Functions processor, rule evaluator, extension adapter, and Service Bus; remote telemetry edges additionally use Event Hubs Standard/Dedicated outboxes | Logic Apps Consumption (stateful multitenant) | IoT Hub cloud-to-device per-device queue | Capability-admissible; live verification pending |
 | GCP | Apache BifroMQ 4.0.0-incubating on GKE is the bidirectional MQTT boundary; an ordered QoS 1 adapter forwards telemetry to Pub/Sub | Cloud Run services for processor, rule evaluator, extension adapter, authenticated direct delivery, and source bridge; Pub/Sub is the durable cloud backbone | Google Cloud Workflows | Pub/Sub command outbox through BifroMQ, with the correlated outcome returning through BifroMQ to Pub/Sub | Capability-admissible for the PoC with explicit hosted-boundary, integration-adapter, load-test, and incubation-risk gates |
 
-Cross-cloud direct responsibility edges do not fall back to public
-function-to-function invocation. A remote edge conditionally adds the same
-source-owned durable outbox and bridge-forwarder pattern described below, but
-that resource is costed to the producing five-layer responsibility rather than
-to a separate Eventing responsibility. The exact embedded outboxes are Kinesis
-plus SNS FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP.
-They are absent in the corresponding single-cloud placement.
+Cross-cloud routes do not fall back to public function-to-function invocation.
+A remote route conditionally adds the source-owned durable outbox and
+bridge-forwarder pattern described below, with its cost owned by the Six-layer
+Eventing responsibility. The exact provider components are Kinesis plus SNS
+FIFO on AWS, Event Hubs plus Service Bus on Azure, and Pub/Sub on GCP. They are
+absent in the corresponding single-cloud placement.
+
+The extension-action and external-notification members above are controlled
+synthetic PoC sinks. Event `functionName`/`functionNameB` values are correlated
+logical action IDs; they do not select uploaded application code. This keeps
+the prescribed invocation and workflow meters comparable across providers.
+Only `processor.telemetry@1` uses the reviewed user-function extension
+contract in v1. Delivery to a real notification system is a disclosed future
+integration boundary, not a runtime claim of this experiment.
+
+For implemented AWS and Azure L2 targets, Terraform rejects zero or multiple
+packages for that slot. AWS binds the immutable package to a dedicated Python
+3.11 Lambda with a logs-only role and invokes it synchronously through a
+closed, correlated envelope with three bounded attempts. Azure binds the
+provider adapter to a dedicated Flex Function and invokes its authenticated
+HTTP trigger. Both runtimes reject mismatched correlation data and invalid
+output before creating `telemetry.processed.v1`; this is a deployable provider
+binding, while live-cloud qualification remains pending.
 
 ### GCP Device-Boundary Qualification
 
@@ -394,24 +409,33 @@ scenario-specific:
 | GCP | Authenticated Pub/Sub push to Cloud Run | Cloud Run worker pool with StreamingPull for telemetry; authenticated push for control |
 
 AWS and Azure source triggers use at most ten envelopes from one channel per
-invocation; the invocation may contain different device keys, which the
+invocation; the invocation may contain different source keys, which the
 adapter groups and serializes per key. GCP push delivers one message per
 request to an IAM-protected Cloud Run URL inside the provider integration; that
 URL is not a cross-cloud architecture endpoint. The GCP Large telemetry path
 uses continuous StreamingPull workers with no load-balanced URL.
+The fixed allocation is owned by physical source consumption, not by target
+count: each distinct received/processed telemetry source channel contributes
+21 one-stream workers, while one source subscription may fan the accepted
+event out to multiple destination routes. Consequently an Event-Layer
+`telemetry.processed` topic reused for remote L2 and remote Hot is dimensioned
+once; local Event consumers retain their own 21-worker subscription each. The
+single RDS worker dimension is the exact sum of those local subscriptions and
+source-bridge channels and never exceeds the reviewed 126-instance bound.
 The cost fixture does not assume that AWS/Azure batches are always full: it
 uses one billed invocation per delivery attempt as a conservative bound while
 retaining ten as the configured trigger maximum. This especially avoids
 understating sparse control-channel compute.
-Destination publishers never mix channels or device keys and may group at most
+Destination publishers never mix channels or source keys and may group at most
 ten current 65-KiB telemetry envelopes where the destination API preserves
 that key's order. AWS telemetry is stricter: it uses serial `PutRecord` calls
 and chains `SequenceNumberForOrdering` for consecutive same-key records within
 an invocation, because `PutRecords` can partially succeed and reorder. Kinesis
 source processing keeps `ParallelizationFactor=1`, so acknowledgement of the
 previous invocation prevents the same key from overlapping after an execution
-environment change. The adapter preserves event ID, invocation ID,
-correlation ID, trace context, replay marker, and device partition key. It
+environment change. The adapter preserves the canonical event ID, deployment
+ID, source ID and sequence, correlation and causation IDs, producer, and
+schema-bound payload. It
 never logs credentials, payloads, provider resource IDs, raw exceptions, or
 arbitrary headers.
 
@@ -420,14 +444,19 @@ over TLS 1.2 or newer with normal certificate/hostname validation, a
 region-pinned data-plane endpoint, and no redirect or custom-endpoint override.
 Credentials exist only in memory and are discarded at token expiry minus five
 minutes or after one hour, whichever occurs first. The adapter validates size,
-JSON, required/forbidden fields, the closed event/schema registry, partition
-key, and route before requesting the target credential.
+JSON, required/forbidden fields, the closed event/schema registry, portable
+source ordering key, and route before requesting the target credential.
 
 Bad envelopes are terminal message failures and enter the source bridge DLQ.
-Network failures, throttling, provider 5xx responses, and transient identity
-errors use the six-attempt retry budget. TLS, endpoint, route, claim, and
-permission mismatches block the route without acknowledging the source or
-burning a message retry budget; they require an operator correction. Metrics
+Network failures, throttling, provider 5xx responses, transient identity
+errors, and TLS/endpoint/route/claim/permission mismatches use the same bounded
+six-attempt provider budget without acknowledging the source. A route mismatch
+also opens its circuit. On the current sixth attempt, the bridge writes a
+bounded safe source failure record and acknowledges or checkpoints only after
+that store accepts it; the route still requires operator correction and an
+explicit redrive. The provider-native terminal destination remains mandatory
+as a fallback because Kinesis does not expose its current invocation attempt
+to the function and Pub/Sub dead-letter forwarding is approximate. Metrics
 carry only bounded provider/route/channel/scenario dimensions, while messages,
 credentials, device/Twin IDs, endpoints, resource IDs, and raw exceptions are
 forbidden from logs and metric labels.
@@ -436,14 +465,15 @@ The destination mapping is channel-specific:
 
 | Channel class | AWS landing | Azure landing | GCP landing |
 |---|---|---|---|
-| Telemetry/log | Kinesis stream with device partition key | Event Hub with device partition key | Pub/Sub topic with ordering key |
-| Control/action/command | SNS/SQS FIFO with device message group | Service Bus topic/queue with device session ID | Pub/Sub topic/subscription with ordering key |
+| Telemetry/log | Kinesis stream with source-ID partition key | Event Hub with source-ID partition key | Pub/Sub topic with source-ID ordering key |
+| Control/action/command | SNS/SQS FIFO with source-ID message group | Service Bus topic/queue with source-ID session ID | Pub/Sub topic/subscription with source-ID ordering key |
 
 For one key, the bridge does not advance to a later batch while an earlier
 batch is retrying. A terminal failure moves the envelope to the source bridge
 DLQ and emits an ordering-degraded outcome. Redrive republishes the same event
-ID and key with a new replay ID; AWS SNS FIFO and Azure Service Bus derive the
-transport deduplication/message ID from the event ID plus `replay_id_or_live`.
+ID and source key with a new `payload.replay_id`; AWS SNS FIFO and Azure Service
+Bus derive the transport deduplication/message ID from the event ID plus
+`payload.replay_id_or_live`.
 Source retries therefore deduplicate, while an explicit redrive is not
 silently suppressed. Consumers remain idempotent on the domain IDs.
 
@@ -495,8 +525,10 @@ capture the real token claims and execute all six directions.
 Same-cloud does not mean one service. It means the complete local event-domain
 bundle provides the required domain flow without a cross-cloud forwarder. It
 does not claim a complete executable whole Twin: AWS and Azure target profiles
-remain unimplemented, and all-GCP additionally remains unsupported until the
-separately owned L4/L5 gap is closed.
+remain unimplemented, and historical all-GCP remains unsupported. The separate
+complete-service closure now selects a provider-hosted GCP L4/L5 target for
+the new profiles; that later decision does not alter this Event-domain
+package or claim the target implemented.
 
 ### Three Providers
 
@@ -514,9 +546,12 @@ provider:
 The ingress provider owns device ingress, device-command delivery, and the
 corresponding outcome. The processing provider owns the processor,
 persistence, Twin update, rule/action path, and notification workflow. This
-placement routes all eight closed-world channels; in particular, the device
-command returns from the Eventing provider to the ingress provider instead of
-disappearing from the three-cloud fixture.
+placement routes all eight core event-domain channels; in particular, the
+device command returns from the Eventing provider to the ingress provider
+instead of disappearing from the three-cloud fixture. A complete resolved
+profile may additionally route the four closed `twin_projection.v1` variants
+from L3 hot to L4; those profile-extension volumes are evaluated by the later
+complete-service workload and optimizer rather than this standalone fixture.
 
 AWS, Azure, and GCP remain candidate Eventing providers because all six
 directions have a documented federation primitive and construction rule.
@@ -530,7 +565,7 @@ because fan-out occurs after the landing broker.
 `scenario-cost-results.json` is generated offline by
 `scripts/phase_08_eventing/calculate_scenarios.py`. Its normalized result digest
 is
-`sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27`.
+`sha256:06191b57423c95854e4848be47dccfd0d9dba18ba0260d08c8dfcb5e6dc3c43a`.
 The generator emits per-channel publication, delivery, retry, DLQ, replay,
 retention, compute, workflow, observability, outbox, landing, and transfer
 traces. Reordering source-ledger or pricing-matrix rows does not change the
@@ -616,6 +651,16 @@ The reproducible offline gate is:
 docker run --rm -i -v "$PWD:/workspace" -w /workspace \
   2twin2clouds:latest \
   python scripts/phase_08_eventing/validate_decision_package.py --strict
+```
+
+The immutable `file_ownership.operation` values describe the delta from the
+decision freeze. Once implementation has started, an owned `new` path is
+therefore expected to exist. The optional planning-time collision check is
+kept separate and is only valid before that transition:
+
+```bash
+python scripts/phase_08_eventing/validate_decision_package.py \
+  --strict --check-planned-target-absence
 ```
 
 Approval allows Phase 8.9 implementation planning to be consumed. Profile

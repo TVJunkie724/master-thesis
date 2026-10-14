@@ -17,19 +17,15 @@ from backend.calculation_v2.components import FormulaType, LayerType, Provider
 
 
 class OptimizationObjective(str, Enum):
-    """Supported and planned optimization objectives."""
+    """Runtime optimization objective of the thesis PoC."""
 
     COST = "cost"
-    LATENCY = "latency"
-    EMISSIONS = "emissions"
-    RESILIENCE = "resilience"
 
 
 class ObjectiveStatus(str, Enum):
-    """Whether an optimization objective can be selected at runtime."""
+    """Status retained in cost-trace metadata."""
 
     ENABLED = "enabled"
-    DISABLED = "disabled"
 
 
 class PricingSourceType(str, Enum):
@@ -106,7 +102,6 @@ class OptimizationStrategyContract:
     result_fields: Tuple[str, ...]
     pricing_intents: Tuple[PricingIntentContract, ...] = ()
     formula_bindings: Tuple[FormulaBindingContract, ...] = ()
-    extension_note: Optional[str] = None
 
     def intent_map(self) -> Dict[str, PricingIntentContract]:
         return {intent.intent_id: intent for intent in self.pricing_intents}
@@ -126,13 +121,6 @@ class OptimizationStrategyContract:
                     errors.append(
                         f"Formula binding {binding.binding_id} references unknown intent {intent_id}"
                     )
-
-        if self.status == ObjectiveStatus.DISABLED:
-            if self.pricing_intents or self.formula_bindings:
-                errors.append(
-                    f"Disabled objective {self.objective.value} must not declare active pricing bindings"
-                )
-            return tuple(errors)
 
         for intent in self.pricing_intents:
             expected_provider = intent.provider.value
@@ -698,45 +686,16 @@ def cost_strategy_contract() -> OptimizationStrategyContract:
     )
 
 
-def _disabled_strategy(objective: OptimizationObjective, note: str) -> OptimizationStrategyContract:
-    return OptimizationStrategyContract(
-        objective=objective,
-        status=ObjectiveStatus.DISABLED,
-        description=f"{objective.value} optimization is intentionally disabled.",
-        result_fields=(),
-        extension_note=note,
-    )
-
-
 def strategy_contracts() -> Mapping[OptimizationObjective, OptimizationStrategyContract]:
-    """Return all known strategy contracts keyed by objective."""
+    """Return the sole executable cost contract."""
 
-    contracts = {
-        OptimizationObjective.COST: cost_strategy_contract(),
-        OptimizationObjective.LATENCY: _disabled_strategy(
-            OptimizationObjective.LATENCY,
-            "Requires measured or declared latency sources before it can be enabled.",
-        ),
-        OptimizationObjective.EMISSIONS: _disabled_strategy(
-            OptimizationObjective.EMISSIONS,
-            "Requires region/provider carbon intensity and workload energy models.",
-        ),
-        OptimizationObjective.RESILIENCE: _disabled_strategy(
-            OptimizationObjective.RESILIENCE,
-            "Requires availability, redundancy, and failure-domain scoring models.",
-        ),
-    }
-    return contracts
+    return {OptimizationObjective.COST: cost_strategy_contract()}
 
 
 def enabled_strategy_contracts() -> Tuple[OptimizationStrategyContract, ...]:
-    """Return strategies that can be selected by runtime code."""
+    """Return the sole executable cost contract."""
 
-    return tuple(
-        contract
-        for contract in strategy_contracts().values()
-        if contract.status == ObjectiveStatus.ENABLED
-    )
+    return (cost_strategy_contract(),)
 
 
 def get_strategy_contract(objective: OptimizationObjective | str) -> OptimizationStrategyContract:

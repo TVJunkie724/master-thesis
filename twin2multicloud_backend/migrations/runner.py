@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
-from importlib import import_module
 import logging
 import os
 import sqlite3
-from typing import Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from importlib import import_module
 
 from migrations.ensure_current_schema_columns import resolve_sqlite_path
 
-
 logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class Migration:
@@ -22,30 +22,33 @@ class Migration:
 
 
 MIGRATIONS: tuple[Migration, ...] = (
-    Migration("001_deployment_lifecycle", "migrations.add_deployment_lifecycle_columns"),
+    Migration(
+        "001_deployment_lifecycle", "migrations.add_deployment_lifecycle_columns"
+    ),
     Migration("002_error_tracking", "migrations.add_error_tracking_columns"),
     Migration("003_deployment_sessions", "migrations.add_deployment_session_columns"),
     Migration("004_l4_l5_configuration", "migrations.add_l4_l5_columns"),
     Migration("005_function_requirements", "migrations.add_requirements_columns"),
     Migration("006_current_schema_columns", "migrations.ensure_current_schema_columns"),
     Migration("007_cloud_connections", "migrations.add_cloud_connections_table"),
-    Migration("008_cloud_connection_bindings", "migrations.add_twin_cloud_connection_bindings"),
     Migration(
-        "009_cloud_connection_permission_set",
-        "migrations.add_cloud_connection_permission_set_version",
+        "008_cloud_connection_bindings", "migrations.add_twin_cloud_connection_bindings"
     ),
-    Migration("010_cloud_connection_purpose", "migrations.add_cloud_connection_purpose"),
+    Migration(
+        "010_cloud_connection_purpose", "migrations.add_cloud_connection_purpose"
+    ),
     Migration("011_deployment_preflight", "migrations.add_deployment_preflight_cache"),
     Migration(
         "012_deployment_operation_state",
         "migrations.add_deployment_operation_state_columns",
     ),
-    Migration("013_pricing_refresh_runs", "migrations.add_pricing_refresh_runs"),
-    Migration("014_pricing_review", "migrations.add_pricing_review_tables"),
     Migration("015_cost_calculation_runs", "migrations.add_cost_calculation_runs"),
-    Migration("016_disable_legacy_credentials", "migrations.disable_legacy_twin_credentials"),
-    Migration("017_credential_security_events", "migrations.add_credential_security_events"),
-    Migration("018_production_authentication", "migrations.add_production_authentication"),
+    Migration(
+        "016_disable_legacy_credentials", "migrations.disable_legacy_twin_credentials"
+    ),
+    Migration(
+        "017_credential_security_events", "migrations.add_credential_security_events"
+    ),
     Migration(
         "019_pricing_catalog_context",
         "migrations.add_pricing_catalog_context",
@@ -55,16 +58,52 @@ MIGRATIONS: tuple[Migration, ...] = (
         "migrations.add_resolved_deployment_specification",
     ),
     Migration(
-        "021_user_function_extension_contract",
-        "migrations.add_user_function_extension_contract",
-    ),
-    Migration(
         "022_resolved_twin_architecture",
         "migrations.add_resolved_twin_architecture",
     ),
     Migration(
         "023_deployment_graph_evidence",
         "migrations.add_deployment_graph_evidence",
+    ),
+    Migration(
+        "025_resolved_architecture_v2",
+        "migrations.allow_resolved_architecture_v2",
+    ),
+    Migration(
+        "026_deployment_access",
+        "migrations.add_deployment_access",
+    ),
+    Migration(
+        "029_drop_fixed_optimizer_projection",
+        "migrations.drop_fixed_optimizer_projection",
+    ),
+    Migration(
+        "030_graph_bound_deployment_preflight",
+        "migrations.bind_preflight_to_graph_requirements",
+    ),
+    Migration(
+        "031_drop_file_versions",
+        "migrations.drop_file_versions",
+    ),
+    Migration(
+        "032_durable_operation_idempotency",
+        "migrations.add_durable_operation_idempotency",
+    ),
+    Migration(
+        "033_telemetry_verifications",
+        "migrations.add_telemetry_verifications",
+    ),
+    Migration(
+        "034_cleanup_evidence",
+        "migrations.add_cleanup_evidence",
+    ),
+    Migration(
+        "035_twin_user_functions",
+        "migrations.add_twin_user_functions",
+    ),
+    Migration(
+        "036_drop_removed_auth_columns",
+        "migrations.drop_removed_auth_columns",
     ),
 )
 
@@ -86,7 +125,7 @@ def run_migrations(database_url: str) -> list[str]:
             if migration.migration_id in applied:
                 continue
             logger.info("Applying database migration %s", migration.migration_id)
-            migrate = getattr(import_module(migration.module), "migrate")
+            migrate = import_module(migration.module).migrate
             migrate()
             _record_migration(database_path, migration.migration_id)
             completed.append(migration.migration_id)
@@ -110,9 +149,7 @@ def _applied_migrations(database_path) -> set[str]:
     with sqlite3.connect(database_path) as connection:
         return {
             row[0]
-            for row in connection.execute(
-                "SELECT migration_id FROM schema_migrations"
-            )
+            for row in connection.execute("SELECT migration_id FROM schema_migrations")
         }
 
 

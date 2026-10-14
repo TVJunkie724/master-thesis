@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../bloc/wizard/wizard.dart';
 import '../../../models/cloud_connection.dart';
 import '../../../theme/spacing.dart';
 import '../../../widgets/cloud_connections/cloud_connections_group.dart';
 
-class CloudAccessTask extends StatelessWidget {
+class CloudAccessTask extends ConsumerWidget {
   const CloudAccessTask({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return BlocBuilder<WizardBloc, WizardState>(
       builder: (context, state) {
         final bloc = context.read<WizardBloc>();
         final providers = CloudProvider.values
-            .where(
-              (provider) => state.layerProviders.values.any(
-                (required) => required == provider.name.toUpperCase(),
-              ),
-            )
+            .where(state.requiredDeploymentProviders.contains)
             .toList(growable: false);
 
         return SingleChildScrollView(
@@ -38,9 +35,47 @@ class CloudAccessTask extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    'Bind deployment access only for providers used by the selected architecture.',
+                    'Select a preconfigured PoC credential for every provider used by the selected architecture.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Required by the selected architecture',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          for (final provider in providers)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.cloud_outlined),
+                              title: Text(provider.label),
+                              subtitle: Text(
+                                state.selectedCloudConnectionIds[provider] ==
+                                        null
+                                    ? 'Preconfigured deployment access is missing.'
+                                    : 'Preconfigured deployment access selected.',
+                              ),
+                              trailing:
+                                  state.selectedCloudConnectionIds[provider] ==
+                                      null
+                                  ? const Icon(Icons.key_outlined)
+                                  : const Icon(Icons.check_circle_outline),
+                            ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'For this PoC, an existing non-root administrator credential is entered manually. Provider prerequisites are checked later by deployment preflight.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),

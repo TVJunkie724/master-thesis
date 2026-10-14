@@ -78,7 +78,7 @@ Escalate immediately if:
 - No implementation plan exists
 - The plan and code are fundamentally incompatible (not just minor issues)
 - Architectural violations discovered (widget calling `dio` directly, BLoC owning widgets, direct Optimizer / Deployer calls)
-- Security findings (exposed secrets in code or commits, unvalidated input forwarded to backend, JWT handled in widget code)
+- Security findings (exposed secrets in code or commits, unvalidated input forwarded to backend, local bearer handled in widget code)
 - Performance issues that would impact production users (scrolling rebuilds the entire screen, blocking work on the UI thread)
 
 ## Anti-Patterns
@@ -109,4 +109,4 @@ Escalate immediately if:
 - **architect** — Produces the plans audited against
 - **builder** — Implements the code being audited
 - **audit-review** — Independent zero-tolerance review of this audit's findings
-- **concept** — Provides strategic concepts and roadmaps upstream
+- **concept** — Provides bounded thesis-PoC concepts upstream

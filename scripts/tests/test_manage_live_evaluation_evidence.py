@@ -1,0 +1,737 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scripts import manage_live_evaluation_evidence as evidence
+
+REGIONS = {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1",
+}
+TERMINAL_ARTIFACTS = (
+    "readiness",
+    "terraform_plan",
+    "apply_operation",
+    "replay",
+    "access",
+    "telemetry",
+    "evaluation_metrics",
+    "destroy_operation",
+    "cleanup",
+    "provider_cost",
+)
+TIMESTAMP = "2026-08-28T12:00:00Z"
+
+
+def _read_plan(*, ready: bool = False) -> dict:
+    plan = json.loads(evidence.PLAN_PATH.read_text(encoding="utf-8"))
+    if ready:
+        plan["status"] = "approved_for_supervised_execution"
+        plan["execution_enabled"] = True
+        for scenario in plan["scenarios"]:
+            scenario["budget_cap_usd"] = 10.0
+    return plan
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _candidate_pack(tmp_path: Path, plan: dict) -> tuple[Path, Path]:
+    plan_path = tmp_path / "plan.json"
+    _write_json(plan_path, plan)
+    plan_digest = evidence._document_digest(plan)
+    pack_dir = tmp_path / "candidate-pack"
+    pack_dir.mkdir()
+    entries = []
+    for index, scenario in enumerate(plan["scenarios"], start=1):
+        scenario_id = scenario["scenario_id"]
+        providers = sorted(set(scenario["assignments"].values()))
+        candidate = {
+            "schema_version": "six-layer-evaluation-candidate.v1",
+            "evidence_status": "offline_planned_candidate",
+            "scenario_id": scenario_id,
+            "candidate_id": "|".join(
+                scenario["assignments"][component_id]
+                for component_id in evidence.CANDIDATE_COMPONENT_ORDER
+            ),
+            "assignments": scenario["assignments"],
+            "plan_digest": plan_digest,
+            "cost_evaluation": {
+                "currency": "USD",
+                "monthly_total": f"{100 + index}.00",
+            },
+            "resolved_deployment_specification": {
+                "component_selections": [
+                    {
+                        "provider": provider,
+                        "region": REGIONS[provider],
+                    }
+                    for provider in providers
+                ]
+            },
+        }
+        candidate["evidence_digest"] = evidence._document_digest(candidate)
+        filename = f"{scenario_id}.candidate.json"
+        _write_json(pack_dir / filename, candidate)
+        entries.append(
+            {
+                "scenario_id": scenario_id,
+                "candidate_id": candidate["candidate_id"],
+                "candidate_file": filename,
+                "candidate_evidence_digest": candidate["evidence_digest"],
+                "currency": "USD",
+                "monthly_total": candidate["cost_evaluation"]["monthly_total"],
+            }
+        )
+    manifest = {
+        "schema_version": "six-layer-evaluation-candidate-pack.v1",
+        "evidence_status": "offline_planned_candidates",
+        "plan_digest": plan_digest,
+        "scenario_count": 8,
+        "candidates": entries,
+    }
+    manifest["manifest_digest"] = evidence._document_digest(manifest)
+    _write_json(pack_dir / "candidate-pack-manifest.json", manifest)
+    return pack_dir, plan_path
+
+
+def _reference(root: Path, relative: str, value: object) -> dict[str, str]:
+    path = root / relative
+    _write_json(path, value)
+    return {"path": relative, "digest": evidence._file_digest(path)}
+
+
+def _lifecycle(provider: str) -> list[dict]:
+    phases = (
+        ("terraform_plan", "12:00:00Z", "12:00:01Z"),
+        ("terraform_apply", "12:00:01Z", "12:00:02Z"),
+        ("infrastructure_ready", "12:00:02Z", "12:00:03Z"),
+        ("l1_l3_eventing_ready", "12:00:03Z", "12:00:04Z"),
+        ("l4_ready", "12:00:04Z", "12:00:05Z"),
+        ("l5_ready", "12:00:05Z", "12:00:06Z"),
+        ("terraform_destroy", "12:28:00Z", "12:29:00Z"),
+        ("inventory_reconciliation", "12:29:00Z", "12:29:01Z"),
+    )
+    return [
+        {
+            "phase": phase,
+            "provider": provider,
+            "status": "completed",
+            "started_at": f"2026-08-28T{started_at}",
+            "completed_at": f"2026-08-28T{completed_at}",
+            "duration_ms": (60000 if phase == "terraform_destroy" else 1000),
+        }
+        for phase, started_at, completed_at in phases
+    ]
+
+
+def _scenario_providers(scenario_id: str) -> list[str]:
+    if scenario_id.startswith("small-local-"):
+        return [scenario_id.removeprefix("small-local-")]
+    direction = scenario_id.removeprefix("small-focus-")
+    source, destination = direction.split("-to-")
+    return [source, destination]
+
+
+def _cleanup_record(scenario_id: str) -> dict:
+    return {
+        "schema_version": "cleanup-evidence.v1",
+        "status": "complete",
+        "terraform": {
+            "destroy_status": "completed",
+            "observed_before_resource_count": 4,
+            "post_destroy_inventory": "empty",
+            "residual_resource_count": 0,
+        },
+        "providers": [
+            {
+                "provider": provider,
+                "cleanup_status": "completed",
+                "discovered_during_cleanup_count": 0,
+                "discovered_resource_kinds": [],
+                "post_destroy_inventory": "empty",
+                "residual_resource_count": 0,
+            }
+            for provider in _scenario_providers(scenario_id)
+        ],
+        "retained_shared_prerequisites": [],
+        "residual_failures": [],
+    }
+
+
+def _metrics_record(scenario: dict) -> dict:
+    scenario_id = scenario["scenario_id"]
+    trace_id = "TRACE-" + "".join(
+        character for character in scenario_id.upper() if character.isalnum()
+    )
+    providers = _scenario_providers(scenario_id)
+    run_kind = "provider_local" if len(providers) == 1 else "directed_multicloud"
+    source = providers[0]
+    return {
+        "schema_version": "live-evaluation-metrics.v1",
+        "evidence_status": "live_observation",
+        "run_id": f"run-{scenario_id}",
+        "run_kind": run_kind,
+        "subject_id": scenario_id,
+        "scenario_id": scenario_id,
+        "candidate_evidence_digest": scenario["candidate_evidence_digest"],
+        "architecture_contract": "six-layer-eventing@1",
+        "source_revision": "abcdef1",
+        "workload_digest": "sha256:" + "a" * 64,
+        "simulator_digest": "sha256:" + "b" * 64,
+        "provider_scope": providers,
+        "started_at": "2026-08-28T12:00:00Z",
+        "completed_at": "2026-08-28T12:30:00Z",
+        "clock": {
+            "synchronized": True,
+            "method": "test-clock",
+            "checked_at": "2026-08-28T12:00:00Z",
+            "max_observed_skew_ms": 1,
+        },
+        "protocol": {
+            "warmup_messages_per_direction": 0,
+            "measured_messages_per_direction": 1,
+            "payload_bytes": 256,
+            "cadence_ms": 1000,
+            "cold_start_observed": False,
+            "directions": ["telemetry"],
+            "expected_paths": [
+                {
+                    "direction": "telemetry",
+                    "stage_ids": ["simulator_sent", "l1_accepted"],
+                }
+            ],
+            "notes": ["Synthetic unit-test fixture."],
+        },
+        "lifecycle": _lifecycle(source),
+        "message_samples": [
+            {
+                "trace_id": trace_id,
+                "sequence": 1,
+                "sample_set": "measured",
+                "direction": "telemetry",
+                "payload_bytes": 256,
+                "status": "succeeded",
+                "stages": [
+                    {
+                        "stage_id": "simulator_sent",
+                        "provider": None,
+                        "layer": "simulator",
+                        "observed_at": "2026-08-28T12:00:02Z",
+                        "clock_source": "simulator",
+                        "event_id": f"event-{scenario_id}",
+                    },
+                    {
+                        "stage_id": "l1_accepted",
+                        "provider": source,
+                        "layer": "L1",
+                        "observed_at": "2026-08-28T12:00:02.100Z",
+                        "clock_source": "provider",
+                        "event_id": f"event-{scenario_id}",
+                    },
+                ],
+                "retry_count": 0,
+                "duplicate_count": 0,
+                "ordering_ok": True,
+                "dlq_observed": False,
+                "failure_code": None,
+            }
+        ],
+        "resources": [],
+        "cost": {
+            "currency": "USD",
+            "budget_cap_usd": scenario["budget_cap_usd"],
+            "estimated_monthly_total_usd": scenario["estimated_monthly_total_usd"],
+            "observed_incremental_cost_usd": 0.25,
+            "observation_started_at": "2026-08-28T12:31:00Z",
+            "observation_completed_at": "2026-08-28T13:00:00Z",
+            "source_artifact_path": f"{scenario_id}/provider_cost.json",
+        },
+        "cleanup": {
+            "completed_at": "2026-08-28T12:29:01Z",
+            "inventory_clean": True,
+            "residual_count": 0,
+            "residual_types": [],
+        },
+        "limitations": ["Synthetic unit-test fixture."],
+    }
+
+
+def _completed_record(
+    tmp_path: Path,
+) -> tuple[dict, Path, Path, Path]:
+    plan = _read_plan(ready=True)
+    pack_dir, plan_path = _candidate_pack(tmp_path, plan)
+    record = evidence.create_template(pack_dir, plan_path=plan_path)
+    record.update(
+        {
+            "status": "completed",
+            "operator_label": "supervised-operator",
+            "cleanup_timer_owner_label": "cleanup-owner",
+            "started_at": TIMESTAMP,
+            "completed_at": "2026-08-28T15:00:00Z",
+        }
+    )
+    evidence_root = tmp_path / "evidence"
+    for check in record["phase_8"]["provider_checks"]:
+        provider = check["provider"]
+        check.update(
+            {
+                "account_scope_label": f"thesis-{provider}-scope",
+                "principal_label": f"thesis-{provider}-principal",
+                "status": "ready",
+                "evidence_refs": [
+                    _reference(
+                        evidence_root,
+                        f"phase-8/{provider}-preflight.json",
+                        {"provider": provider, "status": "ready"},
+                    )
+                ],
+            }
+        )
+    for exchange in record["phase_8"]["identity_exchanges"]:
+        source = exchange["source_provider"]
+        destination = exchange["destination_provider"]
+        exchange.update(
+            {
+                "status": "succeeded",
+                "cleanup_status": "clean",
+                "evidence_refs": [
+                    _reference(
+                        evidence_root,
+                        f"phase-8/{source}-to-{destination}.json",
+                        {
+                            "source": source,
+                            "destination": destination,
+                            "status": "succeeded_and_clean",
+                        },
+                    )
+                ],
+            }
+        )
+    for scenario in record["scenarios"]:
+        scenario_id = scenario["scenario_id"]
+        artifacts = []
+        for kind in TERMINAL_ARTIFACTS:
+            value = (
+                _metrics_record(scenario)
+                if kind == "evaluation_metrics"
+                else _cleanup_record(scenario_id)
+                if kind == "cleanup"
+                else {
+                    "scenario_id": scenario_id,
+                    "kind": kind,
+                    "status": "observed",
+                }
+            )
+            artifacts.append(
+                {
+                    "kind": kind,
+                    **_reference(
+                        evidence_root,
+                        f"{scenario_id}/{kind}.json",
+                        value,
+                    ),
+                }
+            )
+        scenario.update(
+            {
+                "budget_reviewed": True,
+                "status": "completed",
+                "started_at": TIMESTAMP,
+                "completed_at": "2026-08-28T12:30:00Z",
+                "artifacts": artifacts,
+            }
+        )
+    return record, pack_dir, plan_path, evidence_root
+
+
+def test_planned_template_binds_exact_matrix_and_pack(tmp_path: Path) -> None:
+    pack_dir, plan_path = _candidate_pack(tmp_path, _read_plan())
+    record = evidence.create_template(pack_dir, plan_path=plan_path)
+
+    result = evidence.validate_record(
+        record,
+        candidate_pack_dir=pack_dir,
+        evidence_root=tmp_path,
+        plan_path=plan_path,
+    )
+
+    assert result == {
+        "status": "planned_not_executed",
+        "provider_check_count": 3,
+        "identity_exchange_count": 6,
+        "scenario_count": 8,
+    }
+
+
+def test_candidate_pack_digest_drift_is_rejected(tmp_path: Path) -> None:
+    pack_dir, plan_path = _candidate_pack(tmp_path, _read_plan())
+    record = evidence.create_template(pack_dir, plan_path=plan_path)
+    candidate_path = next(pack_dir.glob("small-local-aws.candidate.json"))
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["candidate_id"] = "drifted"
+    _write_json(candidate_path, candidate)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="candidate digest"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=tmp_path,
+            plan_path=plan_path,
+        )
+
+
+def test_redigested_candidate_cannot_drift_from_plan_assignments(
+    tmp_path: Path,
+) -> None:
+    pack_dir, plan_path = _candidate_pack(tmp_path, _read_plan())
+    candidate_path = pack_dir / "small-local-aws.candidate.json"
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["assignments"]["component.eventing"] = "azure"
+    candidate["evidence_digest"] = evidence._document_digest(
+        {key: value for key, value in candidate.items() if key != "evidence_digest"}
+    )
+    _write_json(candidate_path, candidate)
+    manifest_path = pack_dir / "candidate-pack-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["candidates"][0]["candidate_evidence_digest"] = candidate[
+        "evidence_digest"
+    ]
+    manifest["manifest_digest"] = evidence._document_digest(
+        {key: value for key, value in manifest.items() if key != "manifest_digest"}
+    )
+    _write_json(manifest_path, manifest)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="assignments drifted"):
+        evidence.load_candidate_pack(pack_dir, plan_path=plan_path)
+
+
+def test_completed_record_requires_all_digest_verified_artifacts(
+    tmp_path: Path,
+) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+
+    result = evidence.validate_record(
+        record,
+        candidate_pack_dir=pack_dir,
+        evidence_root=evidence_root,
+        plan_path=plan_path,
+    )
+
+    assert result["status"] == "completed"
+    record["scenarios"][0]["artifacts"] = [
+        artifact
+        for artifact in record["scenarios"][0]["artifacts"]
+        if artifact["kind"] != "cleanup"
+    ]
+    with pytest.raises(evidence.LiveEvidenceError, match="completed evidence misses"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_referenced_evidence_digest_drift_is_rejected(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    reference = record["scenarios"][0]["artifacts"][0]
+    _write_json(evidence_root / reference["path"], {"status": "tampered"})
+
+    with pytest.raises(evidence.LiveEvidenceError, match="evidence digest"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_replay_is_required_once_for_the_completed_evaluation(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    for scenario in record["scenarios"][1:]:
+        scenario["artifacts"] = [
+            item for item in scenario["artifacts"] if item["kind"] != "replay"
+        ]
+    assert (
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )["status"]
+        == "completed"
+    )
+
+    record["scenarios"][0]["artifacts"] = [
+        item for item in record["scenarios"][0]["artifacts"] if item["kind"] != "replay"
+    ]
+    with pytest.raises(evidence.LiveEvidenceError, match="representative replay"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_early_abort_is_retained_in_one_blocked_scenario_record(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    for phase in value["lifecycle"]:
+        if phase["phase"] == "l1_l3_eventing_ready":
+            phase["status"] = "failed"
+        if phase["phase"] in {"l4_ready", "l5_ready"}:
+            phase.update(
+                status="skipped", started_at=None, completed_at=None, duration_ms=None
+            )
+    value["message_samples"] = []
+    value["limitations"] = ["Early verification failed; later checks were skipped."]
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+    with pytest.raises(evidence.LiveEvidenceError, match="incomplete run"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+    scenario.update(status="blocked", blocker_code="early-verification-failed")
+    record["status"] = "completed_with_blockers"
+    assert (
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )["status"]
+        == "completed_with_blockers"
+    )
+    scenario["artifacts"] = [
+        item for item in scenario["artifacts"] if item["kind"] != "evaluation_metrics"
+    ]
+    with pytest.raises(evidence.LiveEvidenceError, match="requires metrics"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_referenced_evidence_rejects_secret_bearing_fields(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    artifact = next(
+        item
+        for item in record["scenarios"][0]["artifacts"]
+        if item["kind"] == "readiness"
+    )
+    path = evidence_root / artifact["path"]
+    _write_json(path, {"client_secret": "must-not-enter-thesis-evidence"})
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="sensitive field"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_must_bind_to_exact_scenario_candidate(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["candidate_evidence_digest"] = "sha256:" + "f" * 64
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="metrics binding drifted"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_metrics_cost_is_bound_to_indexed_export(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["cost"]["source_artifact_path"] = f"{scenario['scenario_id']}/telemetry.json"
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="indexed cost artifact"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_scenario_requires_clean_typed_cleanup(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(item for item in scenario["artifacts"] if item["kind"] == "cleanup")
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["status"] = "incomplete"
+    value["residual_failures"] = [
+        {
+            "scope": "provider_inventory",
+            "provider": "aws",
+            "reason": "resources_remain",
+        }
+    ]
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="clean terminal inventory"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_provider_scope_is_bound_to_candidate_placement(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = next(
+        item
+        for item in record["scenarios"]
+        if item["scenario_id"] == "small-focus-aws-to-azure"
+    )
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["provider_scope"].append("gcp")
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="provider scope"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_metrics_stage_is_bound_to_candidate_component_provider(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = next(
+        item
+        for item in record["scenarios"]
+        if item["scenario_id"] == "small-focus-aws-to-azure"
+    )
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["message_samples"][0]["stages"][1]["provider"] = "azure"
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+
+    with pytest.raises(evidence.LiveEvidenceError, match="candidate placement"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_completed_scenario_requires_exactly_one_metrics_artifact(
+    tmp_path: Path,
+) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    metrics_artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    metrics_value = json.loads(
+        (evidence_root / metrics_artifact["path"]).read_text(encoding="utf-8")
+    )
+    scenario["artifacts"].append(
+        {
+            "kind": "evaluation_metrics",
+            **_reference(
+                evidence_root,
+                f"{scenario['scenario_id']}/evaluation-metrics-copy.json",
+                metrics_value,
+            ),
+        }
+    )
+
+    with pytest.raises(evidence.LiveEvidenceError, match="exactly one"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_final_status_must_disclose_recorded_blocker(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    record["scenarios"][0]["status"] = "blocked"
+    record["scenarios"][0]["blocker_code"] = "provider-runtime-blocker"
+
+    with pytest.raises(evidence.LiveEvidenceError, match="Final status"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+    record["status"] = "completed_with_blockers"
+    result = evidence.validate_record(
+        record,
+        candidate_pack_dir=pack_dir,
+        evidence_root=evidence_root,
+        plan_path=plan_path,
+    )
+    assert result["status"] == "completed_with_blockers"
+
+
+def test_evidence_reference_cannot_escape_directory(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    record["scenarios"][0]["artifacts"][0]["path"] = "../outside.json"
+
+    with pytest.raises(evidence.LiveEvidenceError):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )

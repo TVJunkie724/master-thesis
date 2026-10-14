@@ -19,22 +19,16 @@ final externalAuthLauncherProvider = Provider<ExternalAuthLauncher>(
   (ref) => createSystemExternalAuthLauncher(),
 );
 
-final authPollDelayProvider = Provider<Future<void> Function(Duration)>(
-  (ref) => Future<void>.delayed,
-);
-
-final authClockProvider = Provider<DateTime Function()>(
-  (ref) =>
-      () => DateTime.now().toUtc(),
-);
-
 final apiServiceProvider = Provider<ManagementApi>((ref) {
   final runtime = ref.watch(appRuntimeProvider);
   final baseUri = runtime.managementApiBaseUri;
   if (baseUri == null) {
     throw StateError('Network Management API requested in a demo runtime.');
   }
-  return ApiService(baseUri: baseUri);
+  return ApiService(
+    baseUri: baseUri,
+    initialAuthToken: runtime.initialAuthToken,
+  );
 });
 
 final logStreamClientFactoryProvider = Provider<LogStreamClientFactory>((ref) {

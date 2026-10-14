@@ -1,0 +1,73 @@
+{
+  "manifest_version": "six-layer-eventing-architecture-definitions.v1",
+  "activation_status": "active",
+  "profile_ref": {
+    "id": "six-layer-eventing",
+    "version": "1",
+    "digest": "sha256:5005e709b88026dc67570fd1cc93560628ddaf251e76506c5d78f66090fa0804"
+  },
+  "provider_profile_refs": [
+    {
+      "provider": "aws",
+      "id": "provider-profile.aws.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:a9d70802a8ca424a7140831278edcfde921390f8deea970ccd39872c51e14191"
+    },
+    {
+      "provider": "azure",
+      "id": "provider-profile.azure.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:18383ac476c623def5f25d2adbc48d0831e95d2c274a80ab7b34db974436dd3f"
+    },
+    {
+      "provider": "gcp",
+      "id": "provider-profile.gcp.six-layer-eventing-v1",
+      "version": "1",
+      "digest": "sha256:7793ad6ff1b9517a77a5ea1749afb1b5fc6b51374406aeba918adf3029c57122"
+    }
+  ],
+  "catalog_ref": {
+    "id": "six-layer-eventing-component-catalog",
+    "version": "1",
+    "digest": "sha256:69099c2ea652ac5a4c551a03f02ce82d1b7399d7f7938097b666ca490d9b198c"
+  },
+  "eventing_decision_ref": {
+    "id": "phase-08-eventing-decision",
+    "version": "1",
+    "digest": "sha256:b2afdaff2793391f0bab0127c93e13b0ff281964d1184818090781234444be35"
+  },
+  "eventing_implementation_manifest_ref": {
+    "id": "phase-08-eventing-implementation",
+    "version": "1",
+    "digest": "sha256:bcc8fd9465243bd92028cf7c6cb970973096227048aeac98294f429b1f24252f"
+  },
+  "service_decision_ref": {
+    "id": "phase-08-complete-service-bundles",
+    "version": "1",
+    "digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90"
+  },
+  "topology_cost_registry_ref": {
+    "id": "six-layer-eventing-topology-cost-registry",
+    "version": "1",
+    "digest": "sha256:851af214c192826c2b5d0cd4250c552a7a23e1e40a6ca01a807fdf38c77d3972"
+  },
+  "workload_ref": {
+    "id": "six-layer-workload",
+    "version": "1",
+    "digest": "sha256:51745c9efac65afd11fdd10c0a74b60c4443d0ba65a97a1647b736eadc01b7f5"
+  },
+  "supported_eventing_placements": [
+    "aws-eventing",
+    "azure-eventing",
+    "gcp-eventing"
+  ],
+  "supported_directed_provider_pairs": [
+    "aws-to-azure",
+    "aws-to-gcp",
+    "azure-to-aws",
+    "azure-to-gcp",
+    "gcp-to-aws",
+    "gcp-to-azure"
+  ],
+  "content_digest": "sha256:fe47b06471c8521a4089e1bf786e55a7bcb619667d1ca539126474fee23ba405"
+}

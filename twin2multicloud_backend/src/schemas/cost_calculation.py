@@ -7,7 +7,7 @@ from src.schemas.optimizer_calculation import OptimizerCalculationParams
 from src.schemas.pricing_catalog import PricingCatalogContext
 from src.schemas.resolved_deployment_specification import (
     DeploymentCompatibilityStatus,
-    ResolvedDeploymentSpecification,
+    ResolvedDeploymentSpecificationDocument,
 )
 
 
@@ -18,6 +18,28 @@ class CostCalculationRunCreate(BaseModel):
         ...,
         description="Optimizer calculation parameters",
     )
+    pricing_evidence_version: Optional[str] = None
+
+
+class SupervisedEvaluationRunCreate(BaseModel):
+    """Operator-authorized exact candidate for the bounded thesis matrix."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    params: OptimizerCalculationParams
+    scenario_id: str = Field(
+        pattern=(
+            r"^small-(local-(aws|azure|gcp)|"
+            r"focus-(aws|azure|gcp)-to-(aws|azure|gcp))$"
+        )
+    )
+    candidate_id: str = Field(
+        pattern=r"^(aws|azure|gcp)(\|(aws|azure|gcp)){7}$"
+    )
+    candidate_evidence_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    plan_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    candidate_pack_manifest_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    confirmation: Literal["MATERIALIZE SUPERVISED EVALUATION CANDIDATE"]
     pricing_evidence_version: Optional[str] = None
 
 
@@ -59,14 +81,13 @@ class CostCalculationRunSummaryResponse(BaseModel):
     calculation_model_version: Optional[str] = None
     pricing_registry_version: Optional[str] = None
     pricing_evidence_version: Optional[str] = None
-    pricing_run_reference: Optional[str] = None
     pricing_catalog_context: Optional[PricingCatalogContext] = None
     deployment_specification_digest: Optional[str] = None
     deployment_specification_version: Optional[str] = None
     deployment_compatibility_status: DeploymentCompatibilityStatus
     architecture_compatibility_status: Literal[
         "ready",
-        "legacy_not_resolvable",
+        "unavailable",
     ]
     resolved_architecture_version: Optional[str] = None
     resolved_architecture_digest: Optional[str] = None
@@ -80,16 +101,16 @@ class CostCalculationRunSummaryResponse(BaseModel):
 class CostCalculationRunDetailResponse(CostCalculationRunSummaryResponse):
     params: dict
     result_summary: Optional[dict] = None
-    resolved_deployment_specification: (
-        Optional[ResolvedDeploymentSpecification]
-    ) = None
+    resolved_deployment_specification: Optional[
+        ResolvedDeploymentSpecificationDocument
+    ] = None
     result_items: list[CostCalculationResultItemResponse] = Field(default_factory=list)
 
 
 class CostCalculationRunSelectResponse(BaseModel):
     run: CostCalculationRunSummaryResponse
     selected_for_deployment_at: datetime
-    resolved_deployment_specification: ResolvedDeploymentSpecification
+    resolved_deployment_specification: ResolvedDeploymentSpecificationDocument
 
 
 class PricingEvidenceDetailResponse(BaseModel):

@@ -1,61 +1,58 @@
-# Deployment And Verification
+# Deployment and Verification
 
-Deployment actions live on the twin overview after configuration. The UI uses the
-Management API; it never uploads files directly to or starts operations on the Deployer.
+Deployment actions appear after a calculation is selected and current
+graph-derived readiness succeeds.
 
-New deployment packages require Manifest v3 and a resolved architecture. Profile
-resolution defaults to off, and runtime/live verification gaps remain. Check
-[Results and Limits](../runtime/known-limitations.md) before using cloud operations.
-
-```mermaid
-flowchart TD
-    Ready["Current selection + valid preflight"] --> Deploy["Start deployment"]
-    Deploy --> Status{"Operation result"}
-    Status -->|Success| Verify["Inspect outputs<br/>and verify data flow"]
-    Status -->|Error| Inspect["Inspect logs and<br/>remaining resources"]
-    Inspect -->|"After resolving cause"| Ready
-    Verify -->|"When finished"| Destroy["Confirm destroy<br/>and check cleanup result"]
-    Inspect -->|"Cleanup needed"| Destroy
-```
-
-Deployment success and verified data flow are separate checks. An error can leave
-resources behind; inspect the operation record before retry or cleanup.
+The Twin lifecycle page starts with one summary: Twin identity, current state
+and the next safe action. Back, theme and Cloud access are in the app bar;
+Edit/Delete are secondary actions. The page shows only one lifecycle command
+at a time.
 
 ## Before Deploy
 
-Confirm:
+Confirm the immutable calculation/graph, selected connection labels and
+scopes, preparation evidence, estimated cost guardrail, region, maximum
+duration, and cleanup plan. Every provider mutation requires an explicit
+confirmation.
 
-- twin is `configured`, `destroyed`, or recoverable `error`;
-- selected architecture is current;
-- required deployment CloudConnections are present and validated;
-- configuration/artifacts pass validation;
-- deployment preflight is successful and not stale;
-- a previous operation is not already active.
+## During Deploy or Destroy
 
-## During An Operation
-
-The UI receives a session and SSE URL from the Management API. Progress is correlated
-to persisted deployment history. Leaving the page does not make the operation disappear;
-return to status/history instead of starting a duplicate.
+Management creates one durable operation. The UI catches up persisted progress
+and then follows SSE. Leaving or refreshing the page does not cancel the
+operation or authorize a duplicate.
 
 ## After Deploy
 
-Inspect:
+The page presents **Verify and access** before **Destroy and cleanup**. Review:
 
-- final twin and operation status;
-- structured Terraform outputs (with sensitive values redacted);
-- provider/resource verification results;
-- operation log history;
-- data-flow verification phases where supported;
-- simulator controls only after required provider material exists.
+- terminal operation and resource-probe status;
+- the defined telemetry roundtrip result;
+- typed L4 semantic-Twin and L5 raw/rollup access information;
+- provider URL, authentication kind, assigned identity and readiness;
+- bounded redacted technical outputs and correlated errors.
 
-## Failure And Retry
+Provider browser sign-in is an external live step. A service-local one-time
+Viewer credential is shown only when that deployed access surface actually
+uses one; Flutter discards it after use.
 
-An error preserves operation records and last error. Read the correlated log and
-readiness/preflight state before retry. A failed deploy may still have created resources;
-do not assume `error` means nothing exists. Destroy uses retained Terraform/runtime state
-and explicit confirmation.
+For AWS/Azure L5, **Open** instead fetches an authenticated graphical snapshot
+through Management and opens it in an external tab/browser. Cloud credentials
+are not copied into the link. Open again for updated raw/history panels; there
+is no background refresh. An empty panel is explicitly labelled and is not a
+successful data probe. L4 access remains independent of L5. GCP L4/L5 are
+excluded from the thesis PoC.
 
-Mock deployment endpoints are development-only and require the test-route capability.
-They exercise UI state/log handling without contacting providers, but they are not
-live-cloud evidence.
+## Destroy and cleanup
+
+Destroy is explicit and uses retained state. Its terminal evidence separates
+removed Twin resources, retained shared account prerequisites, and residual
+failures. A failed Deploy may still require Destroy. Never infer an empty
+provider account from a local `error` state.
+
+An error therefore puts Cleanup before preparation for another attempt. A
+destroyed Twin shows cleanup evidence before preparation for another approved
+run. Configuration and immutable graph evidence remains available at the end
+of every lifecycle state.
+
+Mock operations and offline access fixtures test UI/contract behavior but are
+not live-cloud evidence.

@@ -46,8 +46,19 @@ provider "azurerm" {
   tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
-# Azure AD Provider (for Entra ID user management - Grafana admin users)
-# Uses same service principal credentials as azurerm
+provider "azapi" {
+  use_cli  = false
+  use_msi  = false
+  use_oidc = false
+
+  subscription_id = var.azure_subscription_id != "" ? var.azure_subscription_id : "00000000-0000-0000-0000-000000000000"
+  client_id       = var.azure_client_id != "" ? var.azure_client_id : "00000000-0000-0000-0000-000000000000"
+  client_secret   = var.azure_client_secret != "" ? var.azure_client_secret : "placeholder-secret-not-used"
+  tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
+}
+
+# Azure AD Provider for the bounded Entra objects required by directed federation.
+# The isolated thesis PoC uses the same administrator as Azure Resource Manager.
 provider "azuread" {
   # Same fallback auth suppression as azurerm — prevents Azure CLI lookup on
   # deployments that don't use Azure layers.
@@ -94,14 +105,25 @@ provider "aws" {
 }
 
 # Google Cloud Provider (for multi-cloud deployments)
-# Note: Project reference uses var.digital_twin_name directly here since
-# locals.gcp_project_name isn't resolved yet during provider configuration
 provider "google" {
-  project = local.deploy_gcp ? "${var.digital_twin_name}-project" : "placeholder-not-used"
+  project = local.deploy_gcp ? var.gcp_project_id : "placeholder-not-used"
   region  = var.gcp_region != "" ? var.gcp_region : "us-central1"
   # Use dummy credentials when none provided to prevent Application Default Credentials
   # lookup (which fails in containers without gcloud CLI).
   credentials = var.gcp_credentials_json != "" ? var.gcp_credentials_json : "{\"type\":\"service_account\",\"project_id\":\"placeholder\",\"private_key_id\":\"\",\"private_key\":\"\",\"client_email\":\"placeholder@placeholder.iam.gserviceaccount.com\",\"client_id\":\"\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}"
+}
+
+# Six-layer GKE workloads are applied only after the Google resources in
+# stage 1 expose a cluster endpoint and short-lived access token.
+provider "kubernetes" {
+  host = local.gcp_six_layer_gke_enabled ? (
+    "https://${local.gcp_six_layer_gke_endpoint}"
+  ) : "https://127.0.0.1"
+  token = try(data.google_client_config.gcp_six_layer_kubernetes[0].access_token, "")
+  cluster_ca_certificate = try(
+    base64decode(local.gcp_six_layer_gke_ca_certificate),
+    "",
+  )
 }
 
 # ==============================================================================
@@ -129,6 +151,13 @@ locals {
     Environment = var.environment
   }
 
+  six_layer_eventing_enabled = (
+    var.architecture_profile_id == "six-layer-eventing" &&
+    var.architecture_profile_version == "1"
+  )
+
+  six_layer_enabled = local.six_layer_eventing_enabled
+
   # Provider-to-layer mapping for conditional deployments
   deploy_azure = contains([
     var.layer_1_provider,
@@ -137,8 +166,12 @@ locals {
     var.layer_3_cold_provider,
     var.layer_3_archive_provider,
     var.layer_4_provider,
-    var.layer_5_provider
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "azure")
+
+  azure_v1_enabled        = false
+  azure_six_layer_enabled = local.deploy_azure && local.six_layer_enabled
 
   deploy_aws = contains([
     var.layer_1_provider,
@@ -147,7 +180,8 @@ locals {
     var.layer_3_cold_provider,
     var.layer_3_archive_provider,
     var.layer_4_provider,
-    var.layer_5_provider
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "aws")
 
   deploy_gcp = contains([
@@ -155,11 +189,84 @@ locals {
     var.layer_2_provider,
     var.layer_3_hot_provider,
     var.layer_3_cold_provider,
-    var.layer_3_archive_provider
-    # TODO(GCP-L4L5): L4/L5 not supported for GCP (no managed services).
-    # When GCP L4/L5 is implemented, add var.layer_4_provider and var.layer_5_provider here.
+    var.layer_3_archive_provider,
+    var.layer_4_provider,
+    var.layer_5_provider,
+    var.event_layer_provider
   ], "google")
 
   # Azure region to use for IoT Hub (may differ from main region)
   azure_iothub_region = var.azure_region_iothub != "" ? var.azure_region_iothub : var.azure_region
+}
+
+resource "terraform_data" "six_layer_retention_guard" {
+  count = local.six_layer_enabled ? 1 : 0
+
+  input = {
+    hot_boundary_days     = var.layer_3_hot_to_cold_interval_days
+    cool_boundary_days    = var.layer_3_cold_to_archive_interval_days
+    archive_boundary_days = var.layer_3_archive_expiry_interval_days
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.layer_3_hot_to_cold_interval_days > 0 &&
+        var.layer_3_hot_to_cold_interval_days < var.layer_3_cold_to_archive_interval_days &&
+        var.layer_3_cold_to_archive_interval_days < var.layer_3_archive_expiry_interval_days
+      )
+      error_message = "Six-layer requires cumulative retention boundaries 0 < hot < cool < archive."
+    }
+    precondition {
+      condition = (
+        local.core_evaluation || (
+          var.platform_user_email != "" &&
+          var.platform_user_first_name != "" &&
+          var.platform_user_last_name != ""
+        )
+      )
+      error_message = "Six-layer requires the platform user identity used to provision usable L4/L5 access."
+    }
+    precondition {
+      condition = (
+        !local.azure_six_layer_enabled ||
+        var.layer_4_provider != "azure" ||
+        (
+          var.azure_layer_access_principal_object_id != "" &&
+          var.azure_layer_access_principal_label != ""
+        )
+      )
+      error_message = "Six-layer Azure L4 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
+    }
+  }
+}
+
+resource "terraform_data" "phase_8_fixed_region_guard" {
+  count = local.six_layer_enabled ? 1 : 0
+
+  input = {
+    aws_region          = local.deploy_aws ? var.aws_region : null
+    azure_region        = local.deploy_azure ? var.azure_region : null
+    azure_iothub_region = var.layer_1_provider == "azure" ? local.azure_iothub_region : null
+    gcp_region          = local.deploy_gcp ? var.gcp_region : null
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.deploy_aws || var.aws_region == "eu-central-1"
+      error_message = "Phase 8 comparison profiles fix AWS to eu-central-1."
+    }
+    precondition {
+      condition     = !local.deploy_azure || var.azure_region == "westeurope"
+      error_message = "Phase 8 comparison profiles fix Azure to westeurope."
+    }
+    precondition {
+      condition     = var.layer_1_provider != "azure" || local.azure_iothub_region == "westeurope"
+      error_message = "Phase 8 comparison profiles fix Azure IoT Hub to westeurope."
+    }
+    precondition {
+      condition     = !local.deploy_gcp || var.gcp_region == "europe-west1"
+      error_message = "Phase 8 comparison profiles fix GCP to europe-west1."
+    }
+  }
 }

@@ -20,16 +20,16 @@
 # -----------------------------------------------------------------------------
 # Python Artifacts
 # -----------------------------------------------------------------------------
-__pycache__/
-*.py[cod]
-*$py.class
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
 *.so
 .venv/
 venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.egg-info/
 
 # -----------------------------------------------------------------------------
 # Tests (not needed in production)

@@ -19,7 +19,9 @@ from src.security.rate_limit import (
     CredentialRateLimiter,
     reset_rate_limiter_for_tests,
 )
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
 
 
 AWS_SECRET = "credential-security-test-secret"
@@ -29,7 +31,6 @@ def _aws_connection() -> dict:
     return {
         "provider": "aws",
         "display_name": "Audited AWS",
-        "permission_set_version": "thesis-demo-v1",
         "cloud_scope": {"account_id": "123456789012", "region": "eu-central-1"},
         "aws": {
             "access_key_id": "AKIAIOSFODNN7EXAMPLE",
@@ -71,7 +72,9 @@ def test_audit_failure_rolls_back_connection_creation(
 
     monkeypatch.setattr(CredentialSecurityAuditService, "append", fail_append)
 
-    response = client.post("/cloud-connections/", headers=headers, json=_aws_connection())
+    response = client.post(
+        "/cloud-connections/", headers=headers, json=_aws_connection()
+    )
 
     assert response.status_code == 503
     assert response.json()["error_code"] == "SECURITY_CONTROL_UNAVAILABLE"
@@ -88,7 +91,9 @@ def test_rate_limit_rejects_before_second_mutation_and_is_audited(
     client, headers = authenticated_client
     from src.security import rate_limit as rate_limit_module
 
-    monkeypatch.setattr(rate_limit_module.settings, "CREDENTIAL_WRITE_RATE_LIMIT", "1/minute")
+    monkeypatch.setattr(
+        rate_limit_module.settings, "CREDENTIAL_WRITE_RATE_LIMIT", "1/minute"
+    )
     asyncio.run(reset_rate_limiter_for_tests())
 
     first = client.post("/cloud-connections/", headers=headers, json=_aws_connection())
@@ -117,9 +122,13 @@ def test_limiter_storage_failure_fails_closed(
         async def hit(self, *_args, **_kwargs):
             raise StorageError(RuntimeError("redis unavailable"))
 
-    monkeypatch.setattr(rate_limit_module, "_get_rate_limiter", lambda: FailingLimiter())
+    monkeypatch.setattr(
+        rate_limit_module, "_get_rate_limiter", lambda: FailingLimiter()
+    )
 
-    response = client.post("/cloud-connections/", headers=headers, json=_aws_connection())
+    response = client.post(
+        "/cloud-connections/", headers=headers, json=_aws_connection()
+    )
 
     assert response.status_code == 503
     assert response.json()["error_code"] == "SECURITY_CONTROL_UNAVAILABLE"
@@ -145,10 +154,14 @@ def test_audit_history_is_owner_scoped_and_never_exposes_actor_id(
     db_session,
 ):
     client, headers = authenticated_client
-    created = client.post("/cloud-connections/", headers=headers, json=_aws_connection())
+    created = client.post(
+        "/cloud-connections/", headers=headers, json=_aws_connection()
+    )
     assert created.status_code == 200
 
-    response = client.get("/credential-security-events/?limit=1&offset=0", headers=headers)
+    response = client.get(
+        "/credential-security-events/?limit=1&offset=0", headers=headers
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -171,7 +184,9 @@ def test_rejected_credential_operation_is_audited(authenticated_client, db_sessi
     assert event.http_status == 404
 
 
-def test_schema_rejected_credential_operation_is_audited(authenticated_client, db_session):
+def test_schema_rejected_credential_operation_is_audited(
+    authenticated_client, db_session
+):
     client, headers = authenticated_client
 
     response = client.post("/cloud-connections/", headers=headers, json={})

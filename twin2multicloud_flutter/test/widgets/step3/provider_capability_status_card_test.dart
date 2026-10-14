@@ -36,7 +36,7 @@ void main() {
     ),
   );
 
-  testWidgets('shows a compact planned unsupported state from the contract', (
+  testWidgets('shows a compact unsupported state from the contract', (
     tester,
   ) async {
     await tester.pumpWidget(buildCard(capability: gcpLayer('l4')));
@@ -46,7 +46,6 @@ void main() {
       find.text('GCP L4 is outside the implemented thesis path.'),
       findsOneWidget,
     );
-    expect(find.text(ProviderCapabilityStrings.planned), findsOneWidget);
     expect(find.text(ProviderCapabilityStrings.retry), findsNothing);
     expect(tester.takeException(), isNull);
   });

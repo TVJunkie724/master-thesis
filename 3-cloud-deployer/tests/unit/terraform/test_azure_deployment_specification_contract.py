@@ -1,9 +1,11 @@
 """Source-level drift gates for Azure deployment specification bindings."""
 
 from pathlib import Path
-
+import json
+import re
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+REFERENCE_ROOT = Path(__file__).resolve().parents[3] / "docs" / "references"
 
 
 def _source(filename: str) -> str:
@@ -72,8 +74,8 @@ def test_azure_l0_is_derived_from_registered_receiver_topology():
     ):
         assert condition in setup
     assert (
-        'azure_l0_enabled = local.azure_cross_cloud_receiver_required || '
-        'var.layer_4_provider == "azure"'
+        "azure_l0_enabled = local.azure_v1_enabled && ( "
+        'local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure" )'
     ) in setup
 
     glue = _normalized_source("azure_glue.tf")
@@ -89,17 +91,16 @@ def test_azure_storage_distinguishes_costed_blob_from_function_host_support():
         '|| var.layer_3_archive_provider == "azure" )'
     ) in setup
     assert (
-        'local.azure_blob_storage_enabled ? '
+        "local.azure_blob_storage_enabled ? "
         'coalesce(var.azure_storage_account_tier, "Standard") : "Standard"'
     ) in setup
     assert (
-        'local.azure_blob_storage_enabled ? '
+        "local.azure_blob_storage_enabled ? "
         'coalesce(var.azure_storage_replication_type, "LRS") : "LRS"'
     ) in setup
     assert "account_tier = local.azure_effective_storage_account_tier" in setup
     assert (
-        "account_replication_type = "
-        "local.azure_effective_storage_replication_type"
+        "account_replication_type = local.azure_effective_storage_replication_type"
     ) in setup
 
 
@@ -124,8 +125,8 @@ def test_azure_variables_fail_closed_to_contract_values():
     }
     for variable, validation_fragment in expected.items():
         marker = f'variable "{variable}" {{'
-        block = source[source.index(marker):]
-        block = block[:block.index("} }") + 3]
+        block = source[source.index(marker) :]
+        block = block[: block.index("} }") + 3]
         assert "default = null" in block
         assert f"var.{variable} == null" in block
         assert validation_fragment in block
@@ -136,3 +137,59 @@ def test_azure_usage_meters_remain_non_deployable_evidence():
     assert "azure_event_grid" not in variables
     assert "azure_logic_apps" not in variables
     assert "azure_digital_twins" not in variables
+
+
+def test_azure_rbac_and_entra_use_the_single_poc_administrator():
+    main = _normalized_source("main.tf")
+    assert 'alias = "preparation"' not in main
+    assert "azure_preparation_client_id" not in main
+    assert "azure_preparation_client_secret" not in main
+    assert 'provider "azuread"' in main
+    assert 'client_id = var.azure_client_id != ""' in main
+    assert 'client_secret = var.azure_client_secret != ""' in main
+
+    role_files = (
+        "azure_eventing.tf",
+        "azure_grafana.tf",
+        "azure_iot.tf",
+        "azure_six_layer.tf",
+        "azure_twins.tf",
+        "six_layer_bridge_aws.tf",
+        "six_layer_bridge_gcp.tf",
+    )
+    for filename in role_files:
+        source = _source(filename)
+        blocks = re.findall(
+            r'^resource "azurerm_role_assignment" "[^"]+" \{(.*?)(?=\n\})',
+            source,
+            flags=re.DOTALL | re.MULTILINE,
+        )
+        assert blocks, filename
+        assert all("azurerm.preparation" not in block for block in blocks)
+
+
+def test_azure_iot_builtin_endpoint_uses_supported_service_connection():
+    source = _source("azure_six_layer.tf")
+    assert "IoT Hub Data Receiver" not in source
+    assert "IoT Hub Data Reader" not in source
+    assert 'resource "azurerm_iothub_shared_access_policy" "azure_six_layer_ingress"' in source
+    assert "SIX_LAYER_IOT_HUB__fullyQualifiedNamespace" not in source
+    assert "SIX_LAYER_IOT_HUB__credential" not in source
+    assert "Endpoint=%s;SharedAccessKeyName=%s;SharedAccessKey=%s;EntityPath=%s" in source
+    assert "azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_endpoint" in source
+
+
+def test_azure_access_reference_matches_the_single_administrator_contract():
+    policy = json.loads(
+        (REFERENCE_ROOT / "azure_deployer_policy.json").read_text(encoding="utf-8")
+    )
+    administrator = policy["administrator_principal"]
+    assert administrator["role"] == "Owner"
+    assert administrator["scope"] == "isolated subscription"
+    assert administrator["graph_provisioned_resource_roles"] == [
+        "Azure Digital Twins Data Owner"
+    ]
+    assert administrator["microsoft_graph_application_permissions"] == [
+        "Application.ReadWrite.All",
+        "AppRoleAssignment.ReadWrite.All",
+    ]

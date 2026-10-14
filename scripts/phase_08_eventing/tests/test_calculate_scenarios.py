@@ -206,6 +206,50 @@ class ScenarioCalculationTest(unittest.TestCase):
         )
         self.assertEqual(route_worker["normalized_quantities"]["instances"], 21)
 
+    def test_gcp_large_worker_count_deduplicates_physical_source_channels(self) -> None:
+        scenario = copy.deepcopy(self.scenario["scenarios"][2])
+        shared = copy.deepcopy(self.scenario["shared_assumptions"])
+        channels = CALCULATOR.derive_channels(scenario, shared)
+        intents = CALCULATOR.intent_map(copy.deepcopy(self.pricing))
+        cases = {
+            ("gcp", "gcp", "gcp", "gcp"): 126,
+            ("aws", "gcp", "aws", "azure"): 84,
+            ("aws", "gcp", "gcp", "azure"): 105,
+            ("aws", "gcp", "azure", "gcp"): 126,
+            ("gcp", "aws", "gcp", "azure"): 42,
+        }
+
+        for placement, expected_workers in cases.items():
+            with self.subTest(placement=placement):
+                result = CALCULATOR.three_provider_result(
+                    {
+                        "ingress_provider": placement[0],
+                        "eventing_provider": placement[1],
+                        "processing_provider": placement[2],
+                        "hot_storage_provider": placement[3],
+                        "status": "test",
+                    },
+                    scenario,
+                    shared,
+                    channels,
+                    intents,
+                    include_event_layer_contributions=True,
+                )
+                contributions = (
+                    result["event_layer_cost_contributions"]
+                    + result["bridge_cost_contributions"]
+                )
+                worker_count = sum(
+                    item["normalized_quantities"]["instances"]
+                    for item in contributions
+                    if "instances" in item["normalized_quantities"]
+                    and (
+                        "worker-pool" in item["contribution_id"]
+                        or item["contribution_id"].endswith("delivery-adapter")
+                    )
+                )
+                self.assertEqual(worker_count, expected_workers)
+
     def test_gcp_large_uses_full_bidirectional_mqtt_boundary(self) -> None:
         result = self.build()
         large = result["scenarios"][2]
@@ -274,6 +318,73 @@ class ScenarioCalculationTest(unittest.TestCase):
                 "notification.workflow.outcome.v1",
                 "device.command.outcome.v1",
             },
+        )
+
+    def test_explicit_remote_hot_storage_adds_its_event_route(self) -> None:
+        scenario = self.scenario["scenarios"][0]
+        channels = CALCULATOR.derive_channels(
+            scenario,
+            self.scenario["shared_assumptions"],
+        )
+        result = CALCULATOR.three_provider_result(
+            {
+                "ingress_provider": "aws",
+                "eventing_provider": "azure",
+                "processing_provider": "aws",
+                "hot_storage_provider": "gcp",
+                "status": "capability_admissible_live_pending",
+            },
+            scenario,
+            self.scenario["shared_assumptions"],
+            channels,
+            CALCULATOR.intent_map(self.pricing),
+        )
+        hot_route = next(
+            item
+            for item in result["bridge_route_summaries"]
+            if item["route_role"] == "eventing-to-hot-storage"
+        )
+
+        self.assertEqual(hot_route["source_provider"], "azure")
+        self.assertEqual(hot_route["destination_provider"], "gcp")
+        self.assertEqual(
+            hot_route["logical_edge_ids"],
+            ["edge.eventing-to-hot-storage"],
+        )
+        self.assertGreater(Decimal(hot_route["subtotal_usd"]), Decimal(0))
+
+    def test_colocated_l2_and_hot_share_one_physical_event_route(self) -> None:
+        scenario = self.scenario["scenarios"][0]
+        channels = CALCULATOR.derive_channels(
+            scenario,
+            self.scenario["shared_assumptions"],
+        )
+        result = CALCULATOR.three_provider_result(
+            {
+                "ingress_provider": "aws",
+                "eventing_provider": "azure",
+                "processing_provider": "gcp",
+                "hot_storage_provider": "gcp",
+                "status": "capability_admissible_live_pending",
+            },
+            scenario,
+            self.scenario["shared_assumptions"],
+            channels,
+            CALCULATOR.intent_map(self.pricing),
+        )
+        delivery_routes = [
+            item
+            for item in result["bridge_route_summaries"]
+            if item["route_role"] == "eventing-to-processing"
+        ]
+
+        self.assertEqual(len(delivery_routes), 1)
+        self.assertEqual(
+            delivery_routes[0]["logical_edge_ids"],
+            [
+                "edge.eventing-to-processing",
+                "edge.eventing-to-hot-storage",
+            ],
         )
 
     def test_azure_large_uses_dedicated_capacity_without_namespace_sharding(

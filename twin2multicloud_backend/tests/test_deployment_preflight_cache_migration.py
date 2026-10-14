@@ -34,7 +34,6 @@ def test_deployment_preflight_cache_migration_is_idempotent_and_unique(tmp_path)
             "provider",
             "cloud_connection_id",
             "connection_payload_fingerprint",
-            "expected_permission_set_version",
             "ready",
             "checks_json",
             "checked_at",
@@ -51,8 +50,6 @@ def test_deployment_preflight_cache_migration_is_idempotent_and_unique(tmp_path)
             "aws",
             "connection-1",
             "fingerprint",
-            "thesis-demo-v1",
-            "thesis-demo-v1",
             1,
             "Ready",
             "[]",
@@ -64,11 +61,9 @@ def test_deployment_preflight_cache_migration_is_idempotent_and_unique(tmp_path)
             """
             INSERT INTO deployment_preflight_cache (
                 id, twin_id, provider, cloud_connection_id,
-                connection_payload_fingerprint,
-                supplied_permission_set_version,
-                expected_permission_set_version, ready, summary, checks_json,
+                connection_payload_fingerprint, ready, summary, checks_json,
                 checked_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             values,
         )
@@ -77,11 +72,9 @@ def test_deployment_preflight_cache_migration_is_idempotent_and_unique(tmp_path)
                 """
                 INSERT INTO deployment_preflight_cache (
                     id, twin_id, provider, cloud_connection_id,
-                    connection_payload_fingerprint,
-                    supplied_permission_set_version,
-                    expected_permission_set_version, ready, summary, checks_json,
+                    connection_payload_fingerprint, ready, summary, checks_json,
                     checked_at, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 ("cache-2", *values[1:]),
             )

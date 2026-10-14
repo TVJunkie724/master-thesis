@@ -1,47 +1,34 @@
 # Cloud Setup
 
-Cloud setup is intentionally split by purpose and privilege. A credential that can
-create identities is not the credential that should remain stored for normal pricing or
-deployment work.
+Cloud access is deliberately narrow for this thesis PoC. Start with an existing,
+billing-enabled and isolated provider scope. Twin2MultiCloud stores the supplied
+credential bundle encrypted, validates it read-only, and uses it only for a
+confirmed deployment, verification, Destroy, or bounded preparation operation.
 
-## Credential Model
+| Provider | Stored authority | Accepted input |
+|---|---:|---|
+| AWS | one deployment identity | access-key CSV or typed fields |
+| Azure | one subscription administrator | typed fields, one service-principal JSON, or one allowlisted compatibility JSON |
+| Google Cloud | one deployment service account | service-account JSON or typed fields |
 
-```text
-operator/admin session (transient, outside persisted CloudConnection)
-   -> versioned bootstrap script, dry-run by default
-   -> constrained deployment credential output
-   -> import into Management API deployment CloudConnection
-   -> validate permission-set version
-   -> bind to a twin
-```
+## Common lifecycle
 
-The current implemented bootstrap is **manual static script + secure import**. The API
-returns a plan and command arguments but does not persist administrator credentials.
-AWS and GCP pricing CloudConnections use a separate secure create/import path. Azure
-pricing uses the public Retail Prices API and needs no pricing credential.
+1. Prepare the provider identity or identities outside Twin2MultiCloud.
+2. In **Settings → Cloud access**, open the provider setup guide.
+3. Enter or import the credential material through the write-only form.
+4. Validate the returned identity, target scope, effective permissions, Regions,
+   quotas, and provider prerequisites before binding the connection to a Twin.
+5. Review every graph-derived preparation plan and explicitly confirm it.
+6. Deploy only from the immutable plan, verify the run, Destroy immediately, and
+   inspect residual inventory.
+7. After the evaluation, delete the unbound CloudConnection and revoke or delete
+   the provider-side credential manually.
 
-## Current Baseline
+Twin2MultiCloud does not create accounts, subscriptions, or projects; repair
+billing; approve quota increases; override organization policy; accept legal or
+preview terms; grant Microsoft Graph admin consent; or manage credential
+rotation. Those conditions are reported as external blockers.
 
-All providers use permission-set version `thesis-demo-v1`. It is a reviewable thesis
-baseline, not a final universal least-privilege guarantee. Scope-review artifacts and
-preflight tests document known permissions; supervised live deployment evidence is
-still required before finalizing provider policies.
-
-## Safe Sequence
-
-1. choose provider and target account/subscription/project;
-2. run the provider script without `--apply` and review planned mutations;
-3. authenticate the provider CLI through its normal secure mechanism;
-4. apply explicitly and write output only to an ignored private path;
-5. import the output as a CloudConnection;
-6. validate and inspect account/scope metadata;
-7. bind the deployment connection only after validation;
-8. rotate/revoke through explicit provider controls when retiring it.
-
-Never commit generated keys, pass administrator secrets as command-line arguments, or
-store bootstrap credentials in Flutter configuration.
-
-- [AWS](aws.md)
-- [Azure](azure.md)
-- [Google Cloud](gcp.md)
-- [Provider Links](provider-links.md)
+Continue with [AWS](aws.md), [Azure](azure.md), or
+[Google Cloud](gcp.md). Current provider documentation is collected under
+[Provider Links](provider-links.md).

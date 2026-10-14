@@ -1,4 +1,5 @@
 mock_provider "archive" {}
+mock_provider "azapi" {}
 mock_provider "aws" {}
 mock_provider "aws" {
   alias = "sso"
@@ -7,164 +8,325 @@ mock_provider "awscc" {}
 mock_provider "azuread" {}
 mock_provider "azurerm" {}
 mock_provider "google" {}
+mock_provider "kubernetes" {}
 mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
+mock_provider "tls" {}
 
-run "all_aws_selections_bind_to_resources" {
+run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
+  command = plan
+
+  override_data {
+    target = data.aws_iot_endpoint.main
+    values = { endpoint_address = "test-ats.iot.eu-central-1.amazonaws.com" }
+  }
+
+  override_data {
+    target = data.aws_caller_identity.current
+    values = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/terraform-mock"
+      user_id    = "AIDACKCEVSQ6C2EXAMPLE"
+    }
+  }
+
+  override_data {
+    target = data.aws_ssoadmin_instances.aws_six_layer_layer_access
+    values = {
+      arns               = ["arn:aws:sso:::instance/ssoins-0123456789abcdef"]
+      identity_store_ids = ["d-0123456789"]
+    }
+  }
+
+  override_data {
+    target = data.aws_identitystore_users.aws_six_layer_layer_access
+    values = {
+      users = []
+    }
+  }
+
+  variables {
+    digital_twin_name                     = "drift-test"
+    architecture_profile_id               = "six-layer-eventing"
+    architecture_profile_version          = "1"
+    event_layer_provider                  = "aws"
+    layer_1_provider                      = "aws"
+    layer_2_provider                      = "aws"
+    layer_3_hot_provider                  = "aws"
+    layer_3_cold_provider                 = "aws"
+    layer_3_archive_provider              = "aws"
+    layer_4_provider                      = "aws"
+    layer_5_provider                      = "aws"
+    layer_3_hot_to_cold_interval_days     = 30
+    layer_3_cold_to_archive_interval_days = 90
+    layer_3_archive_expiry_interval_days  = 365
+    platform_user_email                   = "researcher@example.test"
+    platform_user_first_name              = "Thesis"
+    platform_user_last_name               = "Researcher"
+    aws_layer_access_principal_intent     = "invite_builtin"
+    enable_aws_logging                    = false
+    aws_event_kinesis_shards              = 1
+    aws_six_layer_storage_mover_image     = "123456789012.dkr.ecr.eu-central-1.amazonaws.com/drift-test-six-images@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.aws.aws.ecs-fargate-storage-mover.task_count"   = "1"
+      "dimension.aws.aws.kinesis-data-streams.shards_per_stream" = "1"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "44444444-4444-4444-8444-444444444444"
+      artifact_digest = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      package_path    = "${var.project_path}/.build/aws/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/aws/six-layer-domain.zip")}"
+      adapter_id      = "adapter.aws.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(data.aws_iot_endpoint.main) == 1 &&
+      aws_lambda_function.event_runtime["control-router"].environment[0].variables["IOT_COMMANDS_ENDPOINT"] == "test-ats.iot.eu-central-1.amazonaws.com"
+    )
+    error_message = "Six-layer command delivery requires the account IoT endpoint, independent of legacy L1 resources."
+  }
+
+  assert {
+    condition = (
+      length(aws_kinesis_stream.domain_telemetry) == 2 &&
+      length(aws_kinesis_stream_consumer.domain_consumers) == 4 &&
+      length(aws_sns_topic.domain_control) == 1 &&
+      length(aws_sqs_queue.domain_control) == 1 &&
+      length(aws_sqs_queue.event_control_dlq) == 1 &&
+      length(aws_lambda_function.event_runtime) == 5 &&
+      length(aws_s3_bucket.event_telemetry_dlq) == 1 &&
+      length(aws_cloudwatch_log_group.eventing) == 1
+    )
+    error_message = "Six-layer AWS must deploy the complete reviewed Event Layer bundle."
+  }
+
+  assert {
+    condition = (
+      aws_kinesis_stream.domain_telemetry["received"].shard_count == 1 &&
+      aws_kinesis_stream.domain_telemetry["processed"].shard_count == 1 &&
+      aws_kinesis_stream.domain_telemetry["received"].retention_period == 24 &&
+      jsondecode(aws_sns_topic.domain_control[0].archive_policy).MessageRetentionPeriod == "7" &&
+      var.aws_event_max_receive_count == 6 &&
+      aws_lambda_function.event_runtime["control-router"].memory_size == 256
+    )
+    error_message = "Six-layer AWS must bind the reviewed Small capacity values."
+  }
+
+  assert {
+    condition = (
+      length(aws_lambda_event_source_mapping.event_runtime) == 4 &&
+      length(aws_lambda_event_source_mapping.domain_control) == 1 &&
+      length(aws_sqs_queue.aws_aws_sqs_fifo) == 0 &&
+      length(aws_lambda_event_source_mapping.aws_six_layer_embedded_events) == 0 &&
+      length(aws_lambda_function.aws_six_layer_cross_cloud_bridge) == 0
+    )
+    error_message = "Single-cloud AWS must use only the independent Event Layer transport and omit embedded transport and every cross-cloud bridge."
+  }
+  assert {
+    condition = (
+      length(aws_lambda_function.aws_six_layer_visualization) == 1 &&
+      aws_lambda_function.aws_six_layer_visualization[0].handler == "handler.visualization" &&
+      aws_lambda_function.aws_six_layer_visualization[0].memory_size == 512 &&
+      aws_lambda_function_url.aws_six_layer_visualization[0].authorization_type == "AWS_IAM" &&
+      length(aws_lambda_function.aws_aws_lambda_raw_history_reader) == 1
+    )
+    error_message = "Normal AWS L5 must be a separate authenticated graphical consumer, retaining the L3 reader."
+  }
+}
+
+run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
+  command = plan
+
+  override_data {
+    target = data.azurerm_client_config.azure_six_layer_layer_access
+    values = {
+      object_id = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+
+  variables {
+    digital_twin_name                      = "drift-test"
+    architecture_profile_id                = "six-layer-eventing"
+    architecture_profile_version           = "1"
+    event_layer_provider                   = "azure"
+    layer_1_provider                       = "azure"
+    layer_2_provider                       = "azure"
+    layer_3_hot_provider                   = "azure"
+    layer_3_cold_provider                  = "azure"
+    layer_3_archive_provider               = "azure"
+    layer_4_provider                       = "azure"
+    layer_5_provider                       = "azure"
+    layer_3_hot_to_cold_interval_days      = 30
+    layer_3_cold_to_archive_interval_days  = 90
+    layer_3_archive_expiry_interval_days   = 365
+    platform_user_email                    = "researcher@example.test"
+    platform_user_first_name               = "Thesis"
+    platform_user_last_name                = "Researcher"
+    azure_layer_access_principal_object_id = "11111111-1111-1111-1111-111111111111"
+    azure_layer_access_principal_label     = "researcher@example.test"
+    enable_azure_logging                   = false
+    azure_event_hubs_throughput_units      = 1
+    azure_event_partitions                 = 4
+    azure_event_retention_hours            = 24
+    azure_six_layer_storage_mover_image    = "drifttestv2mock.azurecr.io/storage-mover@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    resolved_component_dimensions = {
+      "dimension.azure.azure.container-apps-scheduled-storage-job.task_count"        = "1"
+      "dimension.azure.azure.event-hubs-standard-small-medium.throughput_unit_hours" = "730"
+      "dimension.azure.azure.event-hubs-standard-small-medium.capacity_unit_hours"   = "0"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "55555555-5555-4555-8555-555555555555"
+      artifact_digest = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
+      adapter_id      = "adapter.azure.python311"
+      adapter_version = "1"
+    }]
+  }
+
+  assert {
+    condition = (
+      length(azurerm_eventhub_namespace.eventing_standard) == 1 &&
+      length(azurerm_eventhub_namespace.eventing_dedicated) == 0 &&
+      length(azurerm_eventhub.domain_telemetry_standard) == 3 &&
+      length(azurerm_eventhub_consumer_group.domain_standard) == 4 &&
+      length(azurerm_servicebus_namespace.eventing) == 1 &&
+      length(azurerm_servicebus_topic.domain_control) == 1 &&
+      length(azurerm_servicebus_subscription.domain_control) == 1 &&
+      length(azurerm_function_app_flex_consumption.event_runtime) == 1 &&
+      length(azurerm_log_analytics_workspace.eventing) == 1
+    )
+    error_message = "Six-layer Azure must deploy the complete reviewed Small Event Layer bundle."
+  }
+
+  assert {
+    condition = (
+      azurerm_eventhub_namespace.eventing_standard[0].capacity == 1 &&
+      azurerm_eventhub.domain_telemetry_standard["received"].partition_count == 4 &&
+      azurerm_eventhub.domain_telemetry_standard["received"].retention_description[0].retention_time_in_hours == 24 &&
+      azurerm_servicebus_subscription.domain_control[0].max_delivery_count == 6 &&
+      azurerm_function_app_flex_consumption.event_runtime[0].instance_memory_in_mb == 2048
+    )
+    error_message = "Six-layer Azure must bind the reviewed Small capacity values."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_servicebus_namespace.azure_azure_service_bus_standard) == 0 &&
+      length(azurerm_servicebus_queue.azure_azure_service_bus_standard) == 0 &&
+      length(azurerm_servicebus_subscription.azure_azure_service_bus_standard) == 0 &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_event_adapter[0].app_settings.ARCHITECTURE_PROFILE == "six-layer-eventing@1" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.SIX_LAYER_DOMAIN_CONSUMER_ENABLED == "false" &&
+      azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].app_settings.SIX_LAYER_EVENTING_DELIVERY_ENDPOINT_ENABLED == "true"
+    )
+    error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
+  }
+  assert {
+    condition = (
+      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 1 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].instance_memory_in_mb == 2048 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].maximum_instance_count == 1 &&
+      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].always_ready) == 0 &&
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
+    )
+    error_message = "Normal Azure L5 must be a separate scale-to-zero graphical consumer, retaining the L3 reader."
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].role_definition_name == "Azure Digital Twins Data Owner" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].principal_id == "22222222-2222-2222-2222-222222222222" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].role_definition_name == "Azure Digital Twins Data Reader"
+    )
+    error_message = "Azure L4 must grant the PoC administrator ADT data access only on the created Twin instance."
+  }
+}
+
+run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
   command = plan
 
   variables {
     digital_twin_name                       = "drift-test"
-    layer_1_provider                        = "aws"
-    layer_2_provider                        = "aws"
-    layer_3_hot_provider                    = "aws"
-    layer_3_cold_provider                   = "aws"
-    layer_3_archive_provider                = "aws"
-    layer_4_provider                        = "aws"
-    layer_5_provider                        = "aws"
-    aws_l1_lambda_memory_mb                 = 256
-    aws_l2_lambda_memory_mb                 = 256
-    aws_dynamodb_billing_mode               = "PAY_PER_REQUEST"
-    aws_l3_reader_lambda_memory_mb          = 256
-    aws_l3_cool_storage_class               = "STANDARD_IA"
-    aws_hot_to_cool_mover_memory_mb         = 512
-    aws_hot_to_cool_schedule_expression     = "rate(1 day)"
-    aws_l3_archive_storage_class            = "DEEP_ARCHIVE"
-    aws_cool_to_archive_mover_memory_mb     = 512
-    aws_cool_to_archive_schedule_expression = "rate(7 days)"
-    aws_l4_lambda_memory_mb                 = 256
-    use_event_checking                      = false
-    enable_aws_logging                      = false
-  }
-
-  assert {
-    condition     = aws_lambda_function.l1_dispatcher[0].memory_size == 256
-    error_message = "AWS L1 memory drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = aws_dynamodb_table.l3_hot[0].billing_mode == "PAY_PER_REQUEST"
-    error_message = "AWS DynamoDB billing mode drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = aws_cloudwatch_event_rule.l3_hot_to_cold[0].schedule_expression == "rate(1 day)"
-    error_message = "AWS hot-to-cool schedule drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = aws_cloudwatch_event_rule.l3_cold_to_archive[0].schedule_expression == "rate(7 days)"
-    error_message = "AWS cool-to-archive schedule drifted from the resolved specification."
-  }
-}
-
-run "all_azure_selections_bind_to_resources" {
-  command = plan
-
-  variables {
-    digital_twin_name                    = "drift-test"
-    layer_1_provider                     = "azure"
-    layer_2_provider                     = "azure"
-    layer_3_hot_provider                 = "azure"
-    layer_3_cold_provider                = "azure"
-    layer_3_archive_provider             = "azure"
-    layer_4_provider                     = "azure"
-    layer_5_provider                     = "azure"
-    azure_iot_hub_sku                    = "S3"
-    azure_iot_hub_capacity               = 5
-    azure_l1_function_plan_sku           = "Y1"
-    azure_l2_function_plan_sku           = "Y1"
-    azure_cosmos_capacity_mode           = "serverless"
-    azure_l3_function_plan_sku           = "Y1"
-    azure_storage_account_tier           = "Standard"
-    azure_storage_replication_type       = "LRS"
-    azure_l3_cool_blob_tier              = "Cool"
-    azure_hot_to_cool_timer_schedule     = "0 0 0 * * *"
-    azure_l3_archive_blob_tier           = "Archive"
-    azure_cool_to_archive_timer_schedule = "0 0 0 * * 0"
-    azure_l4_function_plan_sku           = "Y1"
-    azure_grafana_sku                    = "Standard"
-    use_event_checking                   = false
-    enable_azure_logging                 = false
-  }
-
-  assert {
-    condition     = azurerm_iothub.main[0].sku[0].name == "S3"
-    error_message = "Azure IoT Hub SKU drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = azurerm_iothub.main[0].sku[0].capacity == 5
-    error_message = "Azure IoT Hub capacity drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = azurerm_service_plan.l3[0].sku_name == "Y1"
-    error_message = "Azure L3 Function plan drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = azurerm_dashboard_grafana.main[0].sku == "Standard"
-    error_message = "Azure Grafana SKU drifted from the resolved specification."
-  }
-}
-
-run "gcp_storage_selections_bind_to_resources" {
-  command = plan
-
-  variables {
-    digital_twin_name                       = "drift-test"
-    layer_1_provider                        = "aws"
-    layer_2_provider                        = "aws"
+    architecture_profile_id                 = "six-layer-eventing"
+    architecture_profile_version            = "1"
+    event_layer_provider                    = "google"
+    layer_1_provider                        = "google"
+    layer_2_provider                        = "google"
     layer_3_hot_provider                    = "google"
     layer_3_cold_provider                   = "google"
     layer_3_archive_provider                = "google"
-    layer_4_provider                        = "aws"
-    layer_5_provider                        = "aws"
-    aws_l1_lambda_memory_mb                 = 256
-    aws_l2_lambda_memory_mb                 = 256
-    aws_l4_lambda_memory_mb                 = 256
-    gcp_project_id                          = "drift-test-project"
-    gcp_firestore_mode                      = "FIRESTORE_NATIVE"
-    gcp_l3_reader_function_memory_mb        = 256
-    gcp_l3_reader_function_min_instances    = 0
-    gcp_l3_reader_function_max_instances    = 10
-    gcp_l3_cool_storage_class               = "NEARLINE"
-    gcp_hot_to_cool_mover_memory_mb         = 512
-    gcp_hot_to_cool_mover_min_instances     = 0
-    gcp_hot_to_cool_mover_max_instances     = 1
-    gcp_hot_to_cool_scheduler_cron          = "0 2 * * *"
-    gcp_l3_archive_storage_class            = "ARCHIVE"
-    gcp_cool_to_archive_mover_memory_mb     = 512
-    gcp_cool_to_archive_mover_min_instances = 0
-    gcp_cool_to_archive_mover_max_instances = 1
-    gcp_cool_to_archive_scheduler_cron      = "0 3 * * 0"
-    gcp_glue_function_memory_mb             = 256
-    gcp_glue_function_min_instances         = 0
-    gcp_glue_function_max_instances         = 10
-    use_event_checking                      = false
-    enable_aws_logging                      = false
+    layer_4_provider                        = "google"
+    layer_5_provider                        = "google"
+    layer_3_hot_to_cold_interval_days       = 30
+    layer_3_cold_to_archive_interval_days   = 90
+    layer_3_archive_expiry_interval_days    = 365
+    platform_user_email                     = "researcher@example.test"
+    platform_user_first_name                = "Thesis"
+    platform_user_last_name                 = "Researcher"
+    gcp_project_id                          = "phase8-poc-project"
+    gcp_region                              = "europe-west1"
+    gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    gcp_event_runtime_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    gcp_deployment_principal_email          = "deployer@phase8-poc-project.iam.gserviceaccount.com"
     enable_gcp_logging                      = false
+    resolved_component_dimensions = {
+      "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"
+      "dimension.gcp.gcp.pubsub-separated-event-layer-topics.publish_bytes" = "1029376000"
+      "dimension.gcp.gcp.cloud-run-worker-pool-fixed-large.resource_count"  = "0"
+    }
+    validated_extension_packages = [{
+      slot_id         = "processor.telemetry"
+      slot_version    = "1"
+      artifact_id     = "66666666-6666-4666-8666-666666666666"
+      artifact_digest = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      package_path    = "${var.project_path}/.build/azure/six-layer-domain.zip"
+      package_digest  = "sha256:${filesha256("${var.project_path}/.build/azure/six-layer-domain.zip")}"
+      adapter_id      = "adapter.gcp.python311"
+      adapter_version = "1"
+    }]
   }
 
   assert {
-    condition     = google_firestore_database.main[0].type == "FIRESTORE_NATIVE"
-    error_message = "GCP Firestore mode drifted from the resolved specification."
+    condition = (
+      toset(keys(google_pubsub_topic.domain_events)) == toset(["received", "processed", "control", "failure"]) &&
+      toset(keys(google_pubsub_subscription.domain_events)) == toset(["telemetry-processor", "historical-persistence", "twin-state-update", "rule-evaluator", "control-router"]) &&
+      length(google_cloud_run_v2_service.event_runtime) == 1 &&
+      length(google_cloud_run_v2_worker_pool.event_telemetry) == 0 &&
+      length(google_logging_project_bucket_config.eventing) == 1 &&
+      length(google_logging_project_sink.eventing) == 1
+    )
+    error_message = "Six-layer GCP must deploy the complete reviewed Small push Event Layer bundle."
   }
 
   assert {
-    condition     = google_storage_bucket.cold[0].storage_class == "NEARLINE"
-    error_message = "GCP cool storage class drifted from the resolved specification."
+    condition = (
+      google_pubsub_topic.domain_events["received"].message_retention_duration == "86400s" &&
+      google_pubsub_subscription.domain_events["control-router"].dead_letter_policy[0].max_delivery_attempts == 6 &&
+      google_cloud_run_v2_service.event_runtime[0].template[0].containers[0].resources[0].limits.memory == "512Mi"
+    )
+    error_message = "Six-layer GCP must bind the reviewed Small capacity values."
   }
 
   assert {
-    condition     = google_storage_bucket.archive[0].storage_class == "ARCHIVE"
-    error_message = "GCP archive storage class drifted from the resolved specification."
-  }
-
-  assert {
-    condition     = google_cloud_scheduler_job.hot_to_cold[0].schedule == "0 2 * * *"
-    error_message = "GCP hot-to-cool schedule drifted from the resolved specification."
+    condition = (
+      toset(keys(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics)) == toset(["command"]) &&
+      length(google_pubsub_subscription.gcp_gcp_pubsub_separated_embedded_topics) == 0 &&
+      length(google_cloud_run_v2_service.gcp_six_layer_cross_cloud_bridge) == 0 &&
+      one([
+        for environment in google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].template[0].containers[0].env : environment.value
+        if environment.name == "ARCHITECTURE_PROFILE"
+      ]) == "six-layer-eventing@1"
+    )
+    error_message = "Single-cloud GCP must replace embedded domain transport with the independent Event Layer while retaining the L1 command boundary."
   }
 }

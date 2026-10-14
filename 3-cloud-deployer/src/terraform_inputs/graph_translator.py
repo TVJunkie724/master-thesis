@@ -88,6 +88,12 @@ def translate_graph_inputs(
                 "Terraform variable has contradictory graph bindings",
             )
     values.update(provider_projection(graph))
+    values.update(
+        {
+            "architecture_profile_id": str(graph.profile_ref["id"]),
+            "architecture_profile_version": str(graph.profile_ref["version"]),
+        }
+    )
     _verify_symbols(
         graph,
         values,

@@ -123,7 +123,23 @@ class DemoLogStreamClient implements LogStreamClient {
         message: 'Demo trace completed.',
         type: 'done',
         data: {
-          'data': {'log_count': records.length},
+          'status': 'completed',
+          'total_logs': records.length,
+          'expected_checkpoints': const [
+            'l1_accepted',
+            'event_layer_durable',
+            'l2_started',
+            'l2_completed',
+            'l3_hot_persisted',
+          ],
+          'observed_checkpoints': const [
+            'l1_accepted',
+            'event_layer_durable',
+            'l2_started',
+            'l2_completed',
+            'l3_hot_persisted',
+          ],
+          'missing_checkpoints': const <String>[],
         },
       ),
     ];

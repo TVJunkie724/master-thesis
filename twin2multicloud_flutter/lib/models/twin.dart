@@ -76,6 +76,24 @@ class Twin extends Equatable {
   bool get isDestroyed => state == 'destroyed';
   bool get isError => state == 'error';
 
+  bool get canDelete =>
+      permissionsFor(state, hasBeenDeployed: deployedAt != null)['canDelete']!;
+
+  /// Mirrors Management's lifecycle and successful-deployment immutability.
+  static Map<String, bool> permissionsFor(
+    String? state, {
+    bool hasBeenDeployed = false,
+  }) {
+    final known = supportedStates.contains(state);
+    final busy = {'deploying', 'destroying', 'deployed'}.contains(state);
+    return {
+      'canDeploy': !hasBeenDeployed && {'configured', 'error'}.contains(state),
+      'canDestroy': {'deployed', 'error'}.contains(state),
+      'canEdit': known && !hasBeenDeployed && !busy,
+      'canDelete': known && !busy && (!hasBeenDeployed || state == 'destroyed'),
+    };
+  }
+
   @override
   List<Object?> get props => [
     id,

@@ -1,192 +1,166 @@
-"""
-Unit tests for the GCP IoT Device Simulator.
+"""Offline contract tests for the GCP Six-layer MQTT simulator."""
 
-Tests cover:
-- Configuration loading from JSON
-- Message transmission via Pub/Sub
-- Payload formatting with timestamps
-- CLI argument parsing
-"""
-import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from __future__ import annotations
+
 import json
-import sys
-import os
+import ssl
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-# Add the src path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+import pytest
 
-
-class TestGcpSimulatorConfig:
-    """Test configuration loading for GCP simulator."""
-
-    @patch('builtins.open', new_callable=mock_open)
-    def test_load_config_basic(self, mock_file):
-        """Should load config from JSON file."""
-        config_data = {
-            "project_id": "my-project",
-            "topic_name": "iot-telemetry",
-            "device_id": "sim-001",
-            "service_account_key_path": "/path/to/key.json",
-            "payload_path": "payloads.json"
-        }
-        mock_file.return_value.read.return_value = json.dumps(config_data)
-        
-        from src.iot_device_simulator.google import globals
-        
-        # Reset config
-        globals.config = None
-        
-        with patch.object(globals, 'load_config') as mock_load:
-            mock_load.return_value = None
-            # Simulate config loading
-            globals.config = MagicMock()
-            globals.config.project_id = "my-project"
-            globals.config.topic_name = "iot-telemetry"
-            globals.config.device_id = "sim-001"
-        
-        assert globals.config is not None
-        assert globals.config.project_id == "my-project"
-
-    def test_config_required_fields(self):
-        """Config should have all required fields."""
-        required_fields = [
-            "project_id",
-            "topic_name", 
-            "device_id",
-            "service_account_key_path",
-            "payload_path"
-        ]
-        
-        # Each field is essential for GCP Pub/Sub
-        for field in required_fields:
-            assert field is not None
+from src.iot_device_simulator.google import globals, transmission
 
 
-class TestGcpSimulatorTransmission:
-    """Test message transmission for GCP simulator."""
-
-    @patch('google.cloud.pubsub_v1.PublisherClient')
-    def test_send_mqtt_publishes_to_pubsub(self, mock_client_class):
-        """send_mqtt should publish message to Pub/Sub topic."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_future = MagicMock()
-        mock_future.result.return_value = "message-id-123"
-        mock_client.publish.return_value = mock_future
-        
-        # Simulate the transmission function behavior
-        payload = {"temperature": 22.5, "humidity": 60}
-        topic_path = "projects/my-project/topics/iot-telemetry"
-        
-        # Call publish
-        data = json.dumps(payload).encode("utf-8")
-        mock_client.publish(topic_path, data)
-        
-        mock_client.publish.assert_called_once_with(topic_path, data)
-
-    def test_payload_timestamp_injection(self):
-        """Should inject timestamp if missing from payload."""
-        from datetime import datetime, timezone
-        
-        payload = {"temperature": 22.5}
-        
-        # Simulate timestamp injection
-        if "time" not in payload or payload["time"] == "":
-            payload["time"] = datetime.now(timezone.utc).isoformat(
-                timespec='milliseconds'
-            ).replace('+00:00', 'Z')
-        
-        assert "time" in payload
-        assert payload["time"].endswith("Z")
-
-    def test_payload_preserves_existing_timestamp(self):
-        """Should not override existing timestamp."""
-        existing_time = "2024-01-28T00:00:00.000Z"
-        payload = {"temperature": 22.5, "time": existing_time}
-        
-        # Check existing timestamp
-        if "time" in payload and payload["time"] != "":
-            # Don't override
-            pass
-        
-        assert payload["time"] == existing_time
+def test_actual_mqtt_sdk_constructs_tls_client_without_network(monkeypatch):
+    import paho.mqtt.client as mqtt
+    monkeypatch.setattr(mqtt.Client, "connect", lambda *_args, **_kwargs: pytest.fail("network forbidden"))
+    client = transmission._client({"device_id": "offline", "username": "offline",
+                                   "password": "offline", "server_ca_path": None}, suffix="test")
+    assert isinstance(client, mqtt.Client)
+    assert client._ssl_context.verify_mode == ssl.CERT_REQUIRED
+    assert client._ssl_context.check_hostname
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        assert client.callback_api_version == mqtt.CallbackAPIVersion.VERSION2
 
 
-class TestGcpSimulatorCLI:
-    """Test CLI argument parsing for GCP simulator."""
-
-    def test_project_argument_required(self):
-        """--project argument should be required."""
-        import argparse
-        
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--project", required=True)
-        parser.add_argument("--payload")
-        
-        # Should raise on missing --project
-        with pytest.raises(SystemExit):
-            parser.parse_args([])
-
-    def test_payload_argument_optional(self):
-        """--payload argument should be optional."""
-        import argparse
-        
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--project", required=True)
-        parser.add_argument("--payload")
-        
-        args = parser.parse_args(["--project", "test-project"])
-        
-        assert args.project == "test-project"
-        assert args.payload is None
-
-    def test_payload_json_parsing(self):
-        """--payload should accept valid JSON."""
-        import argparse
-        
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--project", required=True)
-        parser.add_argument("--payload")
-        
-        payload_json = '{"trace_id": "abc123", "temperature": 25}'
-        args = parser.parse_args([
-            "--project", "test-project",
-            "--payload", payload_json
-        ])
-        
-        payload = json.loads(args.payload)
-        assert payload["trace_id"] == "abc123"
-        assert payload["temperature"] == 25
+def _config(tmp_path):
+    runtime = tmp_path / "_runtime"
+    runtime.mkdir()
+    (runtime / "server-ca.pem").write_text("certificate", encoding="utf-8")
+    payloads = tmp_path / "payloads.json"
+    payloads.write_text('[{"iotDeviceId":"device-1","value":21}]', encoding="utf-8")
+    device = tmp_path / "device-1"
+    device.mkdir()
+    config = device / "config_generated.json"
+    config.write_text(
+        json.dumps(
+            {
+                "endpoint": "203.0.113.10",
+                "port": 8883,
+                "device_id": "device-1",
+                "username": "device-user",
+                "password": "device-secret",
+                "telemetry_topic": "devices/device-1/telemetry",
+                "command_topic": "devices/device-1/commands",
+                "server_ca_path": "../_runtime/server-ca.pem",
+                "payload_path": "../payloads.json",
+            }
+        ),
+        encoding="utf-8",
+    )
+    globals.load_config(str(config))
+    return config
 
 
-class TestGcpSimulatorErrorHandling:
-    """Test error handling in GCP simulator."""
+def test_load_config_resolves_mqtt_files_relative_to_device_config(tmp_path):
+    config = _config(tmp_path)
 
-    def test_invalid_json_payload(self):
-        """Should handle invalid JSON payload gracefully."""
-        invalid_json = "not valid json {"
-        
-        with pytest.raises(json.JSONDecodeError):
-            json.loads(invalid_json)
+    assert globals.config.endpoint == "203.0.113.10"
+    assert globals.config.port == 8883
+    assert globals.config.telemetry_topic == "devices/device-1/telemetry"
+    assert globals.config.command_topic == "devices/device-1/commands"
+    assert globals.config.server_ca_path == str(
+        (config.parent / "../_runtime/server-ca.pem").resolve()
+    )
 
-    @patch('google.cloud.pubsub_v1.PublisherClient')
-    def test_publish_failure_handling(self, mock_client_class):
-        """Should handle Pub/Sub publish failures."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.publish.side_effect = Exception("Permission denied")
-        
-        topic_path = "projects/my-project/topics/iot-telemetry"
-        data = b'{"test": true}'
-        
-        with pytest.raises(Exception) as exc_info:
-            mock_client.publish(topic_path, data)
-        
-        assert "Permission denied" in str(exc_info.value)
 
-    def test_config_file_not_found(self):
-        """Should handle missing config file."""
-        config_path = "/nonexistent/config.json"
-        
-        assert not os.path.exists(config_path)
+def test_send_mqtt_uses_authenticated_tls_qos_one_edge(tmp_path, monkeypatch):
+    _config(tmp_path)
+    publication = MagicMock()
+    publication.is_published.return_value = True
+    client = MagicMock()
+    client.publish.return_value = publication
+    monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
+
+    transmission.send_mqtt({"iotDeviceId": "device-1", "value": 21})
+
+    client.connect.assert_called_once_with("203.0.113.10", 8883, keepalive=60)
+    call = client.publish.call_args
+    assert call.args[0] == "devices/device-1/telemetry"
+    assert json.loads(call.args[1]) == {"iotDeviceId": "device-1", "value": 21}
+    assert call.kwargs == {"qos": 1, "retain": False}
+    publication.wait_for_publish.assert_called_once_with(timeout=15)
+
+
+def test_send_mqtt_rejects_payload_for_another_device(tmp_path, monkeypatch):
+    _config(tmp_path)
+    monkeypatch.setattr(
+        globals,
+        "get_device_config_path",
+        lambda _device_id: str(tmp_path / "missing"),
+    )
+
+    with pytest.raises(ValueError, match="No simulator configuration"):
+        transmission.send_mqtt({"iotDeviceId": "other-device", "value": 21})
+
+
+@pytest.mark.parametrize("expected,accepted", [(None, True), ("TRACE-ABCDEF12", True), ("TRACE-WRONG123", False)])
+def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch, capsys, expected, accepted):
+    _config(tmp_path)
+    client = MagicMock()
+
+    def loop_start():
+        client.on_connect(client, None, None, 0)
+        client.on_message(
+            client,
+            None,
+            SimpleNamespace(
+                topic="devices/device-1/commands",
+                payload=json.dumps(
+                    {"event_id": "event-1", "trace_id": "TRACE-ABCDEF12"}
+                ).encode("utf-8"),
+            ),
+        )
+
+    client.loop_start.side_effect = loop_start
+    monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
+
+    assert transmission.listen_for_command(timeout_seconds=0.001, expected_trace_id=expected) is accepted
+
+    output = capsys.readouterr().out
+    assert ("T2MC_CHECKPOINT" in output) is accepted
+    if accepted:
+        assert '"stage":"simulator_command_received"' in output
+        assert '"event_id":"event-1"' in output
+        assert '"trace_id":"TRACE-ABCDEF12"' in output
+    client.subscribe.assert_called_once_with("devices/device-1/commands", qos=1)
+
+
+@pytest.mark.parametrize("suback", [0, 1, 128, None])
+def test_combined_roundtrip_waits_for_successful_suback(tmp_path, monkeypatch, suback):
+    _config(tmp_path)
+    client = MagicMock()
+    def start():
+        client.on_connect(client, None, None, 0)
+        if suback is not None:
+            client.on_subscribe(client, None, 1, [suback])
+    client.loop_start.side_effect = start
+    def publish(topic, payload, **kwargs):
+        assert topic == "devices/device-1/telemetry"
+        assert json.loads(payload)["iotDeviceId"] == "device-1"
+        client.on_message(client, None, SimpleNamespace(topic="devices/device-1/commands",
+            payload=b'{"trace_id":"TRACE-ABCDEF12"}'))
+        publication = MagicMock()
+        publication.is_published.return_value = True
+        return publication
+    client.publish.side_effect = publish
+    monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
+    if suback in (0, 1):
+        assert transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_called_once()
+    else:
+        with pytest.raises(TimeoutError, match="subscription"):
+            transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_not_called()
+    client.disconnect.assert_called_once()
+
+
+@pytest.mark.parametrize("payload", [{}, {"source_sequence": "TRACE-ABCDEF12", "device_id": "foreign"}])
+def test_combined_roundtrip_validates_before_connection(tmp_path, monkeypatch, payload):
+    _config(tmp_path)
+    client = MagicMock()
+    monkeypatch.setattr(transmission, "_client", client)
+    with pytest.raises(ValueError):
+        transmission.listen_for_command(0.01, telemetry_payload=payload)
+    client.assert_not_called()

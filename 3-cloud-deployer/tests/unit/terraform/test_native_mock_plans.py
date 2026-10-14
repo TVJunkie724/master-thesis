@@ -8,7 +8,19 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from src.providers.terraform.package_builder import build_all_packages
+import pytest
+
+from tests.utils.core_evaluation_plans import write_core_mock_plans
+
+from src.providers.terraform.package_builders.aws_six_layer import (
+    build_aws_six_layer_domain_app,
+)
+from src.providers.terraform.package_builders.aws_eventing import (
+    build_aws_eventing_app,
+)
+from src.providers.terraform.package_builders.azure_six_layer import (
+    build_azure_six_layer_graph_apps,
+)
 
 
 TERRAFORM_SOURCE = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -21,25 +33,10 @@ CREDENTIAL_ENV_PREFIXES = (
 )
 
 
-def _providers(
-    *,
-    l1: str,
-    l2: str,
-    hot: str,
-    cool: str,
-    archive: str,
-    l4: str,
-    l5: str,
-) -> dict[str, str]:
-    return {
-        "layer_1_provider": l1,
-        "layer_2_provider": l2,
-        "layer_3_hot_provider": hot,
-        "layer_3_cold_provider": cool,
-        "layer_3_archive_provider": archive,
-        "layer_4_provider": l4,
-        "layer_5_provider": l5,
-    }
+pytestmark = pytest.mark.skipif(
+    shutil.which("terraform") is None,
+    reason="Terraform CLI is required for credential-free native mock plans",
+)
 
 
 def _write_minimal_project(project_path: Path) -> None:
@@ -117,26 +114,13 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
     plugin_cache.mkdir()
     _write_minimal_project(project_path)
 
-    all_aws = _providers(
-        l1="aws",
-        l2="aws",
-        hot="aws",
-        cool="aws",
-        archive="aws",
-        l4="aws",
-        l5="aws",
+    build_aws_six_layer_domain_app(project_path)
+    build_aws_eventing_app(project_path)
+    build_azure_six_layer_graph_apps(
+        project_path,
+        ("six-layer-domain", "six-layer-eventing"),
     )
-    gcp_storage = _providers(
-        l1="aws",
-        l2="aws",
-        hot="google",
-        cool="google",
-        archive="google",
-        l4="aws",
-        l5="aws",
-    )
-    build_all_packages(terraform_dir, project_path, all_aws)
-    build_all_packages(terraform_dir, project_path, gcp_storage)
+    core_plan_count = write_core_mock_plans(terraform_dir, project_path)
 
     _run_terraform(
         terraform_dir,
@@ -157,6 +141,137 @@ def test_native_mock_plans_bind_resolved_selections_without_credentials(
         plugin_cache=plugin_cache,
     )
 
-    assert "3 passed, 0 failed" in result.stdout
+    # Three fixed L4 research plan/dependency checks are also credential-free.
+    assert f"Success! {12 + core_plan_count} passed, 0 failed." in result.stdout
     assert not list(tmp_path.rglob("*.tfstate"))
     assert not list(tmp_path.rglob("*.tfplan"))
+
+
+def test_gcp_six_layer_workflow_reports_one_terminal_outcome_to_domain_consumer():
+    terraform_source = (TERRAFORM_SOURCE / "gcp_six_layer.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'schema_version   = "workflow-outcome.v1"' in terraform_source
+    assert '{ outcome_status = "SUCCEEDED" }' in terraform_source
+    assert '{ outcome_status = "FAILED" }' in terraform_source
+    assert (
+        'google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri'
+        in terraform_source
+    )
+
+
+def test_gcp_l1_objects_reference_the_owned_namespace_resource():
+    source = (TERRAFORM_SOURCE / "gcp_six_layer_l1.tf").read_text(encoding="utf-8")
+    reference = (
+        "namespace = kubernetes_namespace_v1."
+        "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name"
+    )
+    # A matching literal name does not impose creation/destruction ordering.
+    assert source.count('resource "kubernetes_') == 8
+    assert source.count(reference) == 8
+    assert "namespace = local.gcp_six_layer_bifromq_namespace" not in source
+
+
+def test_disabled_azure_platform_user_assignments_remain_provider_valid():
+    user_source = (TERRAFORM_SOURCE / "azure_user.tf").read_text(encoding="utf-8")
+    grafana_source = (TERRAFORM_SOURCE / "azure_grafana.tf").read_text(
+        encoding="utf-8"
+    )
+    twins_source = (TERRAFORM_SOURCE / "azure_twins.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "platform_user_role_principal_id = coalesce(" in user_source
+    assert '"00000000-0000-0000-0000-000000000000"' in user_source
+    assert (
+        grafana_source.count(
+            "principal_id = local.platform_user_role_principal_id"
+        )
+        == 1
+    )
+    assert (
+        twins_source.count(
+            "principal_id = local.platform_user_role_principal_id"
+        )
+        == 2
+    )
+
+
+def test_six_layer_twinmaker_waits_for_workspace_role_propagation():
+    source = (TERRAFORM_SOURCE / 'aws_six_layer.tf').read_text()
+    wait = source.split('resource "time_sleep" "aws_six_layer_twinmaker_iam" {', 1)[1].split('\n}', 1)[0]
+    workspace = source.split('resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {', 1)[1].split('\n}', 1)[0]
+    assert 'count           = local.aws_six_layer_l4_enabled ? 1 : 0' in wait
+    assert 'create_duration = "30s"' in wait
+    assert '[aws_iam_role_policy.aws_six_layer_twinmaker]' in wait
+    assert '[time_sleep.aws_six_layer_twinmaker_iam]' in workspace
+
+
+def test_aws_six_layer_storage_mover_uses_only_digest_input_and_exact_task_dimension():
+    terraform_source = (TERRAFORM_SOURCE / "aws_six_layer.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image     = var.aws_six_layer_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.aws.aws.ecs-fargate-storage-mover.task_count"' in terraform_source
+    )
+    assert ":storage-mover-v1" not in terraform_source
+
+
+def test_azure_six_layer_storage_mover_uses_digest_and_explicit_exact_task_jobs():
+    terraform_source = (TERRAFORM_SOURCE / "azure_six_layer.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "image  = var.azure_six_layer_storage_mover_image" in terraform_source
+    assert (
+        '"dimension.azure.azure.container-apps-scheduled-storage-job.task_count"'
+        in terraform_source
+    )
+    assert (
+        'resource "azurerm_container_app_job" '
+        '"azure_azure_container_apps_scheduled_storage_job"' in terraform_source
+    )
+    assert (
+        "for_each                     = local.azure_six_layer_storage_schedule_tasks"
+        in terraform_source
+    )
+    assert "parallelism              = 1" in terraform_source
+    assert (
+        "contains([1, 4, 30], local.azure_six_layer_storage_task_count)"
+        in terraform_source
+    )
+    assert ":latest" not in terraform_source
+
+
+def test_azure_six_layer_flex_uses_one_plan_per_app_and_onedeploy():
+    six_layer = (TERRAFORM_SOURCE / "azure_six_layer.tf").read_text(
+        encoding="utf-8"
+    )
+    eventing = (TERRAFORM_SOURCE / "azure_eventing.tf").read_text(
+        encoding="utf-8"
+    )
+    packages = (TERRAFORM_SOURCE / "azure_flex_packages.tf").read_text(
+        encoding="utf-8"
+    )
+    publisher = (
+        TERRAFORM_SOURCE / "modules/azure_flex_package/main.tf"
+    ).read_text(encoding="utf-8")
+
+    assert 'for_each = toset(compact([' in six_layer
+    for plan in ("ingress", "processing", "extension", "action", "reader"):
+        assert f'azure_six_layer_flex["{plan}"]' in six_layer
+        container = f'azure_six_layer_function_package["{plan}"].name'
+        assert six_layer.count(container) == 1
+        assert packages.count(container) == 1
+    assert 'azure_six_layer_function_package[0]' not in six_layer + packages
+    assert 'name                  = "six-layer-functions-${each.key}"' in six_layer
+    assert 'azure_six_layer_flex["eventing"]' in eventing
+    assert "zip_deploy_file" not in six_layer
+    assert "zip_deploy_file" not in eventing
+    assert packages.count('source                    = "./modules/azure_flex_package"') == 6
+    assert 'type       = "Microsoft.Web/sites/extensions"' in publisher
+    assert 'name       = "${var.app_name}/onedeploy"' in publisher
+    assert "remoteBuild = true" in publisher

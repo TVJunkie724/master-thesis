@@ -1,10 +1,39 @@
-"""Cross-route contract tests for canonical optimizer calculation parameters."""
+"""Cross-route contracts for the closed Six-layer workload."""
 
+import json
 from copy import deepcopy
 
 import pytest
+from pydantic import TypeAdapter
 
-from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.schemas.optimizer_calculation import (
+    SIX_LAYER_WORKLOAD_ROOT,
+    OptimizerCalculationParams,
+)
+from src.schemas.resolved_deployment_specification import (
+    ResolvedDeploymentSpecificationDocument,
+    ResolvedDeploymentSpecificationV2,
+)
+from src.services.resolved_deployment_specification_service import V2_CONTRACT_ROOT
+
+
+def _workload() -> dict:
+    return json.loads(
+        (SIX_LAYER_WORKLOAD_ROOT / "fixtures" / "valid" / "core-small.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def _deployment_specification() -> dict:
+    return json.loads(
+        (
+            V2_CONTRACT_ROOT
+            / "fixtures"
+            / "valid"
+            / "six-layer-aws-azure-eventing-small.json"
+        ).read_text(encoding="utf-8")
+    )
 
 
 def _references_component(schema: dict, node: object, component_name: str) -> bool:
@@ -29,33 +58,46 @@ def _references_component(schema: dict, node: object, component_name: str) -> bo
     return False
 
 
-def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
-    sample_calc_params,
-):
-    source = {
-        key: value
-        for key, value in sample_calc_params.items()
-        if key
-        not in {
-            "averageDigitalTwinQueryUnitsPerQuery",
-            "averageDigitalTwinQueryResponseSizeInKb",
-        }
-    }
-
-    params = OptimizerCalculationParams.model_validate(source)
-
-    assert "averageDigitalTwinQueryUnitsPerQuery" not in params.to_optimizer_payload()
-    assert (
-        "averageDigitalTwinQueryResponseSizeInKb" not in params.to_optimizer_payload()
+def test_six_layer_deployment_read_model_round_trips_without_shape_loss():
+    source = _deployment_specification()
+    parsed = TypeAdapter(ResolvedDeploymentSpecificationDocument).validate_python(
+        source
     )
-    assert params.to_persisted_payload()["averageDigitalTwinQueryUnitsPerQuery"] == 1
-    assert params.to_persisted_payload()["averageDigitalTwinQueryResponseSizeInKb"] == 1
+
+    assert isinstance(parsed, ResolvedDeploymentSpecificationV2)
+    assert parsed.model_dump(mode="json", exclude_none=True) == source
+
+
+def test_run_params_accept_only_frozen_scenarios_and_supported_currency():
+    payload = _workload()
+    parsed = OptimizerCalculationParams.model_validate(payload)
+    euro = OptimizerCalculationParams.model_validate({**payload, "currency": "EUR"})
+    mutated = deepcopy(payload)
+    mutated["numberOfDevices"] = 101
+
+    assert parsed.schemaVersion == "six-layer-workload.v1"
+    assert euro.currency == "EUR"
+    with pytest.raises(ValueError, match="immutable Small, Medium, or Large"):
+        OptimizerCalculationParams.model_validate(mutated)
+
+
+@pytest.mark.parametrize(
+    "removed_field",
+    (
+        "useEventChecking",
+        "needs3DModel",
+        "integrateErrorHandling",
+        "averageDigitalTwinQueryUnitsPerQuery",
+    ),
+)
+def test_removed_product_fields_are_rejected(removed_field):
+    with pytest.raises(ValueError):
+        OptimizerCalculationParams.model_validate({**_workload(), removed_field: True})
 
 
 @pytest.mark.parametrize(
     ("method", "path", "body_factory"),
     [
-        ("put", "/optimizer/calculate", lambda params: params),
         (
             "put",
             "/twins/unused/optimizer-config/params",
@@ -73,133 +115,22 @@ def test_omitted_adt_assumptions_remain_omitted_only_for_downstream_payload(
         ),
     ],
 )
-@pytest.mark.parametrize(
-    ("field", "invalid_value"),
-    [
-        ("averageDigitalTwinQueryUnitsPerQuery", 0),
-        ("averageDigitalTwinQueryResponseSizeInKb", 0),
-        ("averageDigitalTwinQueryUnitsPerQuery", "not-a-number"),
-        ("averageDigitalTwinQueryResponseSizeInKb", "not-a-number"),
-        ("averageDigitalTwinQueryUnitsPerQuery", "1.0"),
-        ("averageDigitalTwinQueryResponseSizeInKb", "1.0"),
-    ],
-)
-def test_every_management_write_path_rejects_invalid_adt_assumptions(
+def test_architecture_enrichment_cannot_be_client_authored(
     authenticated_client,
-    sample_calc_params,
-    method,
-    path,
-    body_factory,
-    field,
-    invalid_value,
-):
-    client, headers = authenticated_client
-    params = deepcopy(sample_calc_params)
-    params[field] = invalid_value
-
-    response = getattr(client, method)(
-        path,
-        json=body_factory(params),
-        headers=headers,
-    )
-
-    assert response.status_code == 422
-
-
-@pytest.mark.parametrize(
-    ("method", "path", "body_factory"),
-    [
-        ("put", "/optimizer/calculate", lambda params: params),
-        (
-            "put",
-            "/twins/unused/optimizer-config/params",
-            lambda params: {"params": params},
-        ),
-        (
-            "post",
-            "/twins/unused/optimizer-runs",
-            lambda params: {"params": params},
-        ),
-        (
-            "put",
-            "/twins/unused/config",
-            lambda params: {"optimizer_params": params},
-        ),
-    ],
-)
-def test_every_management_write_path_rejects_unsupported_error_handling(
-    authenticated_client,
-    sample_calc_params,
     method,
     path,
     body_factory,
 ):
     client, headers = authenticated_client
-    params = deepcopy(sample_calc_params)
-    params["integrateErrorHandling"] = True
-
-    response = getattr(client, method)(
-        path,
-        json=body_factory(params),
-        headers=headers,
-    )
-
-    assert response.status_code == 422
-    assert any(
-        error["loc"][-1] == "integrateErrorHandling"
-        and error["type"] == "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY"
-        for error in response.json()["detail"]
-    )
-
-
-def test_optimizer_params_accept_false_or_omitted_error_handling(
-    sample_calc_params,
-):
-    explicit = OptimizerCalculationParams.model_validate(sample_calc_params)
-    omitted_payload = deepcopy(sample_calc_params)
-    omitted_payload.pop("integrateErrorHandling")
-    omitted = OptimizerCalculationParams.model_validate(omitted_payload)
-
-    assert explicit.integrateErrorHandling is False
-    assert omitted.integrateErrorHandling is False
-
-
-@pytest.mark.parametrize(
-    ("method", "path", "body_factory"),
-    [
-        ("put", "/optimizer/calculate", lambda params: params),
-        (
-            "put",
-            "/twins/unused/optimizer-config/params",
-            lambda params: {"params": params},
-        ),
-        (
-            "post",
-            "/twins/unused/optimizer-runs",
-            lambda params: {"params": params},
-        ),
-        (
-            "put",
-            "/twins/unused/config",
-            lambda params: {"optimizer_params": params},
-        ),
-    ],
-)
-def test_architecture_request_enrichment_cannot_be_client_authored(
-    authenticated_client,
-    sample_calc_params,
-    method,
-    path,
-    body_factory,
-):
-    client, headers = authenticated_client
-    params = deepcopy(sample_calc_params)
-    params["architectureProfile"] = {
-        "profileId": "five-layer-baseline",
-        "profileVersion": "1",
-        "contentDigest": "sha256:" + ("0" * 64),
+    params = {
+        **_workload(),
+        "architectureProfile": {
+            "profileId": "six-layer-eventing",
+            "profileVersion": "1",
+            "contentDigest": "sha256:" + ("0" * 64),
+        },
+        "extensionBindings": [],
     }
-    params["extensionBindings"] = []
 
     response = getattr(client, method)(
         path,
@@ -208,23 +139,16 @@ def test_architecture_request_enrichment_cannot_be_client_authored(
     )
 
     assert response.status_code == 422
-    rejected_fields = {
-        error["loc"][-1] for error in response.json()["detail"]
-    }
-    assert rejected_fields == {
+    assert {error["loc"][-1] for error in response.json()["detail"]} == {
         "architectureProfile",
         "extensionBindings",
     }
 
 
-def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
-    authenticated_client,
-):
+def test_openapi_reuses_closed_workload_for_all_write_paths(authenticated_client):
     client, headers = authenticated_client
-
     schema = client.get("/openapi.json", headers=headers).json()
     paths = (
-        "/optimizer/calculate",
         "/twins/{twin_id}/optimizer-config/params",
         "/twins/{twin_id}/optimizer-runs/",
         "/twins/{twin_id}/config/",
@@ -238,83 +162,59 @@ def test_openapi_reuses_one_optimizer_parameter_schema_for_all_write_paths(
 
     component = schema["components"]["schemas"]["OptimizerCalculationParams"]
     assert component["additionalProperties"] is False
-    assert (
-        component["properties"]["averageDigitalTwinQueryUnitsPerQuery"][
-            "exclusiveMinimum"
-        ]
-        == 0
+    assert component["properties"]["schemaVersion"]["const"] == (
+        "six-layer-workload.v1"
     )
-    assert (
-        component["properties"]["averageDigitalTwinQueryResponseSizeInKb"][
-            "exclusiveMinimum"
-        ]
-        == 0
-    )
-    assert component["properties"]["integrateErrorHandling"]["const"] is False
+    assert "optimizationProfileId" not in component["properties"]
     assert "architectureProfile" not in component["properties"]
     assert "extensionBindings" not in component["properties"]
+    assert "integrateErrorHandling" not in component["properties"]
 
-
-def test_openapi_exposes_only_server_owned_optimizer_result_writes(
-    authenticated_client,
-):
-    client, headers = authenticated_client
-
-    schema = client.get("/openapi.json", headers=headers).json()
-
-    assert "/twins/{twin_id}/optimizer-config/result" not in schema["paths"]
-    assert "/twins/{twin_id}/optimizer-runs/" in schema["paths"]
-    assert (
-        schema["paths"]["/twins/{twin_id}/optimizer-runs/"]["post"]["operationId"]
-        == "createOptimizerRun"
+    evaluation_path = schema["paths"][
+        "/twins/{twin_id}/optimizer-runs/supervised-evaluation"
+    ]["post"]
+    assert _references_component(
+        schema,
+        evaluation_path,
+        "SupervisedEvaluationRunCreate",
     )
-    twin_update = schema["components"]["schemas"]["TwinConfigUpdate"]
-    assert twin_update["additionalProperties"] is False
-    assert "optimizer_result" not in twin_update["properties"]
+    admission = schema["components"]["schemas"]["SupervisedEvaluationRunCreate"]
+    assert admission["additionalProperties"] is False
+    assert admission["properties"]["confirmation"]["const"] == (
+        "MATERIALIZE SUPERVISED EVALUATION CANDIDATE"
+    )
 
 
-def test_openapi_exposes_deployment_specification_as_typed_read_only_contract(
-    authenticated_client,
-):
+def test_openapi_exposes_only_rds_v2_as_read_only_contract(authenticated_client):
     client, headers = authenticated_client
-
     schema = client.get("/openapi.json", headers=headers).json()
     components = schema["components"]["schemas"]
 
     create_properties = components["CostCalculationRunCreate"]["properties"]
     assert "resolved_deployment_specification" not in create_properties
-    assert "deployment_specification_digest" not in create_properties
-    assert "deployment_compatibility_status" not in create_properties
-
     summary = components["CostCalculationRunSummaryResponse"]
-    assert {
-        "deployment_specification_digest",
-        "deployment_specification_version",
-        "deployment_compatibility_status",
-    }.issubset(summary["properties"])
     assert summary["properties"]["deployment_compatibility_status"]["enum"] == [
         "ready",
-        "legacy_not_deployable",
+        "unavailable",
     ]
 
-    detail_specification = components["CostCalculationRunDetailResponse"][
-        "properties"
-    ]["resolved_deployment_specification"]
+    detail_specification = components["CostCalculationRunDetailResponse"]["properties"][
+        "resolved_deployment_specification"
+    ]
     assert _references_component(
         schema,
         detail_specification,
-        "ResolvedDeploymentSpecification",
+        "ResolvedDeploymentSpecificationV2",
     )
-
-    selection = components["CostCalculationRunSelectResponse"]
-    assert selection["properties"]["resolved_deployment_specification"] == {
-        "$ref": "#/components/schemas/ResolvedDeploymentSpecification"
-    }
-    assert "resolved_deployment_specification" in selection["required"]
-
-    specification = components["ResolvedDeploymentSpecification"]
+    assert "ResolvedDeploymentSpecification" not in components
+    specification = components["ResolvedDeploymentSpecificationV2"]
     assert specification["additionalProperties"] is False
     assert specification["properties"]["schema_version"]["const"] == (
-        "resolved-deployment-specification.v1"
+        "resolved-deployment-specification.v2"
     )
-    assert specification["properties"]["currency"]["const"] == "USD"
+    assert {
+        "fixed_dimensions",
+        "component_selections",
+        "bindings",
+        "readiness",
+    }.issubset(specification["required"])

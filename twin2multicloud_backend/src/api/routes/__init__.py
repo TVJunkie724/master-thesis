@@ -1,17 +1,13 @@
 from src.api.routes import (
-    auth,
     architecture_profiles,
-    twins,
-    twin_operations,
-    health,
+    auth,
+    cloud_connections,
     config,
     deployer,
-    cloud_connections,
-    cloud_bootstrap,
-    cloud_access,
+    health,
     optimizer_runs,
-    pricing_refresh,
-    pricing_review,
+    twin_operations,
+    twins,
     user_function_extensions,
 )
 
@@ -24,10 +20,6 @@ __all__ = [
     "config",
     "deployer",
     "cloud_connections",
-    "cloud_bootstrap",
-    "cloud_access",
     "optimizer_runs",
-    "pricing_refresh",
-    "pricing_review",
     "user_function_extensions",
 ]

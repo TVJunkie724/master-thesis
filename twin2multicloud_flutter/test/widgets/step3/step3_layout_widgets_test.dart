@@ -8,33 +8,6 @@ void main() {
   }
 
   group('Step3 layout widgets', () {
-    testWidgets('quick upload section renders zip upload entry point', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        buildWidget(
-          const Step3QuickUploadSection(uploadBlock: Text('ZIP Upload Block')),
-        ),
-      );
-
-      expect(find.text('Quick Upload'), findsOneWidget);
-      expect(
-        find.text('Import an existing deployment project'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('Upload a complete project ZIP'),
-        findsOneWidget,
-      );
-      expect(find.text('ZIP Upload Block'), findsOneWidget);
-    });
-
-    testWidgets('manual separator renders label', (tester) async {
-      await tester.pumpWidget(buildWidget(const Step3ManualSeparator()));
-
-      expect(find.text('Or configure manually'), findsOneWidget);
-    });
-
     testWidgets('no result message guides user to architecture choice', (
       tester,
     ) async {

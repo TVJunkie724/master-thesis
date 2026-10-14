@@ -1,8 +1,8 @@
-"""Read-only architecture-profile contract service.
+"""Read-only architecture-profile contract validation service.
 
-Phase 8.2 exposes no routes and persists nothing. Pydantic first establishes a
-bounded typed read boundary; the generated validator enforces the full schema
-and semantic contract.
+Pydantic first establishes a bounded typed read boundary; the generated
+validator enforces the full schema and semantic contract used by the active
+profile APIs and persistence services.
 """
 
 from __future__ import annotations
@@ -17,18 +17,19 @@ from typing import Any, Iterable, Mapping
 from pydantic import ConfigDict, RootModel
 
 
-CONTRACT_ROOT = (
+CONTRACT_BUNDLE_ROOT = (
     Path(__file__).resolve().parents[1]
     / "contracts"
     / "generated"
     / "architecture-profiles"
-    / "v1"
 )
+CONTRACT_ROOT = CONTRACT_BUNDLE_ROOT / "v2"
 
 
-def _load_runtime() -> ModuleType:
-    path = CONTRACT_ROOT / "runtime.py"
-    module_name = "_management_architecture_profile_contract_runtime"
+def _load_runtime(version: str) -> ModuleType:
+    root = CONTRACT_BUNDLE_ROOT / version
+    path = root / "runtime.py"
+    module_name = f"_management_architecture_profile_contract_runtime_{version}"
     existing = sys.modules.get(module_name)
     if existing is not None:
         return existing
@@ -41,12 +42,43 @@ def _load_runtime() -> ModuleType:
     return module
 
 
-_runtime = _load_runtime()
-ContractError = _runtime.ContractError
+_runtime = _load_runtime("v2")
 ValidatedContract = _runtime.ValidatedContract
-calculate_digest = _runtime.calculate_digest
-calculate_resolution_id = _runtime.calculate_resolution_id
-canonical_json = _runtime.canonical_json
+
+
+class ContractError(ValueError):
+    """Version-neutral architecture-contract validation failure."""
+
+    def __init__(self, code: str, path: str, message: str) -> None:
+        super().__init__(message.replace("\n", " ")[:400])
+        self.code = code
+        self.path = path[:240]
+
+
+def _translate(exc: Exception) -> ContractError:
+    return ContractError(
+        str(getattr(exc, "code", "ARCH_SCHEMA_INVALID")),
+        str(getattr(exc, "path", "$")),
+        str(exc),
+    )
+
+
+def calculate_digest(document: Mapping[str, Any]) -> str:
+    """Calculate an architecture digest with its matching runtime."""
+
+    return str(_runtime.calculate_digest(document))
+
+
+def calculate_resolution_id(document: Mapping[str, Any]) -> str:
+    """Calculate a resolution ID with its matching runtime."""
+
+    return str(_runtime.calculate_resolution_id(document))
+
+
+def canonical_json(value: object) -> str:
+    """Use the active v2 contract's canonical set semantics."""
+
+    return str(_runtime.canonical_json(value))
 
 
 class ArchitectureContractReadModel(RootModel[dict[str, Any]]):
@@ -67,13 +99,17 @@ class ArchitectureContractService:
         correlation_id: str | None = None,
     ) -> Any:
         typed = ArchitectureContractReadModel.model_validate(dict(document))
-        return _runtime.validate_document(
-            typed.root,
-            bundle_root=CONTRACT_ROOT,
-            linked_documents=linked_documents,
-            logger=logger,
-            correlation_id=correlation_id,
-        )
+        linked = tuple(linked_documents)
+        try:
+            return _runtime.validate_document(
+                typed.root,
+                bundle_root=CONTRACT_ROOT,
+                linked_documents=linked,
+                logger=logger,
+                correlation_id=correlation_id,
+            )
+        except _runtime.ContractError as exc:
+            raise _translate(exc) from exc
 
     @staticmethod
     def read_file(
@@ -105,4 +141,7 @@ class ArchitectureContractService:
             ArchitectureContractReadModel.model_validate(dict(document)).root
             for document in documents
         )
-        return _runtime.validate_bundle(typed, bundle_root=CONTRACT_ROOT)
+        try:
+            return tuple(_runtime.validate_bundle(typed, bundle_root=CONTRACT_ROOT))
+        except _runtime.ContractError as exc:
+            raise _translate(exc) from exc

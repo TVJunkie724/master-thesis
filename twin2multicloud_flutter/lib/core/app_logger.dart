@@ -15,7 +15,6 @@ enum AppLogEvent {
   pricingSnapshotPersistenceFailed,
   wizardSaveFailed,
   wizardFinishFailed,
-  projectZipUploadFailed,
 }
 
 enum AppLogLevel { warning }

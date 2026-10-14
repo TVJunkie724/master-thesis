@@ -35,9 +35,9 @@ docker compose run --rm --no-deps 2twin2clouds sh -lc \
    python -m pip check'
 ```
 
-Do not run live provider refreshes merely to validate a code change. Provider
-catalog tests use fixtures and mocks; live access is an explicit supervised
-verification step.
+Do not call live provider pricing APIs merely to validate a code change. The
+thesis uses frozen catalog snapshots; live cloud access is a separate,
+supervised evaluation boundary.
 
 ## Change Ownership
 
@@ -55,10 +55,11 @@ evidence, normalization metadata, formula references, and result traces.
 
 ## Extension Points
 
-New optimization objectives belong in the established extension points under
-`backend/optimization/` and must bind a compatible metric provider,
-calculation model, scoring strategy, pricing intent group, formula set, workload
-contract, and result schema. Disabled declarations are not executable features.
+The thesis runtime contains only the monetary-cost implementation under
+`backend/optimization/`. A future objective can reuse the metric, calculation,
+and scoring boundaries only after its evidence, formula, workload, result, and
+regression contracts exist; inactive declarations do not belong in runtime
+configuration.
 
 New provider layer calculators return the canonical
 `backend.calculation_v2.layers.LayerResult` contract. Unsupported capabilities
@@ -73,8 +74,10 @@ to calculator capabilities or result fields. `LayerResult` owns an immutable
 component snapshot and rejects unknown providers/layers, booleans masquerading as
 numbers, negative/non-finite values, and ambiguous unsupported states.
 
-## Planning And Backlog
+## Planning
 
-Check `implementation_plans/` and `docs/plans/` before changing architecture.
-GitHub Issues are the backlog source of truth; do not create service-local TODO
-lists.
+Check the active target, research questions, execution plan and decision log
+before changing architecture. Use one temporary task plan when needed, then
+move durable rationale into current documentation and let Git preserve the
+completed implementation history. Do not create service-local TODO or roadmap
+trees.

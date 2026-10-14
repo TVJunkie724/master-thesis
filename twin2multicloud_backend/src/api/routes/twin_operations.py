@@ -7,15 +7,14 @@ the public ``/twins`` paths used by Flutter.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -25,11 +24,9 @@ from src.config import settings
 from src.models.database import get_db
 from src.models.twin import TwinState
 from src.models.user import User
+from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.management_contracts import (
-    OperationSessionResponse,
-    RedeployReadinessResponse,
-)
+from src.schemas.deployment_access import DeploymentAccessSnapshot
 from src.schemas.deployment_logs import DeploymentLogPageResponse
 from src.schemas.deployment_operations import (
     DeploymentHistoryResponse,
@@ -38,9 +35,22 @@ from src.schemas.deployment_operations import (
 )
 from src.schemas.deployment_readiness import (
     DeploymentPreflightResponse,
+    DeploymentPreparationRequest,
+    DeploymentPreparationResponse,
     DeploymentReadinessResponse,
 )
+from src.schemas.management_contracts import (
+    OperationSessionResponse,
+)
+from src.schemas.telemetry_verification import (
+    TelemetryVerificationHistoryResponse,
+    TelemetryVerificationRecordResponse,
+    TelemetryVerificationStartResponse,
+)
+from src.services.architecture_projection_service import required_providers
+from src.services.deployment_access_service import DeploymentAccessService
 from src.services.deployment_log_read_service import DeploymentLogReadService
+from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_orchestrator import DeploymentOrchestrator
 from src.services.deployment_readiness_service import DeploymentReadinessService
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
@@ -55,7 +65,7 @@ from src.services.twin_export_service import TwinExportService
 
 logger = logging.getLogger(__name__)
 
-TEST_MODE = os.getenv("ENABLE_TEST_ENDPOINTS", "false").lower() == "true"
+TEST_MODE = settings.ENABLE_TEST_ENDPOINTS
 
 router = APIRouter(prefix="/twins", tags=["twins"])
 
@@ -95,6 +105,16 @@ def _deployment_readiness_service(db: Session) -> DeploymentReadinessService:
     )
 
 
+def _deployment_access_service(db: Session) -> DeploymentAccessService:
+    """Build the owner-scoped Layer Access read service."""
+    from src.repositories.deployment_repository import DeploymentRepository
+
+    return DeploymentAccessService(
+        twin_repository=TwinRepository(db),
+        deployment_repository=DeploymentRepository(db),
+    )
+
+
 def _raise_service_http_error(exc: Exception) -> None:
     """Map typed service errors to the existing route-level HTTP contract."""
     if isinstance(exc, EntityNotFoundError):
@@ -111,29 +131,50 @@ def _raise_service_http_error(exc: Exception) -> None:
 
 
 @router.get(
-    "/{twin_id}/can-redeploy",
-    response_model=RedeployReadinessResponse,
-    operation_id="checkRedeploymentCooldown",
-    summary="Check if twin can be redeployed",
-    description=(
-        "Checks deployment cooldown readiness, including the GCP Firestore cooldown rule, "
-        "before a destroyed twin is redeployed."
-    ),
+    "/{twin_id}/deployment-access",
+    response_model=DeploymentAccessSnapshot,
+    operation_id="getTwinDeploymentAccess",
+    summary="Get secret-free L4 and L5 access surfaces",
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
-        503: {"description": "Deployer API unavailable"},
+        409: {"description": "Twin is not actively deployed or profile is unsupported"},
     },
 )
-async def can_redeploy(
+async def get_deployment_access(
     twin_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        return await _deployment_orchestrator(db).can_redeploy(twin_id, current_user.id)
-    except (EntityNotFoundError, DownstreamServiceError) as exc:
+        return _deployment_access_service(db).get_access(
+            twin_id,
+            current_user.id,
+        )
+    except (EntityNotFoundError, ValidationError, ConflictError) as exc:
         _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/deployment-access/visualization",
+    response_class=HTMLResponse,
+    operation_id="getTwinVisualization",
+    summary="Read the deployed L5 HTML through owner-scoped server authentication",
+)
+async def get_visualization(
+    twin_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        html = await _deployment_access_service(db).get_visualization(twin_id, current_user.id)
+    except (EntityNotFoundError, ValidationError, ConflictError, DownstreamServiceError) as exc:
+        _raise_service_http_error(exc)
+    return Response(content=html, media_type="text/html", headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.post(
@@ -142,7 +183,7 @@ async def can_redeploy(
     operation_id="deployDigitalTwin",
     summary="Deploy twin infrastructure",
     description=(
-        "Starts deployment for a configured, destroyed, or error-state twin and returns the SSE "
+        "Starts the first deployment for a configured Twin (or retries a pre-deployment error) and returns the SSE "
         "session contract for real-time deployment logs."
     ),
     responses={
@@ -154,18 +195,37 @@ async def can_redeploy(
 )
 async def deploy_twin(
     twin_id: str,
+    idempotency_key: str | None = Header(
+        default=None,
+        alias="Idempotency-Key",
+        min_length=8,
+        max_length=128,
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     try:
-        _deployment_readiness_service(db).require_ready(
-            twin_id,
-            current_user.id,
-        )
+        accepted = None
+        if idempotency_key is not None:
+            twin = TwinRepository(db).get_active_for_user(twin_id, current_user.id)
+            if twin is None:
+                raise EntityNotFoundError("Twin not found")
+            accepted = DeploymentRepository(db).get_by_idempotency_key(
+                twin_id,
+                "test" if TEST_MODE else "deploy",
+                idempotency_key,
+            )
+        if accepted is not None:
+            return DeploymentOperationService.operation_response(
+                accepted,
+                reused=True,
+            )
+        _deployment_readiness_service(db).require_ready(twin_id, current_user.id)
         return await _deployment_orchestrator(db).deploy_twin(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
+            idempotency_key=idempotency_key,
         )
     except (
         ConflictError,
@@ -194,6 +254,12 @@ async def deploy_twin(
 )
 async def destroy_twin_infrastructure(
     twin_id: str,
+    idempotency_key: str | None = Header(
+        default=None,
+        alias="Idempotency-Key",
+        min_length=8,
+        max_length=128,
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -202,6 +268,7 @@ async def destroy_twin_infrastructure(
             twin_id=twin_id,
             user_id=current_user.id,
             test_mode=TEST_MODE,
+            idempotency_key=idempotency_key,
         )
     except (
         ConflictError,
@@ -261,6 +328,43 @@ async def run_deployment_preflight(
         )
     except EntityNotFoundError as exc:
         _raise_service_http_error(exc)
+
+
+@router.post(
+    "/{twin_id}/deployment-preparation",
+    response_model=DeploymentPreparationResponse,
+    operation_id="prepareDigitalTwinDeploymentAccount",
+    summary="Confirm and apply graph-derived account preparation",
+    description=(
+        "Applies only the reviewed Azure resource-provider and GCP API actions, "
+        "records explicit manual confirmations, and reruns non-mutating preflight."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        502: {"description": "Deployer account preparation failed"},
+        503: {"description": "Deployer unavailable"},
+    },
+)
+async def prepare_deployment_account(
+    twin_id: str,
+    request: DeploymentPreparationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return await _deployment_readiness_service(db).prepare_account(
+            twin_id,
+            current_user.id,
+            request,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+    except ExternalServiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=exc.public_detail) from exc
+    except ExternalServiceError as exc:
+        raise HTTPException(status_code=502, detail=exc.public_detail) from exc
 
 
 @router.get(
@@ -386,20 +490,10 @@ async def start_log_trace(
         )
 
     if TEST_MODE:
-        from src.services.deployment_stream_service import create_session
         from src.api.routes.test_endpoints import _run_test_log_trace_stream
+        from src.services.deployment_stream_service import create_session
 
-        providers = ["aws"]
-        if twin.optimizer_config:
-            oc = twin.optimizer_config
-            unique = {
-                p.lower()
-                for p in filter(
-                    None, [oc.cheapest_l1, oc.cheapest_l2, oc.cheapest_l3_hot]
-                )
-            }
-            if unique:
-                providers = list(unique)
+        providers = sorted(required_providers(twin)) or ["aws"]
 
         trace_id = f"TRACE-{uuid.uuid4().hex[:8].upper()}"
         session_id = str(uuid.uuid4())
@@ -564,6 +658,7 @@ async def verify_infrastructure(
 
 @router.post(
     "/{twin_id}/verify/dataflow",
+    response_model=TelemetryVerificationStartResponse,
     operation_id="verifyDataFlow",
     summary="Verify deployed data flow",
     description="Starts end-to-end dataflow verification for a deployed twin and returns the SSE session contract.",
@@ -571,6 +666,7 @@ async def verify_infrastructure(
         400: ERROR_RESPONSES[400],
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
+        409: {"description": "Telemetry verification already in progress"},
         503: {"description": "Deployer API unavailable"},
     },
 )
@@ -587,7 +683,66 @@ async def verify_dataflow(
             body=body,
             test_mode=TEST_MODE,
         )
-    except (DownstreamServiceError, EntityNotFoundError, ValidationError) as exc:
+    except (
+        ConflictError,
+        DownstreamServiceError,
+        EntityNotFoundError,
+        ValidationError,
+    ) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/verify/dataflow",
+    response_model=TelemetryVerificationHistoryResponse,
+    operation_id="listDataFlowVerifications",
+    summary="List persisted telemetry verifications",
+    description="Returns bounded, newest-first Six-layer telemetry evidence.",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def list_dataflow_verifications(
+    twin_id: str,
+    limit: int = Query(default=25, ge=1, le=25),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_orchestrator(db).list_dataflow_verifications(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            limit=limit,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
+        _raise_service_http_error(exc)
+
+
+@router.get(
+    "/{twin_id}/verify/dataflow/{verification_id}",
+    response_model=TelemetryVerificationRecordResponse,
+    operation_id="getDataFlowVerification",
+    summary="Get persisted telemetry verification",
+    description="Returns one authoritative, trace-correlated telemetry result.",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+    },
+)
+def get_dataflow_verification(
+    twin_id: str,
+    verification_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        return _deployment_orchestrator(db).get_dataflow_verification(
+            twin_id=twin_id,
+            user_id=current_user.id,
+            verification_id=verification_id,
+        )
+    except (EntityNotFoundError, ValidationError) as exc:
         _raise_service_http_error(exc)
 
 
@@ -636,8 +791,12 @@ async def download_simulator(
 @router.get(
     "/{twin_id}/export",
     operation_id="exportTwinConfiguration",
-    summary="Export redacted twin configuration",
-    description="Downloads a ZIP archive containing the twin configuration and generated deployer inputs with credentials redacted.",
+    summary="Export a portable Twin definition",
+    description=(
+        "Downloads a strict .twin.zip archive containing only portable authored inputs and "
+        "the optional scene. Credentials, Cloud Connection IDs, derived optimizer results, "
+        "operations, and deployment history are excluded."
+    ),
     responses={
         200: {"description": "ZIP file", "content": {"application/zip": {}}},
         401: ERROR_RESPONSES[401],
@@ -659,5 +818,10 @@ async def export_twin_configuration(
     return StreamingResponse(
         archive.content,
         media_type=archive.media_type,
-        headers={"Content-Disposition": f'attachment; filename="{archive.filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{archive.filename}"',
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

@@ -9,7 +9,12 @@ class DeploymentVerificationState extends Equatable {
   final bool isRunningDataFlow;
   final String? dataFlowError;
   final List<DataFlowLogEntry> dataFlowLogs;
-  final DataFlowVerificationSummary? dataFlowSummary;
+  final bool isLoadingHistory;
+  final String? historyError;
+  final List<TelemetryVerificationRecord> verificationHistory;
+  final String? activeVerificationId;
+  final TelemetryVerificationEvidence? terminalEvidence;
+  final TelemetryVerificationRecord? latestDataFlowRecord;
 
   const DeploymentVerificationState({
     this.isCheckingInfrastructure = false,
@@ -18,8 +23,25 @@ class DeploymentVerificationState extends Equatable {
     this.isRunningDataFlow = false,
     this.dataFlowError,
     this.dataFlowLogs = const [],
-    this.dataFlowSummary,
+    this.isLoadingHistory = false,
+    this.historyError,
+    this.verificationHistory = const [],
+    this.activeVerificationId,
+    this.terminalEvidence,
+    this.latestDataFlowRecord,
   });
+
+  DataFlowVerificationSummary? get dataFlowSummary {
+    final evidence = latestDataFlowRecord?.result ?? terminalEvidence;
+    if (evidence == null) return null;
+    return DataFlowVerificationSummary(
+      passCount: evidence.passCount,
+      failCount: evidence.failCount,
+      skipCount: evidence.skipCount,
+      totalTime: evidence.totalTime,
+      failedPhase: evidence.failedPhase,
+    );
+  }
 
   DeploymentVerificationState copyWith({
     bool? isCheckingInfrastructure,
@@ -31,8 +53,16 @@ class DeploymentVerificationState extends Equatable {
     String? dataFlowError,
     bool clearDataFlowError = false,
     List<DataFlowLogEntry>? dataFlowLogs,
-    DataFlowVerificationSummary? dataFlowSummary,
-    bool clearDataFlowSummary = false,
+    bool? isLoadingHistory,
+    String? historyError,
+    bool clearHistoryError = false,
+    List<TelemetryVerificationRecord>? verificationHistory,
+    String? activeVerificationId,
+    bool clearActiveVerificationId = false,
+    TelemetryVerificationEvidence? terminalEvidence,
+    bool clearTerminalEvidence = false,
+    TelemetryVerificationRecord? latestDataFlowRecord,
+    bool clearLatestDataFlowRecord = false,
   }) {
     return DeploymentVerificationState(
       isCheckingInfrastructure:
@@ -48,9 +78,20 @@ class DeploymentVerificationState extends Equatable {
           ? null
           : dataFlowError ?? this.dataFlowError,
       dataFlowLogs: dataFlowLogs ?? this.dataFlowLogs,
-      dataFlowSummary: clearDataFlowSummary
+      isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
+      historyError: clearHistoryError
           ? null
-          : dataFlowSummary ?? this.dataFlowSummary,
+          : historyError ?? this.historyError,
+      verificationHistory: verificationHistory ?? this.verificationHistory,
+      activeVerificationId: clearActiveVerificationId
+          ? null
+          : activeVerificationId ?? this.activeVerificationId,
+      terminalEvidence: clearTerminalEvidence
+          ? null
+          : terminalEvidence ?? this.terminalEvidence,
+      latestDataFlowRecord: clearLatestDataFlowRecord
+          ? null
+          : latestDataFlowRecord ?? this.latestDataFlowRecord,
     );
   }
 
@@ -62,6 +103,11 @@ class DeploymentVerificationState extends Equatable {
     isRunningDataFlow,
     dataFlowError,
     dataFlowLogs,
-    dataFlowSummary,
+    isLoadingHistory,
+    historyError,
+    verificationHistory,
+    activeVerificationId,
+    terminalEvidence,
+    latestDataFlowRecord,
   ];
 }

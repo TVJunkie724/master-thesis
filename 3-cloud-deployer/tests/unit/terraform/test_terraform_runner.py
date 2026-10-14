@@ -3,6 +3,14 @@
 from src.terraform_runner import TerraformRunner
 
 
+def test_show_uses_positional_isolated_state_file(tmp_path):
+    state_path = tmp_path / 'project' / 'terraform.tfstate'
+    runner = TerraformRunner(str(tmp_path), state_path=str(state_path))
+    assert runner._build_command(['show', '-json']) == [
+        'terraform', f'-chdir={tmp_path}', 'show', '-json', str(state_path)
+    ]
+
+
 def test_plan_defaults_to_project_workspace_when_state_path_is_set(tmp_path, monkeypatch):
     terraform_dir = tmp_path / "src" / "terraform"
     terraform_dir.mkdir(parents=True)
@@ -80,3 +88,36 @@ def test_plan_accepts_explicit_out_file(tmp_path, monkeypatch):
     assert result == str(explicit_plan)
     assert explicit_plan.parent.exists()
     assert calls[0][-1] == f"-out={explicit_plan}"
+
+
+def test_apply_targets_builds_only_valid_explicit_target_arguments(tmp_path, monkeypatch):
+    terraform_dir = tmp_path / "terraform"
+    terraform_dir.mkdir()
+    runner = TerraformRunner(terraform_dir=str(terraform_dir))
+    calls = []
+    monkeypatch.setattr(
+        runner,
+        "_run_command",
+        lambda args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    runner.apply_targets(
+        str(tmp_path / "vars.json"),
+        (
+            "google_storage_bucket.build",
+            'google_service_account.runtime["build"]',
+        ),
+    )
+
+    assert calls == [
+        (
+            [
+                "apply",
+                "-auto-approve",
+                f"-var-file={tmp_path / 'vars.json'}",
+                "-target=google_storage_bucket.build",
+                '-target=google_service_account.runtime["build"]',
+            ],
+            {"stream_output": True},
+        )
+    ]

@@ -16,6 +16,7 @@ azure-functions
 azure-cosmos
 azure-storage-blob
 azure-identity
+azure-servicebus
 azure-mgmt-resource
 azure-mgmt-web
 azure-mgmt-storage

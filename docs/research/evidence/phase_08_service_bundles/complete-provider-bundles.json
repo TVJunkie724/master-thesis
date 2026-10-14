@@ -1,0 +1,206 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "complete-provider-bundles",
+  "selection_policy": {
+    "primary_criterion": "mandatory_functional_completeness",
+    "secondary_criterion": "theoretical_small_medium_large_admissibility",
+    "service_family_cost_optimization": false,
+    "candidate_cost_ranking_after_admission": true,
+    "silent_service_substitution": false
+  },
+  "providers": [
+    {
+      "provider": "aws",
+      "region": "eu-central-1",
+      "layers": {
+        "l1_acquisition": [
+          "aws.iot-core",
+          "aws.iot-commands"
+        ],
+        "l2_processing": [
+          "aws.lambda",
+          "aws.step-functions-standard"
+        ],
+        "l3_hot": [
+          "aws.dynamodb-on-demand-raw",
+          "aws.dynamodb-on-demand-hourly-rollup",
+          "aws.lambda-raw-history-reader"
+        ],
+        "l3_cool": [
+          "aws.s3-standard-ia"
+        ],
+        "l3_archive": [
+          "aws.s3-glacier-deep-archive"
+        ],
+        "l4_twin": [
+          "aws.iot-twinmaker-standard"
+        ],
+        "l5_visualization": [
+          "aws.lambda-visualization"
+        ]
+      },
+      "support_components": [
+        "aws.eventbridge-scheduler",
+        "aws.ecs-fargate-storage-mover",
+        "aws.ecr-if-container-selected",
+        "aws.cloudwatch",
+        "aws.iam-identity-center-layer-access"
+      ],
+      "embedded_event_components": [
+        "aws.sqs-fifo",
+        "aws.lambda-event-adapter",
+        "aws.kinesis-only-for-reviewed-remote-telemetry-edge",
+        "aws.sns-fifo-only-for-reviewed-remote-control-edge"
+      ],
+      "six_layer_event_components": [
+        "aws.kinesis-data-streams",
+        "aws.sns-fifo",
+        "aws.sqs-fifo",
+        "aws.lambda-event-worker",
+        "aws.s3-event-failure-store",
+        "aws.cloudwatch"
+      ],
+      "scenario_selection": {
+        "small": "same_service_family",
+        "medium": "same_service_family",
+        "large": "same_service_family_with_calculated_capacity"
+      }
+    },
+    {
+      "provider": "azure",
+      "region": "westeurope",
+      "layers": {
+        "l1_acquisition": [
+          "azure.iot-hub"
+        ],
+        "l2_processing": [
+          "azure.functions-flex-consumption",
+          "azure.logic-apps-consumption"
+        ],
+        "l3_hot": [
+          "azure.cosmos-db-nosql-raw-and-rollup",
+          "azure.functions-flex-raw-history-reader"
+        ],
+        "l3_cool": [
+          "azure.blob-cool"
+        ],
+        "l3_archive": [
+          "azure.blob-archive"
+        ],
+        "l4_twin": [
+          "azure.digital-twins"
+        ],
+        "l5_visualization": [
+          "azure.functions-flex-visualization"
+        ]
+      },
+      "support_components": [
+        "azure.container-apps-scheduled-storage-job",
+        "azure.acr-basic-if-container-selected",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace",
+        "azure.entra-layer-access-bindings"
+      ],
+      "embedded_event_components": [
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-adapter",
+        "azure.event-hubs-only-for-reviewed-remote-telemetry-edge"
+      ],
+      "six_layer_event_components": [
+        "azure.event-hubs-standard-small-medium",
+        "azure.event-hubs-dedicated-large",
+        "azure.service-bus-standard",
+        "azure.functions-flex-event-worker",
+        "azure.monitor",
+        "azure.log-analytics-shared-workspace"
+      ],
+      "scenario_selection": {
+        "small": "cosmos-serverless-and-bounded-reader",
+        "medium": "cosmos-serverless-and-bounded-reader",
+        "large": "cosmos-calculated-autoscale-and-bounded-reader"
+      },
+      "rejected_alternatives": [
+        "azure.data-explorer-as-l3-hot"
+      ]
+    },
+    {
+      "provider": "gcp",
+      "region": "europe-west1",
+      "layers": {
+        "l1_acquisition": [
+          "apache.bifromq-4.0.0-incubating-on-gke-standard",
+          "gcp.external-load-balancer",
+          "gcp.ordered-mqtt-pubsub-adapter"
+        ],
+        "l2_processing": [
+          "gcp.cloud-run-service",
+          "gcp.workflows"
+        ],
+        "l3_hot": [
+          "gcp.firestore-native-standard-raw-and-rollup",
+          "gcp.cloud-run-raw-history-reader"
+        ],
+        "l3_cool": [
+          "gcp.cloud-storage-nearline"
+        ],
+        "l3_archive": [
+          "gcp.cloud-storage-archive"
+        ],
+        "l4_twin": [
+          "gcp.cloud-run-twin-api-materializer",
+          "gcp.firestore-native-standard-bounded-twin",
+          "gcp.cloud-run-iap-twin-explorer",
+          "gcp.direct-iap-layer-access"
+        ],
+        "l5_visualization": []
+      },
+      "support_components": [
+        "gcp.cloud-scheduler",
+        "gcp.cloud-run-storage-job",
+        "gcp.artifact-registry-if-container-selected",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "embedded_event_components": [
+        "gcp.pubsub-separated-embedded-topics",
+        "gcp.cloud-run-event-adapter"
+      ],
+      "six_layer_event_components": [
+        "gcp.pubsub-separated-event-layer-topics",
+        "gcp.cloud-run-event-service-small-medium",
+        "gcp.cloud-run-worker-pool-fixed-large",
+        "gcp.cloud-logging",
+        "gcp.cloud-monitoring"
+      ],
+      "scenario_selection": {
+        "small": "firestore-one-shard-bounded-reader",
+        "medium": "firestore-one-shard-bounded-reader",
+        "large": "firestore-sixteen-shards-bounded-reader"
+      },
+      "shared_resource_rules": [
+        "one_named_firestore_database_per_deployment_with_distinct_l3_l4_collections_and_identities",
+        "separate_l1_and_event_layer_pubsub_resources_and_cost_ownership"
+      ],
+      "accepted_limitations": [
+        "firestore_server_iam_is_database_wide_not_collection_scoped",
+        "large_six_layer_worker_pool_is_preview_fixed_size_and_non_autoscaling"
+      ],
+      "rejected_alternatives": [
+        "bigquery-as-l3-hot",
+        "spanner-graph-as-l4"
+      ]
+    }
+  ],
+  "pinned_self_hosted_artifacts": [
+    {
+      "artifact_id": "apache-bifromq-linux-amd64",
+      "image": "docker.io/apache/bifromq:4.0.0-incubating",
+      "digest": "sha256:14856495892e3b84d25092a90de3c2fc149a3482afd283abb95fdff18effd924",
+      "license": "Apache-2.0",
+      "architecture": "linux/amd64"
+    }
+  ],
+  "plugin_decisions": []
+}

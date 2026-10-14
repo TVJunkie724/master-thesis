@@ -1,4 +1,5 @@
 {
   "APP_MODE": "production",
-  "API_BASE_URL": "https://management.example.invalid"
+  "API_BASE_URL": "https://management.example.invalid",
+  "POC_AUTH_TOKEN": "replace-with-local-poc-token"
 }

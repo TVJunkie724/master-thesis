@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session
 
 from src.repositories.twin_repository import TwinRepository
 from src.services.architecture_projection_service import (
-    compatibility_provider_for_component,
-    compatibility_required_providers,
+    provider_for_component,
+    required_providers,
 )
 from src.services.deployment_stream_service import create_session
 from src.services.provider_contract import provider_id_for_deployer_api
@@ -158,12 +158,12 @@ python src/main.py --project {resource_name}
 
     @staticmethod
     def _configured_providers(twin) -> list[str]:
-        providers = sorted(compatibility_required_providers(twin))
+        providers = sorted(required_providers(twin))
         return providers or ["aws"]
 
     @staticmethod
     def _architecture_l1_provider(twin) -> str:
-        provider = compatibility_provider_for_component(twin, "component.ingestion")
+        provider = provider_for_component(twin, "component.ingestion")
         return provider_id_for_deployer_api(provider) if provider else "gcp"
 
     @staticmethod

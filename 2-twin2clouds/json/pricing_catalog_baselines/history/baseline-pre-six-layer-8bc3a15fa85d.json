@@ -1,0 +1,63 @@
+{
+  "catalogs": {
+    "aws": {
+      "calculation_source": "reviewed_baseline",
+      "content_digest": "sha256:95177e4a02b65ba3e865ee639bcdfeba867583e06077dbe519de9dc355255ec9",
+      "contract_version": "2026.07.18",
+      "fetched_at": "2026-08-25T16:58:12Z",
+      "mapping_versions": [
+        "2026.07.17",
+        "2026.07.18"
+      ],
+      "pricing_region": "eu-central-1",
+      "provider": "aws",
+      "provider_schema_version": "pricing-provider-schema.v2",
+      "publication_status": "published",
+      "registry_version": "2026.07.17",
+      "review_status": "reviewed",
+      "schema_version": "pricing-catalog-reference.v1",
+      "snapshot_id": "pcs_1781c618eadf4fa08e00c1f92c2d862ef013bd6fbaa767cb03cd4464fe8437fa",
+      "source": "reviewed_baseline"
+    },
+    "azure": {
+      "calculation_source": "reviewed_baseline",
+      "content_digest": "sha256:1a1f8220a54fb081c3fd7f04dcc6676371b87b260b14b6aaff9d8e400cb81a84",
+      "contract_version": "2026.07.18",
+      "fetched_at": "2026-08-25T16:58:12Z",
+      "mapping_versions": [
+        "2026.06.08",
+        "2026.07.16",
+        "2026.07.17"
+      ],
+      "pricing_region": "westeurope",
+      "provider": "azure",
+      "provider_schema_version": "pricing-provider-schema.v2",
+      "publication_status": "published",
+      "registry_version": "2026.07.17",
+      "review_status": "reviewed",
+      "schema_version": "pricing-catalog-reference.v1",
+      "snapshot_id": "pcs_c8282fd001ae9c4854746a2372fe43a1b49c460f0c51354ff18c81cd1aa285ab",
+      "source": "reviewed_baseline"
+    },
+    "gcp": {
+      "calculation_source": "reviewed_baseline",
+      "content_digest": "sha256:837bc0210aea9c30b4636444cb9687cab931e1f3f672809aac80d7080381dddb",
+      "contract_version": "2026.07.18",
+      "fetched_at": "2026-08-25T16:58:12Z",
+      "mapping_versions": [
+        "2026.06.08",
+        "2026.07.18"
+      ],
+      "pricing_region": "europe-west1",
+      "provider": "gcp",
+      "provider_schema_version": "pricing-provider-schema.v2",
+      "publication_status": "published",
+      "registry_version": "2026.07.17",
+      "review_status": "reviewed",
+      "schema_version": "pricing-catalog-reference.v1",
+      "snapshot_id": "pcs_ad0f8041249c3e30591d20631f40e9eacba73c4e1920fe7717c1c3fe6f9a7fc3",
+      "source": "reviewed_baseline"
+    }
+  },
+  "schema_version": "pricing-catalog-baseline.v1"
+}

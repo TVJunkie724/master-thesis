@@ -80,29 +80,29 @@ abstract class AppSpacing {
   /// Provider accent strip width
   static const double providerAccentWidth = 4;
 
-  /// Provider pricing row accent strip height
-  static const double providerAccentHeight = 40;
-
   /// Deployment verification terminal log viewport height
   static const double terminalLogHeight = 220;
 
   /// Compact global marker height for the isolated offline demo runtime
   static const double demoBannerMinHeight = 36;
 
-  /// Profile avatar radius for account identity cards
-  static const double profileAvatarRadius = 40;
-
   /// Deployment verification payload editor max lines
   static const int payloadEditorMaxLines = 6;
 
-  /// Pricing review card layout breakpoint
-  static const double pricingReviewCardBreakpoint = 900;
+  /// Evidence cards stack below this width.
+  static const double evidenceCardBreakpoint = 900;
+
+  /// Minimum width covered by the compact supported-layout contract.
+  static const double compactSupportedWidth = 640;
 
   /// Twin Overview sections stack below this width.
   static const double twinOverviewCompactBreakpoint = 900;
 
   /// Wizard navigation uses its three-region desktop layout from this width.
   static const double configurationNavigationWideBreakpoint = 1024;
+
+  /// Workload scenario cards stack below the compact workspace breakpoint.
+  static const double configurationWorkloadCompactBreakpoint = 960;
 
   /// Resolved deployment rows use fixed metadata columns from this width.
   static const double resolvedDeploymentWideBreakpoint = 720;
@@ -116,8 +116,53 @@ abstract class AppSpacing {
   /// Stable provider column width in resolved deployment rows.
   static const double resolvedDeploymentProviderColumnWidth = 96;
 
+  /// Stable label column width in generic resolved-architecture evidence.
+  static const double resolvedArchitectureEvidenceLabelWidth = 140;
+
+  /// Stable label column width in the configuration summary.
+  static const double configurationSummaryLabelWidth = 180;
+
+  /// Logical architecture graph switches to its exact edge-list projection.
+  static const double logicalProfileFlowCompactBreakpoint = 720;
+
+  /// Stable logical architecture node width in the bounded graph viewport.
+  static const double logicalProfileFlowNodeWidth = 190;
+
+  /// Stable logical architecture graph viewport height.
+  static const double logicalProfileFlowViewportHeight = 320;
+
+  /// Minimum zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowMinScale = 0.5;
+
+  /// Default zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowDefaultScale = 1;
+
+  /// Maximum zoom for the bounded logical architecture graph.
+  static const double logicalProfileFlowMaxScale = 2;
+
+  /// Keyboard/button zoom increment for the logical architecture graph.
+  static const double logicalProfileFlowScaleStep = 0.25;
+
+  /// Graph edge stroke width.
+  static const double logicalProfileFlowEdgeWidth = 1;
+
+  /// Compact progress-indicator stroke width inside an action button.
+  static const double compactProgressIndicatorStrokeWidth = 2;
+
+  /// Maximum text scaling that still uses fixed resolved-review columns.
+  static const double resolvedArchitectureWideTextScaleLimit = 1.3;
+
   /// Maximum width for confirmation-dialog content.
   static const double dialogContentMaxWidth = 480;
+
+  /// Preferred read-only code viewer width before dialog constraints apply.
+  static const double codeViewerWidth = 700;
+
+  /// Preferred read-only code viewer height before dialog constraints apply.
+  static const double codeViewerHeight = 500;
+
+  /// Readable monospace size for code and deployment-log artifacts.
+  static const double codeViewerFontSize = 13;
 
   /// Stable two-line status area in compact operational actions.
   static const double utilityStatusHeight = 40;

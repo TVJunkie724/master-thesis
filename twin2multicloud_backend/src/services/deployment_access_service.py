@@ -1,0 +1,84 @@
+"""Owner-scoped secret-free Layer Access read model."""
+
+from __future__ import annotations
+
+from pydantic import ValidationError as PydanticValidationError
+
+from src.models.twin import TwinState
+from src.repositories.deployment_repository import DeploymentRepository
+from src.repositories.twin_repository import TwinRepository
+from src.schemas.deployment_access import (
+    DeploymentAccessEvidence,
+    DeploymentAccessSnapshot,
+    SUPPORTED_DEPLOYMENT_ACCESS_PROFILES,
+)
+from src.services.service_errors import (
+    ConflictError,
+    EntityNotFoundError,
+    ValidationError,
+)
+
+
+class DeploymentAccessService:
+    """Build the public contract exclusively from persisted safe evidence."""
+
+    def __init__(
+        self,
+        twin_repository: TwinRepository,
+        deployment_repository: DeploymentRepository,
+        *,
+        project_preparer=None,
+        deployer_client=None,
+    ):
+        self._twins = twin_repository
+        self._deployments = deployment_repository
+        self._project_preparer = project_preparer
+        self._deployer_client = deployer_client
+
+    async def get_visualization(self, twin_id: str, user_id: str) -> bytes:
+        """Authorize before staging credentials; never accept a client URL."""
+        snapshot = self.get_access(twin_id, user_id)
+        surface = next(item for item in snapshot.surfaces if item.layer == "l5")
+        if surface.provider not in {"aws", "azure"} or surface.readiness.content != "ready":
+            raise ConflictError("DEPLOYMENT_VISUALIZATION_NOT_READY")
+        from src.clients.deployer_client import DeployerClient
+        from src.services.deployment_service import prepare_project_for_deployment
+        from src.services.service_errors import DownstreamServiceError
+        twin = self._twins.get_active_for_user(twin_id, user_id)
+        try:
+            prepare = self._project_preparer or prepare_project_for_deployment
+            prepared = await prepare(twin, user_id)
+            client = self._deployer_client or DeployerClient()
+            return await client.get_visualization(prepared.resource_name, prepared.operation_token)
+        except Exception as exc:
+            raise DownstreamServiceError(status_code=502, public_detail="L5 visualization is unavailable. Retry while the Twin is deployed.") from exc
+
+    def get_access(self, twin_id: str, user_id: str) -> DeploymentAccessSnapshot:
+        twin = self._twins.get_active_for_user(twin_id, user_id)
+        if twin is None:
+            raise EntityNotFoundError("Twin not found")
+        if twin.state != TwinState.DEPLOYED:
+            raise ConflictError("DEPLOYMENT_ACCESS_REQUIRES_DEPLOYED_TWIN")
+        deployment = self._deployments.latest_successful_deploy(twin_id)
+        if deployment is None:
+            raise ConflictError("DEPLOYMENT_ACCESS_DEPLOYMENT_NOT_FOUND")
+
+        profile = (deployment.profile_id, str(deployment.profile_version or ""))
+        if profile not in SUPPORTED_DEPLOYMENT_ACCESS_PROFILES:
+            raise ConflictError("DEPLOYMENT_ACCESS_PROFILE_NOT_SUPPORTED")
+        try:
+            evidence = DeploymentAccessEvidence.model_validate(
+                deployment.deployment_access_evidence
+            )
+        except (PydanticValidationError, TypeError) as exc:
+            raise ValidationError("DEPLOYMENT_ACCESS_EVIDENCE_INVALID") from exc
+        if (evidence.profile_id, evidence.profile_version) != profile:
+            raise ValidationError("DEPLOYMENT_ACCESS_EVIDENCE_PROFILE_MISMATCH")
+        return DeploymentAccessSnapshot(
+            twin_id=twin.id,
+            deployment_id=deployment.id,
+            generated_at=evidence.generated_at,
+            availability="available",
+            reason_code=None,
+            surfaces=evidence.surfaces,
+        )

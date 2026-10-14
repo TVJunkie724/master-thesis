@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "six-layer-workload.v1",
+  "numberOfDevices": 30000,
+  "deviceSendingIntervalInMinutes": 0.1,
+  "averageSizeOfMessageInKb": 0.8,
+  "numberOfDeviceTypes": 1,
+  "hotStorageDurationInMonths": 1,
+  "coolStorageDurationInMonths": 3,
+  "archiveStorageDurationInMonths": 12,
+  "twinEntityCount": 30000,
+  "aggregateDashboardRefreshesPerHour": 120,
+  "apiCallsPerAggregateDashboardRefresh": 100,
+  "dashboardActiveHoursPerDay": 8,
+  "monthlyEditorSeats": 100,
+  "monthlyViewerSeats": 300,
+  "twinStateMaterializationsPerSecond": 50,
+  "twinGraphUpdatesPerSecond": 1,
+  "eventingScenarioId": "eventing-large-v1",
+  "currency": "USD"
+}

@@ -9,12 +9,13 @@ from unittest.mock import MagicMock
 from src.providers.terraform.aws_deployer import _ensure_iot_policy, _simulator_iot_policy
 
 
-def test_simulator_policy_is_scoped_to_exact_client_and_telemetry_topic():
+def test_simulator_policy_is_scoped_to_exact_device_telemetry_and_command_topics():
     document = _simulator_iot_policy(
         region="eu-central-1",
         account_id="123456789012",
         device_id="device-1",
         topic="dt/factory/device-1/telemetry",
+        command_target_id="factory-device-1",
     )
 
     assert document["Statement"] == [
@@ -30,6 +31,33 @@ def test_simulator_policy_is_scoped_to_exact_client_and_telemetry_topic():
             "Action": "iot:Publish",
             "Resource": "arn:aws:iot:eu-central-1:123456789012:topic/dt/factory/device-1/telemetry",
         },
+        {
+            "Sid": "SubscribeToDeviceCommands",
+            "Effect": "Allow",
+            "Action": "iot:Subscribe",
+            "Resource": (
+                "arn:aws:iot:eu-central-1:123456789012:topicfilter/"
+                "$aws/commands/things/factory-device-1/executions/*/request/json"
+            ),
+        },
+        {
+            "Sid": "ReceiveDeviceCommands",
+            "Effect": "Allow",
+            "Action": "iot:Receive",
+            "Resource": (
+                "arn:aws:iot:eu-central-1:123456789012:topic/"
+                "$aws/commands/things/factory-device-1/executions/*/request/json"
+            ),
+        },
+        {
+            "Sid": "AcknowledgeDeviceCommands",
+            "Effect": "Allow",
+            "Action": "iot:Publish",
+            "Resource": (
+                "arn:aws:iot:eu-central-1:123456789012:topic/"
+                "$aws/commands/things/factory-device-1/executions/*/response/json"
+            ),
+        },
     ]
 
 
@@ -41,6 +69,7 @@ def test_existing_matching_policy_is_not_versioned():
         account_id="123456789012",
         device_id="device-1",
         topic="dt/factory/device-1/telemetry",
+        command_target_id="factory-device-1",
     )
     iot.get_policy.return_value = {"defaultVersionId": "1"}
     iot.get_policy_version.return_value = {"policyDocument": document}
@@ -58,6 +87,7 @@ def test_outdated_policy_is_replaced_and_oldest_non_default_version_removed_at_l
         account_id="123456789012",
         device_id="device-1",
         topic="dt/factory/device-1/telemetry",
+        command_target_id="factory-device-1",
     )
     iot.get_policy.return_value = {"defaultVersionId": "5"}
     iot.get_policy_version.return_value = {

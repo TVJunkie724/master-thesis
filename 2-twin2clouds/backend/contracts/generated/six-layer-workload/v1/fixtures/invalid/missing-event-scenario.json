@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "six-layer-workload.v1",
+  "numberOfDevices": 100,
+  "deviceSendingIntervalInMinutes": 2.0,
+  "averageSizeOfMessageInKb": 0.25,
+  "numberOfDeviceTypes": 1,
+  "hotStorageDurationInMonths": 1,
+  "coolStorageDurationInMonths": 3,
+  "archiveStorageDurationInMonths": 12,
+  "twinEntityCount": 100,
+  "aggregateDashboardRefreshesPerHour": 12,
+  "apiCallsPerAggregateDashboardRefresh": 1,
+  "dashboardActiveHoursPerDay": 1,
+  "monthlyEditorSeats": 2,
+  "monthlyViewerSeats": 1,
+  "twinStateMaterializationsPerSecond": 0.1,
+  "twinGraphUpdatesPerSecond": 0.01,
+  "currency": "USD"
+}

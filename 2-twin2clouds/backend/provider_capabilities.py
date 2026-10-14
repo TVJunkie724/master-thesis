@@ -44,11 +44,6 @@ class CapabilityAvailability(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
-class CapabilityRoadmap(str, Enum):
-    NONE = "none"
-    PLANNED = "planned"
-
-
 class CapabilityVerificationLevel(str, Enum):
     NOT_VERIFIED = "not_verified"
     CONTRACT_TESTED = "contract_tested"
@@ -62,7 +57,6 @@ class ProviderLayerCapability(BaseModel):
 
     layer: LayerId
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap = CapabilityRoadmap.NONE
     reason_code: str | None = None
     reason: str | None = None
     verification_level: CapabilityVerificationLevel
@@ -74,8 +68,6 @@ class ProviderLayerCapability(BaseModel):
         if self.availability is CapabilityAvailability.AVAILABLE:
             if has_reason or has_code:
                 raise ValueError("Available capabilities cannot declare a reason")
-            if self.roadmap is not CapabilityRoadmap.NONE:
-                raise ValueError("Available capabilities cannot be marked planned")
         elif not has_reason or not has_code:
             raise ValueError("Unavailable capabilities require a reason code and reason")
         return self
@@ -116,7 +108,7 @@ _CALCULATORS = {
     "gcp": GCPLayerCalculators,
 }
 
-_PLANNED_UNSUPPORTED = {
+_UNSUPPORTED_REASONS = {
     ("gcp", "l4"): (
         "CALCULATION_NOT_IMPLEMENTED",
         "GCP L4 calculation is outside the implemented thesis path.",
@@ -145,7 +137,7 @@ def get_provider_capabilities() -> ServiceProviderCapabilities:
                 )
                 continue
 
-            reason_code, reason = _PLANNED_UNSUPPORTED.get(
+            reason_code, reason = _UNSUPPORTED_REASONS.get(
                 (provider_id, layer_id),
                 (
                     "CALCULATION_NOT_IMPLEMENTED",
@@ -156,11 +148,6 @@ def get_provider_capabilities() -> ServiceProviderCapabilities:
                 ProviderLayerCapability(
                     layer=layer_id,
                     availability=CapabilityAvailability.UNSUPPORTED,
-                    roadmap=(
-                        CapabilityRoadmap.PLANNED
-                        if (provider_id, layer_id) in _PLANNED_UNSUPPORTED
-                        else CapabilityRoadmap.NONE
-                    ),
                     reason_code=reason_code,
                     reason=reason,
                     verification_level=CapabilityVerificationLevel.NOT_VERIFIED,

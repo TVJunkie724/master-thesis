@@ -40,11 +40,6 @@ class CapabilityAvailability(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
-class CapabilityRoadmap(str, Enum):
-    NONE = "none"
-    PLANNED = "planned"
-
-
 class CapabilityVerificationLevel(str, Enum):
     NOT_VERIFIED = "not_verified"
     CONTRACT_TESTED = "contract_tested"
@@ -56,7 +51,6 @@ class ProviderLayerCapability(BaseModel):
 
     layer: LayerId
     availability: CapabilityAvailability
-    roadmap: CapabilityRoadmap = CapabilityRoadmap.NONE
     reason_code: str | None = None
     reason: str | None = None
     verification_level: CapabilityVerificationLevel
@@ -68,10 +62,10 @@ class ProviderLayerCapability(BaseModel):
         if self.availability is CapabilityAvailability.AVAILABLE:
             if has_reason or has_code:
                 raise ValueError("Available capabilities cannot declare a reason")
-            if self.roadmap is not CapabilityRoadmap.NONE:
-                raise ValueError("Available capabilities cannot be marked planned")
         elif not has_reason or not has_code:
-            raise ValueError("Unavailable capabilities require a reason code and reason")
+            raise ValueError(
+                "Unavailable capabilities require a reason code and reason"
+            )
         return self
 
 
@@ -99,7 +93,9 @@ class ServiceProviderCapabilities(BaseModel):
     @model_validator(mode="after")
     def validate_providers(self) -> "ServiceProviderCapabilities":
         if tuple(item.provider for item in self.providers) != ("aws", "azure", "gcp"):
-            raise ValueError("Capabilities must contain AWS, Azure, and GCP exactly once")
+            raise ValueError(
+                "Capabilities must contain AWS, Azure, and GCP exactly once"
+            )
         return self
 
 
@@ -119,8 +115,7 @@ class ProviderCapabilityError(ValueError):
     def __init__(self, violations: tuple[ProviderCapabilityViolation, ...]):
         self.violations = violations
         summary = ", ".join(
-            f"{item.provider}:{item.layer} ({item.reason_code})"
-            for item in violations
+            f"{item.provider}:{item.layer} ({item.reason_code})" for item in violations
         )
         super().__init__(f"Provider capability unavailable: {summary}")
 
@@ -155,7 +150,6 @@ def _build_provider(provider: ProviderId) -> ProviderCapability:
                 ProviderLayerCapability(
                     layer=layer,
                     availability=CapabilityAvailability.UNSUPPORTED,
-                    roadmap=CapabilityRoadmap.PLANNED,
                     reason_code=reason_code,
                     reason=reason,
                     verification_level=CapabilityVerificationLevel.NOT_VERIFIED,
@@ -195,6 +189,8 @@ def get_provider_layer_capability(
 
 def validate_provider_selections(
     selections: Mapping[str, str],
+    *,
+    architecture_profile: tuple[str, str] | None = None,
 ) -> tuple[ProviderCapabilityViolation, ...]:
     violations: list[ProviderCapabilityViolation] = []
     for layer, provider in selections.items():
@@ -206,6 +202,15 @@ def validate_provider_selections(
         normalized_provider = (
             "gcp" if provider.strip().lower() == "google" else provider.strip().lower()
         )
+        if (
+            architecture_profile == ("six-layer-eventing", "1")
+            and normalized_provider == "gcp"
+            and layer in {"l4", "l5"}
+        ):
+            # The public v1 capability matrix describes the historical generic
+            # layer path. Six-layer owns separate closed-world GCP L4/L5
+            # implementations that have already passed graph resolution.
+            continue
         violations.append(
             ProviderCapabilityViolation(
                 provider=normalized_provider,
@@ -227,8 +232,15 @@ def selections_from_terraform_config(config: Mapping[str, object]) -> dict[str, 
     return selections
 
 
-def validate_terraform_provider_capabilities(config: Mapping[str, object]) -> None:
-    violations = validate_provider_selections(selections_from_terraform_config(config))
+def validate_terraform_provider_capabilities(
+    config: Mapping[str, object],
+    *,
+    architecture_profile: tuple[str, str] | None = None,
+) -> None:
+    violations = validate_provider_selections(
+        selections_from_terraform_config(config),
+        architecture_profile=architecture_profile,
+    )
     if violations:
         raise ProviderCapabilityError(violations)
 

@@ -50,7 +50,6 @@ class TwinConfiguration(Base):
     # GCP CloudConnection binding plus non-secret provider metadata.
     gcp_cloud_connection_id = Column(String, ForeignKey("cloud_connections.id"), nullable=True)
     gcp_project_id = Column(String, nullable=True)  # Not encrypted (usually public)
-    gcp_billing_account = Column(String, nullable=True)  # Legacy encrypted migration column
     gcp_region = Column(String, default="europe-west1")  # Not encrypted
     gcp_service_account_json = Column(Text, nullable=True)  # Legacy encrypted migration column
     gcp_validated = Column(Boolean, default=False)

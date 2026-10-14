@@ -12,8 +12,6 @@ abstract final class ProviderCapabilityStrings {
   static const unavailableMessage =
       'The capability contract could not be validated. Retry before configuring this layer.';
   static const retry = 'Retry';
-  static const planned =
-      'Future implementation is tracked; this path remains unavailable.';
 }
 
 class ProviderCapabilityStatusCard extends StatelessWidget {
@@ -93,15 +91,6 @@ class ProviderCapabilityStatusCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(message, style: theme.textTheme.bodySmall),
-                if (capability?.roadmap == CapabilityRoadmap.planned) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    ProviderCapabilityStrings.planned,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
                 if (!isLoading && capability == null) ...[
                   const SizedBox(height: AppSpacing.sm),
                   TextButton.icon(

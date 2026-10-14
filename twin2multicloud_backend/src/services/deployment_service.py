@@ -18,19 +18,23 @@ import logging
 import re
 import zipfile
 from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Optional, Sequence, TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
+
+from pydantic import ValidationError as PydanticValidationError
 
 from src.clients.deployer_client import DeployerClient
 from src.config import settings
-from src.contracts.executable_topology import (
-    ERROR_HANDLING_FIELD,
-    UNSUPPORTED_ERROR_HANDLING_MESSAGE,
-    UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-    ensure_executable_error_handling_topology,
-)
 from src.repositories.deployment_repository import DeploymentRepository
+from src.schemas.cleanup_evidence import validate_cleanup_evidence
+from src.schemas.optimizer_calculation import OptimizerCalculationParams
+from src.services.architecture_contract_service import (
+    calculate_digest as calculate_architecture_digest,
+)
+from src.services.cost_calculation_run_service import (
+    validate_persisted_run_deployment_specification,
+)
 from src.services.credential_resolution_service import (
     CredentialResolutionService,
     DeploymentCredentials,
@@ -40,12 +44,6 @@ from src.services.errors import (
     DeploymentPackageBuildFailed,
     ExternalServiceError,
     ExternalServiceUnavailable,
-)
-from src.services.cost_calculation_run_service import (
-    validate_persisted_run_deployment_specification,
-)
-from src.services.architecture_contract_service import (
-    calculate_digest as calculate_architecture_digest,
 )
 from src.services.provider_contract import (
     normalize_provider_id,
@@ -62,7 +60,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEPLOYMENT_MANIFEST_FILE = "deployment_manifest.json"
-DEPLOYMENT_MANIFEST_VERSION = "3.0"
+DEPLOYMENT_MANIFEST_V4_VERSION = "4.0"
 RESOLVED_GRAPH_VERSION = "resolved-deployment-graph.v1"
 PACKAGE_BUILDER_VERSION = "graph-package-builder.v1"
 TERRAFORM_INPUT_CONTRACT_VERSION = "graph-terraform-inputs.v1"
@@ -84,6 +82,7 @@ REQUIRED_DEPLOYER_CONFIG_FILES = [
 SECRET_FRAGMENT_PATTERN = re.compile(
     r"(?i)"
     r"(\b(?:aws_access_key_id|aws_secret_access_key|azure_client_secret|"
+    r"azure_preparation_client_secret|"
     r"client_secret|private_key|private_key_id|token|access_token|refresh_token|"
     r"password|secret|api_key|access_key)\b)"
     r"([\"']?\s*[:=]\s*[\"']?)"
@@ -94,6 +93,24 @@ WORKSPACE_PATH_PATTERN = re.compile(
     r"(/[^\s:]+/twin2multicloud-deployer-workspaces/[^\s:]+)"
 )
 STAGE_COMPLETED_MARKER = "T2MC_STAGE_COMPLETED:"
+SIX_LAYER_PROFILE = ("six-layer-eventing", "1")
+SIX_LAYER_FIXED_REGIONS = {
+    "aws": "eu-central-1",
+    "azure": "westeurope",
+    "gcp": "europe-west1",
+}
+SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS = (
+    "event_action_contents",
+    "event_action_requirements",
+    "event_feedback_content",
+    "event_feedback_requirements",
+    "hierarchy_content",
+    "processor_contents",
+    "processor_requirements",
+    "scene_config_content",
+    "scene_glb_uploaded",
+    "state_machine_content",
+)
 
 
 @dataclass(frozen=True)
@@ -105,6 +122,8 @@ class DeployerStreamResult:
     error_code: str | None = None
     message: str | None = None
     outputs: dict[str, Any] | None = None
+    deployment_access_evidence: dict[str, Any] | None = None
+    cleanup_evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -217,6 +236,8 @@ def build_deploy_config(twin) -> dict:
             "l4": provider_config["layer_4_provider"],
             "l5": provider_config["layer_5_provider"],
         }
+        if "event_layer_provider" in provider_config:
+            config["layers"]["eventing"] = provider_config["event_layer_provider"]
         if oc.result_json:
             config["optimizer_result"] = json.loads(oc.result_json)
 
@@ -246,6 +267,8 @@ def _parse_deployer_sse_data(
         payload = json.loads(raw_data)
     except json.JSONDecodeError:
         if event_type in {"complete", "error"}:
+            if operation_type == "destroy" and event_type == "complete":
+                raise ValueError("Successful destroy requires typed cleanup evidence")
             return None, DeployerStreamResult(
                 success=event_type == "complete",
                 message=_redact_deployment_message(raw_data),
@@ -260,7 +283,29 @@ def _parse_deployer_sse_data(
 
     payload_event = payload.get("event") or event_type
     if payload_event in {"complete", "error"}:
-        success = bool(payload.get("success", payload_event == "complete"))
+        raw_success = payload.get("success", payload_event == "complete")
+        if not isinstance(raw_success, bool):
+            raise ValueError("Deployer terminal success flag is invalid")
+        success = raw_success
+        raw_cleanup_evidence = payload.get("cleanup_evidence")
+        cleanup_evidence = None
+        if raw_cleanup_evidence is not None:
+            if operation_type != "destroy":
+                raise ValueError(
+                    "Cleanup evidence is valid only for destroy operations"
+                )
+            try:
+                cleanup_evidence = validate_cleanup_evidence(raw_cleanup_evidence)
+            except (PydanticValidationError, ValueError) as exc:
+                raise ValueError(
+                    "Deployer cleanup evidence failed contract validation"
+                ) from exc
+            if success != (cleanup_evidence["status"] == "complete"):
+                raise ValueError(
+                    "Destroy terminal status disagrees with cleanup evidence"
+                )
+        elif operation_type == "destroy" and success:
+            raise ValueError("Successful destroy requires cleanup evidence")
         message = (
             payload.get("message")
             or payload.get("error")
@@ -276,6 +321,8 @@ def _parse_deployer_sse_data(
             error_code=payload.get("error_code"),
             message=_redact_deployment_message(message),
             outputs=payload.get("outputs") or {},
+            deployment_access_evidence=payload.get("deployment_access_evidence"),
+            cleanup_evidence=cleanup_evidence,
         )
 
     message = payload.get("message") if payload.get("event") == "log" else None
@@ -298,9 +345,7 @@ def _result_message(
 def _completed_stage_from_log(message: str | None) -> str | None:
     """Extract one bounded Deployer lifecycle stage marker."""
 
-    if not isinstance(message, str) or not message.startswith(
-        STAGE_COMPLETED_MARKER
-    ):
+    if not isinstance(message, str) or not message.startswith(STAGE_COMPLETED_MARKER):
         return None
     stage = message.removeprefix(STAGE_COMPLETED_MARKER)
     return stage if stage in {"package", "preplan", "terraform", "postapply"} else None
@@ -340,25 +385,29 @@ async def run_real_deploy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin
+    from src.services.deployment_stream_service import get_session
 
     session = await get_session(session_id)
     if not session:
         return
 
     db = SessionLocal()
-    DeploymentRepository(db).create_running(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="deploy",
-        graph_evidence=graph_evidence,
-    )
-    db.commit()
-    db.close()
+    try:
+        deployment = DeploymentRepository(db).get_by_session_id(session_id)
+        if deployment is None or deployment.status != "running":
+            raise RuntimeError("Persisted deploy operation is unavailable")
+        if graph_evidence is not None:
+            DeploymentRepository.assert_graph_compatible(
+                deployment,
+                graph_evidence,
+            )
+    finally:
+        db.close()
 
     terraform_outputs = {}
+    deployment_access_evidence = None
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None
 
@@ -381,6 +430,8 @@ async def run_real_deploy_stream(
                     terminal_result = result
                     if result.success and result.outputs:
                         terraform_outputs = result.outputs
+                    if result.success and result.deployment_access_evidence:
+                        deployment_access_evidence = result.deployment_access_evidence
                 elif log_message:
                     completed_stage = _completed_stage_from_log(log_message)
                     if completed_stage is not None:
@@ -422,6 +473,7 @@ async def run_real_deploy_stream(
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
+                        deployment_access_evidence=deployment_access_evidence,
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -447,7 +499,7 @@ async def run_real_deploy_stream(
         session.on_complete(
             success=deploy_success,
             message=error_message,
-            outputs=terraform_outputs,
+            outputs=None,
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if deploy_success
@@ -479,6 +531,7 @@ async def run_real_deploy_stream(
                     repository.mark_success(
                         deployment,
                         terraform_outputs=terraform_outputs,
+                        deployment_access_evidence=deployment_access_evidence,
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -506,7 +559,7 @@ async def run_real_deploy_stream(
         session.on_complete(
             success=deploy_success,
             message=safe_error if not deploy_success else "Deployment complete",
-            outputs=terraform_outputs if deploy_success else {},
+            outputs=None,
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if deploy_success
@@ -537,23 +590,26 @@ async def run_real_destroy_stream(
         provider: Cloud provider (aws, azure, gcp)
     """
     # Late imports to avoid circular dependencies
-    from src.services.deployment_stream_service import get_session
     from src.models.database import SessionLocal
     from src.models.twin import DigitalTwin
+    from src.services.deployment_stream_service import get_session
 
     session = await get_session(session_id)
     if not session:
         return
 
     db = SessionLocal()
-    DeploymentRepository(db).create_running(
-        twin_id=twin_id,
-        session_id=session_id,
-        operation_type="destroy",
-        graph_evidence=graph_evidence,
-    )
-    db.commit()
-    db.close()
+    try:
+        deployment = DeploymentRepository(db).get_by_session_id(session_id)
+        if deployment is None or deployment.status != "running":
+            raise RuntimeError("Persisted destroy operation is unavailable")
+        if graph_evidence is not None:
+            DeploymentRepository.assert_graph_compatible(
+                deployment,
+                graph_evidence,
+            )
+    finally:
+        db.close()
 
     terminal_result: DeployerStreamResult | None = None
     current_event_type: str | None = None
@@ -615,6 +671,11 @@ async def run_real_destroy_stream(
                 if destroy_success:
                     repository.mark_success(
                         deployment,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -623,6 +684,11 @@ async def run_real_destroy_stream(
                     repository.mark_failed(
                         deployment,
                         error_message=error_message,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -639,6 +705,11 @@ async def run_real_destroy_stream(
         session.on_complete(
             success=destroy_success,
             message=error_message,
+            outputs=(
+                {"cleanup_evidence": terminal_result.cleanup_evidence}
+                if terminal_result and terminal_result.cleanup_evidence
+                else None
+            ),
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if destroy_success
@@ -671,6 +742,11 @@ async def run_real_destroy_stream(
                 if destroy_success:
                     repository.mark_success(
                         deployment,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -679,6 +755,11 @@ async def run_real_destroy_stream(
                     repository.mark_failed(
                         deployment,
                         error_message=safe_error,
+                        cleanup_evidence=(
+                            terminal_result.cleanup_evidence
+                            if terminal_result
+                            else None
+                        ),
                         operation_id=terminal_result.operation_id
                         if terminal_result
                         else None,
@@ -697,6 +778,11 @@ async def run_real_destroy_stream(
         session.on_complete(
             success=destroy_success,
             message=safe_error if not destroy_success else "Destruction complete",
+            outputs=(
+                {"cleanup_evidence": terminal_result.cleanup_evidence}
+                if terminal_result and terminal_result.cleanup_evidence
+                else None
+            ),
             operation_id=terminal_result.operation_id if terminal_result else None,
             error_code=None
             if destroy_success
@@ -763,14 +849,15 @@ def build_deployment_package(
         calculation_run_id=calculation_run_id,
     )
     optimizer_params = _validated_run_params(contracts.run)
-    _ensure_optimizer_params_are_executable(optimizer_params)
+    _validate_six_layer_optimizer_params(optimizer_params)
     providers = _build_providers_config(contracts.architecture)
+    manifest_providers = _manifest_provider_projection(providers)
     _validate_architecture_specification_path(
         providers,
         contracts.architecture,
         contracts.specification,
     )
-    required_providers = {
+    required_providers = _architecture_provider_ids(contracts.architecture) | {
         normalize_provider_id(provider)
         for key, provider in providers.items()
         if key.endswith("_provider") and provider
@@ -780,11 +867,17 @@ def build_deployment_package(
         user_id,
         required_providers=required_providers,
     )
+    _validate_six_layer_deployment_regions(
+        contracts.architecture,
+        providers,
+        deployment_credentials.config_credentials,
+    )
     files = _materialize_deployment_files(
         twin,
         providers,
         deployment_credentials,
         optimizer_params=optimizer_params,
+        architecture_profile_ref=contracts.architecture.get("architecture_profile_ref"),
     )
     binary_files = _materialize_binary_files(twin, providers)
     file_names = sorted(
@@ -797,7 +890,7 @@ def build_deployment_package(
     extension_references = _extension_manifest_references(files)
     manifest = _build_deployment_manifest(
         twin,
-        providers,
+        manifest_providers,
         deployment_credentials,
         file_names,
         secret_bearing_files,
@@ -820,10 +913,12 @@ def _materialize_deployment_files(
     deployment_credentials: DeploymentCredentials,
     *,
     optimizer_params: dict[str, Any],
+    architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> tuple[DeploymentPackageFile, ...]:
     """Return the text/JSON files required by the Deployer package contract."""
     dc = twin.deployer_config
     oc = twin.optimizer_config
+    _validate_six_layer_deployer_artifacts(dc, architecture_profile_ref)
     files: list[DeploymentPackageFile] = [
         DeploymentPackageFile(
             "config.json",
@@ -880,13 +975,16 @@ def _materialize_deployment_files(
         DeploymentPackageFile(
             "config_optimization.json",
             json.dumps(
-                _build_optimization_config_from_params(optimizer_params),
+                _build_optimization_config_from_params(
+                    optimizer_params,
+                    architecture_profile_ref=architecture_profile_ref,
+                ),
                 indent=2,
             ),
         )
     )
     if dc:
-        extension_files = _materialize_extension_bindings(twin)
+        extension_files = _materialize_twin_user_functions(twin)
         has_validated_extensions = bool(extension_files)
         if _has_legacy_user_functions(dc) and not has_validated_extensions:
             _raise_package_error(
@@ -918,33 +1016,29 @@ def _materialize_deployment_files(
             )
         files.extend(extension_files)
     else:
-        files.extend(_materialize_extension_bindings(twin))
+        files.extend(_materialize_twin_user_functions(twin))
     return tuple(files)
 
 
-def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
-    """Materialize active validated extension bindings without source rewrites."""
+def _materialize_twin_user_functions(twin) -> tuple[DeploymentPackageFile, ...]:
+    """Materialize the current validated sources owned by one Twin."""
     from src.services.user_function_extension_service import (  # noqa: PLC0415
         ExtensionContractError,
         runtime,
     )
 
-    bindings = sorted(
-        (
-            binding
-            for binding in (getattr(twin, "extension_bindings", None) or ())
-            if bool(getattr(binding, "active", False))
-        ),
-        key=lambda binding: (binding.slot_id, binding.slot_version),
+    user_functions = sorted(
+        (getattr(twin, "user_functions", None) or ()),
+        key=lambda item: (item.slot_id, item.slot_version),
     )
-    if not bindings:
+    if not user_functions:
         return ()
 
     files: list[DeploymentPackageFile] = []
     index_bindings: list[dict[str, str]] = []
     identities: set[tuple[str, str]] = set()
-    for binding in bindings:
-        identity = (binding.slot_id, binding.slot_version)
+    for user_function in user_functions:
+        identity = (user_function.slot_id, user_function.slot_version)
         if identity in identities:
             _raise_package_error(
                 "extension_bindings",
@@ -952,14 +1046,9 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "The Twin contains duplicate active extension bindings.",
             )
         identities.add(identity)
-        artifact = binding.artifact
         if (
-            artifact is None
-            or artifact.user_id != getattr(twin, "user_id", None)
-            or binding.user_id != getattr(twin, "user_id", None)
-            or binding.twin_id != getattr(twin, "id", None)
-            or artifact.artifact_state != "valid"
-            or not artifact.manifest_json
+            user_function.twin_id != getattr(twin, "id", None)
+            or not user_function.manifest_json
         ):
             _raise_package_error(
                 "extension_bindings",
@@ -968,19 +1057,19 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
             )
         try:
             manifest = runtime.load_json_bytes(
-                artifact.manifest_json.encode("utf-8"),
+                user_function.manifest_json.encode("utf-8"),
                 field="extension manifest",
             )
             source_files = {
-                item.relative_path: item.content_text for item in artifact.files
+                item.relative_path: item.content_text for item in user_function.files
             }
             runtime.validate_artifact_manifest(manifest, files=source_files)
             expected_binding_digest = runtime.binding_digest(
-                twin_id=binding.twin_id,
-                slot_id=binding.slot_id,
-                slot_version=binding.slot_version,
-                artifact_id=artifact.id,
-                artifact_digest=artifact.artifact_digest,
+                twin_id=user_function.twin_id,
+                slot_id=user_function.slot_id,
+                slot_version=user_function.slot_version,
+                artifact_id=user_function.id,
+                artifact_digest=user_function.artifact_digest,
             )
         except ExtensionContractError as exc:
             _raise_package_error(
@@ -989,11 +1078,10 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "An active extension artifact failed contract validation.",
             )
         if (
-            manifest["artifact_id"] != artifact.id
-            or manifest["artifact_digest"] != artifact.artifact_digest
-            or manifest["slot_id"] != binding.slot_id
-            or manifest["slot_version"] != binding.slot_version
-            or binding.binding_digest != expected_binding_digest
+            manifest["artifact_id"] != user_function.id
+            or manifest["artifact_digest"] != user_function.artifact_digest
+            or manifest["slot_id"] != user_function.slot_id
+            or manifest["slot_version"] != user_function.slot_version
         ):
             _raise_package_error(
                 "extension_bindings",
@@ -1001,7 +1089,7 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
                 "An active extension binding does not match its immutable artifact.",
             )
 
-        artifact_root = f".twin2multicloud/extensions/artifacts/{artifact.id}"
+        artifact_root = f".twin2multicloud/extensions/artifacts/{user_function.id}"
         manifest_path = f"{artifact_root}/manifest.json"
         source_root = f"{artifact_root}/source"
         files.append(
@@ -1019,11 +1107,11 @@ def _materialize_extension_bindings(twin) -> tuple[DeploymentPackageFile, ...]:
         )
         index_bindings.append(
             {
-                "slot_id": binding.slot_id,
-                "slot_version": binding.slot_version,
-                "artifact_id": artifact.id,
-                "artifact_digest": artifact.artifact_digest,
-                "binding_digest": binding.binding_digest,
+                "slot_id": user_function.slot_id,
+                "slot_version": user_function.slot_version,
+                "artifact_id": user_function.id,
+                "artifact_digest": user_function.artifact_digest,
+                "binding_digest": expected_binding_digest,
                 "manifest_path": manifest_path,
                 "source_root": source_root,
             }
@@ -1344,6 +1432,7 @@ def _build_main_config(
     # The optional fallback keeps this helper usable for historical read/tests.
     hot_days = 30  # default: 1 month
     cold_days = 90  # default: 3 months
+    archive_days = 360  # default: 12 months
     params = optimizer_params
     if params is None and twin.optimizer_config and twin.optimizer_config.params:
         params = _json_object_from_content(
@@ -1353,6 +1442,7 @@ def _build_main_config(
     if params is not None:
         hot_days = _months_to_days(params.get("hotStorageDurationInMonths"), 1)
         cold_days = _months_to_days(params.get("coolStorageDurationInMonths"), 3)
+        archive_days = _months_to_days(params.get("archiveStorageDurationInMonths"), 12)
 
     # Mode from Step 1 debug toggle
     mode = (
@@ -1365,6 +1455,7 @@ def _build_main_config(
         "digital_twin_name": get_resource_name(twin),
         "hot_storage_size_in_days": hot_days,
         "cold_storage_size_in_days": cold_days,
+        "archive_storage_size_in_days": archive_days,
         "mode": mode,
     }
 
@@ -1382,6 +1473,7 @@ def _build_providers_config(
         "component.archive-storage": "layer_3_archive_provider",
         "component.twin-state": "layer_4_provider",
         "component.visualization": "layer_5_provider",
+        "component.eventing": "event_layer_provider",
     }
     providers: dict[str, str] = {}
     for assignment in resolved_architecture.get("component_assignments", []):
@@ -1398,17 +1490,25 @@ def _build_providers_config(
                 ],
             )
         providers[key] = provider_id_for_deployer_project(assignment.get("provider"))
-    if set(providers) != set(key_by_component.values()):
+    expected_keys = set(key_by_component.values())
+    if set(providers) != expected_keys:
         raise DeploymentPackageBuildFailed(
             "The selected architecture provider projection is incomplete",
             [
                 {
                     "field": "resolved_twin_architecture.component_assignments",
-                    "message": "Every baseline component must be assigned once",
+                    "message": "Every Six-layer component must be assigned once",
                 }
             ],
         )
     return providers
+
+
+def _manifest_provider_projection(providers: Mapping[str, str]) -> dict[str, str]:
+    """Keep DeploymentManifest providers on its frozen L1-L5 schema."""
+    return {
+        key: value for key, value in providers.items() if key != "event_layer_provider"
+    }
 
 
 def _build_credentials_config(twin, user_id: str) -> tuple[dict, Optional[dict]]:
@@ -1454,8 +1554,12 @@ def _build_deployment_manifest(
     must never contain credential payloads or decrypted secret values.
     """
     normalized_extension_references = list(extension_references)
+    manifest_version = _manifest_version_for_contracts(
+        resolved_architecture,
+        deployment_specification,
+    )
     return {
-        "manifest_version": DEPLOYMENT_MANIFEST_VERSION,
+        "manifest_version": manifest_version,
         "generated_at": datetime.now(timezone.utc)
         .isoformat(timespec="seconds")
         .replace("+00:00", "Z"),
@@ -1493,12 +1597,41 @@ def _build_deployment_manifest(
             "bindings": normalized_extension_references,
         },
         "compatibility": {
-            "component_catalog_ref": _component_catalog_ref(),
+            "component_catalog_ref": _component_catalog_ref(
+                resolved_architecture.get("architecture_profile_ref")
+            ),
             "graph_resolver_version": RESOLVED_GRAPH_VERSION,
             "package_builder_version": PACKAGE_BUILDER_VERSION,
             "terraform_input_contract_version": (TERRAFORM_INPUT_CONTRACT_VERSION),
         },
     }
+
+
+def _manifest_version_for_contracts(
+    architecture: dict[str, Any],
+    specification: dict[str, Any],
+) -> str:
+    """Select only an explicitly supported RTA/RDS manifest pairing."""
+
+    pair = (
+        architecture.get("schema_version"),
+        specification.get("schema_version"),
+    )
+    if pair == (
+        "resolved-twin-architecture.v2",
+        "resolved-deployment-specification.v2",
+    ):
+        return DEPLOYMENT_MANIFEST_V4_VERSION
+    raise DeploymentPackageBuildFailed(
+        "The selected deployment contracts cannot share a manifest",
+        [
+            {
+                "code": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                "field": "deployment_manifest.manifest_version",
+                "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            }
+        ],
+    )
 
 
 def _selected_deployment_contracts(
@@ -1615,38 +1748,57 @@ def _selected_deployment_contracts(
     )
 
 
-def _selected_deployment_specification(twin):
-    """Historical test/helper facade; executable packages use both contracts."""
-
-    return validate_persisted_run_deployment_specification(
-        _selected_deployment_contracts(twin).run
-    )
-
-
 def _validate_architecture_specification_path(
     providers: dict[str, Any],
     architecture: dict[str, Any],
     specification: dict[str, Any],
 ) -> None:
     expected_by_key: dict[str, str] = {}
-    deployer_key_by_slot = {
-        "l1_ingestion": "layer_1_provider",
-        "l2_processing": "layer_2_provider",
-        "l3_hot_storage": "layer_3_hot_provider",
-        "l3_cool_storage": "layer_3_cold_provider",
-        "l3_archive_storage": "layer_3_archive_provider",
-        "l4_twin_state": "layer_4_provider",
-        "l5_visualization": "layer_5_provider",
+    deployer_key_by_logical = {
+        "component.ingestion": "layer_1_provider",
+        "component.processing": "layer_2_provider",
+        "component.hot-storage": "layer_3_hot_provider",
+        "component.cool-storage": "layer_3_cold_provider",
+        "component.archive-storage": "layer_3_archive_provider",
+        "component.twin-state": "layer_4_provider",
+        "component.visualization": "layer_5_provider",
+        "component.eventing": "event_layer_provider",
     }
-    for component in specification["components"]:
-        slot_id = component["slot_id"]
-        deployer_key = deployer_key_by_slot.get(slot_id)
+    component_selections = specification.get("component_selections")
+    if not isinstance(component_selections, list):
+        raise DeploymentPackageBuildFailed(
+            "The selected specification has no provider component projection",
+            [
+                {
+                    "field": "resolved_deployment_specification",
+                    "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                }
+            ],
+        )
+    entries = (
+        (
+            deployer_key_by_logical.get(component.get("logical_component_id")),
+            component,
+        )
+        for component in component_selections
+        if isinstance(component, Mapping)
+    )
+
+    for deployer_key, component in entries:
         if deployer_key is None:
             continue
-        expected_by_key.setdefault(
-            deployer_key,
-            provider_id_for_deployer_project(component["provider"]),
-        )
+        provider = provider_id_for_deployer_project(component.get("provider"))
+        previous = expected_by_key.setdefault(deployer_key, provider)
+        if previous != provider:
+            raise DeploymentPackageBuildFailed(
+                "Specification components disagree on provider ownership",
+                [
+                    {
+                        "field": f"providers.{deployer_key}",
+                        "message": "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                    }
+                ],
+            )
 
     actual = _remove_empty_values(providers)
     if actual != expected_by_key:
@@ -1671,11 +1823,35 @@ def _validate_architecture_specification_path(
         )
 
 
-def _component_catalog_ref() -> dict[str, str]:
+def _component_catalog_ref(
+    profile_ref: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    profile_identity = (
+        (
+            str(profile_ref.get("id") or ""),
+            str(profile_ref.get("version") or ""),
+        )
+        if isinstance(profile_ref, dict)
+        else ("six-layer-eventing", "1")
+    )
+    catalog_families = {
+        ("six-layer-eventing", "1"): "six-layer-eventing",
+    }
+    catalog_family = catalog_families.get(profile_identity)
+    if catalog_family is None:
+        raise DeploymentPackageBuildFailed(
+            "The deployment architecture profile is unsupported",
+            [
+                {
+                    "field": "compatibility.component_catalog_ref",
+                    "message": "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+                }
+            ],
+        )
     path = (
         ARCHITECTURE_CONTRACT_ROOT
         / "component-catalogs"
-        / "baseline"
+        / catalog_family
         / "1"
         / "catalog.json"
     )
@@ -1705,7 +1881,9 @@ def _validate_returned_graph_evidence(
     """Bind Deployer preflight evidence to the exact selected contracts."""
 
     profile_ref = contracts.architecture.get("architecture_profile_ref")
-    catalog_ref = _component_catalog_ref()
+    catalog_ref = _component_catalog_ref(
+        profile_ref if isinstance(profile_ref, dict) else None
+    )
     expected = {
         "graph_schema_version": RESOLVED_GRAPH_VERSION,
         "calculation_run_id": contracts.run.id,
@@ -1758,40 +1936,141 @@ def _remove_empty_values(values: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_optimization_config(oc) -> dict:
-    """
-    Build config_optimization.json with the deployer-expected format.
-
-    The deployer reads: result.inputParamsUsed.{flag} via config_loader.load_optimization_flags()
-    These flags control which Terraform resources are conditionally created.
-    """
-    input_params = {}
+def _build_optimization_config(
+    oc,
+    *,
+    architecture_profile_ref: Mapping[str, Any] | None = None,
+) -> dict:
+    """Build the empty feature-flag view required by the Six-layer Deployer."""
     if oc.params:
         params = _json_object_from_content(oc.params, "optimizer_config.params")
         return _build_optimization_config_from_params(
             params,
             field_prefix="optimizer_config.params",
+            architecture_profile_ref=architecture_profile_ref,
         )
-    return {"result": {"inputParamsUsed": input_params}}
+    return {"result": {"inputParamsUsed": {}}}
 
 
 def _build_optimization_config_from_params(
     params: dict[str, Any],
     *,
     field_prefix: str = "cost_calculation_run.params_json",
+    architecture_profile_ref: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, dict[str, bool]]]:
-    """Project immutable calculation parameters into the Deployer flag contract."""
+    """Validate the Six-layer workload and emit no historical feature flags."""
 
-    _ensure_optimizer_params_are_executable(params, field_prefix=field_prefix)
-    input_params = {
-        "useEventChecking": params.get("useEventChecking") is True,
-        "triggerNotificationWorkflow": params.get("triggerNotificationWorkflow")
-        is True,
-        "returnFeedbackToDevice": params.get("returnFeedbackToDevice") is True,
-        "integrateErrorHandling": params.get("integrateErrorHandling") is True,
-        "needs3DModel": params.get("needs3DModel") is True,
+    _validate_six_layer_optimizer_params(params, field_prefix=field_prefix)
+    profile = _architecture_profile_identity(architecture_profile_ref)
+    if profile is not None and profile != SIX_LAYER_PROFILE:
+        _raise_package_error(
+            "resolved_twin_architecture.architecture_profile_ref",
+            "DEPLOYMENT_ARCHITECTURE_INVALID",
+            "Only six-layer-eventing@1 can produce a deployment package.",
+        )
+    return {"result": {"inputParamsUsed": {}}}
+
+
+def _architecture_profile_identity(
+    reference: Mapping[str, Any] | None,
+) -> tuple[str, str] | None:
+    if not isinstance(reference, Mapping):
+        return None
+    profile_id = reference.get("id")
+    version = reference.get("version")
+    if not isinstance(profile_id, str) or not isinstance(version, str):
+        return None
+    return profile_id, version
+
+
+def _architecture_provider_ids(architecture: Mapping[str, Any]) -> set[str]:
+    """Return every cloud owner, including the independent Event Layer."""
+    assignments = architecture.get("component_assignments")
+    if not isinstance(assignments, list):
+        return set()
+    return {
+        normalize_provider_id(provider)
+        for assignment in assignments
+        if isinstance(assignment, Mapping)
+        and isinstance((provider := assignment.get("provider")), str)
+        and provider
     }
-    return {"result": {"inputParamsUsed": input_params}}
+
+
+def _validate_six_layer_deployer_artifacts(
+    deployer_config: Any,
+    architecture_profile_ref: Mapping[str, Any] | None,
+) -> None:
+    if (
+        _architecture_profile_identity(architecture_profile_ref) != SIX_LAYER_PROFILE
+        or deployer_config is None
+    ):
+        return
+    forbidden = [
+        field
+        for field in SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS
+        if bool(getattr(deployer_config, field, None))
+    ]
+    if forbidden:
+        _raise_package_error(
+            "deployer_config",
+            "FORBIDDEN_PROFILE_FIELD",
+            (
+                "The Six-layer runtime does not accept embedded user "
+                f"logic or scene artifacts: {', '.join(forbidden)}"
+            ),
+        )
+
+
+def _validate_six_layer_deployment_regions(
+    architecture: Mapping[str, Any],
+    providers: Mapping[str, Any],
+    credentials: Mapping[str, Any],
+) -> None:
+    """Keep deployable Phase 8 evidence inside its priced fixed regions."""
+
+    if (
+        _architecture_profile_identity(architecture.get("architecture_profile_ref"))
+        != SIX_LAYER_PROFILE
+    ):
+        return
+    selected = _architecture_provider_ids(architecture) | {
+        normalize_provider_id(provider)
+        for key, provider in providers.items()
+        if key.endswith("_provider") and isinstance(provider, str) and provider
+    }
+    for provider in sorted(selected):
+        payload = credentials.get(provider)
+        if not isinstance(payload, Mapping):
+            continue
+        field = f"{provider}_region"
+        expected = SIX_LAYER_FIXED_REGIONS[provider]
+        if payload.get(field) != expected:
+            _raise_package_error(
+                f"config_credentials.{provider}.{field}",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                (
+                    f"{provider.upper()} is fixed to {expected} for the selected "
+                    "Six-layer PoC profile."
+                ),
+            )
+    azure = credentials.get("azure")
+    if isinstance(azure, Mapping) and providers.get("layer_1_provider") == "azure":
+        expected = SIX_LAYER_FIXED_REGIONS["azure"]
+        if azure.get("azure_region_iothub") not in {None, "", expected}:
+            _raise_package_error(
+                "config_credentials.azure.azure_region_iothub",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                f"Azure IoT Hub is fixed to {expected} for this profile.",
+            )
+    if isinstance(azure, Mapping) and providers.get("layer_4_provider") == "azure":
+        expected = SIX_LAYER_FIXED_REGIONS["azure"]
+        if azure.get("azure_region_digital_twin") not in {None, "", expected}:
+            _raise_package_error(
+                "config_credentials.azure.azure_region_digital_twin",
+                "DEPLOYMENT_REGION_UNSUPPORTED",
+                f"Azure Digital Twins is fixed to {expected} for this profile.",
+            )
 
 
 def _validated_run_params(run: Any) -> dict[str, Any]:
@@ -1810,45 +2089,19 @@ def _validated_run_params(run: Any) -> dict[str, Any]:
     )
 
 
-def _ensure_optimizer_topology_is_executable(
-    oc,
-    *,
-    params: dict[str, Any] | None = None,
-) -> None:
-    """Reject legacy optimizer state before package or credential processing."""
-    if oc is None or not oc.params:
-        return
-    resolved_params = (
-        params
-        if params is not None
-        else _json_object_from_content(
-            oc.params,
-            "optimizer_config.params",
-        )
-    )
-    try:
-        _ensure_optimizer_params_are_executable(
-            resolved_params,
-            field_prefix="optimizer_config.params",
-        )
-    except DeploymentPackageBuildFailed:
-        raise
-
-
-def _ensure_optimizer_params_are_executable(
+def _validate_six_layer_optimizer_params(
     params: dict[str, Any],
     *,
     field_prefix: str = "cost_calculation_run.params_json",
 ) -> None:
-    """Validate topology flags from one immutable or legacy parameter document."""
-
+    """Revalidate the immutable workload at the deployment trust boundary."""
     try:
-        ensure_executable_error_handling_topology(params.get(ERROR_HANDLING_FIELD))
-    except ValueError:
+        OptimizerCalculationParams.model_validate(params)
+    except PydanticValidationError:
         _raise_package_error(
-            f"{field_prefix}.{ERROR_HANDLING_FIELD}",
-            UNSUPPORTED_ERROR_HANDLING_TOPOLOGY,
-            UNSUPPORTED_ERROR_HANDLING_MESSAGE,
+            field_prefix,
+            "DEPLOYMENT_WORKLOAD_INVALID",
+            "The selected run does not contain a canonical Six-layer workload.",
         )
 
 

@@ -1,26 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
+from src.api.upload_limits import UploadLimitExceeded, read_upload_bounded
 from src.models.database import get_db
 from src.models.user import User
 from src.schemas.cloud_connection import (
     CloudConnectionCreate,
+    CloudConnectionImportMetadata,
     CloudConnectionPreflightResponse,
     CloudConnectionResponse,
     CloudConnectionUpdate,
     CloudConnectionValidationResponse,
 )
-from src.services.cloud_connection_service import CloudConnectionService
-from src.services.cloud_credential_validation_service import (
-    build_preflight_result,
-    perform_dual_validation,
-    perform_optimizer_validation,
-    redact_validation_result,
-)
-from src.services.errors import CloudConnectionConflict
-from src.services.permission_sets import compare_permission_set_version
 from src.schemas.credential_security_event import (
     CredentialSecurityAction,
     CredentialSecurityEventDraft,
@@ -28,7 +22,17 @@ from src.schemas.credential_security_event import (
 )
 from src.security.rate_limit import CredentialRateClass, credential_rate_limit
 from src.security.request_context import current_request_id
-from src.services.credential_security_audit_service import CredentialSecurityAuditService
+from src.services.cloud_connection_import_service import parse_cloud_connection_import
+from src.services.cloud_connection_service import CloudConnectionService
+from src.services.cloud_credential_validation_service import (
+    build_preflight_result,
+    perform_deployer_validation,
+    redact_validation_result,
+)
+from src.services.credential_security_audit_service import (
+    CredentialSecurityAuditService,
+)
+from src.services.errors import CloudConnectionConflict
 
 router = APIRouter(prefix="/cloud-connections", tags=["cloud-connections"])
 
@@ -77,12 +81,73 @@ async def create_cloud_connection(
         return service.create_connection(
             current_user.id,
             request,
-            _audit(current_user, CredentialSecurityAction.CONNECTION_CREATE, request.provider, request.purpose, 200),
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_CREATE,
+                request.provider,
+                request.purpose,
+                200,
+            ),
         )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/import",
+    response_model=CloudConnectionResponse,
+    operation_id="importCloudConnection",
+    summary="Import one allowlisted provider credential file",
+    description=(
+        "Accepts one AWS credential CSV, Azure Service Principal JSON, or GCP "
+        "Service Account JSON. The original file is never retained."
+    ),
+    responses={
+        400: ERROR_RESPONSES[400],
+        401: ERROR_RESPONSES[401],
+        413: {"description": "Credential file exceeds 128 KiB"},
+    },
+)
+async def import_cloud_connection(
+    metadata: str = Form(..., max_length=4_096),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        credential_rate_limit(
+            CredentialRateClass.WRITE,
+            CredentialSecurityAction.CONNECTION_CREATE,
+        )
+    ),
+):
+    try:
+        parsed_metadata = CloudConnectionImportMetadata.model_validate_json(metadata)
+        suffix = (file.filename or "").lower().rsplit(".", 1)[-1]
+        expected_suffix = "csv" if parsed_metadata.provider == "aws" else "json"
+        if suffix != expected_suffix:
+            raise ValueError(
+                f"{parsed_metadata.provider.upper()} credential import requires .{expected_suffix}"
+            )
+        content = await read_upload_bounded(file, max_bytes=128 * 1024)
+        request = parse_cloud_connection_import(parsed_metadata, content)
+        return CloudConnectionService(db).create_connection(
+            current_user.id,
+            request,
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_CREATE,
+                request.provider,
+                request.purpose,
+                200,
+            ),
+        )
+    except UploadLimitExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (PydanticValidationError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except CloudConnectionConflict as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get(
@@ -137,7 +202,13 @@ async def update_cloud_connection(
             connection,
             current_user.id,
             request,
-            _audit(current_user, CredentialSecurityAction.CONNECTION_UPDATE, connection.provider, connection.purpose, 200),
+            _audit(
+                current_user,
+                CredentialSecurityAction.CONNECTION_UPDATE,
+                connection.provider,
+                connection.purpose,
+                200,
+            ),
         )
     except CloudConnectionConflict as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -177,7 +248,13 @@ async def delete_cloud_connection(
         )
     service.delete_connection(
         connection,
-        _audit(current_user, CredentialSecurityAction.CONNECTION_DELETE, connection.provider, connection.purpose, 204),
+        _audit(
+            current_user,
+            CredentialSecurityAction.CONNECTION_DELETE,
+            connection.provider,
+            connection.purpose,
+            204,
+        ),
     )
 
 
@@ -185,7 +262,7 @@ async def delete_cloud_connection(
     "/{connection_id}/validate",
     response_model=CloudConnectionValidationResponse,
     operation_id="validateCloudConnection",
-    summary="Validate a stored cloud connection at its purpose-specific boundaries",
+    summary="Validate a stored deployment-administrator connection",
     responses={
         401: ERROR_RESPONSES[401],
         404: ERROR_RESPONSES[404],
@@ -206,18 +283,12 @@ async def validate_cloud_connection(
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
 
-    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
-    if connection.purpose == "pricing":
-        result = await perform_optimizer_validation(connection.provider, optimizer_creds)
-        result = redact_validation_result(result, optimizer_creds)
-    else:
-        deployer_creds = service.build_deployer_credentials(connection, current_user.id)
-        result = await perform_dual_validation(
-            connection.provider,
-            optimizer_creds,
-            deployer_creds,
-        )
-        result = redact_validation_result(result, optimizer_creds, deployer_creds)
+    deployer_creds = service.build_deployer_credentials(connection, current_user.id)
+    result = await perform_deployer_validation(
+        connection.provider,
+        deployer_creds,
+    )
+    result = redact_validation_result(result, deployer_creds)
     service.record_validation_result(
         connection,
         result,
@@ -240,7 +311,6 @@ async def validate_cloud_connection(
         valid=result.get("valid", False),
         validation_status=connection.validation_status,
         message=connection.validation_message or "Validation complete",
-        optimizer=result.get("optimizer"),
         deployer=result.get("deployer"),
     )
 
@@ -269,28 +339,15 @@ async def preflight_cloud_connection(
     connection = service.get_connection(connection_id, current_user.id)
     if not connection:
         raise HTTPException(status_code=404, detail="Cloud connection not found")
-    if connection.purpose != "deployment":
-        raise HTTPException(
-            status_code=400,
-            detail="Pricing Cloud Connections cannot run deployment preflight.",
-        )
-
-    optimizer_creds = service.build_optimizer_credentials(connection, current_user.id)
     deployer_creds = service.build_deployer_credentials(connection, current_user.id)
-    result = await perform_dual_validation(
+    result = await perform_deployer_validation(
         connection.provider,
-        optimizer_creds,
         deployer_creds,
     )
-    result = redact_validation_result(result, optimizer_creds, deployer_creds)
-    version_comparison = compare_permission_set_version(
-        connection.provider,
-        connection.permission_set_version,
-    )
+    result = redact_validation_result(result, deployer_creds)
     preflight = build_preflight_result(
         connection.provider,
         result,
-        version_comparison=version_comparison,
     )
     CredentialSecurityAuditService.commit_standalone(
         db,
@@ -311,9 +368,6 @@ async def preflight_cloud_connection(
     return CloudConnectionPreflightResponse(
         id=connection.id,
         provider=connection.provider,
-        expected_permission_set_version=version_comparison.expected_version,
-        supplied_permission_set_version=version_comparison.supplied_version,
-        permission_set_status=version_comparison.status,
         ready=preflight["ready"],
         summary=preflight["summary"],
         checks=preflight["checks"],

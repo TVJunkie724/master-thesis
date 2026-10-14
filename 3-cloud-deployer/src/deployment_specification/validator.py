@@ -13,13 +13,12 @@ from typing import Any, NoReturn
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .contract import (
-    HISTORICAL_MANIFEST_VERSION,
-    MANIFEST_VERSION,
     PROVIDERS,
-    SCHEMA_VERSION,
+    V2_SCHEMA_VERSION,
+    V4_MANIFEST_VERSION,
     SLOT_ORDER,
-    load_contract,
     load_manifest_schema,
+    load_v2_contract,
 )
 from .errors import DeploymentSpecificationError
 from .models import (
@@ -49,6 +48,18 @@ LOGICAL_COMPONENT_TO_SLOT = {
     "component.archive-storage": "l3_archive_storage",
     "component.twin-state": "l4_twin_state",
     "component.visualization": "l5_visualization",
+}
+SUPPORTED_V4_PROFILE_REFS = {
+    ("six-layer-eventing", "1"),
+}
+DEPLOYER_KEY_BY_SLOT = {
+    "l1_ingestion": "layer_1_provider",
+    "l2_processing": "layer_2_provider",
+    "l3_hot_storage": "layer_3_hot_provider",
+    "l3_cool_storage": "layer_3_cold_provider",
+    "l3_archive_storage": "layer_3_archive_provider",
+    "l4_twin_state": "layer_4_provider",
+    "l5_visualization": "layer_5_provider",
 }
 
 
@@ -98,15 +109,13 @@ def validate_deployment_manifest(
             "DeploymentManifest is required for deployment operations",
         )
     version = raw_manifest.get("manifest_version")
-    if version not in {MANIFEST_VERSION, HISTORICAL_MANIFEST_VERSION}:
+    if version != V4_MANIFEST_VERSION:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
             "DeploymentManifest version is unsupported",
         )
-    architecture = None
-    if version == MANIFEST_VERSION:
-        architecture = _validate_manifest_v3(raw_manifest)
+    architecture = _validate_current_manifest(raw_manifest, str(version))
 
     specification = validate_resolved_deployment_specification(
         raw_manifest.get("resolved_deployment_specification")
@@ -129,7 +138,6 @@ def validate_deployment_manifest(
             "Deployment manifest and specification digests differ",
         )
 
-    _, registry = load_contract()
     provider_by_slot: dict[str, str] = {}
     manifest_providers = raw_manifest.get("providers")
     if not isinstance(manifest_providers, Mapping):
@@ -143,7 +151,7 @@ def validate_deployment_manifest(
         _providers_from_architecture(architecture) if architecture is not None else None
     )
     for slot_id in SLOT_ORDER:
-        deployer_key = registry["slots"][slot_id]["deployer_key"]
+        deployer_key = DEPLOYER_KEY_BY_SLOT[slot_id]
         configured = _normalize_provider(
             provider_config.get(deployer_key), deployer_key
         )
@@ -167,31 +175,34 @@ def validate_deployment_manifest(
                 "Deployment provider projection differs from resolved architecture",
             )
         provider_by_slot[slot_id] = configured
-    if version == MANIFEST_VERSION:
-        _validate_manifest_v3_metadata(
-            raw_manifest,
-            set(provider_by_slot.values()),
-        )
+    _validate_manifest_v3_metadata(
+        raw_manifest,
+        _architecture_providers(architecture),
+    )
 
-    _validate_components(
-        list(specification.specification["components"]),
-        provider_by_slot=provider_by_slot,
-        registry=registry,
-        optimization_context=specification.specification["optimization_context"],
+    if specification.schema_version != V2_SCHEMA_VERSION:
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            "deployment_manifest.resolved_deployment_specification",
+            "DeploymentManifest v4 requires RDS v2",
+        )
+    _validate_v4_architecture_specification(
+        raw_manifest,
+        architecture,
+        specification.specification,
     )
     return ValidatedDeploymentManifest(
         manifest=MappingProxyType(dict(raw_manifest)),
         specification=specification,
         provider_by_slot=MappingProxyType(provider_by_slot),
         manifest_version=str(version),
-        architecture=(
-            MappingProxyType(dict(architecture)) if architecture is not None else None
-        ),
+        architecture=MappingProxyType(dict(architecture)),
     )
 
 
-def _validate_manifest_v3(
+def _validate_current_manifest(
     raw_manifest: Mapping[str, Any],
+    version: str,
 ) -> dict[str, Any]:
     _scan_manifest_payload(raw_manifest)
     serialized = canonical_json(raw_manifest)
@@ -203,7 +214,7 @@ def _validate_manifest_v3(
         )
     errors = sorted(
         Draft202012Validator(
-            load_manifest_schema(),
+            load_manifest_schema(version),
             format_checker=FormatChecker(),
         ).iter_errors(json.loads(serialized)),
         key=lambda error: [str(part) for part in error.absolute_path],
@@ -213,7 +224,7 @@ def _validate_manifest_v3(
         _fail(
             "DEPLOYMENT_MANIFEST_INVALID",
             f"deployment_manifest.{location}".rstrip("."),
-            "DeploymentManifest does not match schema v3",
+            "DeploymentManifest does not match its versioned schema",
         )
 
     architecture = raw_manifest.get("resolved_twin_architecture")
@@ -262,7 +273,26 @@ def _validate_manifest_v3(
             "Manifest architecture and deployment specification references differ",
         )
 
-    registry = ArchitectureProfileRegistry()
+    profile_ref = architecture.get("architecture_profile_ref")
+    profile_identity = (
+        (
+            str(profile_ref.get("id") or ""),
+            str(profile_ref.get("version") or ""),
+        )
+        if isinstance(profile_ref, Mapping)
+        else ("", "")
+    )
+    supported_profile_refs = SUPPORTED_V4_PROFILE_REFS
+    if profile_identity not in supported_profile_refs:
+        _fail(
+            "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+            "deployment_manifest.resolved_twin_architecture.architecture_profile_ref",
+            "Manifest and architecture profile versions are incompatible",
+        )
+    registry = ArchitectureProfileRegistry(
+        profile_id=profile_identity[0],
+        profile_version=profile_identity[1],
+    )
     linked_documents = (
         registry.profile,
         *registry.providers.values(),
@@ -293,7 +323,6 @@ def _validate_manifest_v3(
             "deployment_manifest.resolved_twin_architecture",
             "Resolved architecture does not satisfy its pinned contract",
         )
-    profile_ref = architecture.get("architecture_profile_ref")
     catalog_ref = raw_manifest.get("compatibility", {}).get("component_catalog_ref")
     expected_profile = {
         "id": registry.profile["profile_id"],
@@ -312,6 +341,82 @@ def _validate_manifest_v3(
             "Manifest profile or component catalog reference is unsupported",
         )
     return json.loads(canonical_json(architecture))
+
+
+def _validate_v4_architecture_specification(
+    manifest: Mapping[str, Any],
+    architecture: Mapping[str, Any] | None,
+    specification: Mapping[str, Any],
+) -> None:
+    """Require an exact, publishable RTA-v2/RDS-v2 execution pair."""
+
+    if architecture is None:
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_MISSING",
+            "deployment_manifest.resolved_twin_architecture",
+            "DeploymentManifest v4 requires a resolved architecture",
+        )
+    if (
+        architecture.get("schema_version") != "resolved-twin-architecture.v2"
+        or architecture.get("resolution_status") != "publishable"
+        or architecture.get("functional_completeness", {}).get("status") != "complete"
+        or specification.get("readiness")
+        != {"status": "deployment_ready", "blocking_gate_ids": []}
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_NOT_READY",
+            "deployment_manifest.resolved_deployment_specification.readiness",
+            "Only a blocker-free publishable Phase 8 pair may deploy",
+        )
+
+    profile_ref = architecture["architecture_profile_ref"]
+    context = specification["optimization_context"]
+    catalog_ref = manifest["compatibility"]["component_catalog_ref"]
+    if (
+        specification["architecture_profile_ref"] != profile_ref
+        or context["component_catalog_ref"] != catalog_ref
+        or context["workload_ref"] != architecture["workload_contract_ref"]
+    ):
+        _fail(
+            "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+            "deployment_manifest.resolved_deployment_specification.optimization_context",
+            "Manifest v4 profile, catalog, or workload references differ",
+        )
+
+    assignments = {
+        item["assignment_id"]: item for item in architecture["component_assignments"]
+    }
+    selected_by_assignment: dict[str, list[Mapping[str, Any]]] = {
+        assignment_id: [] for assignment_id in assignments
+    }
+    for selection in specification["component_selections"]:
+        assignment_id = selection["architecture_assignment_id"]
+        assignment = assignments.get(assignment_id)
+        if (
+            assignment is None
+            or selection["logical_component_id"] != assignment["logical_component_id"]
+            or selection["provider"] != assignment["provider"]
+            or selection["region"] != assignment["region"]
+        ):
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                "deployment_manifest.resolved_deployment_specification.component_selections",
+                "Phase 8 selection differs from its architecture assignment",
+            )
+        selected_by_assignment[assignment_id].append(selection)
+    for assignment_id, assignment in assignments.items():
+        actual_ids = [
+            item["implementation_component_id"]
+            for item in selected_by_assignment[assignment_id]
+        ]
+        # Canonical architecture serialization sorts these IDs; RDS preserves
+        # bundle order. Ownership is the same only when the full multisets match.
+        if sorted(actual_ids) != sorted(assignment["deployment_specification_component_ids"]):
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
+                f"deployment_manifest.resolved_twin_architecture.{assignment_id}",
+                "Architecture component ownership differs from RDS v2",
+            )
 
 
 def _scan_manifest_payload(
@@ -354,7 +459,7 @@ def _scan_manifest_payload(
                 _fail(
                     "DEPLOYMENT_MANIFEST_INVALID",
                     path,
-                    "Secret-bearing fields are forbidden in DeploymentManifest v3",
+                    "Secret-bearing fields are forbidden in DeploymentManifest",
                 )
             _scan_manifest_payload(
                 nested,
@@ -428,7 +533,22 @@ def _providers_from_architecture(
         slot_id = LOGICAL_COMPONENT_TO_SLOT.get(
             str(assignment.get("logical_component_id"))
         )
-        if slot_id is None or slot_id in providers:
+        if slot_id is None:
+            if assignment.get("logical_component_id") == "component.eventing":
+                _normalize_provider(
+                    assignment.get("provider"),
+                    (
+                        "deployment_manifest.resolved_twin_architecture."
+                        "component_assignments.eventing.provider"
+                    ),
+                )
+                continue
+            _fail(
+                "DEPLOYMENT_ARCHITECTURE_INVALID",
+                "deployment_manifest.resolved_twin_architecture.component_assignments",
+                "Resolved architecture component assignment is unknown or duplicated",
+            )
+        if slot_id in providers:
             _fail(
                 "DEPLOYMENT_ARCHITECTURE_INVALID",
                 "deployment_manifest.resolved_twin_architecture.component_assignments",
@@ -450,10 +570,24 @@ def _providers_from_architecture(
     return providers
 
 
+def _architecture_providers(architecture: Mapping[str, Any]) -> set[str]:
+    assignments = architecture.get("component_assignments")
+    if not isinstance(assignments, list):
+        return set()
+    return {
+        _normalize_provider(
+            assignment.get("provider"),
+            "deployment_manifest.resolved_twin_architecture.component_assignments",
+        )
+        for assignment in assignments
+        if isinstance(assignment, Mapping)
+    }
+
+
 def validate_resolved_deployment_specification(
     raw_specification: object,
 ) -> ValidatedResolvedDeploymentSpecification:
-    """Validate and canonicalize an untrusted v1 specification."""
+    """Validate and canonicalize an untrusted versioned specification."""
 
     if not isinstance(raw_specification, Mapping):
         _fail(
@@ -461,6 +595,20 @@ def validate_resolved_deployment_specification(
             "resolved_deployment_specification",
             "Resolved deployment specification is missing",
         )
+    if raw_specification.get("schema_version") == V2_SCHEMA_VERSION:
+        return _validate_v2_resolved_deployment_specification(raw_specification)
+    _fail(
+        "DEPLOYMENT_SPECIFICATION_VERSION_UNSUPPORTED",
+        "resolved_deployment_specification.schema_version",
+        "Only resolved-deployment-specification.v2 is supported",
+    )
+
+
+def _validate_v2_resolved_deployment_specification(
+    raw_specification: Mapping[str, Any],
+) -> ValidatedResolvedDeploymentSpecification:
+    """Validate the generic v2 component selections without pricing again."""
+
     _scan_payload(raw_specification)
     serialized = canonical_json(raw_specification)
     if len(serialized.encode("utf-8")) > MAX_CANONICAL_BYTES:
@@ -469,9 +617,8 @@ def validate_resolved_deployment_specification(
             "resolved_deployment_specification",
             "Resolved deployment specification exceeds the size limit",
         )
-
     specification = json.loads(serialized)
-    schema, registry = load_contract()
+    schema, registry = load_v2_contract()
     errors = sorted(
         Draft202012Validator(
             schema,
@@ -484,15 +631,14 @@ def validate_resolved_deployment_specification(
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             f"resolved_deployment_specification.{location}".rstrip("."),
-            "Resolved deployment specification does not match schema v1",
+            "Resolved deployment specification does not match schema v2",
         )
     if specification["currency"] != "USD":
         _fail(
             "DEPLOYMENT_SPECIFICATION_INVALID",
             "resolved_deployment_specification.currency",
-            "Deployment selections must use canonical USD state",
+            "Phase 8 deployment selections must use canonical USD",
         )
-
     expected_digest = calculate_digest(specification)
     if not hmac.compare_digest(specification["digest"], expected_digest):
         _fail(
@@ -500,18 +646,164 @@ def validate_resolved_deployment_specification(
             "resolved_deployment_specification.digest",
             "Resolved deployment specification digest does not match its content",
         )
-
-    _validate_registered_components(
-        specification["components"],
-        registry=registry,
-        optimization_context=specification["optimization_context"],
-    )
+    _validate_v2_component_selections(specification, registry)
     return ValidatedResolvedDeploymentSpecification(
         specification=MappingProxyType(specification),
         canonical_json=serialized,
         digest=expected_digest,
-        schema_version=SCHEMA_VERSION,
+        schema_version=V2_SCHEMA_VERSION,
     )
+
+
+def _validate_v2_component_selections(
+    specification: Mapping[str, Any],
+    registry: Mapping[str, Any],
+) -> None:
+    """Bind every v2 selection and input binding to the frozen registry."""
+
+    registered_components = {
+        item["component_id"]: item for item in registry["components"]
+    }
+    profile_ref = specification["architecture_profile_ref"]
+    profile_identity = (profile_ref["id"], profile_ref["version"])
+    if profile_identity not in SUPPORTED_V4_PROFILE_REFS:
+        _fail(
+            "DEPLOYMENT_PROFILE_CATALOG_MISMATCH",
+            "resolved_deployment_specification.architecture_profile_ref",
+            "Phase 8 deployment profile is unsupported",
+        )
+    context = specification["optimization_context"]
+    expected_formula_ref = {
+        "id": "phase-08-complete-service-bundles",
+        "version": "1",
+        "digest": registry["pricing_ownership_digest"],
+    }
+    if (
+        context["service_decision_ref"] != registry["package_ref"]
+        or context["formula_set_ref"] != expected_formula_ref
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
+            "resolved_deployment_specification.optimization_context",
+            "Phase 8 service or formula evidence differs from the registry",
+        )
+
+    selection_ids: set[str] = set()
+    dimension_owners: dict[str, str] = {}
+    provider_by_logical: dict[str, str] = {}
+    for selection in specification["component_selections"]:
+        selection_id = selection["selection_id"]
+        component_id = selection["implementation_component_id"]
+        registered = registered_components.get(component_id)
+        expected_selection_id = f"selection.{selection['provider']}.{component_id}"
+        if (
+            registered is None
+            or selection_id in selection_ids
+            or selection_id != expected_selection_id
+            or selection["required"] is not True
+            or selection["provider"] != registered["provider"]
+            or selection["implementation_component_digest"]
+            != registered["component_digest"]
+        ):
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
+                "resolved_deployment_specification.component_selections",
+                "Phase 8 selection differs from the component registry",
+            )
+        logical_id = selection["logical_component_id"]
+        previous_provider = provider_by_logical.setdefault(
+            logical_id, selection["provider"]
+        )
+        if previous_provider != selection["provider"]:
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
+                f"resolved_deployment_specification.{selection_id}.provider",
+                "One logical component resolves to multiple providers",
+            )
+        selection_ids.add(selection_id)
+        dimension_suffixes = [
+            item["dimension_id"].rsplit(".", 1)[-1] for item in selection["dimensions"]
+        ]
+        if dimension_suffixes != registered["capacity_dimensions"]:
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                f"resolved_deployment_specification.{selection_id}.dimensions",
+                "Phase 8 dimensions differ from the component registry",
+            )
+        for dimension in selection["dimensions"]:
+            dimension_id = dimension["dimension_id"]
+            suffix = dimension_id.rsplit(".", 1)[-1]
+            expected_id = f"dimension.{selection['provider']}.{component_id}.{suffix}"
+            if (
+                dimension_id != expected_id
+                or dimension_id in dimension_owners
+                or dimension["formula_reference"]
+                != "formula.phase-08-complete-service-bundles"
+                or dimension["evidence_reference"]
+                != registry["capacity_evidence_digest"]
+            ):
+                _fail(
+                    "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                    f"resolved_deployment_specification.{selection_id}.dimensions",
+                    "Phase 8 dimension identity or evidence is invalid",
+                )
+            dimension_owners[dimension_id] = selection_id
+
+    expected_logical_ids = set(LOGICAL_COMPONENT_TO_SLOT)
+    if profile_identity == ("six-layer-eventing", "1"):
+        expected_logical_ids.add("component.eventing")
+        readiness = specification["readiness"]
+        if (
+            readiness["status"] == "offline_contract_fixture"
+            and "gate.implementation.l5-visualization-pending"
+            in readiness["blocking_gate_ids"]
+            and "component.visualization" not in provider_by_logical
+        ):
+            expected_logical_ids.discard("component.visualization")
+    if set(provider_by_logical) != expected_logical_ids:
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
+            "resolved_deployment_specification.component_selections",
+            "Phase 8 profile must cover every logical component",
+        )
+    if (
+        len(
+            {
+                provider_by_logical["component.hot-storage"],
+                provider_by_logical["component.cool-storage"],
+                provider_by_logical["component.archive-storage"],
+            }
+        )
+        != 1
+    ):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
+            "resolved_deployment_specification.component_selections",
+            "Six-layer PoC requires provider-local L3 storage tiers",
+        )
+
+    binding_sources: set[str] = set()
+    for binding in specification["bindings"]:
+        source_ref = binding["source_ref"]
+        if (
+            source_ref in binding_sources
+            or source_ref not in dimension_owners
+            or binding["destination_selection_id"] != dimension_owners[source_ref]
+            or binding["source_kind"] != "deployment_dimension"
+            or binding["resolution_stage"] != "preplan"
+        ):
+            _fail(
+                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+                "resolved_deployment_specification.bindings",
+                "Phase 8 binding ownership is incomplete or duplicated",
+            )
+        binding_sources.add(source_ref)
+    if binding_sources != set(dimension_owners):
+        _fail(
+            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
+            "resolved_deployment_specification.bindings",
+            "Every Phase 8 dimension requires exactly one binding",
+        )
 
 
 def _scan_payload(value: object, *, path: str = "$", depth: int = 0) -> None:
@@ -551,312 +843,3 @@ def _normalize_provider(value: object, field: str) -> str:
             "Deployment provider path contains an unsupported provider",
         )
     return normalized
-
-
-def _required_glue_providers(
-    registry: Mapping[str, Any],
-    provider_by_slot: Mapping[str, str],
-) -> tuple[str, ...]:
-    required: set[str] = set()
-    for boundary in registry["cross_cloud_glue_policy"]["boundaries"]:
-        source = provider_by_slot[boundary["source_slot"]]
-        target = provider_by_slot[boundary["target_slot"]]
-        if source != target:
-            required.add(provider_by_slot[boundary["receiver_slot"]])
-    return tuple(provider for provider in PROVIDERS if provider in required)
-
-
-def _required_transition_component_ids(
-    registry: Mapping[str, Any],
-    provider_by_slot: Mapping[str, str],
-) -> list[str]:
-    return [
-        transition["component_by_provider"][provider_by_slot[transition["source_slot"]]]
-        for transition in registry["transition_runtime_policy"]["transitions"]
-    ]
-
-
-def _validate_components(
-    components: list[dict[str, Any]],
-    *,
-    provider_by_slot: Mapping[str, str],
-    registry: Mapping[str, Any],
-    optimization_context: Mapping[str, Any],
-) -> None:
-    components_by_slot: dict[str, list[dict[str, Any]]] = {
-        slot_id: []
-        for slot_id in (
-            *SLOT_ORDER,
-            "transition_runtime",
-            "cross_cloud_glue",
-        )
-    }
-    for component in components:
-        components_by_slot[component["slot_id"]].append(component)
-
-    expected_component_ids: list[str] = []
-    for slot_id in SLOT_ORDER:
-        provider = provider_by_slot[slot_id]
-        requirement = registry["slot_requirements"].get(slot_id, {}).get(provider)
-        if not isinstance(requirement, Mapping):
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
-                f"resolved_deployment_specification.components.{slot_id}",
-                "Selected provider does not implement the required slot",
-            )
-        actual_ids = [
-            component["component_id"] for component in components_by_slot[slot_id]
-        ]
-        required = list(requirement["required_components"])
-        optional = list(requirement["optional_components"])
-        expected_for_slot = [
-            *required,
-            *(component_id for component_id in optional if component_id in actual_ids),
-        ]
-        if actual_ids != expected_for_slot:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-                f"resolved_deployment_specification.components.{slot_id}",
-                "Deployment components do not match the selected provider slot",
-            )
-        expected_component_ids.extend(expected_for_slot)
-
-    expected_transition_ids = _required_transition_component_ids(
-        registry,
-        provider_by_slot,
-    )
-    actual_transition_ids = [
-        component["component_id"]
-        for component in components_by_slot["transition_runtime"]
-    ]
-    if actual_transition_ids != expected_transition_ids:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-            ("resolved_deployment_specification.components.transition_runtime"),
-            "Transition runtimes do not match their source storage providers",
-        )
-    expected_component_ids.extend(expected_transition_ids)
-
-    component_by_provider = registry["cross_cloud_glue_policy"]["component_by_provider"]
-    expected_glue_ids = [
-        component_by_provider[provider]
-        for provider in _required_glue_providers(registry, provider_by_slot)
-    ]
-    actual_glue_ids = [
-        component["component_id"]
-        for component in components_by_slot["cross_cloud_glue"]
-    ]
-    if actual_glue_ids != expected_glue_ids:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-            "resolved_deployment_specification.components.cross_cloud_glue",
-            "Cross-cloud receiver components do not match the selected path",
-        )
-    expected_component_ids.extend(expected_glue_ids)
-    if [
-        component["component_id"] for component in components
-    ] != expected_component_ids:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-            "resolved_deployment_specification.components",
-            "Deployment component ordering or cardinality is invalid",
-        )
-
-    _validate_registered_components(
-        components,
-        registry=registry,
-        optimization_context=optimization_context,
-    )
-
-
-def _validate_registered_components(
-    components: list[dict[str, Any]],
-    *,
-    registry: Mapping[str, Any],
-    optimization_context: Mapping[str, Any],
-) -> None:
-    targets: dict[str, object] = {}
-    seen_components: set[str] = set()
-    for component in components:
-        component_id = component["component_id"]
-        if component_id in seen_components:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-                "resolved_deployment_specification.components",
-                "Deployment specification repeats a component",
-            )
-        seen_components.add(component_id)
-        _validate_component(
-            component,
-            registry=registry,
-            optimization_context=optimization_context,
-            terraform_targets=targets,
-        )
-
-
-def _validate_component(
-    component: Mapping[str, Any],
-    *,
-    registry: Mapping[str, Any],
-    optimization_context: Mapping[str, Any],
-    terraform_targets: dict[str, object],
-) -> None:
-    component_id = component["component_id"]
-    registered = registry["components"].get(component_id)
-    if not isinstance(registered, Mapping):
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-            "resolved_deployment_specification.components",
-            "Deployment specification contains an unknown component",
-        )
-    for field in ("slot_id", "provider", "service_id"):
-        if component[field] != registered[field]:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
-                f"resolved_deployment_specification.components.{component_id}.{field}",
-                "Deployment component metadata differs from the registry",
-            )
-
-    definitions = registered["dimensions"]
-    dimensions = component["dimensions"]
-    if [dimension["dimension_id"] for dimension in dimensions] != list(definitions):
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-            f"resolved_deployment_specification.components.{component_id}.dimensions",
-            "Deployment dimensions differ from the registry",
-        )
-
-    values: dict[str, object] = {}
-    for dimension in dimensions:
-        dimension_id = dimension["dimension_id"]
-        definition = definitions[dimension_id]
-        _validate_dimension_value(
-            component_id,
-            dimension_id,
-            dimension["value"],
-            definition,
-        )
-        expected_optional = {
-            "unit": registry["dimension_units"].get(dimension_id),
-            "terraform_target": definition.get("terraform_target"),
-        }
-        if dimension["classification"] != definition["classification"]:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-                f"resolved_deployment_specification.components.{component_id}.{dimension_id}",
-                "Deployment dimension classification differs from the registry",
-            )
-        for field, expected in expected_optional.items():
-            if dimension.get(field) != expected:
-                _fail(
-                    "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-                    (
-                        "resolved_deployment_specification.components."
-                        f"{component_id}.{dimension_id}.{field}"
-                    ),
-                    "Deployment dimension metadata differs from the registry",
-                )
-
-        expected_formula = f"formula_set:{optimization_context['formula_set_id']}"
-        if dimension["formula_reference"] != expected_formula:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
-                f"resolved_deployment_specification.components.{component_id}.{dimension_id}",
-                "Deployment dimension formula reference is not bound to the run",
-            )
-        if dimension["evidence_reference"] != _expected_evidence_reference(
-            registered["provider"],
-            dimension_id,
-            definition["classification"],
-            registry=registry,
-            optimization_context=optimization_context,
-        ):
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_CONTEXT_MISMATCH",
-                f"resolved_deployment_specification.components.{component_id}.{dimension_id}",
-                "Deployment dimension evidence reference is not bound to the run",
-            )
-
-        target = definition.get("terraform_target")
-        if target is not None:
-            previous = terraform_targets.setdefault(target, dimension["value"])
-            if previous != dimension["value"]:
-                _fail(
-                    "DEPLOYMENT_SPECIFICATION_TARGET_CONFLICT",
-                    f"resolved_deployment_specification.components.{component_id}.{dimension_id}",
-                    "Deployment dimensions contain contradictory Terraform targets",
-                )
-        values[dimension_id] = dimension["value"]
-
-    for constraint in registered.get("combination_constraints", []):
-        selector = values[constraint["selector_dimension"]]
-        dependent = values[constraint["dependent_dimension"]]
-        limits = constraint["ranges_by_selector"][selector]
-        if not limits["minimum"] <= dependent <= limits["maximum"]:
-            _fail(
-                "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-                f"resolved_deployment_specification.components.{component_id}",
-                "Deployment dimension combination is unsupported",
-            )
-
-
-def _validate_dimension_value(
-    component_id: str,
-    dimension_id: str,
-    value: object,
-    definition: Mapping[str, Any],
-) -> None:
-    expected_type = definition["value_type"]
-    valid_type = (
-        isinstance(value, int) and not isinstance(value, bool)
-        if expected_type == "integer"
-        else isinstance(value, bool)
-        if expected_type == "boolean"
-        else isinstance(value, str)
-    )
-    field = (
-        f"resolved_deployment_specification.components.{component_id}.{dimension_id}"
-    )
-    if not valid_type:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-            field,
-            "Deployment dimension has the wrong value type",
-        )
-    if "allowed_values" in definition and value not in definition["allowed_values"]:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-            field,
-            "Deployment dimension value is unsupported",
-        )
-    if "minimum" in definition and value < definition["minimum"]:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-            field,
-            "Deployment dimension value is below its minimum",
-        )
-    if "maximum" in definition and value > definition["maximum"]:
-        _fail(
-            "DEPLOYMENT_SPECIFICATION_DIMENSION_MISMATCH",
-            field,
-            "Deployment dimension value exceeds its maximum",
-        )
-
-
-def _expected_evidence_reference(
-    provider: str,
-    dimension_id: str,
-    classification: str,
-    *,
-    registry: Mapping[str, Any],
-    optimization_context: Mapping[str, Any],
-) -> str:
-    resolution = registry["dimension_resolution"][dimension_id]
-    if classification == "account_scope":
-        return f"provider_context:{provider}"
-    if resolution == "baseline_invariant":
-        return f"deployment_registry:{registry['registry_version']}"
-    if resolution == "formula_input":
-        return f"workload_contract:{optimization_context['workload_contract_id']}"
-    snapshot_id = optimization_context["catalog_references"][provider]["snapshot_id"]
-    return f"catalog:{snapshot_id}"

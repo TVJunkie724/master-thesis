@@ -1,66 +1,100 @@
-# Twin2MultiCloud Flutter
+# Twin2MultiCloud Flutter Client
 
-Flutter UI for the Twin2MultiCloud Management API. Supported targets are Web,
-macOS, Windows, and Linux. Android, iOS, and Fuchsia are unsupported.
+The Flutter application presents the thesis research workflow and calls only
+the Management API.
 
-## Offline Demo
+## Safe start
 
-Start the application with deterministic in-memory data and no Docker,
-backend, cloud credentials, or network services:
-
-```bash
-./thesis.sh demo
-```
-
-Use `--scenario showcase`, `--scenario empty`, or `--scenario degraded` to
-inspect representative application states. Demo mutations remain in memory
-for the current process and are reset on restart.
-
-## Local Runtime
-
-Start the application from the repository root:
+Offline deterministic demo:
 
 ```bash
-./thesis.sh up
+./thesis.sh demo --setup
 ```
 
-Backend only:
+Integrated local stack:
 
 ```bash
-./thesis.sh up --no-flutter
+./thesis.sh up --setup
 ```
 
-Run Flutter only against the host-exposed Management API:
+Neither path contacts a cloud provider by default.
+
+## Current workflow
+
+1. Create, import or duplicate a Twin draft.
+2. Configure typed workload, state/simulator data and bounded user functions.
+3. Read the one canonical `six-layer-eventing@1` contract.
+4. Calculate and review cost, exclusions, assumptions and immutable graph.
+5. Select named deployment CloudConnections required by the result.
+6. Run readiness, confirm bounded preparation, or follow repair guidance.
+7. Confirm Deploy, follow persisted progress/SSE replay and verify telemetry.
+8. Open provider-owned L4 access and an authenticated minimal L5 snapshot.
+9. Confirm Destroy and inspect cleanup evidence.
+
+The **Twin experiments** inventory is intentionally a start-or-resume surface:
+`New Twin` is the only primary action, every row has one state-specific
+continuation, and Duplicate/Export/Delete remain in a secondary overflow.
+There are no filters, analytics, provider columns or bulk operations.
+
+The **Configuration Workspace** keeps all required scientific inputs and
+findings behind four phases: Scenario, Optimize, Prepare and Review. Only the
+active phase's tasks appear in the task selector. Status remains independent
+from selection, blocked phases explain their prerequisite, and the bottom bar
+shows one primary next action. The Wizard BLoC and Management contracts are
+unchanged.
+
+The **Twin lifecycle** overview presents one next safe step and one lifecycle
+command at a time. Configured Twins prepare and deploy; deployed Twins verify
+L1–L3/Event, L4/L5, telemetry and commands before Destroy; failed Twins clean
+up; previously deployed Twins cannot be edited or deployed again. Destroyed
+Twins show recorded cleanup evidence; use the existing Duplicate action for a
+new experiment. Configuration evidence remains available last. This ordering
+changes presentation only—the operation, access, verification and cleanup
+contracts remain Management-owned.
+
+Native results show the resolved graph including Eventing and the result's
+currency, not a reconstructed linear L1–L5 path. Estimates are model outputs,
+not cloud bills. Infrastructure inspection and one telemetry sample are not
+automatic command/L4/L5 proof. L5 opens one Raw/Hourly HTML/SVG snapshot through
+Management, without Grafana or polling; inspect its actual values separately.
+Cleanup shows the returned evidence, not an independent global account scan.
+
+There is no profile/objective selector, pricing administration workspace,
+generic deployment-project UI, embedded dashboard administration, or in-place
+infrastructure update.
+
+## State architecture
+
+Riverpod composes dependencies and simple global state. Feature-scoped BLoCs
+own multi-step commands, retries, stale-response protection, operation replay,
+and one-time secret consumption. Each mutable concern has one owner.
+
+CloudConnection entry/import is write-only. Flutter stores only returned
+non-secret metadata. A service-local one-time Viewer value may enter transient
+state and is discarded after use; provider administrator secrets never do.
+The **Cloud access** screen is import-first and keeps manual entry as a fallback.
+Azure uses one administrator service principal for the isolated thesis
+subscription. File selection accepts a standard service-principal JSON or the
+allowlisted Azure compatibility shape, prefills known fields locally and
+uploads only normalized single-administrator fields.
+
+## Runtime configuration
+
+`config/dev.example.json` and `config/production.example.json` document the
+supported runtime shape. Networked modes require the local PoC profile bearer;
+missing or invalid mode/origin/token values fail bootstrap. There is no
+interactive login screen. Demo mode uses a tracked secret-free
+configuration and in-memory adapters behind the same interfaces.
+
+## Verification
 
 ```bash
-./thesis.sh flutter --device chrome
+cd twin2multicloud_flutter
+flutter analyze
+flutter test
+python3 ../scripts/check_flutter_architecture.py
+flutter build web --release
 ```
 
-`config/dev.example.json` documents the supported runtime keys. Use
-`./thesis.sh config` to generate `config/dev.json`; it is gitignored.
-`config/demo.json` is tracked and contains no service URL, token, or secret.
-`config/production.example.json` documents the token-free HTTPS production
-shape. Flutter has no implicit runtime profile: missing or invalid
-`APP_MODE`, URL, or profile-specific authentication values stop bootstrap.
-
-Development authentication is available only after selecting the explicit
-local-development action on the Login screen. Production intentionally has no
-development bypass. It discovers enabled Google/UIBK providers from the Management
-API, completes authentication in an external browser, and consumes the result through
-a one-time polling exchange. Production tokens stay in process memory and are cleared
-on logout or session expiry. Live UIBK activation still requires the institutional
-federation setup documented in the docs site.
-
-## Quality Checks
-
-```bash
-./thesis.sh test frontend
-```
-
-The local gate builds Web and the current host desktop. The repository Flutter
-workflow additionally builds macOS, Windows, and Linux releases on native CI
-runners. See the docs-site Supported Platforms page for prerequisites and the
-boundary between build support and signed distribution packages.
-
-Flutter must call the Management API only. Direct calls to Optimizer or
-Deployer service ports are architecture defects.
+Use the native release build on the current desktop host as an additional
+gate. These checks prove client behavior, not live provider deployment.

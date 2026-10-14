@@ -1,109 +1,48 @@
-# Credentials And Trust
+# Credentials and Trust
 
-## Credential Categories
+Twin2MultiCloud accepts pre-existing, non-root deployment authority for isolated
+thesis accounts, subscriptions, or projects. It does not create, rotate, or
+revoke provider credentials.
 
-```mermaid
-flowchart TB
-    subgraph RuntimeSecrets["Application runtime secrets"]
-        JWT["JWT signing key"]
-        Encryption["CloudConnection encryption key"]
-        IdentitySecret["OAuth or SAML secret/key"]
-    end
+Each CloudConnection stores one provider principal. Azure uses one
+subscription administrator for resource CRUD, RBAC assignments and
+graph-required Entra objects. This is an isolated thesis-PoC simplification,
+not a production least-privilege claim or generic identity-governance model.
 
-    subgraph ExternalBootstrap["External bootstrap boundary"]
-        Admin["Authenticated provider CLI<br/>admin session"]
-        Plan["Management bootstrap plan<br/>contains no admin secret"]
-        Script["Versioned static provider script<br/>dry-run before explicit apply"]
-        Generated["Ignored local deployment<br/>CloudConnection JSON"]
-    end
+## Runtime flow
 
-    subgraph Durable["Durable user-owned cloud access"]
-        Import["Authenticated import/create boundary"]
-        Pricing["Pricing CloudConnection"]
-        Deployment["Deployment CloudConnection"]
-        Store[("Encrypted Management database payload")]
-    end
+1. The operator enters or imports AWS access-key CSV, Azure administrator
+   service-principal JSON, or GCP service-account JSON through a write-only
+   request.
+2. Management validates the allowlisted shape, encrypts the complete payload, and
+   returns only safe configured flags and non-secret scope metadata.
+3. The user may retain several named connections per provider and explicitly bind
+   one required connection per provider to a Twin.
+4. Identity validation verifies each principal and its target scope. Azure checks
+   subscription Owner authority and Microsoft Graph application permissions
+   independently.
+5. Graph-derived readiness sends plaintext only to the Deployer for that request.
+   Terraform uses the same Azure administrator for resources, role assignments
+   and Entra operations.
+6. Missing preparable capabilities produce a reviewed, digest-bound plan;
+   external blockers produce typed manual or connection-replacement guidance.
 
-    Admin --> Script
-    Plan --> Script
-    Script -->|"creates scoped material"| Generated
-    Generated --> Import --> Deployment
-    Import -->|"separate AWS/GCP pricing import"| Pricing
-    Pricing --> Store
-    Deployment --> Store
-    Encryption --> Store
-    JWT -. "never grants cloud access" .-> Durable
-    IdentitySecret -. "never grants cloud access" .-> Durable
-```
+Replacing the Azure administrator changes the one-way credential fingerprint
+and invalidates stale readiness evidence. Retired preparation fields from old
+encrypted records are dropped before the Deployer boundary.
 
-Application runtime secrets and cloud-provider credentials are different security
-domains. Neither may substitute for the other. The current bootstrap scripts create
-deployment identities only; AWS and GCP pricing connections are imported separately,
-while Azure pricing uses a public API.
+## Secret exit rules
 
-## Bootstrap And Reuse
-
-```mermaid
-sequenceDiagram
-    actor Operator
-    participant API as Management API
-    participant CLI as Provider CLI and static script
-    participant DB as Encrypted CloudConnection store
-
-    Operator->>API: Request plan through authenticated API
-    API-->>Operator: Static script path, dry-run/apply commands, permission-set version
-    Operator->>CLI: Authenticate through the provider CLI outside the app
-    Operator->>CLI: Review dry-run, then apply explicitly
-    CLI-->>Operator: Ignored local deployment CloudConnection JSON
-    Operator->>API: Import generated scoped connection
-    API->>DB: Encrypt payload and append security audit event
-    API-->>Operator: Non-secret metadata and validation actions
-```
-
-The Management API never receives the bootstrap/admin credential. The reusable object
-is the generated scoped deployment CloudConnection. Admin authentication remains in
-the external provider CLI session, and the generated local JSON must not be committed.
-The API contract is implemented, but Flutter does not currently expose the bootstrap
-plan/import workflow; use authenticated OpenAPI/HTTP access for this operation.
-See [Cloud Setup](../cloud-setup/index.md) for the operator sequence.
-
-## Purpose-Aware Runtime Resolution
-
-```mermaid
-flowchart LR
-    Store[("Encrypted CloudConnections")]
-    Resolver["Owner- and purpose-aware resolver"]
-    Pricing["Pricing request"]
-    Deployment["Twin deployment request"]
-    Optimizer["Optimizer"]
-    Deployer["Deployer"]
-    Workspace["Ephemeral operation workspace"]
-    Logs["Redacted logs and public errors"]
-
-    Store --> Resolver
-    Pricing --> Resolver
-    Deployment --> Resolver
-    Resolver -->|"pricing purpose and confirmed account"| Optimizer
-    Resolver -->|"deployment purpose and twin binding"| Deployer
-    Deployer -->|"runtime-local materialization"| Workspace
-    Optimizer --> Logs
-    Deployer --> Logs
-```
-
-AWS and GCP pricing refreshes require an explicitly confirmed pricing
-CloudConnection. Azure catalog pricing uses its public API path. Deployment
-connections are bound to twins and are not silently reused as pricing defaults.
-
-## Secret Exit Rules
-
-| Boundary | Allowed to leave | Forbidden to leave |
+| Boundary | Allowed | Forbidden |
 |---|---|---|
-| bootstrap plan API | provider/account metadata, permission-set version, static commands | admin credential plaintext |
-| external bootstrap script | ignored local scoped deployment credential | admin secrets as script arguments or committed output |
-| encrypted store | owner-safe CloudConnection metadata | decrypted payload |
-| Optimizer validation | typed status, safe error code/message | echoed credential fragments |
-| Deployer operation | structured redacted logs, status, allowlisted outputs | credential files, Terraform secret values |
-| Flutter API | labels, purpose, provider, account/project identity, validation state | secret material |
+| CloudConnection response | provider, label, auth kind, configured booleans, validation state | client IDs, credential values, private keys |
+| encrypted store | ciphertext and owner-safe metadata | plaintext persistence |
+| Deployer request | request-scoped typed provider bundle | retry, event, or log copies |
+| Terraform input | request-local sensitive variables | manifests, outputs, plans in evidence |
+| archives and evidence | connection IDs or one-way fingerprints where needed | secrets, tokens, private keys |
+| Flutter state | labels, readiness, and repair guidance | retained submitted credential material |
 
-See [Security And Trust Boundaries](../architecture/security-boundaries.md) and
-[Cloud Accounts](../user-guide/cloud-accounts.md).
+Supported preparation may register required Azure resource providers and enable
+required GCP APIs only after confirmation. Other account-level changes remain
+manual. A Twin Destroy removes Twin-owned resources but does not undo shared
+provider capabilities, provider IAM/RBAC/Graph configuration, or credentials.

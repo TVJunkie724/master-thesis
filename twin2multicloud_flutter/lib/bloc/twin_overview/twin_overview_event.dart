@@ -2,6 +2,9 @@
 // Events for the twin overview BLoC
 
 import 'package:equatable/equatable.dart';
+import '../../services/external_auth_launcher.dart';
+
+import '../../models/deployment_readiness.dart';
 
 abstract class TwinOverviewEvent extends Equatable {
   const TwinOverviewEvent();
@@ -28,6 +31,26 @@ class TwinOverviewRefresh extends TwinOverviewEvent {
 /// Explicitly validate the currently required deployment provider access.
 class TwinOverviewRunDeploymentPreflight extends TwinOverviewEvent {
   const TwinOverviewRunDeploymentPreflight();
+}
+
+/// Confirm the graph-bound, non-destructive provider preparation plan.
+class TwinOverviewPrepareDeployment extends TwinOverviewEvent {
+  final DeploymentPreparationRequest request;
+
+  const TwinOverviewPrepareDeployment(this.request);
+
+  @override
+  List<Object?> get props => [request];
+}
+
+/// Retry the independently loaded L4/L5 access read model.
+class TwinOverviewRetryLayerAccess extends TwinOverviewEvent {
+  const TwinOverviewRetryLayerAccess();
+}
+
+class TwinOverviewOpenVisualization extends TwinOverviewEvent {
+  final ExternalAuthLaunchHandle handle;
+  const TwinOverviewOpenVisualization(this.handle);
 }
 
 /// Trigger deployment
@@ -116,11 +139,16 @@ class TwinOverviewLogTraceUpdate extends TwinOverviewEvent {
 class TwinOverviewLogTraceComplete extends TwinOverviewEvent {
   final int? totalLogs;
   final String? traceId;
+  final String? status;
 
-  const TwinOverviewLogTraceComplete({this.totalLogs, this.traceId});
+  const TwinOverviewLogTraceComplete({
+    this.totalLogs,
+    this.traceId,
+    this.status,
+  });
 
   @override
-  List<Object?> get props => [totalLogs, traceId];
+  List<Object?> get props => [totalLogs, traceId, status];
 }
 
 /// Log trace error occurred

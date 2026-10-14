@@ -1,51 +1,77 @@
-# Twin2Clouds Optimizer
+# Twin2Clouds Cost Optimizer
 
-The pricing and cost engine of the Twin2MultiCloud PoC. The Management API
-supplies workload inputs and exact pricing-catalog references; the Optimizer
-returns a costed provider path, evidence and a resolved deployment specification.
+The Optimizer is the calculation component of the Twin2MultiCloud thesis PoC.
+It owns frozen pricing evidence, provider formulas, functional-completeness
+admission, complete-path monetary comparison, traceability, and construction of
+the immutable Six-layer deployment decision.
 
-## Run
+It does not persist users or Twins, handle deployment credentials, or mutate
+cloud resources.
 
-From the repository root:
+## Scope
 
-```bash
-./thesis.sh up --no-flutter
+- one standalone `six-layer-eventing@1` architecture;
+- one estimated-monetary-cost objective and internal scoring strategy;
+- exact dated/cited/hashed AWS, Azure, and GCP pricing snapshots;
+- provider capability, component, edge, route, formula, and deployment
+  evidence;
+- resolved architecture v2 and resolved deployment specification v2;
+- immutable intent-to-result traceability.
+
+The original Five-layer v1 calculation remains an Optimizer-only offline
+baseline. It is not exposed to Management, Flutter, Deployer, Terraform, or
+live E2E.
+
+The service has no objective/profile selector and no live pricing fetch,
+refresh, review, approval, account-plan, currency-refresh, or credential
+subsystem.
+
+## Calculation flow
+
+```text
+Management request
+  -> fixed workload + canonical architecture pin
+  -> exact frozen provider snapshot references
+  -> functionally complete provider assignments
+  -> component + edge + transfer costs
+  -> minimum monthly monetary total
+  -> result + trace + resolved graph/specification
 ```
 
-The internal API reference is at [localhost:5003/docs](http://localhost:5003/docs).
-Application clients use the Management API on port 5005.
+Candidates missing a required capability or evidence reference fail closed and
+never enter ranking as zero-cost alternatives.
 
-## What it does
+## API
 
-- Fetches and reviews provider pricing without silently publishing ambiguous rows.
-- Compares complete five-layer provider paths, including transfer, glue and storage-transition runtime costs.
-- Retains immutable catalog references and bounded calculation evidence.
-- Excludes unsupported GCP L4/L5 choices.
+| Method | Route | Purpose |
+|---|---|---|
+| `PUT` | `/calculate` | execute the fixed Six-layer cost calculation |
+| `POST` | `/validate/optimizer-config` | validate calculation input/result shape |
+| `GET` | `/capabilities/providers` | read calculation capability evidence |
+| `GET` | `/pricing/catalogs/baseline/{provider}` | read a pinned thesis reference |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{id}/reference` | verify exact identity/digest |
+| `GET` | `/pricing/catalogs/{provider}/{region}/snapshots/{id}` | bounded diagnostic snapshot read |
 
-Selection is not an independent minimum per layer. Results are estimates under
-the recorded workload and pricing assumptions, not reconciled provider bills.
+The API is internal. Flutter calls only the Management API.
 
-Architecture-aware calculation is implemented behind
-`ARCHITECTURE_PROFILE_RESOLUTION_ENABLED`, default `false` in both Optimizer
-and Management API. With it enabled, Management supplies the pinned profile
-and extension references; incomplete candidates are rejected before ranking.
-AWS/Azure profile definitions have `supported: true`, but this does not imply
-default activation or live-cloud verification. See
-[Architecture Profiles](../docs-site/docs/contracts-and-data-flow/architecture-profiles.md).
-
-## Code and reference
+## Main directories
 
 | Path | Purpose |
 |---|---|
-| `api/` | HTTP adapters |
-| `backend/calculation_v2/` | formulas, complete-path scoring and traceability |
-| `backend/architecture_profiles/` | profile resolution and completeness checks |
-| `backend/fetch_data/` | provider pricing acquisition |
-| `pricing_registry/` | versioned pricing and optimization definitions |
-| `json/pricing_catalog_baselines/` | reviewed baseline snapshots |
-| `tests/` | unit and API contract tests |
+| `api/` | FastAPI transport adapters |
+| `backend/calculation_v2/` | provider calculations, formulas, paths and traces |
+| `backend/architecture_profiles/` | fixed Six-layer resolution and historical baseline adapter |
+| `backend/optimization/` | cost-only scoring seam |
+| `json/pricing_catalog_baselines/` | pinned reviewed pricing snapshots |
+| `pricing_registry/` | formula, intent, workload and provider contracts |
+| `tests/` | deterministic unit, contract and regression evidence |
 
-- [Optimizer reference](../docs-site/docs/components/optimizer.md)
-- [Pricing and optimization flow](../docs-site/docs/contracts-and-data-flow/pricing-optimization.md)
-- [Pricing Review](../docs-site/docs/user-guide/pricing-review.md)
-- [Testing](../docs-site/docs/developer-guide/testing.md)
+## Safe verification
+
+```bash
+cd 2-twin2clouds
+PYTHONPATH=. python -m pytest -q
+```
+
+Tests use repository fixtures and do not contact providers. A successful test
+run is offline evidence only.

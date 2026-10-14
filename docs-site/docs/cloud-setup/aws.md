@@ -1,45 +1,50 @@
 # AWS Setup
 
-## Tools And Identity
+## Prerequisites
 
-The bootstrap artifact is `bootstrap/aws/bootstrap_deployment_identity.sh` and requires
-the AWS CLI authenticated as an operator allowed to manage the target IAM identity and
-policy. Administrator material is consumed by the CLI session, not by the script as an
-argument and not by the Management API database.
+- Use an existing isolated AWS account with billing available.
+- Never use the root user or root access keys.
+- Create one non-root programmatic identity for this supervised PoC. The current
+  import contract accepts an IAM access-key CSV; temporary role credentials are
+  not yet a supported CloudConnection input.
+- Limit the identity to the services and Regions in the resolved Six-layer graph.
+  The readiness check reports the exact missing actions before deployment.
 
-## Workflow
+AWS recommends temporary credentials in general. The long-lived access key is a
+bounded PoC compatibility choice, not a production identity pattern. Store it
+securely and revoke it after the evaluation.
 
-```bash
-bash bootstrap/aws/bootstrap_deployment_identity.sh --help
-# run the generated/dry-run command from the Management API bootstrap plan
-# add --apply only after reviewing account, region, identity, and policy
-```
+## Enter or import
 
-The output auth type is `access_key`. Import it through Cloud Accounts as a deployment
-CloudConnection and retain `permission_set_version=thesis-demo-v1` metadata.
+In **Settings → Cloud access → AWS** choose one path:
 
-Existing access keys are not rotated implicitly. Rotation requires the explicit
-`--rotate-access-keys` guard and may revoke the old key; plan consumer cutover first.
+- **Enter manually:** access key ID, secret access key, primary Region, optional
+  IAM Identity Center Region, and an optional session token.
+- **Import CSV:** the standard AWS access-key CSV. Account ID and IAM Identity
+  Center Region remain typed metadata; file contents are never previewed.
 
-## Pricing Versus Deployment
+Do not paste credentials into project configuration, evidence, screenshots,
+issues, logs, or documentation.
 
-AWS pricing retrieval and infrastructure deployment have different API surfaces. The
-pricing policy reference under `2-twin2clouds/docs/references` is separate from the
-Deployer baseline under `3-cloud-deployer/docs/references`. Do not merge them into an
-unreviewed broad role solely for convenience.
+## Validation checkpoints
 
-The pricing identity must be able to:
+Before binding the connection, confirm that readiness reports:
 
-- verify its account with STS `GetCallerIdentity`;
-- read the regional public Price List evidence used by the Optimizer;
-- call the read-only IoT TwinMaker `GetPricingPlan` operation in the configured region.
+1. the expected caller and isolated account;
+2. the configured Region and regional STS endpoint;
+3. all graph-required service actions and quota/capacity headroom;
+4. IAM Identity Center primary-Region readiness when the selected path needs it;
+5. no organization SCP, Marketplace, legal, or quota blocker.
 
-Pricing Review persists only a secret-free account observation bound to the user-owned
-pricing CloudConnection and its fingerprint. It never stores the returned credential
-payload in refresh evidence and never calls `UpdatePricingPlan`.
+Validation is read-only. A failure does not authorize Twin2MultiCloud to change
+IAM or organization policy.
 
-## Verification Status
+## Cleanup and revocation
 
-Static policy syntax, permission inventory, preflight behavior, and mocked provider
-tests are implemented. Final least-privilege completeness requires supervised refresh,
-deploy, verification, and destroy in the intended account/regions.
+Twin Destroy removes Twin-owned resources and is followed by residual inventory
+inspection. It does not remove the IAM identity, access key, account-level
+settings, or shared service prerequisites. After the final run, unbind and delete
+the CloudConnection, deactivate/delete the access key in AWS, and review the
+identity for residual permissions.
+
+See the official [AWS references](provider-links.md#aws).

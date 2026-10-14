@@ -1,0 +1,444 @@
+# Bounded integration close-out
+
+Status: supervised integration attempts in progress; **no new integration pass
+is inferred from preparation**. Continue after the nine Core telemetry and two isolated
+L4 observations. Those results are not invalidated or silently broadened.
+
+## Simulator and command return
+
+Reuse the Core runner and deployed domain/Event code. The first fixed case is
+local AWS, selected explicitly with `--command-roundtrip`; local Azure and GCP
+now have provider-specific receipt/readback harnesses. Directed command
+combinations fail before creating an output directory. The ordinary
+ten-message Core smoke remains unchanged.
+
+The read-only fresh-state plan has 94 managed creation entries, including ten
+Lambda functions, two Kinesis streams/three consumers, two DynamoDB tables,
+three S3 buckets, one SNS topic/two SQS queues, IoT ingress/command definition,
+the existing build/registry and scheduled mover infrastructure, and supporting
+IAM/network/configuration resources. Counts include bindings and configuration,
+not 94 independently billed services. No L4, L5, federation or Grafana is added.
+SDK registration adds exactly one simulator Thing, one certificate and one
+exact-topic IoT policy. The Terraform gateway Thing is a different resource.
+
+Send one value `42` through the actual MQTT/TLS simulator after subscribing to
+the command topic. One typed feedback rule causes the existing action boundary
+and Event command-delivery path to return a command. Require the same diagnostic
+trace at simulator send/receipt and an authenticated L3 point with the exact
+input timestamp and value. The current L3 response intentionally does not expose
+`source_sequence`; do not assert a nonexistent field or change its contract for
+this experiment. An API-accepted command alone is not receipt evidence.
+
+Retain phase/resource times and simulator checkpoints privately. This is one
+integration sample, not a performance estimate. Capture failure evidence as well
+as success. The existing runner's overall functional deadline includes the
+300-second command wait. Stop sending and clean up immediately afterward.
+Cleanup removes the exact registered certificate, policy and Thing before
+Terraform Destroy; an identity journal covers failure before certificate attach.
+Foreign attachments fail closed. Independent inventory includes the journaled
+certificate and policy as well as the existing Core inventory. Missing API
+permission is an error, not zero inventory. Cleanup errors preclude overall green.
+Inactive command tombstones remain separate from active resources.
+
+AWS and Azure already support bounded send-after-listen on one connection.
+GCP now supports the same optional mode, but waits for a successful MQTT SUBACK
+before sending. This avoids a listener-start race; the existing manual listener
+and send helpers retain their behavior. These changes are tested offline only.
+The focused simulator, runtime, policy, package and runner regression contains
+117 passing tests; changed Python files pass Ruff.
+Initial account-bound read-only plans admitted 98 Azure and 109 GCP managed creates; GCP's
+existing staged MQTT deployment additionally checks nine Kubernetes addresses.
+These counts include bindings/configuration, not independently billed services.
+Azure/GCP receipt checks still require their own live result, not inference from AWS.
+
+AWS attempts exposed a legacy-only Terraform endpoint guard: the Six-layer IoT
+command adapter received an empty Data-ATS endpoint. The guard now follows actual
+AWS L1 placement. The next attempts delivered the real command and exposed two
+simulator SDK callback details: the message callback supplies `None` as its client,
+and PUBACK supplies `mid` by keyword. Acknowledgement now uses the owned client's
+asynchronous publish and reports success only after PUBACK. Regression tests use
+the actual callback shapes, including a missing-ACK negative case. Failed attempts
+remain failed; arrival alone does not override teardown or harness errors.
+
+### AWS command observation (2026-10-04)
+
+Attempt 05, with runtime fixes through `f505bb69`, passed the actual simulator/command and
+authenticated L3 assertion: one telemetry message, one trace-correlated command,
+broker-acknowledged device response and one exact timestamp/value readback. The
+single observed send-to-receipt time was **13.646645 s**. This is not a latency
+distribution or a directed multi-cloud command result.
+
+| Attempt | Functional result | Deploy s | Verify s | Destroy s | Total s |
+|---|---|---:|---:|---:|---:|
+| 01 | Receipt timeout | 97.879 | 301.836 | 103.077 | 657.882 |
+| 02 | Empty command endpoint diagnosed; stopped | 105.270 | 182.513 | 106.003 | 548.622 |
+| 03 | SDK message callback client was `None` | 104.750 | 166.099 | 114.506 | 545.033 |
+| 04 | PUBACK keyword callback mismatch | 107.769 | 118.249 | 83.925 | 479.066 |
+| 05 | Simulator roundtrip and L3 passed | 109.611 | 38.508 | 137.858 | 439.303 |
+
+Deploy excludes the separately captured image foundation/publication phases;
+total includes preparation, image phases, diagnostics where needed, and cleanup.
+All five attempts completed Destroy and independent zero **active** inventory,
+including simulator identity/certificate/policy. Each initial residual snapshot
+still contained one inactive IoT command marked `pendingDeletion`. Accordingly,
+the strict runner retained `green=false` even for functional attempt 05. Later
+zero-inventory reconciliation must be recorded separately, not overwrite these
+original observations. Per-resource lifecycle timings and private raw evidence
+remain retained; billing attribution is pending.
+One subsequent read-only reconciliation still found zero active resources and
+the same five inactive command tombstones. AWS documents a **12-hour deletion
+waiting period** for recently deprecated commands; there is no immediate-delete
+override in `DeleteCommand`. This provider lifecycle is not a reason to rerun the
+functional test or repeatedly issue mutations
+([AWS API reference](https://docs.aws.amazon.com/iot/latest/apireference/API_DeleteCommand.html)).
+
+### Azure command adapter correction
+
+The first Azure command attempt was stopped during provisioning after a primary
+API review found the existing sender using an unsupported HTTP POST to a device
+endpoint. Azure's service-side C2D send uses AMQP, not that REST endpoint
+([Microsoft endpoint documentation](https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-endpoints)).
+No device receipt or live HTTP failure is claimed for the stopped attempt.
+
+The adapter now uses the official token-authenticated `IoTHubRegistryManager`
+with the existing runtime Managed Identity and explicitly closes its connection.
+The Function package pins `azure-iot-hub==2.7.0`, `uamqp==1.6.11` and `six==1.17.0`.
+The last dependency is needed by that SDK despite missing from its direct package
+metadata. Import and real token-auth client construction were verified locally in
+the Linux amd64 Azure Functions Python 3.12 image, without a network send. 61 focused
+runtime/simulator/receipt tests pass. Cloud resources, roles and command semantics
+are unchanged; live receipt still requires a new bounded attempt.
+
+The second attempt completed deployment (636.472 s) and recorded one simulator
+send, but failed `COMMAND_RECEIPT_TIMEOUT` after 305.703 s of verification.
+Available logs showed processing-host initialization, not a traced end-to-end
+message flow; they do not establish an AMQP failure or a cold-start root cause.
+Its immediate Destroy completed in 958.803 s (total attempt: 2035.337 s),
+followed by independent zero resource-group inventory. Before another send, the local Azure
+harness now requires the expected functions to be indexed across all six apps.
+The bounded registration wait is timed and retained privately. A failed receipt
+also triggers one authenticated exact-timestamp L3 check, reported as diagnostic
+evidence only. The input fixture is retained so that this check cannot match an
+unrelated point. No extra cloud resource or alternate data path is introduced.
+The focused registration/receipt/runtime group passes 72 tests; the broader Azure
+runtime/package/Terraform group passed 226 tests after the SDK change.
+
+Attempt 03 indexed all required apps, including the rule evaluator, but still
+timed out waiting for a device command. An exact authenticated L3 read found the
+new point both during verification and after the receipt failure. Retained logs
+show ingress, processing and historical persistence, but no rule-evaluator
+execution in the observation window. This localizes the missing evidence; it
+does not prove an AMQP failure or a platform scaling defect.
+Attempt 03 measured 583.996 s deployment, 314.914 s verification and 950.904 s
+Destroy (1995.107 s total); its independent resource-group inventory is zero.
+
+The next bounded command experiment adds one always-ready instance for each of
+the existing rule-evaluator and control-router functions and the action HTTP
+group. This applies only to Core with configured rules; the nine telemetry-only
+Core plans and full-profile defaults are unchanged. No new resource, route or
+alternate command path is added, and the 300-second receipt window is unchanged.
+This tests trigger startup as a hypothesis, not an already established fix.
+Microsoft documents separate per-function scale groups and separate always-ready
+capacity; the on-demand limit is not a combined cap including warm instances
+([Flex scaling](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan#per-function-scaling)).
+Any successful observation must be labelled as warm functional integration, not
+scale-to-zero latency evidence. Cleanup removes the warmed apps with the run.
+The native mock-plan suite passes with positive warm-group and unchanged
+telemetry-plan assertions; 669 Azure/Terraform/runner regression tests pass
+(the separately executed native-plan test is excluded from that count).
+
+Attempt 04 exposed an apply-time AzureRM validation before verification: the
+provider requires the sum of always-ready instances not to exceed the configured
+maximum. Two warmed trigger groups therefore cannot use the telemetry-only
+limit of one. This is the pinned provider's validation, not evidence that Azure
+uses a shared on-demand scale group. The command-only Event runtime limit is now
+two; telemetry-only Core remains one and full-profile defaults remain unchanged.
+Native mock assertions explicitly check both the sum constraint and the bounded
+exception. See the [pinned provider implementation](https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.67.0/internal/services/appservice/function_app_flex_consumption_resource.go).
+No command receipt was tested in this attempt. Deployment took 443.070 s,
+Destroy 844.046 s and total lifecycle 1431.215 s; independent resource-group
+inventory is zero. The corrected native mock-plan suite passes.
+
+Attempt 05 provisioned the warm groups and indexed every required function, but
+the command receipt still timed out. Exact authenticated L3 readback found the
+new point. Read-only Event Hubs checkpoint inspection found sequence 0 for the
+telemetry processor, historical persistence and rule evaluator. A checkpoint
+does not itself prove successful downstream rule/control handling (terminal
+failure handling can also advance it). The deployed processing app contained
+the expected rule, whose condition matches the fixture offline. Warm capacity
+alone is therefore not a demonstrated fix. Delayed diagnostic logs do not justify
+claiming that the rule handler never ran. The runner now additionally saves
+bounded, read-only Incoming/Outgoing broker metrics before cleanup; missing
+metric samples must not be reported as zero traffic or functional success.
+Attempt 05 measured 616.227 s deployment, 310.806 s verification and 879.557 s
+Destroy (1948.937 s total). Destroy and independent zero resource-group inventory
+passed; the failed functional result is retained unchanged.
+
+## Event-to-L4 delivery
+
+AWS attempt 01 reached workspace creation, but TwinMaker rejected its role/S3
+permission validation (`InvalidRequest`). No fixture was sent. Apply took
+85.704 s and Destroy 46.432 s; independent inventory is zero. The existing
+bounded same-state IAM retry now also recognizes this narrow S3-validation
+variant, retaining the create/no-op allowlist and overall deadline. It does not
+add permissions or treat an arbitrary access-denied error as retryable. The
+same workspace bucket policy already passed isolated L4; propagation is a retry
+hypothesis, not a reason to grant broader access.
+Attempt 02 created the cut's resources, then failed while evaluating the output
+map's reference to a deliberately absent Storage-Mover log group. No fixture was
+sent. Apply took 110.503 s and Destroy 50.233 s; independent inventory is zero.
+The output now omits the unavailable log reference in a targeted cut, without
+adding the background mover or changing complete-deployment output behavior.
+
+Attempt 03 passed the deployed AWS Event-to-L4 edge at source revision
+`86d46701bc7a4a8e982328bdb00dc14949e0f28a`: one canonical processed fixture
+traversed the real Kinesis consumer and deployed domain adapter under its runtime
+identity. Authenticated TwinMaker readback matched value, source sequence, event
+ID and timestamp. Apply took 138.602 s, seed creation 1.196 s and projection plus
+readback 27.208 s (14 polls). The readback duration includes polling and is not a
+message-latency distribution. SDK cleanup took 15.255 s, Terraform Destroy
+46.452 s and independent inventory 7.839 s. All 33 managed resources and SDK seed
+objects were removed; functional, cleanup and inventory assertions passed.
+No IAM retry was needed. Earlier failed attempts remain separate observations.
+
+Do not repeat Core or mistake a local SDK projection for Event delivery. An AWS
+read-only targeted dependency experiment first produced 51 managed creates.
+The smaller Event/L4-only experiment produces **33 creates**, using the existing
+resource definitions: four functions, two streams/two consumers, one active
+Twin-update event-source mapping, two DynamoDB tables, one TwinMaker workspace,
+two buckets, one SNS topic/two queues, and IAM/logging/configuration dependencies.
+It requires neither image publication nor an IoT device or graphical L5.
+
+This is a partial research graph, not a full-profile Management deployment.
+L1/L2 are not provisioned in this cut; a canonical processed fixture is inserted
+into the real Event stream. The deployed Event consumer must invoke the deployed
+domain adapter under its runtime role and update the seeded Twin. Readback must
+match the fixture. The declared non-AWS L1/L2 placement only excludes unneeded
+AWS dependencies from this partial plan; **no Azure resources or cross-cloud
+delivery are tested**. Full-profile admission stays closed.
+
+The fixed AWS runner enforces all 33 addresses and a 900-second functional window.
+The separately reviewed Azure runner admits exactly 45 addresses: three Function
+Apps (two published packages), Event Hubs namespace/three hubs/two consumer groups,
+Service Bus, Cosmos DB, Digital Twins, Storage, an empty registry dependency and
+supporting identities/bindings/configuration. It publishes no container image and
+creates no IoT Hub. The existing package dependency also creates an unused reader
+app; this is not L5 evidence. One SDK-owned Event Hubs sender role is journaled and
+removed during cleanup. Terraform owns both Twin data roles. Its functional window
+is 1500 seconds, including provisioning and at most one processed fixture.
+
+Both runners are plan-only by default, use exact fresh create-only plans, preserve
+phase/per-resource timing, attempt cleanup on failure/interrupt and independently
+check inventory. Azure permits only the two known package submodules in its frozen
+state allowlist. Neither cut claims replay, cross-cloud delivery, graphical L5 or
+full-profile admission. The L4 runner group has 60 passing offline tests. A private
+execution allowance is not measured provider billing. No general layer-selection
+framework or alternate production architecture is introduced.
+
+Azure Event-to-L4 attempt 01 stopped before Apply because the local evaluation
+image lacked `azure-eventhub`. No cloud resource was created, and independent
+resource-group inventory was zero. The SDK is now a pinned development-only
+dependency (`5.15.1`), and the runner checks its availability before planning or
+reserving an execution allowance. The existing deployment image was extended
+locally with only this SDK for the next attempt; production dependencies and
+cloud resource scope are unchanged. All ten Azure Event/L4 runner tests pass.
+
+Azure attempt 02 created all 45 resources, then failed while evaluating the cool
+and archive handoff outputs: both referenced a storage container intentionally
+absent from the targeted cut. No seed or fixture was created. Those two outputs
+now return null when their referenced container is absent; full-deployment
+handoffs remain unchanged. The correction does not add storage services or
+expand the research cut. This was an output-evaluation failure, not an observed
+Digital Twins data-permission failure.
+Apply took 728.829 s and Destroy 766.627 s; cleanup and independent zero inventory
+passed. The corrected native mock-plan suite passes without cloud credentials.
+
+Azure attempt 03 provisioned the cut and seeded Digital Twins, but the local
+publisher could not open its AMQP-over-WebSocket transport: `websocket-client`
+was absent from the evaluation image. No processed fixture was sent. Apply took
+711.756 s, seed creation 2.116 s and Destroy 822.284 s; cleanup and independent
+zero inventory passed. The optional transport dependency is now pinned for
+development only and checked before planning or cloud mutation. This was a local
+evaluation-environment failure, not evidence of a deployed Event/L4 defect.
+
+Azure attempt 04 passed on 2026-10-05 at source revision
+`974e96b5690fffb4f48ce908633aa4faa9dee39d`: one processed fixture traversed
+the deployed Event Hubs consumer and domain Function using their runtime
+identities. Authenticated Digital Twins readback matched value, source sequence,
+event ID and timestamp. Apply took 706.529 s, seed creation 3.144 s, sender
+readiness plus publication 3.428 s, and projection/readback 13.254 s (five polls).
+Both data-role readiness checks succeeded on their first attempt. Destroy took
+821.951 s, total cleanup 828.534 s and independent inventory 0.999 s. All 45
+managed resources, seed objects and the journaled sender role were removed;
+functional, cleanup and inventory assertions passed. The polling duration is
+one integration observation, not a latency distribution or a cold-start estimate.
+This closes the deployed Azure Event/L4 edge only, not simulator command return,
+cross-cloud L4, replay or graphical L5.
+
+## Azure command diagnosis (attempts 06–07)
+
+Command attempt 06 again timed out despite exact authenticated L3 readback.
+All required functions were indexed on the first check, their admin status
+reported no function-definition errors, and the deployed rule and consumer-group
+bindings matched the intended configuration. All three telemetry consumers had
+sequence-0 checkpoints. A later broker sample recorded one control-topic ingress
+message; earlier zero observations were premature because metrics arrived with
+delay. No outgoing series was yet available, which is not proof of zero receives.
+Execution logs did not establish the failing control/action boundary. The failed
+receipt is retained, not reclassified as success from those indirect observations.
+Azure Monitor rejected the initial timestamp format; the read-only metric query
+now uses second-precision UTC `Z` timestamps, verified with HTTP 200 responses.
+Deploy took 630.655 s, verification 313.877 s and Destroy 961.569 s (2048.393 s
+total); Destroy and independent zero resource-group inventory passed.
+
+The command-only research cut adds one workspace-based Application Insights
+component to the existing Log Analytics workspace: 99 managed creates instead
+of 98. Only the Event runtime, processing domain and action apps receive its
+connection setting. Sampling is disabled for this one-message observation and
+the component's daily ingestion limit is 0.1 GB; this is not a hard monetary cap.
+The same Terraform Destroy and independent resource-group inventory cover the
+component. No dashboard, alerts, new workspace, runtime route or data permission
+is added. Telemetry-only Core and full-profile graphs retain their existing
+configuration. This is an execution-diagnostic experiment, not a command fix.
+The existing diagnostic query includes the workspace's AppTraces, AppExceptions
+and AppRequests tables in addition to FunctionAppLogs/AzureDiagnostics. Failed
+or missing queries remain missing evidence, never successful execution.
+See [Functions monitoring](https://learn.microsoft.com/en-us/azure/azure-functions/configure-monitoring).
+The credential-free native-plan suite and four focused wiring assertions pass,
+including absence of the component from all nine telemetry-only Core plans.
+
+Attempt 07 supplied the previously missing execution evidence: the telemetry
+processor, historical consumer and rule evaluator each completed successfully,
+with three successful domain-delivery calls and one L3 persistence checkpoint.
+The read-only Service Bus rules API returned an empty rule list at
+2026-10-05 01:29:57 UTC, before verification ended at 01:30:28 and before cleanup
+began. Thus this absence is not an effect of Destroy. No command receipt was
+observed. A successful ARM deployment record for the reserved `$Default` child
+had not established a usable subscription filter; the precise service-side
+reason for its absence is not established by these observations.
+Attempt 07 measured 621.092 s deployment, 332.624 s verification and 898.958 s
+Destroy (1985.731 s total). Destroy, including the diagnostic component, and
+independent zero resource-group inventory passed.
+
+The correction replaces the two analogous reserved-rule ARM templates with
+native Terraform subscription-rule resources, named `domain-events` and
+`bridge-events`, retaining the same SQL event-type filters. This exchanges one
+resource type for another without adding a routing service or widening delivery.
+The local command harness now checks the real rule name, SQL expression and
+absence of extra rules before registering/sending the fixture. Missing or broad
+rules fail closed. This is a fresh-deployment correction; no surviving deployment
+or state is migrated. The historical telemetry passes do not imply that these
+previously untested control routes passed.
+
+## Azure command observation (2026-10-05)
+
+Attempt 08, source `c806f1344f081f40ab7a545c0b4b230b55d6409c`, passed
+the actual MQTT/TLS simulator, rule/action/Event control path and device receipt,
+followed by authenticated L3 readback of the exact input timestamp and value.
+The live subscription preflight verified exactly one matching `domain-events`
+SQL rule before sending the fixture. One message produced one trace-correlated
+command receipt in **38.264408 s**; L3 matched on the fourth readback poll.
+Function registration was ready on the first check. This establishes the missing
+filter as a blocking configuration defect, not the unproven cause of its earlier
+service-side disappearance. The bounded warm configuration remains part of the
+observation; this is not a cold-start benchmark or directed command result.
+
+The 99-entry deployment took 604.953 s, verification 74.013 s and Destroy
+899.733 s (1714.743 s total, including image preparation/publication and other
+phases). Destroy and independent zero resource-group inventory passed. The
+Application Insights component and simulator device were removed with the owned
+resource group/IoT Hub. Earlier failed attempts remain failed.
+
+A subsequent offline parser correction accepts `@` in versioned package-check
+addresses. The original logs retain the previously omitted `terraform_data`
+timing; no cloud-service creation timing was omitted in attempt 08. Derived
+reconciliation preserves original reports and does not require a cloud rerun.
+The focused command/runner regression passes 43 tests.
+
+## GCP command client preparation (2026-10-05)
+
+Attempt 01 created the 109-entry cloud graph and nine staged Kubernetes entries,
+but the local simulator failed before connecting or sending: the shared deployer
+pins Paho MQTT 1.6.1 for `azure-iot-device`, whereas the standalone GCP simulator
+pins 2.1.0. The former has no `CallbackAPIVersion` attribute. This is an evaluation
+client dependency mismatch, not a failed deployed message path.
+
+The client now explicitly selects callback API v2 when available and otherwise
+uses the existing 1.6 callback signatures, which its handlers already accept.
+No dependency pins, TLS checks, QoS, routes or cloud resources change. An actual
+offline TLS-client construction check runs before credential loading or cloud
+work. Regression covers fail-before-cloud ordering and real client construction:
+69 tests pass in the shared image; all 13 GCP simulator tests also pass with the
+standalone pinned Paho 2.1.0 installed separately.
+
+Attempt 01 measured 27.779 s image foundation, 209.392 s image publication,
+756.050 s main deployment and 126.836 s staged Kubernetes deployment.
+Verification failed in 0.007 s before any network send. Staged Kubernetes
+removal took 76.838 s and Terraform Destroy 561.884 s; total elapsed time was
+1821.885 s. Destroy and independent zero **active** inventory passed, including
+GKE-generated compute children and project IAM bindings. One inactive Logging
+bucket remains `DELETE_REQUESTED`, so this is not strict zero inventory.
+Google documents a [seven-day deletion grace period](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/projects.locations.buckets/delete).
+Do not repeat functional tests to remove that provider-managed marker.
+
+## GCP command observation (2026-10-05)
+
+Attempt 02, source `13fbdb992a1031b1e193ea6a90aab994468e81de`, passed the
+real MQTT/TLS simulator, rule/action/Event control path and trace-correlated
+device receipt. One telemetry message produced one command receipt in
+**28.965664 s**. Authenticated L3 readback matched the exact input timestamp and
+value on the first poll. The offline actual-client preflight passed before cloud
+work. No cloud-runtime or resource graph change was needed for this correction.
+
+Image foundation took 42.214 s, image publication 215.129 s, main deployment
+774.725 s, staged Kubernetes deployment 86.071 s and verification 31.548 s.
+Kubernetes removal took 77.750 s and Terraform Destroy 557.346 s; total elapsed
+time was 1845.365 s. Destroy and independent zero active inventory passed,
+including GKE-generated compute children and IAM bindings. Each of the two
+attempts retains one inactive Logging-bucket deletion marker; strict runner
+`green=false` is preserved, not overwritten as a full cleanup pass.
+
+The three local functional observations are now complete:
+
+| Provider / successful attempt | Simulator send-to-command receipt s | Exact authenticated L3 | Cleanup observation |
+|---|---:|---|---|
+| AWS / 05 | 13.646645 | Passed | Zero active; inactive IoT Command marker |
+| Azure / 08 | 38.264408 | Passed | Strict zero inventory |
+| GCP / 02 | 28.965664 | Passed | Zero active; inactive Logging-bucket marker |
+
+These are single samples under the documented test conditions, not a latency
+distribution or a cross-provider performance ranking. Directed command paths,
+combined full-profile deployment and graphical L5 remain outside this evidence.
+The additional simulator-package/configuration regression passes 22 tests.
+The final read-only AWS reconciliation at 03:10 UTC on 2026-10-05 confirmed zero
+active resources for all five command attempts and the same five inactive
+command markers. Original reports remain immutable. Month-to-date billing
+snapshots were separately refreshed; account/subscription scope and billing lag
+prevent treating those totals as measured per-run cost attribution.
+
+## Remaining L5 decision and interpretation
+
+Graphical L5 needs a user decision, not automatic restoration of the historical
+Grafana proposal. A local view of real authenticated L3 data would be a bounded
+evaluation aid, **not** evidence of provider-hosted L5, and cannot be introduced
+as an equivalent service mapping without approval. Alternatively leave graphical
+L5 explicitly unevaluated. GCP L4/L5 remain excluded; research questions do not
+change.
+
+RQ1 records provisioning, configuration, cleanup and integration defects.
+RQ2 reports each actually verified edge and excluded responsibility separately.
+RQ3 keeps measured timings, technical allowances and later billed attribution
+distinct.
+
+## Subsequent scoped observations (2026-10-05 afternoon)
+
+The read-only AWS reconciliation at 13:46–13:47 UTC found **zero active
+resources and zero deletion markers** for all five local command attempts.
+This closes the formerly pending AWS cleanup observation without repeating
+the functional run or altering original reports.
+
+The user subsequently approved minimal provider-hosted graphical L5 evidence
+on AWS/Azure. Its independent L3→L5 fixture cut, actual observations and explicit
+limits are recorded in [the minimal L5 evidence plan](2026-10-05_minimal_l5_evidence.md).
+This supersedes the pending-decision wording above, not the existing Core,
+Event/L4, local command, RQ or GCP-exclusion boundaries.

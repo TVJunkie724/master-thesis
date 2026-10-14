@@ -78,7 +78,7 @@ class TwinStateUtils {
           color: destroyedColor,
           icon: Icons.cloud_off,
           label: 'DESTROYED',
-          description: 'Resources removed, ready to redeploy',
+          description: 'Destroy finished; inspect recorded cleanup evidence',
         );
       case 'error':
         return const TwinStateConfig(
@@ -116,7 +116,7 @@ class TwinStateUtils {
 
   /// Check if deploy button should be enabled.
   static bool canDeploy(String? state) {
-    return state == 'configured' || state == 'destroyed' || state == 'error';
+    return state == 'configured' || state == 'error';
   }
 
   /// Check if destroy button should be enabled.
@@ -125,8 +125,16 @@ class TwinStateUtils {
   }
 
   /// Check if edit button should be enabled.
-  static bool canEdit(String? state) {
-    return state != 'deploying' && state != 'destroying' && state != 'deployed';
+  static bool canEdit(String? state, {bool hasBeenDeployed = false}) {
+    return !hasBeenDeployed &&
+        (state == null ||
+            {
+              'draft',
+              'configured',
+              'error',
+              'destroyed',
+              'inactive',
+            }.contains(state));
   }
 
   /// Build a consistent state badge widget.

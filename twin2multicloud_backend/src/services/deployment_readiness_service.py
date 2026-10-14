@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import json
-import logging
 from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
+from src.clients.deployer_client import DeployerClient
 from src.models.cloud_connection import CloudConnection
 from src.repositories.deployment_preflight_repository import (
     DeploymentPreflightRepository,
@@ -20,30 +21,34 @@ from src.repositories.twin_repository import TwinRepository
 from src.schemas.deployment_readiness import (
     CloudProvider,
     DeploymentPreflightResponse,
+    DeploymentPreparationPlan,
+    DeploymentPreparationRequest,
+    DeploymentPreparationResponse,
     DeploymentReadinessCheck,
     DeploymentReadinessResponse,
+    DeploymentRequirementReadiness,
     ProviderDeploymentReadiness,
     ProviderReadinessStatus,
 )
 from src.services.cloud_connection_service import CloudConnectionService
 from src.services.cloud_credential_validation_service import (
     build_preflight_result,
-    perform_dual_validation,
+    perform_deployer_validation,
     redact_validation_result,
 )
 from src.services.credential_resolution_service import CredentialResolutionService
-from src.services.permission_sets import compare_permission_set_version
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
-
 
 logger = logging.getLogger(__name__)
 
 
 PreflightValidator = Callable[
-    [str, dict[str, Any], dict[str, Any]],
+    [str, dict[str, Any]],
     Awaitable[dict[str, Any]],
 ]
+GraphRequirementsResolver = Callable[[Any, str], Awaitable[dict[str, Any]]]
+AccountPreparer = Callable[[Any, str, str], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True, repr=False)
@@ -52,9 +57,6 @@ class _ProviderCandidate:
     connection_id: str
     connection_display_name: str
     payload_fingerprint: str
-    supplied_permission_set_version: str | None
-    expected_permission_set_version: str
-    optimizer_credentials: dict[str, Any]
     deployer_credentials: dict[str, Any]
 
 
@@ -66,6 +68,8 @@ class DeploymentReadinessService:
         db: Session,
         *,
         validator: PreflightValidator | None = None,
+        requirements_resolver: GraphRequirementsResolver | None = None,
+        account_preparer: AccountPreparer | None = None,
         clock: Callable[[], datetime] = datetime.utcnow,
         max_age: timedelta = timedelta(hours=24),
     ) -> None:
@@ -73,7 +77,11 @@ class DeploymentReadinessService:
         self._twin_repository = TwinRepository(db)
         self._connection_service = CloudConnectionService(db)
         self._cache_repository = DeploymentPreflightRepository(db)
-        self._validator = validator or perform_dual_validation
+        self._validator = validator or perform_deployer_validation
+        self._requirements_resolver = (
+            requirements_resolver or self._resolve_graph_requirements
+        )
+        self._account_preparer = account_preparer or self._prepare_account
         self._clock = clock
         if max_age <= timedelta(0):
             raise ValueError("max_age must be greater than zero")
@@ -86,6 +94,18 @@ class DeploymentReadinessService:
         providers = [
             self._cached_provider(twin, user_id, provider) for provider in required
         ]
+        if not self._provider_evidence_is_coherent(providers):
+            providers = [
+                self._provider_failure(
+                    provider,
+                    code="PREFLIGHT_GRAPH_EVIDENCE_INCONSISTENT",
+                    message="Cached provider checks do not share one deployment graph.",
+                    action="Run deployment preflight again.",
+                    status="stale",
+                )
+                for provider in required
+            ]
+        preparation_plan = self._cached_preparation_plan(twin.id, required)
         return DeploymentReadinessResponse(
             twin_id=twin.id,
             ready=self._aggregate_ready(required, providers, issues),
@@ -93,6 +113,11 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
+            graph_digest=self._aggregate_evidence_digest(providers, "graph_digest"),
+            requirements_digest=self._aggregate_evidence_digest(
+                providers, "requirements_digest"
+            ),
+            preparation_plan=preparation_plan,
             issues=issues,
         )
 
@@ -148,22 +173,12 @@ class DeploymentReadinessService:
                 self._cache_repository.delete(twin.id, provider)
                 continue
             try:
-                comparison = compare_permission_set_version(
-                    provider,
-                    connection.permission_set_version,
-                )
                 candidates.append(
                     _ProviderCandidate(
                         provider=provider,
                         connection_id=connection.id,
                         connection_display_name=connection.display_name,
                         payload_fingerprint=connection.payload_fingerprint,
-                        supplied_permission_set_version=connection.permission_set_version,
-                        expected_permission_set_version=comparison.expected_version,
-                        optimizer_credentials=self._connection_service.build_optimizer_credentials(
-                            connection,
-                            user_id,
-                        ),
                         deployer_credentials=self._connection_service.build_deployer_credentials(
                             connection,
                             user_id,
@@ -180,6 +195,62 @@ class DeploymentReadinessService:
                 )
                 self._cache_repository.delete(twin.id, provider)
 
+        inspection = None
+        if not issues and not blocked and len(candidates) == len(required):
+            try:
+                inspection = await self._requirements_resolver(twin, user_id)
+                self._validate_requirement_inspection(inspection, twin, required)
+            except Exception as exc:  # noqa: BLE001 - fail-closed service boundary
+                logger.warning(
+                    "Deployment graph inspection failed for twin %s: %s",
+                    twin_id,
+                    type(exc).__name__,
+                )
+                inspection = None
+                issues.append(
+                    DeploymentReadinessCheck(
+                        component="architecture",
+                        status="failed",
+                        code="DEPLOYMENT_GRAPH_INSPECTION_FAILED",
+                        message=(
+                            "The exact deployment prerequisites could not be resolved."
+                        ),
+                        action=(
+                            "Review the selected optimization result and retry preflight."
+                        ),
+                    )
+                )
+
+        if inspection is None:
+            for provider in required:
+                self._cache_repository.delete(twin.id, provider)
+            self._db.commit()
+            providers = [
+                blocked.get(provider)
+                or self._provider_failure(
+                    provider,
+                    code="GRAPH_REQUIREMENTS_UNAVAILABLE",
+                    message="Provider checks require an exact resolved deployment graph.",
+                    action="Resolve the blocking configuration and run preflight again.",
+                    status="not_checked",
+                )
+                for provider in required
+            ]
+            return DeploymentPreflightResponse(
+                twin_id=twin_id,
+                ready=False,
+                summary=self._aggregate_summary(required, providers, issues),
+                required_providers=required,
+                providers=providers,
+                checked_at=self._aggregate_checked_at(providers),
+                issues=issues,
+            )
+
+        graph_evidence = inspection["graph_evidence"]
+        requirements = inspection["requirements"]
+        preparation_plan = DeploymentPreparationPlan.model_validate(
+            inspection["preparation_plan"]
+        )
         raw_results = await asyncio.gather(
             *(self._validate_candidate(candidate) for candidate in candidates),
         )
@@ -194,9 +265,13 @@ class DeploymentReadinessService:
                 user_id,
                 candidate.provider,
             )
-            if failure is not None or not self._candidate_is_current(
-                candidate,
-                current_connection,
+            if (
+                failure is not None
+                or not self._candidate_is_current(
+                    candidate,
+                    current_connection,
+                )
+                or not self._architecture_is_current(current_twin, graph_evidence)
             ):
                 refreshed[candidate.provider] = self._provider_failure(
                     candidate.provider,
@@ -213,6 +288,26 @@ class DeploymentReadinessService:
                 candidate,
                 raw_result,
                 checked_at,
+                provider_requirements=[
+                    item
+                    for item in requirements
+                    if item.get("provider") == candidate.provider
+                ],
+                preparation_plan=preparation_plan,
+                completed_action_ids=self._current_preparation_ids(
+                    twin_id,
+                    candidate.provider,
+                    preparation_plan,
+                    field="completed_preparation_actions_json",
+                ),
+                manual_acknowledgement_ids=self._current_preparation_ids(
+                    twin_id,
+                    candidate.provider,
+                    preparation_plan,
+                    field="manual_acknowledgements_json",
+                ),
+                graph_digest=graph_evidence["graph_digest"],
+                requirements_digest=graph_evidence["requirements_digest"],
             )
             refreshed[candidate.provider] = provider_result
             self._cache_repository.upsert(
@@ -220,13 +315,45 @@ class DeploymentReadinessService:
                 provider=candidate.provider,
                 cloud_connection_id=candidate.connection_id,
                 connection_payload_fingerprint=candidate.payload_fingerprint,
-                supplied_permission_set_version=candidate.supplied_permission_set_version,
-                expected_permission_set_version=candidate.expected_permission_set_version,
+                architecture_digest=graph_evidence["architecture_digest"],
+                graph_digest=graph_evidence["graph_digest"],
+                requirements_digest=graph_evidence["requirements_digest"],
                 ready=provider_result.ready,
                 summary=provider_result.summary,
                 checks_json=json.dumps(
                     [check.model_dump(mode="json") for check in provider_result.checks],
                     sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                requirements_json=json.dumps(
+                    [
+                        item.model_dump(mode="json")
+                        for item in provider_result.requirements
+                    ],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                preparation_plan_json=preparation_plan.model_dump_json(),
+                completed_preparation_actions_json=json.dumps(
+                    sorted(
+                        self._current_preparation_ids(
+                            twin_id,
+                            candidate.provider,
+                            preparation_plan,
+                            field="completed_preparation_actions_json",
+                        )
+                    ),
+                    separators=(",", ":"),
+                ),
+                manual_acknowledgements_json=json.dumps(
+                    sorted(
+                        self._current_preparation_ids(
+                            twin_id,
+                            candidate.provider,
+                            preparation_plan,
+                            field="manual_acknowledgements_json",
+                        )
+                    ),
                     separators=(",", ":"),
                 ),
                 checked_at=checked_at,
@@ -252,7 +379,93 @@ class DeploymentReadinessService:
             required_providers=required,
             providers=providers,
             checked_at=self._aggregate_checked_at(providers),
+            graph_digest=self._aggregate_evidence_digest(providers, "graph_digest"),
+            requirements_digest=self._aggregate_evidence_digest(
+                providers, "requirements_digest"
+            ),
+            preparation_plan=preparation_plan,
             issues=issues,
+        )
+
+    async def prepare_account(
+        self,
+        twin_id: str,
+        user_id: str,
+        request: DeploymentPreparationRequest,
+    ) -> DeploymentPreparationResponse:
+        """Apply reviewed account actions, record evidence, and rerun readiness."""
+
+        twin = self._require_twin(twin_id, user_id)
+        cached = self.get_cached(twin_id, user_id)
+        plan = cached.preparation_plan
+        if plan is None:
+            raise ValidationError(
+                "Deployment preflight must resolve an account preparation plan.",
+                detail={"code": "PREPARATION_PLAN_REQUIRED"},
+            )
+        if (
+            request.plan_digest != plan.plan_digest
+            or request.requirements_digest != plan.requirements_digest
+        ):
+            raise ValidationError(
+                "The reviewed account preparation plan is stale.",
+                detail={"code": "PREPARATION_PLAN_STALE"},
+            )
+        allowed_manual = {item.requirement_id for item in plan.manual_requirements}
+        requested_manual = set(request.manual_requirement_ids)
+        if not requested_manual.issubset(allowed_manual):
+            raise ValidationError(
+                "Manual confirmation contains an unknown graph requirement.",
+                detail={"code": "MANUAL_REQUIREMENT_UNKNOWN"},
+            )
+
+        raw = (
+            await self._account_preparer(twin, user_id, plan.plan_digest)
+            if plan.actions
+            else {
+                "project_name": "not-required",
+                "plan_digest": plan.plan_digest,
+                "requirements_digest": plan.requirements_digest,
+                "status": "ready",
+                "completed_actions": [],
+                "failed_actions": [],
+                "remaining_actions": [],
+                "retry_safe": True,
+            }
+        )
+        completed, failed, remaining_ids = self._validate_preparation_result(raw, plan)
+        self._record_preparation_evidence(
+            twin_id,
+            plan,
+            providers=cached.required_providers,
+            completed_action_ids={item["action_id"] for item in completed},
+            manual_requirement_ids=requested_manual,
+        )
+        refreshed = await self.run_preflight(twin_id, user_id)
+        acknowledged = self._aggregate_recorded_preparation_ids(
+            twin_id,
+            refreshed.required_providers,
+            field="manual_acknowledgements_json",
+        )
+        pending_manual = sorted(allowed_manual - acknowledged)
+        if failed:
+            status = "partial" if completed else "failed"
+        elif pending_manual:
+            status = "manual_action"
+        else:
+            status = "ready" if refreshed.ready else "partial"
+        return DeploymentPreparationResponse(
+            twin_id=twin_id,
+            plan_digest=plan.plan_digest,
+            requirements_digest=plan.requirements_digest,
+            status=status,
+            completed_actions=completed,
+            failed_actions=failed,
+            remaining_action_ids=remaining_ids,
+            acknowledged_manual_requirement_ids=sorted(acknowledged),
+            pending_manual_requirement_ids=pending_manual,
+            retry_safe=True,
+            readiness=refreshed,
         )
 
     async def _validate_candidate(
@@ -262,10 +475,9 @@ class DeploymentReadinessService:
         try:
             result = await self._validator(
                 candidate.provider,
-                candidate.optimizer_credentials,
                 candidate.deployer_credentials,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - provider adapter boundary
             logger.warning(
                 "Deployment preflight validator failed for provider %s: %s",
                 candidate.provider,
@@ -274,10 +486,6 @@ class DeploymentReadinessService:
             result = {
                 "provider": candidate.provider,
                 "valid": False,
-                "optimizer": {
-                    "valid": False,
-                    "message": "Provider validation failed unexpectedly.",
-                },
                 "deployer": {
                     "valid": False,
                     "message": "Provider validation failed unexpectedly.",
@@ -285,9 +493,228 @@ class DeploymentReadinessService:
             }
         return redact_validation_result(
             result,
-            candidate.optimizer_credentials,
             candidate.deployer_credentials,
         )
+
+    async def _resolve_graph_requirements(
+        self,
+        twin,
+        user_id: str,
+    ) -> dict[str, Any]:
+        """Build the exact package and resolve its graph without staging it."""
+
+        from src.services.deployment_service import build_project_zip, get_resource_name
+
+        archive = build_project_zip(twin, user_id)
+        archive.seek(0)
+        return await DeployerClient().inspect_deployment_requirements(
+            get_resource_name(twin),
+            archive.read(),
+        )
+
+    async def _prepare_account(
+        self,
+        twin,
+        user_id: str,
+        plan_digest: str,
+    ) -> dict[str, Any]:
+        from src.services.deployment_service import build_project_zip, get_resource_name
+
+        archive = build_project_zip(twin, user_id)
+        archive.seek(0)
+        return await DeployerClient().prepare_deployment_account(
+            get_resource_name(twin),
+            archive.read(),
+            expected_plan_digest=plan_digest,
+        )
+
+    @staticmethod
+    def _validate_preparation_result(
+        raw: object,
+        plan: DeploymentPreparationPlan,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+        if not isinstance(raw, dict):
+            raise TypeError("Account preparation result must be an object")
+        if (
+            raw.get("plan_digest") != plan.plan_digest
+            or raw.get("requirements_digest") != plan.requirements_digest
+            or raw.get("retry_safe") is not True
+        ):
+            raise ValidationError(
+                "Deployer returned stale account preparation evidence.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        allowed = {action.action_id for action in plan.actions}
+
+        def results(field: str, expected_status: str) -> list[dict[str, Any]]:
+            values = raw.get(field)
+            if not isinstance(values, list):
+                raise TypeError(f"{field} must be a list")
+            normalized = []
+            for value in values:
+                if (
+                    not isinstance(value, dict)
+                    or value.get("action_id") not in allowed
+                    or value.get("status") != expected_status
+                ):
+                    raise ValidationError(
+                        "Deployer returned unknown account preparation evidence.",
+                        detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+                    )
+                normalized.append(value)
+            return normalized
+
+        completed = results("completed_actions", "ready")
+        failed = results("failed_actions", "failed")
+        completed_ids = {item["action_id"] for item in completed}
+        failed_ids = {item["action_id"] for item in failed}
+        if completed_ids & failed_ids:
+            raise ValidationError(
+                "Account preparation evidence is contradictory.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        remaining = raw.get("remaining_actions")
+        if not isinstance(remaining, list) or any(
+            not isinstance(item, dict) or item.get("action_id") not in allowed
+            for item in remaining
+        ):
+            raise ValidationError(
+                "Account preparation remaining actions are invalid.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        remaining_ids = sorted({item["action_id"] for item in remaining})
+        if set(remaining_ids) != failed_ids:
+            raise ValidationError(
+                "Account preparation retry evidence is inconsistent.",
+                detail={"code": "PREPARATION_EVIDENCE_INVALID"},
+            )
+        return completed, failed, remaining_ids
+
+    def _record_preparation_evidence(
+        self,
+        twin_id: str,
+        plan: DeploymentPreparationPlan,
+        *,
+        providers: list[CloudProvider],
+        completed_action_ids: set[str],
+        manual_requirement_ids: set[str],
+    ) -> None:
+        for provider in providers:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None or cache.requirements_digest != plan.requirements_digest:
+                raise ValidationError(
+                    "Account preparation cache is stale.",
+                    detail={"code": "PREPARATION_PLAN_STALE"},
+                )
+            existing_actions = self._current_preparation_ids(
+                twin_id,
+                provider,
+                plan,
+                field="completed_preparation_actions_json",
+            )
+            existing_manual = self._current_preparation_ids(
+                twin_id,
+                provider,
+                plan,
+                field="manual_acknowledgements_json",
+            )
+            provider_actions = {
+                action.action_id
+                for action in plan.actions
+                if action.provider == provider
+            }
+            provider_manual = {
+                item.requirement_id
+                for item in plan.manual_requirements
+                if item.provider == provider
+            }
+            cache.completed_preparation_actions_json = json.dumps(
+                sorted(existing_actions | (completed_action_ids & provider_actions)),
+                separators=(",", ":"),
+            )
+            cache.manual_acknowledgements_json = json.dumps(
+                sorted(existing_manual | (manual_requirement_ids & provider_manual)),
+                separators=(",", ":"),
+            )
+        self._db.commit()
+
+    def _aggregate_recorded_preparation_ids(
+        self,
+        twin_id: str,
+        providers: list[CloudProvider],
+        *,
+        field: str,
+    ) -> set[str]:
+        values: set[str] = set()
+        for provider in providers:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None:
+                continue
+            try:
+                items = json.loads(getattr(cache, field))
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if isinstance(items, list):
+                values.update(item for item in items if isinstance(item, str))
+        return values
+
+    def _validate_requirement_inspection(
+        self,
+        inspection: object,
+        twin,
+        required: list[CloudProvider],
+    ) -> None:
+        if not isinstance(inspection, dict):
+            raise TypeError("Requirement inspection must be an object")
+        evidence = inspection.get("graph_evidence")
+        requirements = inspection.get("requirements")
+        if not isinstance(evidence, dict) or not isinstance(requirements, list):
+            raise TypeError("Requirement inspection is incomplete")
+        for field in (
+            "architecture_digest",
+            "graph_digest",
+            "requirements_digest",
+        ):
+            value = evidence.get(field)
+            if (
+                not isinstance(value, str)
+                or not value.startswith("sha256:")
+                or len(value) != 71
+            ):
+                raise ValueError(f"Invalid graph evidence field: {field}")
+        if evidence.get("required_providers") != list(required):
+            raise ValueError(
+                "Resolved graph provider set differs from the architecture"
+            )
+        if not requirements or any(
+            not isinstance(item, dict)
+            or item.get("provider") not in required
+            or not isinstance(item.get("requirement_id"), str)
+            for item in requirements
+        ):
+            raise ValueError("Resolved graph requirements are invalid")
+        current_architecture_digest = self._current_architecture_digest(twin)
+        if (
+            current_architecture_digest is not None
+            and evidence["architecture_digest"] != current_architecture_digest
+        ):
+            raise ValueError("Resolved graph does not match the selected architecture")
+
+    @staticmethod
+    def _current_architecture_digest(twin) -> str | None:
+        selected = [
+            run
+            for run in tuple(getattr(twin, "cost_calculation_runs", None) or ())
+            if getattr(run, "selected_for_deployment_at", None) is not None
+        ]
+        if len(selected) != 1:
+            return None
+        value = getattr(selected[0], "resolved_architecture_digest", None)
+        return value if isinstance(value, str) and value else None
+
+    def _architecture_is_current(self, twin, evidence: dict[str, Any]) -> bool:
+        current = self._current_architecture_digest(twin)
+        return current is None or current == evidence.get("architecture_digest")
 
     def _cached_provider(
         self,
@@ -305,10 +732,6 @@ class DeploymentReadinessService:
                 message="The bound deployment Cloud Connection is unavailable.",
                 action="Review the provider binding and run preflight again.",
             )
-        comparison = compare_permission_set_version(
-            provider,
-            connection.permission_set_version,
-        )
         cache = self._cache_repository.get(twin.id, provider)
         if cache is None:
             return self._provider_failure(
@@ -319,7 +742,7 @@ class DeploymentReadinessService:
                 connection=connection,
                 status="not_checked",
             )
-        if not self._cache_is_current(cache, connection, comparison.expected_version):
+        if not self._cache_is_current(cache, connection, twin):
             return self._provider_failure(
                 provider,
                 code="PREFLIGHT_CACHE_STALE",
@@ -330,7 +753,11 @@ class DeploymentReadinessService:
                 checked_at=cache.checked_at,
             )
         checks = self._parse_cached_checks(cache.checks_json)
-        if checks is None:
+        requirements = self._parse_cached_requirements(
+            cache.requirements_json,
+            provider,
+        )
+        if checks is None or requirements is None:
             return self._provider_failure(
                 provider,
                 code="PREFLIGHT_CACHE_INVALID",
@@ -340,7 +767,7 @@ class DeploymentReadinessService:
                 status="stale",
                 checked_at=cache.checked_at,
             )
-        ready = bool(cache.ready) and comparison.matches
+        ready = bool(cache.ready)
         return ProviderDeploymentReadiness(
             provider=provider,
             connection_id=connection.id,
@@ -352,11 +779,11 @@ class DeploymentReadinessService:
                 fallback="Cached provider preflight is unavailable.",
                 max_length=2_000,
             ),
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=cache.checked_at,
+            graph_digest=cache.graph_digest,
+            requirements_digest=cache.requirements_digest,
             checks=checks,
+            requirements=requirements,
         )
 
     def _provider_from_validation(
@@ -364,20 +791,47 @@ class DeploymentReadinessService:
         candidate: _ProviderCandidate,
         validation_result: dict[str, Any],
         checked_at: datetime,
+        *,
+        provider_requirements: list[dict[str, Any]],
+        preparation_plan: DeploymentPreparationPlan,
+        completed_action_ids: set[str],
+        manual_acknowledgement_ids: set[str],
+        graph_digest: str,
+        requirements_digest: str,
     ) -> ProviderDeploymentReadiness:
-        comparison = compare_permission_set_version(
-            candidate.provider,
-            candidate.supplied_permission_set_version,
-        )
         raw = build_preflight_result(
             candidate.provider,
             validation_result,
-            version_comparison=comparison,
         )
-        checks = [self._safe_check(check) for check in raw.get("checks", [])[:32]]
-        ready = bool(raw.get("ready")) and comparison.matches
+        checks = self._checks_for_graph(
+            [self._safe_check(check) for check in raw.get("checks", [])[:32]],
+            provider_requirements,
+        )
+        requirement_results = [
+            self._project_requirement_readiness(requirement, checks)
+            if not (
+                self._requirement_is_prepared(
+                    requirement,
+                    preparation_plan,
+                    completed_action_ids,
+                    manual_acknowledgement_ids,
+                )
+            )
+            else self._prepared_requirement_readiness(requirement)
+            for requirement in provider_requirements
+        ]
+        ready = (
+            bool(checks)
+            and all(check.status == "passed" for check in checks)
+            and bool(requirement_results)
+            and all(item.status == "ready" for item in requirement_results)
+        )
         summary = redact_secret_like_text(
-            str(raw.get("summary") or "Provider preflight failed"),
+            (
+                "All graph-derived provider requirements are ready."
+                if ready
+                else str(raw.get("summary") or "Provider preflight failed")
+            ),
         )[:2_000]
         return ProviderDeploymentReadiness(
             provider=candidate.provider,
@@ -386,12 +840,297 @@ class DeploymentReadinessService:
             ready=ready,
             status="ready" if ready else "review_required",
             summary=summary,
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=checked_at,
+            graph_digest=graph_digest,
+            requirements_digest=requirements_digest,
             checks=checks,
+            requirements=requirement_results,
         )
+
+    @staticmethod
+    def _checks_for_graph(
+        checks: list[DeploymentReadinessCheck],
+        requirements: list[dict[str, Any]],
+    ) -> list[DeploymentReadinessCheck]:
+        """Discard optional authority checks that the resolved graph does not use."""
+        capabilities = {
+            str(requirement.get("capability_id") or "") for requirement in requirements
+        }
+        optional_authorities = {
+            "IDENTITY_CENTER_PRIMARY_REGION_READY": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_INSPECTION_DENIED": "aws.iam-identity-center.primary-region",
+            "IDENTITY_CENTER_CHECK_FAILED": "aws.iam-identity-center.primary-region",
+            "MICROSOFT_GRAPH_AUTHORITY_READY": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CONSENT_REQUIRED": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CHECK_FAILED": "azure.microsoft-graph.authority",
+            "MICROSOFT_GRAPH_CHECK_UNSUPPORTED": "azure.microsoft-graph.authority",
+        }
+        return [
+            check
+            for check in checks
+            if optional_authorities.get(check.code) is None
+            or optional_authorities[check.code] in capabilities
+        ]
+
+    def _project_requirement_readiness(
+        self,
+        requirement: dict[str, Any],
+        checks: list[DeploymentReadinessCheck],
+    ) -> DeploymentRequirementReadiness:
+        capability = self._safe_text(
+            requirement.get("capability_id"),
+            fallback="unknown-capability",
+            max_length=300,
+        )
+        requirement_type = self._safe_text(
+            requirement.get("requirement_type"),
+            fallback="unknown",
+            max_length=80,
+        )
+        preparation_mode = requirement.get("preparation_mode")
+        if preparation_mode not in {
+            "none",
+            "confirmed_account",
+            "manual_external",
+            "terraform",
+        }:
+            preparation_mode = "none"
+        failed = [check for check in checks if check.status == "failed"]
+        relevant = self._relevant_requirement_failure(
+            requirement_type,
+            capability,
+            failed,
+        )
+
+        if preparation_mode == "terraform" or requirement_type == "verification_probe":
+            status = "ready"
+            message = "The immutable deployment graph contains this Terraform-managed contract."
+            action = "No account preparation is required before apply."
+        elif preparation_mode == "manual_external" and relevant is not None:
+            status = self._failure_requirement_status(relevant)
+            message = relevant.message
+            action = relevant.action
+        elif (
+            preparation_mode == "manual_external"
+            and self._manual_requirement_verified(
+                capability,
+                checks,
+            )
+        ):
+            status = "ready"
+            message = (
+                "The provider authority check passed for this external prerequisite."
+            )
+            action = "No action required."
+        elif preparation_mode == "manual_external":
+            status = "manual_action"
+            message = "This provider prerequisite cannot be changed safely by the PoC."
+            action = self._manual_requirement_action(capability)
+        elif capability == "aws.outbound-identity-federation":
+            status = "manual_action"
+            message = "AWS outbound identity federation needs an account-level review."
+            action = "Review the account identity settings and confirm completion before retrying."
+        elif preparation_mode == "confirmed_account" and requirement_type in {
+            "api",
+            "resource_provider",
+        }:
+            status = "preparable"
+            message = (
+                relevant.message
+                if relevant is not None
+                else "This persistent account prerequisite awaits explicit confirmation."
+            )
+            action = "Review and confirm the bounded provider preparation action."
+        elif relevant is None and not failed:
+            status = "ready"
+            message = "The non-mutating provider check passed for this requirement."
+            action = "No action required."
+        else:
+            failure = relevant or (failed[0] if failed else None)
+            status = self._failure_requirement_status(failure)
+            message = (
+                failure.message
+                if failure is not None
+                else "The requirement could not be verified safely."
+            )
+            action = (
+                failure.action
+                if failure is not None
+                else "Review the provider prerequisite and run preflight again."
+            )
+
+        return DeploymentRequirementReadiness(
+            requirement_id=self._safe_text(
+                requirement.get("requirement_id"),
+                fallback=f"requirement.{requirement_type}.{capability}",
+                max_length=300,
+            ),
+            requirement_type=requirement_type,
+            provider=requirement.get("provider"),
+            capability_id=capability,
+            preparation_mode=preparation_mode,
+            mandatory=bool(requirement.get("mandatory", True)),
+            status=status,
+            message=self._safe_text(
+                message, fallback="Requirement needs review.", max_length=2_000
+            ),
+            action=self._safe_text(
+                action, fallback="Review and retry.", max_length=2_000
+            ),
+            source_node_ids=self._safe_requirement_sources(
+                requirement.get("source_node_ids")
+            ),
+            source_edge_ids=self._safe_requirement_sources(
+                requirement.get("source_edge_ids")
+            ),
+        )
+
+    def _prepared_requirement_readiness(
+        self,
+        requirement: dict[str, Any],
+    ) -> DeploymentRequirementReadiness:
+        value = self._project_requirement_readiness(requirement, [])
+        return value.model_copy(
+            update={
+                "status": "ready",
+                "message": "Digest-bound preparation evidence is recorded.",
+                "action": "No action required.",
+            }
+        )
+
+    @staticmethod
+    def _requirement_is_prepared(
+        requirement: dict[str, Any],
+        plan: DeploymentPreparationPlan,
+        completed_action_ids: set[str],
+        manual_acknowledgement_ids: set[str],
+    ) -> bool:
+        requirement_id = requirement.get("requirement_id")
+        if requirement_id in manual_acknowledgement_ids:
+            return True
+        return any(
+            requirement_id in action.requirement_ids
+            and action.action_id in completed_action_ids
+            for action in plan.actions
+        )
+
+    @staticmethod
+    def _relevant_requirement_failure(
+        requirement_type: str,
+        capability: str,
+        failures: list[DeploymentReadinessCheck],
+    ) -> DeploymentReadinessCheck | None:
+        for failure in failures:
+            if capability in failure.permissions:
+                return failure
+            if requirement_type == "region" and failure.code == "REGION_NOT_SUPPORTED":
+                return failure
+            if requirement_type == "permission" and failure.code in {
+                "MISSING_PERMISSIONS",
+                "SELF_CHECK_PERMISSION_MISSING",
+                "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
+                "PERMISSION_CHECK_FAILED",
+            }:
+                return failure
+            if requirement_type == "provider_scope" and failure.code in {
+                "ACCOUNT_NOT_ACTIVE",
+                "BILLING_NOT_ENABLED",
+                "PROJECT_ACCESS_DENIED",
+                "PROJECT_NOT_ACTIVE",
+                "PROJECT_NOT_FOUND",
+                "SUBSCRIPTION_NOT_ENABLED",
+            }:
+                return failure
+            if (
+                capability == "aws.iam-identity-center.primary-region"
+                and failure.code
+                in {
+                    "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+                    "IDENTITY_CENTER_INSPECTION_DENIED",
+                    "IDENTITY_CENTER_CHECK_FAILED",
+                }
+            ):
+                return failure
+            if capability == "azure.microsoft-graph.authority" and failure.code in {
+                "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+                "MICROSOFT_GRAPH_CHECK_FAILED",
+                "MICROSOFT_GRAPH_CHECK_UNSUPPORTED",
+            }:
+                return failure
+        return None
+
+    @staticmethod
+    def _manual_requirement_verified(
+        capability: str,
+        checks: list[DeploymentReadinessCheck],
+    ) -> bool:
+        expected_code = {
+            "aws.iam-identity-center.primary-region": (
+                "IDENTITY_CENTER_PRIMARY_REGION_READY"
+            ),
+            "azure.microsoft-graph.authority": "MICROSOFT_GRAPH_AUTHORITY_READY",
+        }.get(capability)
+        return bool(expected_code) and any(
+            check.status == "passed" and check.code == expected_code for check in checks
+        )
+
+    @staticmethod
+    def _failure_requirement_status(
+        failure: DeploymentReadinessCheck | None,
+    ) -> str:
+        if failure is None:
+            return "unsupported"
+        if failure.code in {
+            "DOWNSTREAM_SERVICE_UNAVAILABLE",
+            "DOWNSTREAM_API_ERROR",
+            "IDENTITY_CENTER_CHECK_FAILED",
+            "MICROSOFT_GRAPH_CHECK_FAILED",
+        }:
+            return "transient"
+        if failure.code in {
+            "MISSING_PERMISSIONS",
+            "SELF_CHECK_PERMISSION_MISSING",
+            "ROLE_ASSIGNMENT_CHECK_UNAVAILABLE",
+            "PERMISSION_CHECK_FAILED",
+            "PROJECT_ACCESS_DENIED",
+            "PROJECT_NOT_FOUND",
+            "CREDENTIAL_EXPIRED",
+            "IDENTITY_CENTER_INSPECTION_DENIED",
+            "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+        }:
+            return "replace_connection"
+        if failure.code in {
+            "ACCOUNT_NOT_ACTIVE",
+            "BILLING_NOT_ENABLED",
+            "PROJECT_NOT_ACTIVE",
+            "SUBSCRIPTION_NOT_ENABLED",
+            "REGION_NOT_SUPPORTED",
+            "REGIONAL_STS_UNAVAILABLE",
+            "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
+        }:
+            return "manual_action"
+        if failure.code == "MICROSOFT_GRAPH_CHECK_UNSUPPORTED":
+            return "unsupported"
+        return "unsupported"
+
+    @staticmethod
+    def _manual_requirement_action(capability: str) -> str:
+        if ".quota." in capability:
+            return "Review the named regional quota and request capacity if required."
+        if capability == "aws.iam-identity-center.primary-region":
+            return "Open IAM Identity Center in its primary Region and verify access."
+        if capability == "azure.microsoft-graph.authority":
+            return "Grant the required Microsoft Graph application consent and retry."
+        if capability.startswith("gcp.iap."):
+            return "Complete the project IAP OAuth configuration and retry."
+        return "Complete this provider-console prerequisite and retry."
+
+    @staticmethod
+    def _safe_requirement_sources(value: Any) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item)[:300] for item in value[:512] if str(item).strip()]
 
     def _resolve_bound_connection(
         self,
@@ -447,20 +1186,76 @@ class DeploymentReadinessService:
             connection
             and connection.id == candidate.connection_id
             and connection.payload_fingerprint == candidate.payload_fingerprint
-            and connection.permission_set_version
-            == candidate.supplied_permission_set_version
         )
 
-    def _cache_is_current(self, cache, connection, expected_version: str) -> bool:
+    def _cache_is_current(self, cache, connection, twin) -> bool:
         cache_age = self._clock() - cache.checked_at
+        current_architecture_digest = self._current_architecture_digest(twin)
         return bool(
             cache.cloud_connection_id == connection.id
             and cache.connection_payload_fingerprint == connection.payload_fingerprint
-            and cache.supplied_permission_set_version
-            == connection.permission_set_version
-            and cache.expected_permission_set_version == expected_version
+            and isinstance(cache.graph_digest, str)
+            and isinstance(cache.requirements_digest, str)
+            and isinstance(cache.architecture_digest, str)
+            and (
+                current_architecture_digest is None
+                or cache.architecture_digest == current_architecture_digest
+            )
             and timedelta(0) <= cache_age <= self._max_age
         )
+
+    def _current_preparation_ids(
+        self,
+        twin_id: str,
+        provider: str,
+        plan: DeploymentPreparationPlan,
+        *,
+        field: str,
+    ) -> set[str]:
+        cache = self._cache_repository.get(twin_id, provider)
+        if cache is None or cache.requirements_digest != plan.requirements_digest:
+            return set()
+        try:
+            cached_plan = DeploymentPreparationPlan.model_validate_json(
+                cache.preparation_plan_json
+            )
+            values = json.loads(getattr(cache, field))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return set()
+        if cached_plan.plan_digest != plan.plan_digest or not isinstance(values, list):
+            return set()
+        allowed = (
+            {action.action_id for action in plan.actions}
+            if field == "completed_preparation_actions_json"
+            else {
+                requirement.requirement_id for requirement in plan.manual_requirements
+            }
+        )
+        return {
+            value for value in values if isinstance(value, str) and value in allowed
+        }
+
+    def _cached_preparation_plan(
+        self,
+        twin_id: str,
+        required: list[CloudProvider],
+    ) -> DeploymentPreparationPlan | None:
+        plans: list[DeploymentPreparationPlan] = []
+        for provider in required:
+            cache = self._cache_repository.get(twin_id, provider)
+            if cache is None:
+                return None
+            try:
+                plans.append(
+                    DeploymentPreparationPlan.model_validate_json(
+                        cache.preparation_plan_json
+                    )
+                )
+            except (TypeError, ValueError):
+                return None
+        if not plans or len({plan.plan_digest for plan in plans}) != 1:
+            return None
+        return plans[0]
 
     @staticmethod
     def _parse_cached_checks(raw: str) -> list[DeploymentReadinessCheck] | None:
@@ -469,6 +1264,31 @@ class DeploymentReadinessService:
             if not isinstance(values, list) or len(values) > 32:
                 return None
             return [DeploymentReadinessCheck.model_validate(value) for value in values]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+    @staticmethod
+    def _parse_cached_requirements(
+        raw: str,
+        provider: str,
+    ) -> list[DeploymentRequirementReadiness] | None:
+        try:
+            values = json.loads(raw)
+            if (
+                not isinstance(values, list)
+                or not values
+                or len(values) > 4096
+                or any(
+                    not isinstance(value, dict)
+                    or value.get("provider") != provider
+                    or not isinstance(value.get("requirement_id"), str)
+                    for value in values
+                )
+            ):
+                return None
+            return [
+                DeploymentRequirementReadiness.model_validate(value) for value in values
+            ]
         except (TypeError, ValueError, json.JSONDecodeError):
             return None
 
@@ -528,10 +1348,6 @@ class DeploymentReadinessService:
         status: ProviderReadinessStatus = "review_required",
         checked_at: datetime | None = None,
     ) -> ProviderDeploymentReadiness:
-        comparison = compare_permission_set_version(
-            provider,
-            getattr(connection, "permission_set_version", None),
-        )
         check = DeploymentReadinessCheck(
             component="configuration",
             status="failed",
@@ -546,9 +1362,6 @@ class DeploymentReadinessService:
             ready=False,
             status=status,
             summary=check.message,
-            expected_permission_set_version=comparison.expected_version,
-            supplied_permission_set_version=comparison.supplied_version,
-            permission_set_status=comparison.status,
             checked_at=checked_at,
             checks=[check],
         )
@@ -556,7 +1369,7 @@ class DeploymentReadinessService:
     def _requirements(
         self, twin
     ) -> tuple[list[CloudProvider], list[DeploymentReadinessCheck]]:
-        raw = CredentialResolutionService.required_providers_for_compatibility(twin)
+        raw = CredentialResolutionService.required_providers_from_architecture(twin)
         required = [
             cast(CloudProvider, provider)
             for provider in sorted(raw)
@@ -614,3 +1427,31 @@ class DeploymentReadinessService:
             provider.checked_at for provider in providers if provider.checked_at
         ]
         return min(timestamps) if timestamps else None
+
+    @staticmethod
+    def _provider_evidence_is_coherent(
+        providers: list[ProviderDeploymentReadiness],
+    ) -> bool:
+        return all(
+            len(
+                {
+                    getattr(provider, field)
+                    for provider in providers
+                    if getattr(provider, field) is not None
+                }
+            )
+            <= 1
+            for field in ("graph_digest", "requirements_digest")
+        )
+
+    @staticmethod
+    def _aggregate_evidence_digest(
+        providers: list[ProviderDeploymentReadiness],
+        field: str,
+    ) -> str | None:
+        values = {
+            getattr(provider, field)
+            for provider in providers
+            if getattr(provider, field) is not None
+        }
+        return next(iter(values)) if len(values) == 1 else None

@@ -1,0 +1,1104 @@
+# Bounded Core evaluation: L1–L3 + Event Layer
+
+## Decision and boundary
+
+Implement the approved separation as one fixed research-only Terraform scope,
+`core`, beside the unchanged `full` default. Core has no L4/L5 provider placement,
+resources, Twin projection consumer or Twin-directed federation route. It retains
+L3 storage readback. No Terraform `-target`, generic partial-deployment framework,
+new architecture profile, UI or relaxation of full-profile admission is needed.
+The existing provider image-foundation targets remain part of image publication;
+they are not used to implement the Core layer cut.
+
+## Supervised live execution
+
+### First directed Core smoke: Azure to AWS
+
+**Outcome (2026-09-19): passed, including cleanup.** The fourth attempt delivered
+all ten messages from Azure IoT Hub through the Azure source bridge to the AWS
+Event Layer, processing and hot storage. Authenticated AWS readback returned the
+ten expected values; received and processed event streams each contained ten
+matching events. Destroy succeeded and independent AWS/Azure/active-Entra
+inventory was zero, including the temporary OIDC provider. The missing source
+receiver permission was corrected without extra compute or administrator roles.
+
+| Successful directed run | Image foundation (s) | Image publication (s) | Core Apply (s) | Verification (s) | Destroy (s) | Total lifecycle (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| Azure → AWS | 62.9 | 128.6 | 541.5 | 32.9 | 228.8 | 1045.7 |
+
+Retained private evidence includes pinned published-image digests, phase timings,
+308 resource create/destroy timing observations and ten message-persistence
+latency samples (25.508–26.602 s from event timestamp to stored timestamp).
+Batch delivery/readback took 29.048 s. This is one integration observation, not a
+steady-state or cold-start benchmark; timestamp latency includes the complete
+ingress/bridge/processing path and depends on clock alignment. Billed run cost
+is still pending provider attribution, not equated with its planning reserve.
+RQ1 now has the directed deployment/verification/cleanup evidence chain; RQ2
+passes this telemetry path; RQ3 retains its explicit bridge/broker topology.
+The other five directed Core cases, command roundtrip, storage transitions and
+L4/L5 are not validated by this run. No further live run was started after success.
+
+### Next two directed Core smokes
+
+The next supervised cases are `core-small-aws-to-azure` and
+`core-small-aws-to-gcp`, sequentially. Both send ten canonical IoT messages from
+AWS and verify authenticated hot-storage readback at the destination. They
+retain the existing reverse command bindings without claiming command receipt.
+The source uses the existing AWS bridge image; Azure uses one storage-mover
+image, while GCP uses platform, event-runtime, processor-extension and
+storage-mover images. A fixed-case runner reuses existing sender/readers and
+combines source/destination image foundations, diagnostics and inventories.
+
+Read-only account-bound plans pass create-only review: 161 entries for AWS→Azure
+and 151 for AWS→GCP. The first includes three AWS Lambdas and six Azure Flex
+Functions, Azure Event Hubs/Service Bus, Cosmos DB and one Logic App. The second
+includes three AWS Lambdas and eight GCP Cloud Run services, Pub/Sub, Firestore,
+one Workflow and one Logging bucket. Neither plan includes GKE or L4/L5.
+Every live attempt has a bounded functional window, immediate Destroy and
+independent source/destination residual inventory. GCP's managed Logging bucket
+may remain in a provider pending-deletion state after Destroy; this is recorded
+separately from active resources and prevents a strict `green` until it vanishes.
+Actual billed cost requires later provider attribution.
+
+The first AWS→Azure Apply succeeded. Azure Monitor showed ten incoming messages
+on `domain-telemetry-received`, ten outgoing from that hub, ten terminal records
+on `domain-telemetry-failure`, zero on the processed hub and zero authenticated
+L3 points. The readback reached its 60-poll limit after 476.4 s. The domain
+delivery endpoint was invoked; its existing logs did not expose the returned
+contract error code. The next package logs only that bounded error code or
+exception type so a retry can distinguish a rejected event from a transient
+failure. No delivery fix is inferred from the diagnostic alone.
+The failed attempt's foundation, two image publications, Apply and Destroy took
+71.0, 79.2/36.7, 644.7 and 876.7 seconds respectively. Destroy and independent
+inventory found no active AWS/Azure/Entra resources; one inactive AWS IoT
+Command remains `pendingDeletion` and keeps strict `green` false. Billed cost
+attribution is pending.
+
+The first AWS→GCP Apply also succeeded, but the destination readback remained
+empty. GCP Event runtime reported `DESTINATION_NOT_ACCEPTED`; the destination
+processor rejected the incoming received events with `INVALID_TWIN_ID`. The
+AWS ingress adapter had forwarded a payload without `twin_id`, whereas the
+Azure and GCP adapters default that field to `device_id`. The AWS adapter now
+uses the same fallback while retaining an explicitly supplied Twin ID. Unit
+tests cover both cases; another live run is needed before claiming RQ2 success.
+This is a cross-provider event-contract correction, not an L4/L5 or UI change.
+The failed AWS→GCP attempt took 63.0 s for image foundation, 83.9/219.1 s
+for AWS/GCP images, 576.5 s for Apply, 194.4 s for verification and 445.1 s
+for Destroy. Independent inventory found zero active resources. One inactive
+AWS IoT Command and one GCP Logging bucket in provider-managed pending-deletion
+state remain; neither is counted as a functional pass or fully green cleanup.
+The run-owned GCP workload identity pool was also checked read-only and absent.
+The corrected AWS→GCP retry passed its bounded Core telemetry path: ten sent,
+ten authenticated GCP L3 readbacks, with 26.6 s verification and observed
+message-to-persistence values of 21.3–23.8 s in this small sample. Apply and
+Destroy took 604.9 and 443.3 s. Independent inventory again found zero active
+resources and no run-owned GCP identity pool. The same two provider-managed
+pending-deletion tombstones keep the strict all-clear false until they expire;
+they do not invalidate the functional result. No L4/L5, simulator or command
+roundtrip was exercised.
+The AWS→Azure retry stopped during Apply, before any telemetry was sent. The
+Azure Processing Flex Function's package deployment reported a Kudu restart
+during publication; Terraform consequently returned a failed deployment. This
+is an observed deploy failure, not a failed L1–L3/Event message assertion. Its
+foundation, AWS/Azure image publication, partial Apply and Destroy took 72.3,
+79.4/39.2, 443.3 and 929.1 s. Destroy succeeded and independent inventory
+found zero active AWS, Azure or Entra resources. One inactive AWS IoT Command
+remains `pendingDeletion`. Do not claim this directed case green without a new
+successful deploy, telemetry readback and cleanup. Further runs require a fresh
+cost decision because the current supervised attempt allowance is exhausted;
+the ledger is not a provider billing ceiling.
+
+For the next supervised AWS→Azure attempt, the Core runner now recognizes only
+the observed Flex OneDeploy `KuduSpecializer` restart. It waits 45 s, reviews a
+fresh Terraform plan against the original create-only addresses, then retries
+Apply once in the same state with the already published images and packages.
+Unexpected updates, replacements, deletes, new addresses or a second failure
+still trigger immediate Destroy and independent inventory. This does not extend
+the functional deadline or treat a successful Apply as telemetry proof.
+
+The subsequent AWS→Azure Core run on 2026-09-23 passed without needing that
+retry. Ten AWS IoT telemetry messages reached authenticated Azure L3 readback
+with all ten expected values. Verification took 148.6 s; observed
+message-to-persistence intervals were 58.4–146.7 s (median 105.2 s) in this
+small, cold-start-affected sample, not a steady-state latency claim. Image
+foundation, AWS/Azure image publication and Apply took 71.6, 80.7/35.1 and
+668.2 s. Destroy succeeded in 889.3 s, followed by independent AWS, Azure and
+Entra inventory with zero active run-owned resources. One inactive AWS IoT
+Command still has `pendingDeletion`; the strict all-clear remains false until
+the provider removes that tombstone. This is a functional RQ2 Core pass and an
+RQ1 deployment/verification/destroy measurement, not evidence for command
+roundtrip, L4/L5, simulator, full E2E or final billed RQ3 costs.
+
+### Azure to GCP Core checkpoint (2026-09-24)
+
+The next directed case used Azure IoT Hub and its ZIP-deployed source Function,
+then the GCP Event Layer, processing and L3 hot storage. Its account-bound
+Terraform plan contained 149 create-only entries, including four published GCP
+images, eight Cloud Run services, Pub/Sub, Firestore and one run-owned workload
+identity pool/provider. No GKE, L4 or L5 resource was planned. The fixed-case
+runner and its offline tests were added without changing the architecture or
+the other directed cases.
+
+The first two attempts completed Apply and accepted ten Azure IoT Hub telemetry
+sends each, but authenticated GCP L3 readback timed out. Waiting for both source
+Functions to register did not resolve it. A bounded Azure Event Hub metrics
+check on later attempts found ten incoming and ten outgoing source messages.
+Delayed Azure bridge logs then located the defect: Azure Flex loaded protobuf
+runtime 5.29.6 ahead of the package's generated Pub/Sub code (6.33.5), causing
+bridge setup `VersionError`. Pinning protobuf in the Function package did not
+override the worker runtime. The narrow fix uses authenticated regional Pub/Sub
+HTTPS publish for Azure→GCP only; AWS→GCP retains its SDK publisher. This is a
+transport adjustment, not a new architectural layer. Attempt four separately
+encountered a transient concurrent Azure IoT policy write during Apply; a
+single same-scope retry now handles only that observed error.
+
+| Attempt | GCP image foundation/publication (s) | Apply (s) | Verification (s) | Destroy (s) | Outcome |
+|---|---:|---:|---:|---:|---|
+| 01 | 35.3 / 215.5 | 953.5 | 202.1 | 471.1 | L3 readback timeout |
+| 02 | 30.8 / 227.6 | 909.9 | 201.6 | 473.8 | L3 readback timeout |
+| 03 | 26.6 / 191.0 | 955.6 | 207.2 | 471.6 | L3 readback timeout; source outbox 10/10 |
+| 04 | 27.4 / 214.4 | 742.7 | — | 456.5 | Apply: transient IoT policy conflict |
+| 05 | 27.3 / 223.4 | 929.4 | 208.5 | 471.6 | L3 readback timeout; bridge setup `VersionError` |
+| 06 | 36.7 / 228.4 | 918.9 | 208.6 | 479.5 | L3 readback timeout; protobuf pin ineffective |
+| 07 | 44.1 / 211.3 | 941.7 | 48.3 | 479.3 | 10/10 authenticated GCP L3 readback |
+
+All seven attempts were individually destroyed and independently inventoried
+with zero active run-owned Azure, Entra or GCP resources. GCP retained only a Logging
+bucket and workload identity pool in provider `DELETED`/pending-deletion state;
+strict tombstone-free all-clear remains false. Attempt 07 delivered 10/10
+expected values to authenticated GCP L3; observed send-to-persistence intervals
+were 35.9–37.8 s in this small cold-start sample, not a steady-state claim.
+Its immediate destroy took 479.3 s; the independent inventory found zero
+active resources and two provider tombstones. The runner's strict `green` flag
+therefore remains false despite the functional pass and active-resource cleanup.
+RQ1 records deployment, verification and cleanup timings; RQ2 has a functional
+Azure→GCP Core pass. RQ3 provider-billed
+cost remains pending attribution and must not be equated with planning allowance.
+No command roundtrip, L4/L5, simulator or full E2E claim follows from these runs.
+
+### Final two directed Core cases (2026-10-04)
+
+GCP→AWS and GCP→Azure reuse the existing local GCP MQTT/TLS sender and the
+authenticated destination reader. Source MQTT, ingress and bridge remain on
+GCP; Event Layer, processing and storage belong to the destination. Both
+directional trust bindings remain deployed, but the ten-message assertion
+establishes telemetry only. The fixed runners add no new architecture or UI.
+
+The read-only account-bound plans contain 170 (GCP→AWS) and 174 (GCP→Azure)
+create-only entries before Kubernetes. Each retains the existing GCP L1 GKE
+cluster, one `e2-standard-4` broker node, one `e2-standard-2` integration node,
+80 GiB total boot disk and one MQTT LoadBalancer address. GCP quota reads
+confirmed at least six E2 CPUs, 80 GiB disk and one address available; both
+machine types and GKE server configuration are readable in the configured zone.
+GCP publishes one platform image per case. AWS additionally publishes storage
+mover and reverse-route bridge images; Azure publishes its storage mover and
+deploys Functions as ZIP packages. L4/L5 remain absent.
+
+After the cluster exists, a saved plan admits only the nine existing MQTT
+Kubernetes objects; any other change stops the functional run and proceeds to
+cleanup. Each attempt has a 40-minute functional deadline. Cleanup first removes
+the Kubernetes workloads/LoadBalancer while GKE is alive, then destroys both
+cloud footprints and independently checks active resources, generated compute
+children, IAM/Entra objects and the reverse-route GCP identity pool. Inactive
+provider tombstones remain separate from active resources and strict all-clear.
+Phase/resource creation, verification, per-message persistence, destruction and
+inventory timings are retained locally; provider-billed RQ3 attribution follows
+later.
+
+The first GCP→AWS attempt passed: ten MQTT/TLS sends and ten authenticated AWS
+L3 readbacks. Image foundation, AWS/GCP publication, main Apply, Kubernetes
+Apply and verification took 62.3, 180.1/53.7, 471.4, 136.9 and 19.5 s. The
+observed message-to-persistence range was 14.5–15.6 s in this single cold-start
+sample. Kubernetes removal took 100.0 s and Terraform Destroy 561.7 s; 356
+resource lifecycle timing observations were retained.
+
+The initial runner inventory did not include the reverse-route GCP identity
+pool. This omission was identified during the run and corrected in the fixed
+GCP→AWS inventory. A separate post-destroy check with that corrected inventory
+confirmed zero active resources and one pool in `DELETED` state. Preserve the
+original report, which says `green=true`, alongside the expanded follow-up
+inventory; the latter establishes that strict tombstone-free all-clear is still
+false.
+
+The first GCP→Azure attempt completed main Apply in 669.2 s, then stopped before
+MQTT startup or message sends: the Kubernetes-stage scope gate found three
+Azure updates in a full follow-up plan. The Entra application's default empty
+role/URI fields conflicted with their dedicated child resources and caused a
+dependent Function settings change. The parent now ignores only those two
+child-owned fields. Cosmos diagnostic metrics also read back as `Requests` and
+`SLI` after `AllMetrics` configuration, a provider normalization outside the
+MQTT stage. Kubernetes plan/apply/removal now target only the nine existing
+MQTT objects, with the same strict saved-plan gate. Native Terraform validation
+has zero errors/warnings; 29 targeted tests pass. Destroy succeeded in 900.4 s;
+independent Azure, Entra, GCP and compute inventory found zero active resources
+and one deleted identity pool.
+
+The corrected GCP→Azure retry passed the saved nine-object MQTT plan and
+delivered ten MQTT/TLS messages to ten authenticated Azure L3 readbacks.
+Verification took 220.3 s (27 reader polls, zero HTTP timeouts); observed
+send-to-persistence intervals were 46.8–218.8 s in this single freshly deployed
+sample, not a steady-state benchmark. Image foundation, Azure/GCP publication,
+main Apply and Kubernetes Apply took 63.0, 38.9/53.8, 654.1 and 116.6 s.
+Kubernetes removal took 87.4 s and Terraform Destroy 948.4 s; 364 resource
+lifecycle timing observations were retained. Independent inventory found zero
+active Azure, Entra, GCP and generated compute resources, with one GCP identity
+pool in `DELETED` state. An additional broad run-prefix Graph query for both
+Azure attempts also found zero active applications and service principals,
+including the managed identities' principals. The strict runner flag remains
+false solely because of the deleted pool. No functional rerun is needed for
+that provider tombstone.
+
+Core telemetry coverage is now **9/9 functional passes**: three provider-local
+and all six directed cases. Every new attempt was destroyed and independently
+checked with zero active residuals. RQ1 retains phase/resource/deployment and
+cleanup measurements plus the failed scope-gate attempt; RQ2 establishes the
+bounded ten-message source-to-destination integration path; RQ3 retains the
+deployed Eventing topology and measured persistence intervals, with actual
+provider-billed run costs still pending attribution. These results do not claim
+command roundtrip, storage-tier transitions, L4/L5, simulator or full E2E.
+
+#### Slice plan and earlier attempts
+
+The supervised slice is exactly `core-small-azure-to-aws`: Azure IoT Hub
+ingress, AWS Event Layer/processing/hot storage, ten matching telemetry values
+and authenticated AWS readback. Retain the existing reverse command route and
+both federation bindings, but do not claim command receipt or a second scenario.
+Reuse the existing Core runner, Azure sender, AWS reader, real packages and AWS
+image publisher (storage mover plus the existing reverse-route bridge image);
+add only a fixed-scenario option and combined residual checks.
+Before mutation, review a create-only account-bound plan and confirm the existing
+AWS outbound issuer read-only. No shared account preparation, GCP, L4/L5, UI or
+new deployment abstraction is part of this slice. Keep phase/resource/message
+metrics, bounded execution, immediate Destroy and independent AWS/Azure/Entra
+inventory. Cost/time approval is specific to this directed attempt, not inherited
+from the local smokes. Final resource counts and outcomes are recorded above.
+
+The first account-bound plan passed read-only review with 154 create entries,
+including one Azure Function App and eleven AWS Lambdas (one is the existing
+container-based bridge). The first supervised attempt stopped after image
+foundation because the research preparer omitted that bridge build context.
+Destroy and AWS/Azure/Entra inventories were fully clean. The preparer now calls
+the existing bridge builder; image contexts are checked before any cloud mutation.
+A regression test verifies both selected image inputs. This fixes the test
+preparer, not the application architecture or resource plan.
+
+The second attempt published both images but Azure rejected three Service Bus
+subscriptions during Apply: `RequiresSession` and `ForwardTo` cannot coexist on
+an autoforwarding source. Disable sessions only on those forwarding
+subscriptions; keep session-enabled destination queues and runtime consumers.
+This follows the [Azure autoforwarding contract](https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-auto-forwarding):
+forwarded messages retain their session IDs. A regression check covers all
+three sources and their session-enabled destinations. No resources or command
+test claims are added. The failed attempt enters immediate cleanup before retry.
+
+That attempt's Destroy and independent inventories completed with zero AWS,
+Azure and active Entra residuals. In the third attempt, Apply succeeded, including
+the corrected subscriptions, but the ten-message readback timed out after 324.6 s.
+Read-only Azure Monitor totals showed ten accepted IoT messages and ten incoming
+messages in the bridge Event Hubs namespace, with zero outgoing messages there.
+The captured Function logs contained startup records, not a verified successful
+bridge invocation; log-ingestion delay limits conclusions from their absence.
+Inspection found the concrete missing prerequisite: the outbound hub granted the
+shared ingress/bridge identity Data Sender, but not Data Receiver for its trigger.
+Add exactly that hub-scoped receiver assignment, not broader administrator rights
+or a warm-instance workaround. Regression checks pass; the fix still requires a
+new live attempt. No successful directed telemetry transfer is claimed yet.
+
+The third attempt also completed Destroy and independent inventories with zero
+AWS/Azure/active-Entra residuals, including the temporary OIDC provider. Its
+image foundation/publication, Apply, verification and Destroy took respectively
+63.9/155.3/489.1/324.6/229.2 seconds; total lifecycle time was 1310.4 seconds.
+Retained evidence includes 306 resource create/destroy timing observations.
+No successful message-persistence latency sample or billed run cost is available.
+The corrected runner and Terraform checks pass 28 targeted tests. RQ1 records
+the provisioning and permission defects; RQ2 still requires directed delivery;
+RQ3 retains the broker topology and cost boundary without treating a failed run
+as functional or performance evidence.
+The follow-up account-bound plan passed read-only review: 155 create entries,
+exactly one additional hub-scoped role assignment and no new compute or broker.
+It did not apply resources or reserve another live attempt.
+
+### Follow-up on 2026-09-19
+
+All three provider-local Core telemetry smokes have now passed (ten messages
+each). This establishes the scoped integration path, not command roundtrip,
+storage-tier transitions, L4/L5, directed cases or performance statistics.
+AWS/Azure cleanup is complete. GCP Destroy succeeded and its independent
+inventory contains zero active resources, but one provider-managed Logging
+bucket remains `DELETE_REQUESTED`; strict overall `green` therefore stays false
+until physical deletion. Do not rerun the functional test solely for that delay.
+An additional read-only inventory across all Core-prefixed GCP attempts found
+zero active resources and eleven pending-deletion Logging buckets in total,
+including the latest successful run. Generated compute children were compared
+with the latest run's saved baseline. These historical markers are not hidden
+by reporting only the final run's prefix.
+
+| Successful local run | Image foundation (s) | Image publication (s) | Core Apply (s) | Kubernetes stage (s) | Verification (s) | Destroy (s) |
+|---|---:|---:|---:|---:|---:|---:|
+| AWS | 62.6 | 54.8 | 98.8 | n/a | 56.0 | 71.8 |
+| Azure | 66.1 | 33.6 | 668.8 | n/a | 209.2 | 782.6 |
+| GCP | 36.7 | 233.5 | 791.5 | 139.0 | 19.0 | 542.9 |
+
+These are individual integration observations, not comparable cold-start
+benchmarks: Azure uses the explicit warm HTTP condition, and provisioned
+resource boundaries differ. Resource-level timings are retained separately.
+The older AWS run lacks the newer per-message latency samples; see the evidence
+gap below. Billed run costs remain pending provider attribution, not inferred
+from private allowances or monthly account totals.
+
+The independent AWS inventory became completely empty on 2026-09-17, including
+the two formerly pending IoT Command definitions. The cleanup monitor was
+stopped after that observation.
+
+The next Azure attempt completed Core Apply in 610.4 s but still did not finish
+authenticated readback. Repeated request timeouts therefore do not establish
+that the previous failure was merely a cold start. The operator initiated
+cleanup after the functional deadline: the original deadline raised Python's
+`TimeoutError`, which an HTTP library can translate into a retryable request
+timeout. The runner now raises a dedicated `RuntimeError` subtype, with a
+regression check proving that HTTP retry handling does not swallow it.
+
+The two Azure Python host packages also lacked the extension-bundle declaration
+required for their Event Hubs and Service Bus bindings. The standard v4 bundle
+reference is now included in both actual ZIP packages, and the source/catalog
+digests are refreshed. This fixes a concrete prerequisite; it is not yet proof
+of successful Azure readback. See the [Microsoft Event Hubs binding reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-event-hubs).
+
+The first follow-up cleanup completed in 787.6 s with zero remaining resource
+groups. A second Azure attempt completed Apply in 619.8 s but the reader still
+timed out. Read-only inspection then identified a deployment collision: five
+Flex apps shared one package container, whose root contained OneDeploy's
+`released-package.zip` and `kudu-state.json`. The source ZIP paths were unique,
+but that does not isolate the platform's active deployment files. Microsoft
+requires a [separate deployment container per Flex app](https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to#configure-deployment-settings).
+Each existing domain/extension app now receives its own private container;
+the event runtime already had a separate one. This adds four small containers
+to the local Azure Core case, not another storage account or compute service.
+Native mock plans assert distinct deployment containers for all Azure apps;
+source checks verify matching app and publisher references.
+The defective live attempt was interrupted for cleanup before another retry.
+These supervised diagnostic runs, including HTTP readiness probes, are not
+cold-start benchmarks or replacements for the final evaluation samples.
+
+Read-only retained GCP logs for the last failed run explicitly report
+`image has non-numeric user` and `CreateContainerConfigError`. This confirms the
+startup defect addressed by the numeric UID/GID correction; at that point the
+subsequent workload still required its live test.
+
+The subsequent GCP retry completed Google-resource Apply in 748.6 s and the
+Kubernetes stage in 107.7 s. Direct read-only pod inspection confirmed both
+broker and MQTT adapter Ready with zero restarts, so the numeric UID fix is
+live-verified. Verification then stopped after 5.0 s in the client's initial
+TCP connection attempt, before TLS/MQTT authentication or message submission.
+This is not a passed Core smoke. The harness now retries only TCP timeout or
+connection refusal at most 20 times, separated by three seconds and still
+inside the existing whole-run deadline. TLS errors are not retried and
+certificate verification remains enabled. Connection attempts/wait time are
+retained on success or exhausted retries. This distinguishes transient external
+load-balancer readiness from a persistent connectivity fault without changing
+the deployed topology or extending the overall limit.
+
+That GCP attempt removed Kubernetes resources in 84.5 s and completed Destroy
+in 549.9 s. The original 14 inventory categories were empty. An additional
+read-only check found the deployment's Cloud Logging bucket in
+`DELETE_REQUESTED`, which the original inventory did not cover. The inventory
+now includes active and pending-deletion log buckets separately. Google retains
+this [deletion state for seven days](https://docs.cloud.google.com/logging/docs/buckets).
+An empty active-workload inventory is therefore not a claim of complete physical
+absence. Functional pass, accepted Destroy and provider-side final deletion
+remain separate observations; a pending log bucket keeps strict overall `green`
+false without requiring the functional test to be repeated after its expiry.
+The second Azure cleanup completed in 756.5 s with zero resource groups.
+
+The isolated-container Azure retry completed Apply in 596.6 s. A supervised
+diagnostic change kept only the reader's HTTP group at one always-ready 2-GB
+instance. Its health route then responded with authenticated HTTP 200 and
+unauthenticated HTTP 401. The data query exposed a concrete Cosmos compiler
+error (`SC1001`, reserved property `value`), so the attempt still failed and its
+unchanged overall deadline initiated cleanup. The query now uses bracket
+notation for reserved value/aggregate property names. The next **Core-only**
+Terraform reader keeps one HTTP instance ready from provisioning; the full
+profile stays unchanged. This is a warm resource-integration condition, not
+a cold-start result. Record its additional billed baseline separately from
+on-demand execution; the reader is destroyed with the run.
+
+The next GCP retry completed Apply in 715.3 s and Kubernetes in 98.2 s, but
+MQTT authorization failed after 6.6 s. Broker/adapter logs showed successful
+HTTP calls to both authentication and authorization endpoints with a rejected
+connection. The pinned [BifroMQ webhook source](https://github.com/apache/bifromq/blob/v4.0.0-incubating/build/build-plugin-demo/src/main/java/org/apache/bifromq/demo/plugin/WebHookBasedAuthProvider.java)
+sends underscore identity headers that Werkzeug discards at the real HTTP
+boundary. A local socket-based reproduction confirmed rejection with valid
+configured identities; the previous Flask test-client checks bypassed this
+boundary. The adapter now preserves only the two upstream webhook identity
+headers and rejects ambiguous hyphen aliases. A real localhost HTTP regression
+test covers accepted device/bridge identities and rejected missing, unknown
+or ambiguous identities. No broker image, credentials or IAM roles change.
+
+The following Azure attempt completed Apply in 656.9 s. The warm reader returned
+authenticated HTTP 200 and a valid empty history response, confirming the query
+correction, but no telemetry points arrived before the unchanged deadline.
+Ingress, event-runtime and processor-extension apps still exposed zero registered
+functions. One supervised trigger sync was accepted without changing that
+observation. All six remote builds reported success. Offline imports of the
+three downloaded deployed packages, with network disabled and the matching
+Python/CPU platform, discovered their expected 2/4/1 functions. The remaining
+Azure startup/registration cause is unresolved; this is not a Core pass.
+
+Provider documentation exposed two further concrete Azure ingress defects:
+the built-in IoT Hub Event Hubs-compatible endpoint does not support
+[Entra ID authentication](https://learn.microsoft.com/en-us/azure/iot-hub/authenticate-authorize-azure-ad),
+and the Terraform resource does not enable its fallback route when omitted.
+The binding now uses a deployment-owned ServiceConnect-only policy and the
+built-in `events` fallback route is explicit. The obsolete IoT Hub Data Reader
+assignment is removed; other managed-identity connections remain unchanged.
+This adds no Event Hub or other billed service and requires no user-entered key.
+It fixes unsupported ingress configuration, not yet proven Azure startup.
+Retained plans also show S1/one unit in the earlier runs: the runner's requested
+F1 override affected legacy variables, not the Six-layer component. That inert
+override and the inaccurate F1 claims are removed. Cost interpretation uses
+the actual S1 resource and pending provider billing, not the intended override.
+
+The next GCP attempt completed Apply in 790.7 s and Kubernetes in 96.5 s.
+MQTT authentication passed, but readback returned Firestore `FailedPrecondition`:
+the raw-history composite index sorted `stored_at` descending while the reader
+queries ascending. Terraform now matches the reader, with a native-plan check.
+The webhook timeline also showed the bridge connection/subscription only 22 s
+after the device began publishing. The adapter's HTTP health endpoint previously
+returned success before a subscription acknowledgement. It now reports readiness
+only after QoS-1 SUBACK and clears readiness on disconnect/reconnect, using the
+existing Kubernetes probes. Tests cover delayed/rejected acknowledgements and
+reconnection. No additional service or generic retry framework is introduced.
+
+The following GCP attempt exposed a readiness bootstrap dependency: the broker
+authenticates through the adapter's private Service, but that Service originally
+hid the endpoint until the adapter had obtained SUBACK. The auth Service now
+publishes not-yet-ready endpoints, just as the broker's existing headless
+bootstrap Service does. The device-facing listener and workload readiness remain
+separate. This single setting was applied to the owned Service during the
+supervised attempt and is covered by the native plan. Its deployment time includes
+that diagnostic intervention and one adapter restart; it is not an unassisted
+benchmark sample.
+
+That attempt subsequently delivered all ten device messages to ingress, but the
+processor rejected Event-Layer deliveries with
+`EVENTING_CONSUMER_PROVIDER_MISMATCH`. Its runtime requires `L2_PROVIDER`, which
+the processor's Terraform environment omitted even though the resolved placement
+was correct. The service now receives that existing placement variable, and a
+native mock-plan assertion checks the actual processor environment. This is a
+wiring correction, not a changed runtime contract or additional resource.
+The failed attempt entered immediate cleanup; successful end-to-end readback
+still requires a fresh bounded run.
+
+The next GCP retry failed earlier in Kubernetes creation: the adapter service
+account and private auth Service raced namespace creation and received
+`namespaces not found`. All eight namespaced L1 objects now reference the owned
+namespace resource directly instead of repeating its local name. Terraform can
+therefore enforce creation and reverse destruction ordering. A regression check
+covers all eight references, alongside the native mock plans. The failed attempt
+entered cleanup without claiming that its processor-provider correction had been
+live-verified.
+
+The Azure attempt with supported IoT ingress authentication completed Apply in
+597.8 s but still reached the functional deadline without readback. Ingress,
+event runtime and processor extension exposed no registered functions; existing
+HTTP functions elsewhere remained registered. Destroy and independent inventory
+confirmed zero remaining run resource groups.
+
+Two small follow-up diagnoses reused the actual processor-extension package and
+the existing OneDeploy module with just one disposable Function App, FC1 plan
+and storage account. Both the on-demand and single-always-ready-instance cases
+initially exposed zero functions and encountered host/trigger-sync timeouts.
+They do not prove that a longer cold-start allowance or warming all Core apps
+would fix Azure. Both diagnoses completed Destroy and zero-group inventory.
+The remaining Azure startup cause is unresolved; no further full Azure retry
+was started on the basis of these observations. The GCP namespace-race attempt
+also completed Destroy with zero active residuals and one pending-deletion
+Logging bucket; its functional path remains unverified after the latest fixes.
+
+Before another Azure deployment, an offline check against the actual Azure
+Python worker's function registry reproduced two registration failures that
+plain SDK discovery had missed: the extension declared `request` while its HTTP
+binding used the default `req`; Event Hubs batch handlers used `list[T]`, which
+the tested worker rejected as a non-type annotation. The adapter now uses `req`
+and all seven batch-handler declarations use the supported `typing.List[T]`.
+The same offline registry then accepted the processor, all 12 enabled domain
+functions and all seven enabled Event-Layer functions. Focused regression tests
+cover binding/signature agreement and every batch declaration. This identifies
+concrete package defects, not yet a successful live Core test; no resource,
+permission, timeout or functional responsibility was changed by these fixes.
+
+The next GCP run passed infrastructure/Kubernetes creation and delivered ten
+messages to ingress. Processing then failed with `PROCESSOR_EXTENSION_FAILED`:
+the extension had internal-only ingress, while its Cloud Run caller had no VPC
+egress path. Read-only inspection confirmed that the processor's invoker grant
+existed and public invocation was disabled. Google's
+[Cloud Run networking rules](https://docs.cloud.google.com/run/docs/securing/private-networking#receive-requests-from-other-cloud-run-resources-or-app-engine)
+require a VPC path for this internal-only service-to-service combination.
+Terraform now permits endpoint reachability while explicitly keeping the IAM
+check enabled and the existing service-account-only grants. The identical
+domain-to-action configuration defect is corrected too; action execution is
+not claimed by the ten-message Core smoke. No connector, NAT gateway or public
+invoker grant is added. The attempted supervised correction was safely skipped
+because cleanup had already begun; this failed run contains no live ingress
+change. A native-plan regression covers reachability and retained IAM, and a
+new bounded Core run is still required to verify this correction.
+
+The subsequent Azure single-app comparison separated fixture and runtime issues.
+Two diagnostic minimal ZIPs had owner-only file permissions, unlike the actual
+project packages; retained host diagnostics reported access denied on `host.json`.
+Those disposable groups were destroyed and their zero-group inventories recorded.
+The corrected minimal fixture uses the existing deterministic ZIP writer (0644).
+It registered one function, but bounded on-demand HTTP requests still timed out.
+After enabling one always-ready HTTP instance in that same app, its expected
+HTTP response passed. Replacing only the package with the corrected real
+processor then passed registration and the first checked invocation, including
+the expected transformed value and accepted quality. This is supervised warm
+integration evidence, not a cold-start benchmark. The third comparison retains
+the warm-setting intervention and both package digests/timings separately.
+
+The next Core-only Azure configuration consequently keeps one HTTP instance ready
+at processing, processor extension and reader. The latter already used this
+condition; this adds two warm HTTP instances, not two new Function Apps. Full
+profile configuration and non-HTTP trigger settings are unchanged. Maximum
+on-demand scale-out remains one per function group; always-ready instances are
+additional to that ceiling. Record the warm baseline separately in cost and
+readiness interpretation, and remove all three with the run. Native mock plans
+verify these exact Core HTTP settings. The subsequent live result is recorded
+below.
+
+The warm single-app comparison completed Destroy and independent zero-group
+inventory. Application Insights had created an additional action group inside
+the disposable diagnostic group; it was identified and removed before declaring
+cleanup complete. No existing group or notification configuration was changed.
+
+The subsequent Azure Core run passed the actual ten-message IoT Hub → Event
+Layer → processing → Cosmos readback path. All ten expected values were returned,
+and ten persistence-latency samples were retained. Apply took 668.8 s and
+verification 209.2 s, with 24 readback polls and no readback request timeout.
+All six apps registered their configured functions, including the formerly
+missing ingress, Event runtime and processor extension. Immediate Destroy
+completed in 782.6 s; independent inventory confirmed zero remaining run
+resource groups. An additional group-name check found no separate managed
+infrastructure group. Functional verification and cleanup are both green.
+The run retains ten structured lifecycle phases and 194 Terraform resource
+timing records, and uses the explicitly documented warm HTTP condition.
+
+The next GCP retry verified the corrected extension reachability: the extension
+returned HTTP 200, but processing rejected its runtime response. An offline
+test crossing the real packaged extension boundary reproduced the cause: GCP
+forwarded an arbitrary source event ID as `invocation_id`, although the existing
+extension contract requires a UUID. AWS and Azure already derive a deterministic
+slot-specific UUID. GCP now uses the same derivation while preserving source
+event and correlation identities. Tests cover both arbitrary and UUID source
+IDs, repeated invocation stability and successful processed-event construction;
+the extension contract itself is not relaxed. The failed run entered immediate
+cleanup. Its prior network correction is live-observed, but the UUID correction
+was then tested in a fresh bounded run. The preceding failed run completed
+Destroy in 545.5 s with zero active residuals and one pending-deletion Logging
+bucket.
+
+The subsequent GCP Core run passed all ten MQTT/TLS → ingress → Event Layer →
+processing → Firestore → authenticated readback messages, including the expected
+values. MQTT connected on its first attempt; batch delivery/readback took 18.8 s
+and verification 19.0 s. Ten individual persistence-latency samples were retained.
+No manual deployment intervention was needed in this successful run. Immediate
+Destroy completed in 542.9 s. Independent inventory confirmed zero active
+resources, including generated compute children and project IAM bindings;
+one Logging bucket remains in provider-managed pending deletion. Functional
+pass and accepted Destroy are true, while strict overall `green` remains false.
+The successful run's phases, per-resource timings, image digests and individual
+message observations are retained privately. Final Deployer regression result:
+1,746 unit tests passed; 24 runner/preparation tests also passed.
+
+An offline audit of the earlier successful AWS smoke recovered 186 Terraform
+create/destroy timing records from its retained logs, alongside its existing
+phase and batch-delivery durations. The original report was not overwritten.
+That older run did not retain ten individual source-to-persistence latency
+samples or the later structured phase timestamps. Partial diagnostic checkpoint
+pairs are not substituted for that missing distribution. AWS functional and
+cleanup success stand; any later comparison requiring matched per-message
+latency distributions must explicitly account for this evidence gap.
+
+### Original run observations (2026-09-17)
+
+The user authorized the three local Core smoke tests. This does not authorize
+directed multi-cloud or L4/L5/full-profile execution. The sections below retain
+the earlier pre-approval reviews; they are historical preparation evidence.
+
+`scripts/run_core_evaluation.py` runs one provider with real runtime packages,
+an empty-prefix inventory, a create-only account-bound plan, the existing image
+publisher, full Core Apply, ten ingress messages, authenticated L3 readback,
+Destroy and an independent inventory. Credentials/raw diagnostics/state stay
+private. Cumulative allowance inputs are supplied externally; they are not
+cloud billing measurements or a provider-enforced spending cap. The functional
+deadline includes image publication and provisioning. Provider defaults are
+10 minutes for AWS, 20 minutes for Azure and 30 minutes for GCP; an explicit
+smaller override remains possible and no functional deadline above 60 minutes
+is accepted. Cleanup is attempted on failure/interruption; host failure or
+forced process termination still requires operator recovery from the retained
+state. No unattended execution is claimed.
+
+Current Core attempts retain UTC start/end timestamps and completed or failed
+phase durations for initialization, baseline inventory, Plan, image foundation,
+image publication, Apply, verification, Destroy and residual inventory. It also
+extracts Terraform's create/update/destroy duration per resource address while
+discarding provider resource IDs, and records Azure readback polling attempts,
+request timeouts and wait duration. Individual resource timings are diagnostic:
+provider reporting granularity differs, so the cross-provider thesis comparison
+uses the lifecycle phases defined by the live-evaluation protocol. The external
+allowance ledger remains distinct from observed provider billing.
+
+Core keeps recurring movers disabled. Azure Flex and GCP Cloud Run scale-out
+is limited to one instance per scaling group/revision for this tiny smoke test.
+The supervised Azure smoke uses the resolved IoT Hub S1/one-unit component for
+ten messages; it does not establish throughput evidence.
+
+Initial AWS live attempts exposed and reproduced two lifecycle problems:
+dynamic IoT Commands require a JSON-substitution preprocessor, and SNS FIFO
+archives must be disabled before topic deletion. The first failed Apply was
+fully cleaned after the SNS recovery. The next Apply succeeded and both event
+streams contained all ten correlation IDs with accepted processor results,
+but authenticated readback returned only nine rows: **not a passed E2E**.
+The persistence retry path reused an event-only DynamoDB transaction token
+across changing rollup writes. After correction, the third workload attempt
+passed: ten messages in each event stream, accepted processor quality and ten
+correct values through authenticated L3 readback. Foundation provisioning took
+62.6 s, image publication 54.8 s, Core Apply 98.8 s, verification 56.0 s and
+Destroy 71.8 s. Independent inventory found no active run resources. Two IoT
+Command definitions from the final attempts remain inactive and pending
+provider-side physical deletion.
+
+Azure completed image publication and the full Core Apply in 627.7 s. All ten
+messages were submitted through IoT Hub, but the first authenticated L3 reader
+request hit a Flex cold start and timed out after 30 s. No successful readback
+was recorded, so the run is not a functional pass. Destroy completed in 773.3 s
+and the independent resource-group inventory returned zero. The reader polling
+path now treats request timeouts as retryable within the bounded loop and records
+the polling attempts, timeout count and wait duration. The provider-specific
+functional deadline remains 20 minutes because the earlier failure was the
+single-request timeout, not the whole-run limit. These corrections are
+offline-tested but were not re-run live.
+
+GCP completed image publication and the full Google-resource Apply in 805.8 s.
+The second stage created the namespace, service account, two internal services,
+configuration and secret, but the BifroMQ deployment did not become Ready before
+the whole-run deadline. No MQTT messages were sent and no L3 readback is claimed.
+Kubernetes removal took 39.4 s, Terraform Destroy 557.9 s, and all 14 independent
+inventory categories returned zero. No speculative runtime change was made
+without pod-level evidence. The GCP functional deadline is raised once from the
+previous run's 25 minutes to 30 minutes so a bounded retry can distinguish a
+slow rollout from the earlier whole-run cutoff. A second increase is not the
+default response; another timeout requires diagnosis. This is not a claim that
+the rollout problem is resolved.
+
+The subsequent offline image/configuration check found one concrete startup
+precondition: the pinned upstream image declares the named user `bifromq`
+(UID/GID 1000), while the Pod previously set only `run_as_non_root`. Kubernetes
+cannot verify a named image user numerically at admission/runtime. The broker
+Pod now pins that existing UID/GID explicitly; no resource, topology, image or
+capacity choice changes. This correction is offline evidence only until the
+bounded GCP retry reaches a Ready Pod.
+
+AWS IoT Commands have a provider-enforced deletion delay (normally 12 hours).
+Report inactive `pendingDeletion` definitions separately from active resources;
+an accepted Delete/empty Terraform state is not proof of physical absence.
+Overall `green` remains false until the independent inventory is empty, even
+if `functional_passed` is true. For RQ1, the runs establish repeatable AWS
+deployment plus cleanup behavior and expose Azure cold-start and GCP rollout
+latency as operational boundaries. For RQ2, only AWS currently proves the full
+ten-message Core contract; Azure and GCP remain incomplete rather than being
+treated as negative functional results. For RQ3, external run allowances are
+not billing evidence and omitted retries are not zero-cost implementations.
+No research question changes.
+
+The standalone offline preparer materializes three local and six directed Small
+Core scenarios using existing sizing and transport definitions. Directed scenarios
+place ingestion at the source and Event Layer, processing and storage at the
+destination; this definition is separate from the full-profile matrix and must
+not inherit its cost/evidence approvals. Generated inputs are incomplete until
+runtime artifacts and an exact supervised plan have been reviewed. They are not
+a deployment-ready manifest or a replacement for the Management admission path.
+
+## Implementation and checks
+
+1. Add a fixed Terraform scope guard; reject nonempty L4/L5 placements and
+   non-Core routes in Core. Keep the full default unchanged.
+2. Remove Twin projection fan-out and publication in Core, including remote
+   delivery and its IAM. Retain ingestion, processing, persistence, readback,
+   lifecycle storage and core event/control transport.
+3. Materialize the nine Small Core input sets offline; no credentials, image
+   publishing, live API calls or invented deployment-ready evidence.
+4. Run credential-free Terraform mock plans for all nine scenarios, negative
+   scope checks, affected runtime tests and existing full-path regressions.
+5. Record results and limitations. Before any live mutation, review resource
+   inventory, real pinned images, account prerequisites, cost ceiling, time
+   limit, destroy and residual inventory for one exact scenario.
+
+## Evidence interpretation
+
+RQ1: reproduce provisioning/configuration and cleanup for the explicitly scoped
+Core. RQ2: compare the same Core responsibilities across all three providers;
+AWS/Azure L4 and L5 remain separate later evaluations, GCP L4/L5 excluded.
+RQ3: measure scoped eventing and actual run costs; do not reuse full-profile
+estimates or interpret omitted L4/L5 as zero-cost implementations.
+
+There have been no complete workload E2E runs to repeat. Existing live federation
+probes remain historical identity evidence; changed routes/bindings require
+current preflight and runtime checks. Affected offline tests/mock plans are
+rerun now. The first scoped workload run still needs explicit approval.
+
+## Reproduction and handoff
+
+Run the following from the repository root in the existing Deployer development
+environment (Python with the repository's dependencies):
+
+```sh
+python scripts/prepare_core_evaluation.py --output-dir /tmp/thesis-core-inputs
+```
+
+The directory must not exist. Omitting `--scenario` prepares all nine cases;
+`--scenario core-small-local-aws` prepares only that baseline. Each case contains
+a digest-bound research description and a separate non-secret Terraform input
+file. No generated image digest is invented. The preparer does not read account
+credentials, create a full deployment manifest, call Terraform or publish images.
+
+The current scope is a standalone research preparation/infrastructure path, not
+a new Management deployment option. Before live execution: build the changed
+runtime packages/images, bind reviewed immutable images and account inputs,
+derive the exact plan and cost/time/cleanup limits, then obtain explicit approval.
+Use a separate state/project for each scoped run; do not switch an existing full
+deployment to Core (that could plan deletion of its access-layer resources).
+Destroy and residual inventory remain mandatory immediately after every run.
+Local/mock validation does not prove cloud capacity, actual data transfer or
+successful cleanup. GCP Core still includes its existing L1 GKE broker; omitting
+L4/L5 does not make Core free.
+
+## Status
+
+### Historical supervised Core preparation checkpoint
+
+This subsection preserves the pre-execution checkpoint. The subsequent live
+outcomes are recorded at the top of this document. Authorization did not turn
+incomplete inputs into executable plans or permit unbounded retries; at this
+historical checkpoint no workload Apply had run.
+
+Implemented for `core` only; the complete-profile defaults remain unchanged:
+
+- AWS storage scheduling disabled, delivery retries zero, CodeBuild timeout five minutes.
+- Azure storage job manual-only, replica timeout five minutes, no retries;
+  ACR publication timeout five minutes per image.
+- GCP storage scheduling paused, scheduler/task retries zero, task timeout five
+  minutes; Cloud Build timeout five minutes per image; disposable build-source
+  bucket soft delete explicitly disabled.
+
+These are provider-side bounds, **not a total spending cap or an implemented
+experiment watchdog**. The AWS mover must not be manually started without a
+supervised stop procedure. The first ten-message smoke test starts no mover.
+
+`python -m scripts.prepare_core_runtime PROVIDER --output-dir NEW_DIRECTORY`
+now prepares real runtime packages and the same validated processor example for
+each local baseline. It does not register a device, publish an image, execute
+Terraform or produce a full-profile manifest. Short resource prefixes are
+separate from scenario IDs: the first account-bound Azure plan exposed that
+`core-small-local-azure` exceeds Terraform's 21-character limit. The preparer
+now emits `core-SOURCE-TARGET`; regression tests cover all nine names.
+
+Read-only provider identity/permission checks passed for AWS, Azure and GCP.
+Checked GCP Small quotas passed; resource-scoped permissions and Azure quotas
+that require created resources are still Apply-time observations. Six custom
+Linux/amd64 images built locally, and the pinned public BifroMQ image was pulled.
+Local Docker image IDs are not registry manifest digests or image-pull evidence
+from a deployed cloud resource. Registry publication remains pending.
+
+Account-bound, non-mutating plans with real processor packages passed after the
+name correction: AWS 93 create entries, Azure 72, GCP 110 before its Kubernetes
+stage. The mock fixtures additionally include one synthetic AWS outbound-identity
+guard; the complete GCP mock includes nine Kubernetes objects. These plans still
+use explicitly unpublished image placeholders and **must not be applied**. No
+workload resource or provider build was created. The external watchdog and
+complete residual inventory remain the live-execution blockers, not credential
+authority. In particular, the existing AWS fallback inventory does not cover
+all retained Core services (including Kinesis, ECR/CodeBuild, ECS and Scheduler);
+an empty Terraform state alone would not close that gap.
+
+Verification: 434 Terraform-related unit tests plus the native five-test suite
+(21 Terraform mock plans), and 15 Core input/runtime-preparation tests passed.
+The publisher tests cover both unchanged full-profile and shortened Core build
+timeouts. These are not three successful live E2E runs.
+
+The provider reviews below describe the **pre-bound inventory/behavior**. Their
+recurring-job and long-build findings are addressed above; the external
+deadline, whole-run cost accounting, guaranteed cleanup attempt and complete
+residual check still have to be connected to the live Core procedure. Existing
+full-profile admission must not be bypassed to run this research slice.
+
+### Earlier implementation checks
+
+Implemented and offline verified:
+
+- 1,725 Deployer unit tests passed, including suppression of Twin publication
+  in the AWS, Azure and GCP runtimes.
+- Native Terraform mock plans passed for all nine Core scenarios, the eight
+  existing full-configuration regressions and four negative cases (21 plans).
+  They verify retained ingestion, processing and L3 readback, absent access
+  resources/consumers/outputs, and rejection of wrong scope, larger capacity
+  or incomplete return routes. The enclosing five-test suite passed.
+- 33 Optimizer/contract tests and 45 research-script/contract/gate tests passed
+  (the latter include 24 additional subtests). Full-profile readiness remains
+  blocked; no Core description is promoted to an RTA/RDS deployment manifest.
+- 20 Management contract/persistence tests passed against the refreshed fixtures.
+- Updated runtime source digests and generated contract copies are synchronized.
+  Changed-Python lint, Terraform formatting and strict documentation build pass.
+
+Mock plans use synthetic image references only inside tests. Pinned Terraform
+providers were downloaded, but no cloud credentials or workload APIs were used.
+The complete 14-stage release gate, Flutter suite and live E2E were not run.
+No live deployment or paid evaluation is authorized by this document.
+
+## First AWS Core run: concrete pre-approval review
+
+Reviewed offline on 2026-09-16 against implementation commit `08893423`.
+The credential-free native mock plan for `core-small-local-aws` passed again.
+Its current resource inventory contains **94 Terraform create entries**:
+84 AWS resource/configuration entries, two local random values and eight
+Terraform guards. This is not 94 running services or an account-bound Apply
+plan. The fixture uses synthetic names, package bindings and image references;
+real artifacts, device inputs and account bindings remain admission gates.
+
+| Responsibility | Current concrete AWS resources |
+|---|---|
+| L1 | One IoT Thing, one IoT topic rule, one IoT command definition |
+| Event Layer | Two provisioned Kinesis streams with one shard each; three consumers; one SNS FIFO topic; two SQS queues including the control DLQ; S3 telemetry failure storage |
+| L2 and adapters | Ten Lambda functions in total: ingress, processing, processor extension, action extension, domain consumer, L3 reader and four Event Layer delivery functions; one Step Functions state machine |
+| L3 | Two on-demand DynamoDB tables for raw/history rollup; one history S3 bucket with archive/expiry lifecycle; authenticated Lambda readback |
+| L3 transfer | One ECS/Fargate task definition (1 vCPU, 2 GiB), one cluster, one scheduler, one VPC/subnet with public task IP and no NAT gateway |
+| Image publication | One deployment ECR repository, one CodeBuild project and one build-context S3 bucket |
+| Supporting configuration | Eight log groups, IAM roles/policies, Lambda permissions/event mappings, S3 encryption/public-access/lifecycle settings and networking bindings |
+
+The ten Lambdas use ZIP packages. **Only the storage mover needs a custom
+container image in this AWS-only Core case.** There is no processor container,
+federation bridge image, TwinMaker, graphical L5 or Grafana deployment. The
+legacy `L5-raw-history-reader` log-map key still denotes the L3 reader.
+
+### Smallest useful first verification
+
+Use one synthetic device/source and ten valid telemetry messages. Follow their
+trace IDs through IoT ingress, the received stream, processing, the processed
+stream, persistence and authenticated readback. Verify transformed values and
+record provisioning, verification, delivery and destroy durations. This is a
+resource-integration smoke test, not a throughput experiment. Merely invoking
+the processing function directly does not satisfy it.
+
+The first smoke test does not claim the later simulator/command roundtrip,
+graphical access or elapsed-time archive transitions. Storage-transfer runtime
+verification needs a deliberately aged, tiny fixture and one bounded task;
+checking an S3 lifecycle rule is not proof that an archive transition ran.
+
+Proposed supervision window: stop functional work and initiate cleanup by
+minute 20 after the first mutation; aim to complete inventory reconciliation by
+minute 30. These are proposed operator limits, not an implemented cloud spending
+cap or a guarantee that asynchronous cleanup finishes on time. Failure to clean
+up stops all subsequent scenarios and must be reported as residual exposure.
+
+### Cost and execution blockers before approval
+
+Do **not** deploy the current inputs as an unattended run. The existing schedule
+is enabled every five minutes, permits six delivery retries and has a one-day
+event-age window. The finite mover bounds input bytes, but has no explicit
+wall-clock deadline in its entrypoint. The live plan must first bind a bounded
+start/stop procedure for tasks and scheduling, plus the actual image publication
+procedure. Creating a CodeBuild project does not imply that a build has run.
+
+No verified total cost ceiling is claimed yet. The pinned Frankfurt rate card
+gives only a partial illustration: two shards at USD 0.018/shard-hour yield
+USD 0.036 per hour **before** consumers, requests, compute, storage, logs,
+publication and network charges. It is not a run quote. The actual three
+enhanced-fan-out consumers require their own billing review: AWS charges
+consumer-shard hours and retrieval in provisioned mode ([Kinesis pricing](https://aws.amazon.com/kinesis/data-streams/pricing/)).
+Fargate charges from image download until task termination and may also incur
+public IPv4 and logging charges ([Fargate pricing](https://aws.amazon.com/fargate/pricing/)).
+Build duration is separately metered ([CodeBuild pricing](https://aws.amazon.com/codebuild/pricing/)).
+Immediate deletion does not waive the 30-day Standard-IA or 180-day Deep Archive
+minimum storage charges on affected objects ([S3 pricing](https://aws.amazon.com/s3/pricing/)).
+Do not infer credits, a free tier or a total cap from the monthly optimizer
+estimate. Keep both Core budget and execution approval unset until these
+quantities are bounded and the final regional billable inventory is priced.
+
+Cleanup order: stop the test sender and scheduler; stop/wait for run-owned ECS
+tasks and builds; destroy the isolated Terraform state; then inspect run-owned
+IoT bindings, streams/consumers, queues/topics, functions, tables, buckets,
+registry images, logs, IAM and networking including task ENIs. Preserve existing
+account resources and credentials. Retain only sanitized measurement evidence.
+
+## Azure Core run: concrete pre-approval review
+
+Reviewed offline on 2026-09-16 against implementation commit `08893423`.
+The native mock plan for `core-small-local-azure` passed again: **73 Terraform
+create entries**, comprising 62 Azure resource/configuration entries, two local
+random values and nine guards. These are fixture counts, not running-service
+counts or an account-bound Apply plan. Region: `westeurope`.
+
+| Responsibility | Current concrete Azure resources |
+|---|---|
+| L1 | One resolved IoT Hub S1, one unit; ten messages in the supervised Core smoke. |
+| Event Layer | One Standard Event Hubs namespace, one throughput unit, three hubs and three consumer groups; one Standard Service Bus namespace, one topic/subscription and filter |
+| L2 and adapters | Six Flex Consumption Function Apps in total: processing, event adapter, processor extension, action extension, Event runtime and L3 reader; six FC1 plans because Flex permits one app per plan; one Consumption Logic App with its trigger/actions |
+| L3 | One serverless Cosmos DB account/database/container; one storage account with three containers for history and runtime packages; archive/expiry lifecycle; authenticated Function readback |
+| L3 transfer and publication | One scheduled Container Apps job (1 vCPU, 2 GiB, one replica), one environment and one Basic ACR |
+| Supporting configuration | Two Log Analytics workspaces, nine supported diagnostic settings, two user-assigned identities and scoped role assignments in one deployment resource group |
+
+The Functions use ZIP packages. **Only the storage mover needs a custom Azure
+container image.** Its current publisher uses an ACR build task with a
+1,200-second timeout; creating the registry does not build or verify an image.
+There is no Azure Digital Twins, L5, Grafana or cross-cloud federation in this
+local case. Reuse the approved deployment administrator; do not add another
+credential/bootstrap model for this test.
+
+Use the same ten-message verification as AWS, via the actual IoT Hub device
+ingress, Event Hubs received/processed delivery, processing, Cosmos persistence
+and authenticated readback. Record matching trace IDs and transformed values.
+The first test does not claim command roundtrip or completed cool/archive
+transitions. An aged fixture and one controlled storage execution remain a
+separate verification step, not an unattended recurring workload.
+
+### Azure blockers, price boundaries and cleanup
+
+- The current mover is scheduled every five minutes, allows three retries and
+  has a **1,800-second timeout per replica**, not per experiment. Repeated or
+  overlapping executions can exceed the short smoke-test window. Before live
+  approval, arrange no recurring execution during the first test and a bounded
+  one-off procedure for the later transfer check. This is planned, not implemented.
+- Function scale maxima (mostly 100, reader 20) are not prepaid instances or
+  spending caps. Review retry/fan-out and log volume alongside the ten-message
+  input limit. Do not silently change the reviewed Small service selection.
+- Price one S1 unit using its daily unit billing, not ten-message pricing
+  ([IoT Hub pricing](https://azure.microsoft.com/en-us/pricing/details/iot-hub/)).
+  Include Event Hubs throughput, the subscription-level Standard Service Bus
+  base charge, operations, Functions, Logic Apps, Cosmos, logs and storage;
+  do not double-count an existing subscription base charge as incremental cost
+  ([Service Bus pricing](https://azure.microsoft.com/en-us/pricing/details/service-bus/)).
+- Include ACR tier/storage and actual build CPU time separately from the
+  Container Apps execution ([ACR pricing](https://azure.microsoft.com/en-us/pricing/details/container-registry/)).
+  Cool/Archive object deletion can still incur minimum-duration charges of
+  30/180 days respectively; a quick Destroy does not waive these
+  ([Blob access tiers](https://learn.microsoft.com/en-us/azure/storage/blobs/access-tiers-overview)).
+
+Read-only prerequisites before a live proposal: verify subscription/region and
+provider registration, S1/FC1/Container Apps availability and relevant quotas,
+Cosmos serverless support, resource/IAM permissions and data-plane access for
+package upload, device registration and readback. Treat missing prerequisites
+as blockers; no automatic SKU upgrade or new principal. No live account checks
+were performed for this planning update.
+
+Cleanup: stop the sender and prevent new job/workflow starts; cancel or drain
+run-owned job executions, workflow runs and ACR builds; destroy the isolated
+state/resource group. Reconcile resource-group contents plus run-owned role
+assignments, identities, registry artifacts, storage and retained/soft-deleted
+resources. Do not delete shared applications, credentials or existing resources.
+Use the same proposed 20-minute stop/30-minute cleanup target as AWS; include
+publication and provisioning in the clock. No verified total cost ceiling yet.
+
+## GCP Core run: concrete pre-approval review
+
+Reviewed offline on 2026-09-16 against implementation commit `08893423`.
+The native mock plan for `core-small-local-gcp` passed again: **120 Terraform
+create entries**, comprising 93 Google resource/configuration entries, nine
+Kubernetes objects and 18 local/random/TLS/guard entries. The fixture includes
+the final Kubernetes stage; it is not merely the image/cluster foundation.
+It does not prove cluster scheduling, image pull, device delivery or cleanup.
+Region: `europe-west1`; the cluster is **zonal**, in `europe-west1-b`.
+
+| Responsibility | Current concrete GCP resources |
+|---|---|
+| L1 | One GKE Standard cluster; one broker node (`e2-standard-4`, 50 GiB disk) and one integration node (`e2-standard-2`, 30 GiB disk); BifroMQ and MQTT adapter deployments; one external LoadBalancer service and reserved address |
+| Event Layer | Five Pub/Sub topics and five subscriptions, including failure/control and MQTT command delivery; one Event runtime Cloud Run service |
+| L2 and adapters | Eight Cloud Run services in total including Event runtime: processing, processor extension, ingress/domain/persistence adapters, action sink and L3 reader; one Workflows workflow |
+| L3 | One deployment Firestore database with three composite indexes and seven field configurations; one Nearline history bucket with native Archive/expiry lifecycle; authenticated Cloud Run readback |
+| L3 transfer | One Cloud Run job (Small: one task, 1 vCPU, 2 GiB), one Cloud Scheduler job |
+| Image publication and support | One Artifact Registry repository, one build-source bucket, twelve service accounts and IAM bindings, one logging bucket/sink; Kubernetes namespace/config/secret/service account and three services in total |
+
+There are **four custom image roles**: platform (shared by several runtimes and
+the MQTT adapter), processor extension, Event runtime and storage mover. There
+is also the existing digest-pinned public BifroMQ image. These are executable
+payloads inside the Terraform-provisioned resources, not substitutes for testing
+their wiring. The mock uses synthetic image references; real build/pull checks
+and digest recording remain pending. The current publisher builds sequentially
+in Cloud Build, with a 1,200-second timeout per image: four such limits are not a
+bounded short experiment. Bound/review publication separately before admission;
+no builds were submitted here.
+
+Use the same ten messages through **MQTT/TLS → BifroMQ → MQTT adapter → ingress
+and Pub/Sub → processing → processed delivery → Firestore → authenticated
+readback**. Do not substitute direct Pub/Sub publication: that would omit the
+L1 provisioning/connectivity being evaluated. L4/L5 exclusion does not remove
+this L1 cluster, and it is not evidence that GCP Core is serverless-only.
+
+### GCP blockers, price boundaries and cleanup
+
+- Price the cluster, both nodes and their disks, address/load balancer and
+  controller-created networking, including transient default-node-pool creation.
+  The default pool is removed; the two retained pools are not multiplied over
+  three zones. GKE's USD 0.10/cluster-hour management fee is only one component;
+  node compute is separate. Assume no available free-tier credit
+  ([GKE pricing](https://cloud.google.com/kubernetes-engine/pricing)).
+- Include Cloud Run, Pub/Sub, Firestore/index operations, Workflows, Scheduler,
+  logging, network traffic, registry storage and build duration. Eight Cloud Run
+  service definitions are not eight constantly running instances; their scaling
+  settings still do not impose a total spending cap.
+- The storage job has a 900-second task timeout and one retry. Its five-minute
+  scheduler has a separate retry allowance; that is not a global execution
+  bound. Prevent recurring starts and bound one-off execution before approval.
+- Nearline/Archive objects have 30/365-day minimum storage durations and can
+  incur early-deletion charges ([Cloud Storage pricing](https://cloud.google.com/storage/pricing)).
+  History soft delete is explicitly disabled in the template, but the build
+  bucket has no explicit setting. Resolve its effective policy before uploading
+  artifacts: the service default is seven days, so ordinary deletion alone may
+  leave billable retained bytes ([soft delete](https://docs.cloud.google.com/storage/docs/soft-delete)).
+  Any change must be limited to the disposable run bucket, not project-wide policy.
+
+Read-only prerequisites: required APIs already enabled, project/billing scope,
+regional CPU/disk/address and GKE quotas, node machine availability, default
+network/IP capacity, organization-policy compatibility, Artifact Registry/build
+and deployment permissions, named Firestore database/index limits and runtime
+invoker bindings. Check Kubernetes endpoint reachability after authorized cluster
+creation. Quota availability is not a capacity reservation. No live account
+checks were performed for this planning update.
+
+The existing deployment lifecycle has image-foundation, runtime/cluster and
+post-cluster Kubernetes stages. Their review and cleanup must be explicit in
+the eventual Core run procedure; the offline preparer does not execute them.
+Do not bypass full-profile admission or emulate Core with ad-hoc `-target`.
+All stages, including publication, count toward the approved time/cost envelope.
+Keep the proposed 20-minute stop/30-minute cleanup target for the first attempt;
+if GKE setup consumes the window, record a provisioning result and clean up,
+rather than extending it silently or claiming functional success.
+
+Cleanup: stop the sender/scheduler and cancel run-owned Cloud Run executions,
+workflow executions and builds. Remove the run-owned Kubernetes LoadBalancer
+service while its cluster/controller still exists and confirm its generated
+network resources are released; then destroy the cluster/node pools and remaining
+isolated state. Inspect compute instances/disks, forwarding rules/backend and
+health-check resources, addresses/firewalls, Cloud Run, Pub/Sub, database, buckets
+(including retained objects), registry, logs, service accounts and IAM. Controller
+children are not all individual Terraform entries. Preserve the existing project,
+shared APIs/network and credentials. Residual cost exposure blocks the next run.
+
+## Shared next step and approval gate
+
+Azure and GCP planning adds no new product feature or test framework. Both local
+mock plans passed (two runs, zero failures); application/infrastructure behavior
+has not changed. The next small implementation slice is a bounded run procedure
+for publication, scheduling, retries, cancellation and residual inventory, followed
+by exact account-bound plan/pricing review. Reuse existing provider mechanisms;
+do not add generic orchestration. Keep numeric cost ceilings and execution
+approval unset until that review is complete.
+
+Run the three local baselines separately, never concurrently; each ends in
+Destroy and residual inventory before the next starts. Plan each of the six
+directed cases afterwards using its own resources and bidirectional identity
+bindings, without inheriting a local cost approval. RQ1 retains provisioning and
+cleanup measurements, RQ2 uses the same verified Core path, RQ3 separates
+publication/setup baseline from message delivery and final billed costs. Ten
+messages establish integration evidence, not performance statistics or full
+simulator/command/access-layer coverage. No Apply, image publication or live
+workload execution is authorized by this review.

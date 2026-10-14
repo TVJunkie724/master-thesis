@@ -2,19 +2,53 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src.api.deployment_trace import sanitize_deployment_message
 from src.core.config_loader import load_credentials, load_providers_config
+from src.core.secure_files import atomic_write_private_bytes
+from src.providers.terraform.aws_six_layer_image_publisher import (
+    AwsSixLayerImagePublisher,
+    aws_six_layer_container_deployment,
+)
+from src.providers.terraform.aws_six_layer_image_publisher import (
+    image_requests as aws_six_layer_image_requests,
+)
+from src.providers.terraform.aws_six_layer_image_publisher import (
+    image_tfvars as aws_six_layer_image_tfvars,
+)
+from src.providers.terraform.azure_six_layer_image_publisher import (
+    AzureSixLayerImagePublisher,
+    azure_six_layer_container_deployment,
+)
+from src.providers.terraform.azure_six_layer_image_publisher import (
+    image_requests as azure_six_layer_image_requests,
+)
+from src.providers.terraform.azure_six_layer_image_publisher import (
+    image_tfvars as azure_six_layer_image_tfvars,
+)
 from src.providers.terraform.deployment_lifecycle import DeploymentLifecycleMixin
 from src.providers.terraform.destruction_lifecycle import (
-    DestructionLifecycleMixin,
     DestroyResult,
+    DestructionLifecycleMixin,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    GcpSixLayerImagePublisher,
+    gcp_six_layer_container_deployment,
+    placeholder_image_tfvars,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    image_requests as gcp_six_layer_image_requests,
+)
+from src.providers.terraform.gcp_six_layer_image_publisher import (
+    image_tfvars as gcp_six_layer_image_tfvars,
 )
 from src.providers.terraform.provider_runtime import (
     initialize_providers,
+    prepare_shared_identity_capabilities,
     run_post_deployment,
 )
 from src.terraform_runner import TerraformRunner
@@ -27,10 +61,35 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 PREFLIGHT_VALID_STATUS = "valid"
+GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = (
+    "google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected",
+    "google_storage_bucket.gcp_six_layer_cloud_build_sources",
+    'google_service_account.gcp_six_layer_runtime["build"]',
+    "google_artifact_registry_repository_iam_member.gcp_six_layer_build_writer",
+    "google_storage_bucket_iam_member.gcp_six_layer_build_source_reader",
+    "google_project_iam_member.gcp_six_layer_build_log_writer",
+)
+AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = (
+    "aws_ecr_repository.aws_aws_ecr_if_container_selected",
+    "aws_s3_bucket.aws_aws_ecr_if_container_selected",
+    "aws_s3_bucket_lifecycle_configuration.aws_aws_ecr_if_container_selected",
+    "aws_s3_bucket_public_access_block.aws_aws_ecr_if_container_selected",
+    "aws_s3_bucket_server_side_encryption_configuration.aws_aws_ecr_if_container_selected",
+    "aws_iam_role.aws_aws_ecr_if_container_selected",
+    "aws_iam_role_policy.aws_aws_ecr_if_container_selected",
+    "aws_codebuild_project.aws_aws_ecr_if_container_selected",
+)
+AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = (
+    "azurerm_container_registry.azure_azure_acr_basic_if_container_selected",
+)
 
 
 class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMixin):
     """Coordinate Terraform with explicitly SDK-owned lifecycle operations."""
+
+    GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS
+    AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS
+    AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS = AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS
 
     def __init__(self, terraform_dir: str, project_path: str):
         if not terraform_dir:
@@ -45,6 +104,8 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         self._runner: TerraformRunner | None = None
         self._providers_config: dict | None = None
         self._terraform_outputs: dict | None = None
+        self._preplan_tfvars: dict = {}
+        self._built_packages: dict[str, Path] = {}
 
     @property
     def runner(self) -> TerraformRunner:
@@ -71,11 +132,101 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
     def _generate_tfvars(self) -> None:
         self.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
         generate_tfvars(str(self.project_path), str(self.tfvars_path))
+        if self._preplan_tfvars:
+            generated = json.loads(self.tfvars_path.read_text(encoding="utf-8"))
+            generated.update(self._preplan_tfvars)
+            self.tfvars_path.write_text(
+                json.dumps(generated, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+    def _read_tfvars(self) -> dict:
+        value = json.loads(self.tfvars_path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            raise ConfigurationError("Generated Terraform variables are invalid")
+        return value
+
+    def _merge_tfvars(self, values: dict) -> dict:
+        generated = self._read_tfvars()
+        generated.update(values)
+        atomic_write_private_bytes(
+            self.tfvars_path,
+            (json.dumps(generated, indent=2, sort_keys=True) + "\n").encode(),
+        )
+        return generated
+
+    def _prepare_gcp_six_layer_image_foundation(self) -> bool:
+        generated = self._read_tfvars()
+        if not gcp_six_layer_container_deployment(generated):
+            return False
+        self._merge_tfvars(placeholder_image_tfvars(generated))
+        return True
+
+    def _prepare_aws_six_layer_image_foundation(self) -> bool:
+        return aws_six_layer_container_deployment(self._read_tfvars())
+
+    def _prepare_azure_six_layer_image_foundation(self) -> bool:
+        return azure_six_layer_container_deployment(self._read_tfvars())
+
+    def _image_foundation_targets(self) -> tuple[str, ...]:
+        values: list[str] = []
+        if getattr(self, "_aws_six_layer_image_foundation_required", False):
+            values.extend(self.AWS_SIX_LAYER_IMAGE_FOUNDATION_TARGETS)
+        if getattr(self, "_azure_six_layer_image_foundation_required", False):
+            values.extend(self.AZURE_SIX_LAYER_IMAGE_FOUNDATION_TARGETS)
+        if getattr(self, "_gcp_six_layer_image_foundation_required", False):
+            values.extend(self.GCP_SIX_LAYER_IMAGE_FOUNDATION_TARGETS)
+        return tuple(values)
+
+    def _publish_aws_six_layer_images(self) -> None:
+        generated = self._read_tfvars()
+        outputs = self.runner.output()
+        publisher = AwsSixLayerImagePublisher.from_tfvars_and_outputs(
+            project_path=self.project_path,
+            tfvars=generated,
+            outputs=outputs,
+        )
+        images = publisher.publish(
+            aws_six_layer_image_requests(self.project_path, generated)
+        )
+        self._merge_tfvars(aws_six_layer_image_tfvars(images, generated))
+
+    def _publish_gcp_six_layer_images(self) -> None:
+        generated = self._read_tfvars()
+        outputs = self.runner.output()
+        publisher = GcpSixLayerImagePublisher.from_tfvars_and_outputs(
+            project_path=self.project_path,
+            tfvars=generated,
+            outputs=outputs,
+        )
+        images = publisher.publish(
+            gcp_six_layer_image_requests(self.project_path, generated)
+        )
+        self._merge_tfvars(gcp_six_layer_image_tfvars(images, generated))
+
+    def _publish_azure_six_layer_images(self) -> None:
+        generated = self._read_tfvars()
+        outputs = self.runner.output()
+        publisher = AzureSixLayerImagePublisher.from_tfvars_and_outputs(
+            project_path=self.project_path,
+            tfvars=generated,
+            outputs=outputs,
+        )
+        images = publisher.publish(
+            azure_six_layer_image_requests(self.project_path, generated)
+        )
+        self._merge_tfvars(azure_six_layer_image_tfvars(images, generated))
+
+    def _gcp_kubernetes_state_exists(self) -> bool:
+        result = self.runner.state_list()
+        return result.returncode == 0 and any(
+            line.startswith("kubernetes_") for line in result.stdout.splitlines()
+        )
 
     def _build_packages(self) -> None:
         from src.providers.terraform.package_builder import build_all_packages
 
-        build_all_packages(
+        self._built_packages = build_all_packages(
             self.terraform_dir,
             self.project_path,
             self._load_providers_config(),
@@ -90,16 +241,19 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
         )
 
     def _validate_credentials(self) -> None:
-        providers = self._load_providers_config()
         credentials = self._load_credentials()
-        used_clouds = {
-            "gcp" if cloud == "google" else cloud
-            for key, cloud in providers.items()
-            if key.startswith("layer_")
-            and key.endswith("_provider")
-            and isinstance(cloud, str)
-            and cloud
-        }
+        graph = getattr(self, "_resolved_deployment_graph", None)
+        if graph is None:
+            raise ConfigurationError(
+                "Credential validation requires the resolved deployment graph"
+            )
+        used_clouds = {node.provider for node in graph.nodes}
+        unsupported = sorted(used_clouds - {"aws", "azure", "gcp"})
+        if unsupported:
+            raise ConfigurationError(
+                "Resolved deployment graph contains unsupported providers: "
+                + ", ".join(unsupported)
+            )
 
         if "azure" in used_clouds:
             from src.api.azure_credentials_checker import check_azure_credentials
@@ -119,7 +273,9 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
 
             aws_credentials = credentials.get("aws")
             if not aws_credentials:
-                raise ValueError("AWS is configured but no AWS credentials were provided")
+                raise ValueError(
+                    "AWS is configured but no AWS credentials were provided"
+                )
             self._assert_preflight_valid(
                 "AWS",
                 check_aws_credentials(aws_credentials),
@@ -130,7 +286,9 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
 
             gcp_credentials = credentials.get("gcp")
             if not gcp_credentials:
-                raise ValueError("GCP is configured but no GCP credentials were provided")
+                raise ValueError(
+                    "GCP is configured but no GCP credentials were provided"
+                )
             self._assert_preflight_valid(
                 "GCP",
                 check_gcp_credentials(gcp_credentials),
@@ -155,23 +313,18 @@ class TerraformDeployerStrategy(DeploymentLifecycleMixin, DestructionLifecycleMi
             self._load_credentials(),
         )
 
+    def _prepare_shared_identity_capabilities(
+        self,
+        context: "DeploymentContext",
+    ) -> None:
+        self._preplan_tfvars = prepare_shared_identity_capabilities(context)
+
     def _run_post_deployment(self, context: "DeploymentContext") -> None:
-        run_post_deployment(
+        context.deployment_access_runtime_evidence = run_post_deployment(
             context,
             self.project_path,
             self._load_providers_config(),
             self._terraform_outputs or {},
-        )
-
-    @staticmethod
-    def _uses_provider(providers_config: dict, cloud: str) -> bool:
-        aliases = {cloud}
-        if cloud == "gcp":
-            aliases.add("google")
-        return any(
-            value in aliases
-            for key, value in providers_config.items()
-            if key.startswith("layer_") and key.endswith("_provider")
         )
 
     def get_outputs(self) -> dict:

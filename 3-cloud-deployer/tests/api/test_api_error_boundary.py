@@ -12,9 +12,7 @@ from src.api.error_handling import internal_server_error, safe_error_detail
 
 def test_expected_error_detail_is_redacted():
     detail = safe_error_detail(
-        RuntimeError(
-            "project /app/upload/factory client_secret=super-secret-value"
-        )
+        RuntimeError("project /app/upload/factory client_secret=super-secret-value")
     )
 
     assert detail == "project <project-path> client_secret=<redacted>"
@@ -66,9 +64,9 @@ def test_global_exception_handler_returns_generic_fastapi_envelope():
 
 def test_openapi_error_schema_matches_fastapi_detail_envelope():
     schema = rest_api.app.openapi()
-    error_schema = schema["paths"]["/projects"]["get"]["responses"]["500"][
-        "content"
-    ]["application/json"]["schema"]
+    error_schema = schema["paths"]["/projects/{project_name}/operation-package"][
+        "post"
+    ]["responses"]["500"]["content"]["application/json"]["schema"]
 
     assert error_schema == {
         "$ref": "#/components/schemas/HttpErrorEnvelope",

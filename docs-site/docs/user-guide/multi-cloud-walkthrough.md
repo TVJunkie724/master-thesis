@@ -1,62 +1,52 @@
-# PoC Walkthrough
+# Multi-Cloud Walkthrough
 
-Use the offline demo to inspect the result of the PoC without accounts or
-cloud cost. Use the integrated stack when you need real local persistence.
-
-## 1. Open the demo
-
-After installing the [prerequisites](../getting-started/fresh-clone.md), run
-from the repository root:
+## 1. Start without cloud mutation
 
 ```bash
-./thesis.sh demo --setup
+./thesis.sh demo --scenario showcase
 ```
 
-**Expected:** a populated dashboard, a fixture user and a visible demo banner.
-No login, Docker or cloud credentials are required.
+Or start the integrated local services with `./thesis.sh up --setup`. Neither
+mode runs Terraform against a provider.
 
-## 2. Inspect the main workflow
+## 2. Create and configure a Twin
 
-| Action | What to look for |
-|---|---|
-| Open a Twin | configuration and lifecycle state |
-| Inspect the Configuration Workspace | five phases from workload to review |
-| Open a populated calculation result | provider assignments and estimated monthly costs |
-| Expand calculation evidence | assumptions and the resource selections behind the result |
-| Open Pricing Review | provider readiness and review-required states |
-| Inspect deployment history | operation status and log presentation |
+Create a uniquely named draft or import/duplicate a typed archive. Enter the
+workload, devices, events, state behavior, simulator settings, and bounded user
+functions. The UI displays the fixed Six-layer architecture for context; it is
+not selectable.
 
-All values and operations here are fixtures. They illustrate the workflow,
-not live pricing or deployed infrastructure. Restarting discards demo edits.
+## 3. Calculate and review
 
-For empty and failure states, restart with:
+Run the cost calculation and inspect:
 
-```bash
-./thesis.sh demo --scenario empty
-./thesis.sh demo --scenario degraded
-```
+- provider placement for all six responsibilities;
+- component, edge, transfer, and total monthly cost;
+- excluded candidates and capability reasons;
+- exact frozen pricing/formula references; and
+- immutable resolved architecture and deployment-specification digests.
 
-## 3. Use local persistence
+The selected result is one complete functionally admissible path, not six
+independent cheapest-service choices.
 
-```bash
-./thesis.sh up --setup
-```
+## 4. Bind deployment access
 
-Select **Continue in local development**, then create a Twin and save its
-identity/workload. **Expected:** the Twin persists in the Management database
-and can be reopened. Cloud credentials are not required for startup.
+Choose one existing named CloudConnection for every provider used by the
+result. Add or import a new connection only when needed. Credential values are
+write-only.
 
-Calculation uses reviewed pricing catalogs; inspect their readiness and
-recorded source before interpreting a cost result. A pricing refresh may
-contact a provider. Follow [Configuration Workspace](configuration-workspace.md)
-and [Pricing Review](pricing-review.md) when exploring those steps.
+Run identity validation and graph-derived readiness. The Flutter overview
+displays provider checks and exposes the digest-bound preparation and repair
+dialog. Review and explicitly confirm only the listed account-level changes;
+external blockers remain a manual provider action or require a replacement
+connection.
 
-## Cloud deployment is a separate step
+## 5. Optional supervised deployment
 
-The current profile resolver defaults to off; new deployment packages need a
-resolved architecture and Manifest v3. The graph compiler is implemented, but
-the L4→L5 binding gap and final live verification remain open.
-See [Results and Limits](../runtime/known-limitations.md) before using
-[Cloud Setup](../cloud-setup/index.md) or [Deployment](deployment.md).
+Review the immutable plan and cost guardrail before confirmation. Follow the
+persisted operation and SSE stream, run the telemetry roundtrip, and open the
+typed L4/L5 access links using the provider-owned authentication method.
 
-For local failures, use [Troubleshooting](../runtime/troubleshooting.md).
+Finally, confirm Destroy and inspect post-destroy inventory plus residual
+failures. Live provider execution belongs to the supervised nine-scenario
+evaluation and is never part of routine documentation verification.

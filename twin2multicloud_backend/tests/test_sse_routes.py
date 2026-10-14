@@ -6,6 +6,8 @@ import uuid
 
 import pytest
 
+from src.models.deployment import Deployment
+from src.models.deployment_log import DeploymentLog
 from src.services.deployment_stream_service import cleanup_session, create_session
 
 
@@ -60,6 +62,45 @@ def test_sse_route_rejects_negative_cursor(authenticated_client):
     )
 
     assert response.status_code == 422
+
+
+def test_sse_route_replays_persisted_progress_and_terminal_result(
+    authenticated_client,
+    db_session,
+):
+    client, headers = authenticated_client
+    twin_response = client.post(
+        "/twins/",
+        headers=headers,
+        json={"name": "Persisted SSE twin"},
+    )
+    twin_id = twin_response.json()["id"]
+    deployment = Deployment(
+        twin_id=twin_id,
+        session_id="persisted-session",
+        operation_type="deploy",
+        status="success",
+        idempotency_key="persisted-command-0001",
+        terraform_outputs={"inter_cloud_token": "must-not-leak"},
+    )
+    db_session.add(deployment)
+    db_session.add(
+        DeploymentLog(
+            twin_id=twin_id,
+            session_id="persisted-session",
+            event_id=1,
+            message="Terraform apply completed",
+            operation_type="deploy",
+        )
+    )
+    db_session.commit()
+
+    response = client.get("/sse/deploy/persisted-session", headers=headers)
+
+    assert response.status_code == 200
+    assert "Terraform apply completed" in response.text
+    assert '"type": "complete"' in response.text
+    assert "must-not-leak" not in response.text
 
 
 @pytest.mark.asyncio

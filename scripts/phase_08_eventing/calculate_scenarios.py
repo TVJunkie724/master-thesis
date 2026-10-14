@@ -916,6 +916,7 @@ def event_layer_result(
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
     remote_delivery_channel_ids: set[str] | None = None,
+    local_delivery_consumer_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     prefix = f"event-layer.{provider}.{scenario['scenario_id']}"
     telemetry = select_channels(channels, payload_class="telemetry")
@@ -1172,9 +1173,15 @@ def event_layer_result(
         raise ValueError(provider)
 
     remote_delivery_channel_ids = remote_delivery_channel_ids or set()
-    local_adapter_channels = [
-        row for row in channels if row["channel_id"] not in remote_delivery_channel_ids
-    ]
+    local_adapter_channels = (
+        consumer_fixture(channels, local_delivery_consumer_counts)
+        if local_delivery_consumer_counts is not None
+        else [
+            row
+            for row in channels
+            if row["channel_id"] not in remote_delivery_channel_ids
+        ]
+    )
     adapter_invocations = count_for(local_adapter_channels, "delivery_attempt_count")
     adapter = shared["component_compute_assumptions"]["event_delivery_adapter"]
     if provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
@@ -1329,6 +1336,39 @@ def channel_fixture(
     return result
 
 
+def consumer_fixture(
+    channels: list[dict[str, Any]],
+    consumer_counts: dict[str, int],
+) -> list[dict[str, Any]]:
+    """Recompute delivery quantities for an exact physical consumer count."""
+
+    result = []
+    for row in channels:
+        consumer_count = consumer_counts.get(row["channel_id"], 0)
+        if consumer_count <= 0:
+            continue
+        original_consumers = row["consumer_count"]
+        retry_per_consumer = row["retry_delivery_count"] // original_consumers
+        dead_letter_per_consumer = row["dead_letter_count"] // original_consumers
+        replay_per_consumer = row["replay_publish_count"]
+        result.append(
+            dict(
+                row,
+                consumer_count=consumer_count,
+                base_delivery_count=row["publish_count"] * consumer_count,
+                retry_delivery_count=retry_per_consumer * consumer_count,
+                dead_letter_count=dead_letter_per_consumer * consumer_count,
+                replay_delivery_count=replay_per_consumer * consumer_count,
+                delivery_attempt_count=(
+                    row["publish_count"] * consumer_count
+                    + retry_per_consumer * consumer_count
+                    + replay_per_consumer * consumer_count
+                ),
+            )
+        )
+    return result
+
+
 def destination_fixture(
     channels: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -1357,6 +1397,7 @@ def bridge_compute_and_transfer(
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
     prefix: str,
+    worker_telemetry_channel_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     retry_share = Decimal(str(scenario["retry_share"]))
     replay_share = Decimal(str(scenario["replay_share"]))
@@ -1402,7 +1443,13 @@ def bridge_compute_and_transfer(
         }
     elif source_provider == "gcp" and scenario["scenario_id"] == "eventing-large-v1":
         telemetry_channels = [
-            row for row in channel_attempts if row["payload_class"] == "telemetry"
+            row
+            for row in channel_attempts
+            if row["payload_class"] == "telemetry"
+            and (
+                worker_telemetry_channel_ids is None
+                or row["channel_id"] in worker_telemetry_channel_ids
+            )
         ]
         control_channels = [
             row for row in channel_attempts if row["payload_class"] != "telemetry"
@@ -1891,10 +1938,14 @@ def three_provider_result(
     shared: dict[str, Any],
     channels: list[dict[str, Any]],
     intents: dict[str, dict[str, Any]],
+    *,
+    include_event_layer_contributions: bool = False,
 ) -> dict[str, Any]:
     ingress = placement["ingress_provider"]
     eventing = placement["eventing_provider"]
     processing = placement["processing_provider"]
+    explicit_hot_storage = "hot_storage_provider" in placement
+    hot_storage = placement.get("hot_storage_provider", processing)
     ingress_produced_channel_ids = {
         "telemetry.received.v1",
         "device.command.outcome.v1",
@@ -1913,22 +1964,59 @@ def three_provider_result(
         "telemetry.processed.v1",
         "event.matched.v1",
         "notification.requested.v1",
+    }
+    hot_storage_consumed_channel_ids = {
+        "telemetry.processed.v1",
         "extension.action.outcome.v1",
         "notification.workflow.outcome.v1",
         "device.command.outcome.v1",
     }
     all_channel_ids = ingress_produced_channel_ids | processing_produced_channel_ids
-    placement_channels = channel_fixture(channels, all_channel_ids)
+    local_delivery_consumer_counts = {
+        "telemetry.received.v1": int(processing == eventing),
+        "telemetry.processed.v1": (
+            2 + int(processing == eventing) + 2 * int(hot_storage == eventing)
+        ),
+        "event.matched.v1": int(processing == eventing),
+        "notification.requested.v1": int(processing == eventing),
+        "device.command.requested.v1": int(ingress == eventing),
+        "extension.action.outcome.v1": int(hot_storage == eventing),
+        "notification.workflow.outcome.v1": int(hot_storage == eventing),
+        "device.command.outcome.v1": int(hot_storage == eventing),
+    }
+    remote_delivery_channel_ids: set[str] = set()
+    if processing != eventing:
+        remote_delivery_channel_ids |= processing_consumed_channel_ids
+    if hot_storage != eventing:
+        remote_delivery_channel_ids |= hot_storage_consumed_channel_ids
+    if ingress != eventing:
+        remote_delivery_channel_ids |= ingress_consumed_channel_ids
+    event_channel_consumer_counts = {
+        channel_id: local_delivery_consumer_counts[channel_id]
+        + int(channel_id in remote_delivery_channel_ids)
+        for channel_id in all_channel_ids
+    }
+    placement_channels = consumer_fixture(
+        select_channels(channels, channel_ids=all_channel_ids),
+        event_channel_consumer_counts,
+    )
     placement_event_layer = event_layer_result(
         eventing,
         scenario,
         shared,
         placement_channels,
         intents,
-        remote_delivery_channel_ids=all_channel_ids,
+        remote_delivery_channel_ids=remote_delivery_channel_ids,
+        local_delivery_consumer_counts=local_delivery_consumer_counts,
     )
     items: list[dict[str, Any]] = []
+    placement_key = f"{ingress}-{eventing}-{processing}"
+    if explicit_hot_storage:
+        placement_key = f"{placement_key}-{hot_storage}"
 
+    processing_delivery_channel_ids = set(processing_consumed_channel_ids)
+    if hot_storage == processing:
+        processing_delivery_channel_ids |= hot_storage_consumed_channel_ids
     route_specs = [
         (
             "ingress-to-eventing",
@@ -1937,6 +2025,7 @@ def three_provider_result(
             channel_fixture(channels, ingress_produced_channel_ids),
             True,
             False,
+            ("edge.ingestion-to-eventing",),
         ),
         (
             "processing-to-eventing",
@@ -1945,14 +2034,21 @@ def three_provider_result(
             channel_fixture(channels, processing_produced_channel_ids),
             True,
             False,
+            ("edge.processing-to-eventing",),
         ),
         (
             "eventing-to-processing",
             eventing,
             processing,
-            channel_fixture(channels, processing_consumed_channel_ids),
+            channel_fixture(channels, processing_delivery_channel_ids),
             False,
             True,
+            (
+                "edge.eventing-to-processing",
+                "edge.eventing-to-hot-storage",
+            )
+            if explicit_hot_storage and hot_storage == processing
+            else ("edge.eventing-to-processing",),
         ),
         (
             "eventing-to-ingress",
@@ -1961,14 +2057,28 @@ def three_provider_result(
             channel_fixture(channels, ingress_consumed_channel_ids),
             False,
             True,
+            ("edge.eventing-to-ingestion",),
         ),
     ]
+    if explicit_hot_storage and hot_storage != processing:
+        route_specs.append(
+            (
+                "eventing-to-hot-storage",
+                eventing,
+                hot_storage,
+                channel_fixture(channels, hot_storage_consumed_channel_ids),
+                False,
+                True,
+                ("edge.eventing-to-hot-storage",),
+            )
+        )
     route_summaries = []
     bridge_log_bytes_by_provider = {
         "aws": 0,
         "azure": 0,
         "gcp": 0,
     }
+    gcp_worker_telemetry_channels_seen: set[str] = set()
     for (
         role,
         source,
@@ -1976,16 +2086,22 @@ def three_provider_result(
         fixture,
         add_source_outbox,
         add_destination_landing,
+        logical_edge_ids,
     ) in route_specs:
-        prefix = (
-            f"three-provider.{ingress}-{eventing}-{processing}."
-            f"{scenario['scenario_id']}.{role}"
-        )
+        if source == destination:
+            continue
+        prefix = f"three-provider.{placement_key}.{scenario['scenario_id']}.{role}"
         route_items: list[dict[str, Any]] = []
         if add_source_outbox:
             route_items.extend(
                 source_outbox_cost(source, scenario, fixture, intents, prefix)
             )
+        worker_telemetry_channel_ids = {
+            row["channel_id"]
+            for row in fixture
+            if row["payload_class"] == "telemetry"
+            and row["channel_id"] not in gcp_worker_telemetry_channels_seen
+        }
         route_items.extend(
             bridge_compute_and_transfer(
                 source,
@@ -1994,8 +2110,17 @@ def three_provider_result(
                 fixture,
                 intents,
                 prefix,
+                worker_telemetry_channel_ids=(
+                    worker_telemetry_channel_ids if source == "gcp" else None
+                ),
             )
         )
+        if source == "gcp":
+            gcp_worker_telemetry_channels_seen.update(
+                row["channel_id"]
+                for row in fixture
+                if row["payload_class"] == "telemetry"
+            )
         _, route_log_bytes = observability(fixture, shared)
         bridge_log_bytes_by_provider[source] += route_log_bytes
         if add_destination_landing:
@@ -2012,6 +2137,11 @@ def three_provider_result(
         route_summaries.append(
             {
                 "route_role": role,
+                **(
+                    {"logical_edge_ids": list(logical_edge_ids)}
+                    if explicit_hot_storage
+                    else {}
+                ),
                 "source_provider": source,
                 "destination_provider": destination,
                 "source_outbox_cost_included": add_source_outbox,
@@ -2033,7 +2163,7 @@ def three_provider_result(
                     log_bytes,
                     intents,
                     (
-                        f"three-provider.{ingress}-{eventing}-{processing}."
+                        f"three-provider.{placement_key}."
                         f"{scenario['scenario_id']}.bridge-shared"
                     ),
                 )
@@ -2042,13 +2172,20 @@ def three_provider_result(
 
     event_layer_total = Decimal(placement_event_layer["total_monthly_usd"])
     bridge_total = total_contributions(items)
-    return {
-        "placement_id": f"placement.{ingress}-{eventing}-{processing}@1",
+    result = {
+        "placement_id": f"placement.{placement_key}@1",
         "ingress_provider": ingress,
         "eventing_provider": eventing,
         "processing_provider": processing,
+        **({"hot_storage_provider": hot_storage} if explicit_hot_storage else {}),
         "status": placement["status"],
-        "topology": "hub_and_spoke",
+        "topology": (
+            "single_cloud"
+            if len({ingress, eventing, processing, hot_storage}) == 1
+            else "two_provider"
+            if len({ingress, eventing, processing, hot_storage}) == 2
+            else "hub_and_spoke"
+        ),
         "event_layer_bundle_ref": (placement_event_layer["bundle_id"]),
         "event_layer_bundle_total_usd": money(event_layer_total),
         "bridge_route_summaries": route_summaries,
@@ -2058,8 +2195,17 @@ def three_provider_result(
         "bridge_cost_contributions": items,
         "bridge_addition_total_usd": money(bridge_total),
         "event_scope_total_usd": money(event_layer_total + bridge_total),
-        "scope_note": "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10.",
+        "scope_note": (
+            "This is Event-Layer plus deduplicated bridge infrastructure only. All eight domain channels are routed from their component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
+            if len({ingress, eventing, processing, hot_storage}) == 3
+            else "This is Event-Layer plus deduplicated bridge infrastructure only. Each remote domain channel is routed from its component owner through the Eventing provider to one landing copy per remote consumer provider; fan-out among colocated consumers happens after landing. Same-provider edges remain local, and remote delivery adapters are replaced by bridge forwarders rather than double-counted. Domain-responsibility and full-profile totals remain Phase 8.10."
+        ),
     }
+    if include_event_layer_contributions:
+        result["event_layer_cost_contributions"] = placement_event_layer[
+            "cost_contributions"
+        ]
+    return result
 
 
 def build_result_from_documents(

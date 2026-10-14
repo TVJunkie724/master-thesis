@@ -52,11 +52,6 @@ formula_sets:
         component: api_calls
         expression: api_calls * normalized_api_call_price
         description: Digital twin unified-data API usage charge.
-      account_bundle_cost:
-        id: account_bundle_cost
-        component: account_bundle
-        expression: monthly_base_price + max(0, account_queries - included_queries) * query_overage_price + max(0, account_api_calls - included_api_calls) * api_call_overage_price
-        description: Full account TwinMaker bundle cost for an evidence-backed entity tier and explicit account allocation policy.
       message_unit_cost:
         id: message_unit_cost
         component: message_units

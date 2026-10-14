@@ -12,8 +12,6 @@ class CredentialSecurityAction(StrEnum):
     CONNECTION_DELETE = "cloud_connection.delete"
     CONNECTION_VALIDATE = "cloud_connection.validate"
     CONNECTION_PREFLIGHT = "cloud_connection.preflight"
-    BOOTSTRAP_PLAN = "cloud_bootstrap.plan"
-    BOOTSTRAP_IMPORT = "cloud_bootstrap.import"
     INLINE_VALIDATE = "credentials.validate_inline"
     STORED_VALIDATE = "credentials.validate_stored"
 
@@ -36,7 +34,7 @@ class CredentialSecurityEventDraft(BaseModel):
     resource_type: str = Field(min_length=1, max_length=64)
     resource_id: str | None = Field(default=None, max_length=128)
     provider: str | None = Field(default=None, pattern="^(aws|azure|gcp)$")
-    purpose: str | None = Field(default=None, pattern="^(deployment|pricing|bootstrap)$")
+    purpose: str | None = Field(default=None, pattern="^deployment$")
     http_status: int = Field(ge=100, le=599)
     request_id: str = Field(min_length=1, max_length=64)
 

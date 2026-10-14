@@ -1,0 +1,152 @@
+{
+  "$schema": "./schemas/package-artifact.schema.json",
+  "schema_version": "1.0.0",
+  "package_id": "phase-08-complete-service-bundles@1",
+  "artifact_id": "source-ledger",
+  "research_cutoff": "2026-08-08",
+  "source_policy": "primary_provider_or_upstream_project_documentation",
+  "facts": [
+    {
+      "fact_id": "aws-twinmaker-standard-and-quota",
+      "source_ids": ["aws-twinmaker-overview", "aws-twinmaker-quotas", "aws-twinmaker-pricing"]
+    },
+    {
+      "fact_id": "aws-managed-grafana-access-and-plugin-preflight",
+      "source_ids": ["aws-amg-auth", "aws-amg-roles", "aws-amg-plugins"]
+    },
+    {
+      "fact_id": "aws-storage-and-reader-capacity",
+      "source_ids": ["aws-dynamodb-on-demand", "aws-lambda-concurrency", "aws-ecs-scheduler", "aws-s3-lifecycle"]
+    },
+    {
+      "fact_id": "aws-federated-cross-cloud-identity",
+      "source_ids": ["aws-outbound-federation", "aws-web-identity"]
+    },
+    {
+      "fact_id": "azure-twin-and-grafana-access",
+      "source_ids": ["azure-adt-explorer", "azure-adt-security", "azure-amg-access", "azure-amg-datasources"]
+    },
+    {
+      "fact_id": "azure-cosmos-capacity-and-partition",
+      "source_ids": ["azure-cosmos-ru", "azure-cosmos-serverless", "azure-cosmos-limits", "azure-cosmos-partition"]
+    },
+    {
+      "fact_id": "azure-runtime-storage-and-federation",
+      "source_ids": ["azure-functions-flex", "azure-container-apps-jobs", "azure-blob-lifecycle", "azure-workload-federation"]
+    },
+    {
+      "fact_id": "gcp-firestore-model-sharding-and-iam",
+      "source_ids": ["gcp-firestore-model", "gcp-firestore-best-practices", "gcp-firestore-sharding", "gcp-firestore-quotas", "gcp-firestore-databases", "gcp-firestore-iam", "gcp-firestore-rules-boundary"]
+    },
+    {
+      "fact_id": "gcp-cloud-run-access-runtime-and-jobs",
+      "source_ids": ["gcp-cloud-run-iap", "gcp-cloud-run-public", "gcp-cloud-run-identity", "gcp-cloud-run-concurrency", "gcp-cloud-run-jobs", "gcp-cloud-run-worker-pools", "gcp-cloud-run-worker-pool-iam"]
+    },
+    {
+      "fact_id": "gcp-storage-and-federation",
+      "source_ids": ["gcp-storage-lifecycle", "gcp-workload-identity"]
+    },
+    {
+      "fact_id": "grafana-plugin-decisions",
+      "source_ids": ["grafana-infinity-overview", "grafana-infinity-install", "grafana-json-plugin", "grafana-plugin-signatures", "grafana-12-4-security"]
+    },
+    {
+      "fact_id": "gcp-mqtt-boundary",
+      "source_ids": ["bifromq-release", "bifromq-quick-install", "bifromq-cluster"]
+    },
+    {
+      "fact_id": "eventing-service-and-bridge-dependency",
+      "source_ids": ["phase-08-eventing-ledger"]
+    },
+    {
+      "fact_id": "terraform-resource-and-provider-version-closure",
+      "source_ids": [
+        "terraform-awscc-iot-command-1-78",
+        "terraform-awscc-twinmaker-workspace-1-78",
+        "aws-twinmaker-create-component-type-api",
+        "aws-twinmaker-create-entity-api",
+        "terraform-azurerm-flex-functions-4-27",
+        "terraform-google-worker-pool-7-22",
+        "terraform-google-direct-iap-7-22",
+        "terraform-kubernetes-2-38"
+      ]
+    },
+    {
+      "fact_id": "provider-native-content-addressed-container-publication",
+      "source_ids": [
+        "aws-codebuild-publish-ecr",
+        "aws-ecr-describe-images",
+        "azure-acr-tasks-overview",
+        "azure-acr-task-run-api",
+        "gcp-cloud-build-push-artifact-registry",
+        "gcp-artifact-registry-image-digests"
+      ]
+    }
+  ],
+  "sources": [
+    {"source_id":"aws-twinmaker-overview","title":"What is AWS IoT TwinMaker?","url":"https://docs.aws.amazon.com/iot-twinmaker/latest/guide/what-is-twinmaker.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-twinmaker-quotas","title":"AWS IoT TwinMaker endpoints and quotas","url":"https://docs.aws.amazon.com/general/latest/gr/iot-twinmaker.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-twinmaker-pricing","title":"AWS IoT TwinMaker pricing","url":"https://aws.amazon.com/iot-twinmaker/pricing/","checked_on":"2026-08-03"},
+    {"source_id":"aws-amg-auth","title":"Amazon Managed Grafana authentication","url":"https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-amg-roles","title":"Amazon Managed Grafana user roles","url":"https://docs.aws.amazon.com/grafana/latest/userguide/Grafana-user-roles.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-amg-plugins","title":"Amazon Managed Grafana plugins","url":"https://docs.aws.amazon.com/grafana/latest/userguide/grafana-plugins.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-dynamodb-on-demand","title":"DynamoDB on-demand capacity mode","url":"https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-lambda-concurrency","title":"Lambda reserved concurrency","url":"https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-ecs-scheduler","title":"Schedule Amazon ECS tasks with EventBridge Scheduler","url":"https://docs.aws.amazon.com/AmazonECS/latest/developerguide/tasks-scheduled-eventbridge-scheduler.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-s3-lifecycle","title":"S3 lifecycle management","url":"https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-outbound-federation","title":"AWS outbound identity federation","url":"https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-web-identity","title":"AWS temporary credentials and web identity","url":"https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html","checked_on":"2026-08-03"},
+    {"source_id":"azure-adt-explorer","title":"Use Azure Digital Twins Explorer","url":"https://learn.microsoft.com/en-us/azure/digital-twins/how-to-use-azure-digital-twins-explorer","checked_on":"2026-08-03"},
+    {"source_id":"azure-adt-security","title":"Azure Digital Twins security","url":"https://learn.microsoft.com/en-us/azure/digital-twins/concepts-security","checked_on":"2026-08-03"},
+    {"source_id":"azure-amg-access","title":"Manage access to Azure Managed Grafana","url":"https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-manage-access-permissions-users-identities","checked_on":"2026-08-03"},
+    {"source_id":"azure-amg-datasources","title":"Azure Managed Grafana data source support","url":"https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity","checked_on":"2026-08-03"},
+    {"source_id":"azure-cosmos-ru","title":"Request units in Azure Cosmos DB","url":"https://learn.microsoft.com/en-us/azure/cosmos-db/request-units","checked_on":"2026-08-03"},
+    {"source_id":"azure-cosmos-serverless","title":"Azure Cosmos DB serverless","url":"https://learn.microsoft.com/en-us/azure/cosmos-db/serverless","checked_on":"2026-08-03"},
+    {"source_id":"azure-cosmos-limits","title":"Azure Cosmos DB service quotas and limits","url":"https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits","checked_on":"2026-08-03"},
+    {"source_id":"azure-cosmos-partition","title":"Partitioning and horizontal scaling in Azure Cosmos DB","url":"https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning","checked_on":"2026-08-03"},
+    {"source_id":"azure-functions-flex","title":"Azure Functions Flex Consumption plan","url":"https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan","checked_on":"2026-08-03"},
+    {"source_id":"azure-container-apps-jobs","title":"Azure Container Apps jobs","url":"https://learn.microsoft.com/en-us/azure/container-apps/jobs","checked_on":"2026-08-03"},
+    {"source_id":"azure-blob-lifecycle","title":"Azure Blob lifecycle management","url":"https://learn.microsoft.com/en-us/azure/storage/blobs/lifecycle-management-policy-configure","checked_on":"2026-08-03"},
+    {"source_id":"azure-workload-federation","title":"Microsoft Entra workload identity federation","url":"https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-model","title":"Cloud Firestore data model","url":"https://cloud.google.com/firestore/native/docs/data-model","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-best-practices","title":"Cloud Firestore best practices","url":"https://cloud.google.com/firestore/native/docs/best-practices","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-sharding","title":"Sharded timestamps in Firestore","url":"https://cloud.google.com/firestore/native/docs/solutions/shard-timestamp","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-quotas","title":"Cloud Firestore quotas and limits","url":"https://cloud.google.com/firestore/quotas","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-databases","title":"Manage Firestore databases","url":"https://cloud.google.com/firestore/docs/manage-databases","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-iam","title":"Firestore IAM","url":"https://cloud.google.com/firestore/docs/security/iam","checked_on":"2026-08-03"},
+    {"source_id":"gcp-firestore-rules-boundary","title":"Firestore server client library Security Rules boundary","url":"https://cloud.google.com/firestore/native/docs/security/rules-conditions","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-iap","title":"Direct IAP for Cloud Run","url":"https://cloud.google.com/run/docs/securing/identity-aware-proxy-cloud-run","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-public","title":"Cloud Run public invocation","url":"https://cloud.google.com/run/docs/authenticating/public","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-identity","title":"Cloud Run service identity","url":"https://cloud.google.com/run/docs/securing/service-identity","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-concurrency","title":"Cloud Run concurrency","url":"https://cloud.google.com/run/docs/about-concurrency","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-jobs","title":"Schedule Cloud Run jobs","url":"https://cloud.google.com/run/docs/execute/jobs-on-schedule","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-worker-pools","title":"Manage Cloud Run worker pools","url":"https://cloud.google.com/run/docs/managing/workerpools","checked_on":"2026-08-03"},
+    {"source_id":"gcp-cloud-run-worker-pool-iam","title":"Cloud Run IAM roles and worker-pool permissions","url":"https://cloud.google.com/run/docs/reference/iam/roles","checked_on":"2026-08-03"},
+    {"source_id":"gcp-storage-lifecycle","title":"Cloud Storage lifecycle management","url":"https://cloud.google.com/storage/docs/lifecycle","checked_on":"2026-08-03"},
+    {"source_id":"gcp-workload-identity","title":"Google Cloud workload identity federation","url":"https://cloud.google.com/iam/docs/workload-identities","checked_on":"2026-08-03"},
+    {"source_id":"grafana-infinity-overview","title":"Infinity data source documentation","url":"https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/","checked_on":"2026-08-03"},
+    {"source_id":"grafana-infinity-install","title":"Install the Infinity data source","url":"https://grafana.com/docs/plugins/yesoreyeram-infinity-datasource/latest/installation/","checked_on":"2026-08-03"},
+    {"source_id":"grafana-json-plugin","title":"JSON API plugin for Grafana","url":"https://grafana.com/grafana/plugins/marcusolsson-json-datasource/","checked_on":"2026-08-08"},
+    {"source_id":"grafana-plugin-signatures","title":"Grafana plugin signatures","url":"https://grafana.com/docs/grafana/latest/administration/plugin-management/plugin-sign/","checked_on":"2026-08-03"},
+    {"source_id":"grafana-12-4-security","title":"Grafana 12.4.2 security release","url":"https://grafana.com/blog/grafana-security-release-critical-and-high-severity-security-fixes-for-cve-2026-27876-and-cve-2026-27880/","checked_on":"2026-08-03"},
+    {"source_id":"bifromq-release","title":"Apache BifroMQ 4.0.0-incubating release","url":"https://github.com/apache/bifromq/releases/tag/v4.0.0-incubating","checked_on":"2026-08-03"},
+    {"source_id":"bifromq-quick-install","title":"Apache BifroMQ quick install","url":"https://bifromq.apache.org/docs/get_started/quick_install/","checked_on":"2026-08-03"},
+    {"source_id":"bifromq-cluster","title":"Apache BifroMQ cluster overview","url":"https://bifromq.apache.org/docs/cluster/intro/","checked_on":"2026-08-03"},
+    {"source_id":"terraform-awscc-iot-command-1-78","title":"AWSCC 1.78.0 awscc_iot_command resource","url":"https://registry.terraform.io/providers/hashicorp/awscc/1.78.0/docs/resources/iot_command","checked_on":"2026-08-03"},
+    {"source_id":"terraform-awscc-twinmaker-workspace-1-78","title":"AWSCC 1.78.0 awscc_iottwinmaker_workspace resource","url":"https://registry.terraform.io/providers/hashicorp/awscc/1.78.0/docs/resources/iottwinmaker_workspace","checked_on":"2026-08-03"},
+    {"source_id":"aws-twinmaker-create-component-type-api","title":"AWS IoT TwinMaker CreateComponentType API","url":"https://docs.aws.amazon.com/iot-twinmaker/latest/apireference/API_CreateComponentType.html","checked_on":"2026-08-03"},
+    {"source_id":"aws-twinmaker-create-entity-api","title":"AWS IoT TwinMaker CreateEntity API","url":"https://docs.aws.amazon.com/iot-twinmaker/latest/apireference/API_CreateEntity.html","checked_on":"2026-08-03"},
+    {"source_id":"terraform-azurerm-flex-functions-4-27","title":"AzureRM 4.27.0 Flex Consumption Function App resource","url":"https://registry.terraform.io/providers/hashicorp/azurerm/4.27.0/docs/resources/function_app_flex_consumption","checked_on":"2026-08-03"},
+    {"source_id":"terraform-google-worker-pool-7-22","title":"Google provider 7.22.0 Cloud Run v2 Worker Pool resource","url":"https://registry.terraform.io/providers/hashicorp/google/7.22.0/docs/resources/cloud_run_v2_worker_pool","checked_on":"2026-08-03"},
+    {"source_id":"terraform-google-direct-iap-7-22","title":"Google provider 7.22.0 direct Cloud Run IAP IAM resource","url":"https://registry.terraform.io/providers/hashicorp/google/7.22.0/docs/resources/iap_web_cloud_run_service_iam","checked_on":"2026-08-03"},
+    {"source_id":"terraform-kubernetes-2-38","title":"Kubernetes provider 2.38.0","url":"https://registry.terraform.io/providers/hashicorp/kubernetes/2.38.0","checked_on":"2026-08-03"},
+    {"source_id":"terraform-tls-4-3","title":"TLS provider 4.3.0","url":"https://registry.terraform.io/providers/hashicorp/tls/4.3.0","checked_on":"2026-08-05"},
+    {"source_id":"aws-codebuild-publish-ecr","title":"Publish Docker image to Amazon ECR with CodeBuild","url":"https://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html","checked_on":"2026-08-07"},
+    {"source_id":"aws-ecr-describe-images","title":"Amazon ECR DescribeImages API","url":"https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DescribeImages.html","checked_on":"2026-08-07"},
+    {"source_id":"azure-acr-tasks-overview","title":"Azure Container Registry Tasks overview","url":"https://learn.microsoft.com/en-us/azure/container-registry/container-registry-tasks-overview","checked_on":"2026-08-07"},
+    {"source_id":"azure-acr-task-run-api","title":"Azure Container Registry Task Runs API","url":"https://learn.microsoft.com/en-us/rest/api/container-registry-tasks/task-runs/get?view=rest-container-registry-tasks-2025-03-01-preview","checked_on":"2026-08-07"},
+    {"source_id":"gcp-cloud-build-push-artifact-registry","title":"Build and push a Docker image with Cloud Build","url":"https://cloud.google.com/build/docs/build-push-docker-image","checked_on":"2026-08-07"},
+    {"source_id":"gcp-artifact-registry-image-digests","title":"Artifact Registry container image names and digests","url":"https://cloud.google.com/artifact-registry/docs/docker/names","checked_on":"2026-08-07"},
+    {"source_id":"phase-08-eventing-ledger","title":"Immutable Phase 8 Eventing source ledger","path":"docs/research/evidence/phase_08_eventing/source-ledger.json","byte_digest":"sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"}
+  ]
+}

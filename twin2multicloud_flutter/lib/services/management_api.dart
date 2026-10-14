@@ -1,47 +1,32 @@
 import 'dart:typed_data';
 
 import '../core/result.dart';
-import '../models/authentication.dart';
+import '../models/architecture_profile.dart';
 import '../models/user.dart';
 import '../models/calc_params.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
 import '../models/deployment_operations.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/wizard_config_requests.dart';
 
 abstract interface class SessionApi {
-  void setToken(String? token);
-
   void setUnauthorizedHandler(void Function()? handler);
 
   Future<String?> getAuthToken();
 }
 
-abstract interface class AuthenticationApi {
-  Future<List<AuthProviderCapability>> getAuthProviders();
-
-  Future<AuthLoginTransaction> startExternalLogin(IdentityProvider provider);
-
-  Future<AuthExchangeResult> exchangeAuthSession(
-    AuthLoginTransaction transaction,
-  );
-
-  Future<void> cancelAuthSession(AuthLoginTransaction transaction);
-
-  Future<void> logoutSession();
-
+abstract interface class ProfileApi {
   Future<User> getCurrentUser();
 }
 
@@ -52,18 +37,13 @@ abstract interface class UserPreferencesApi {
 abstract interface class CloudAccessApi {
   Future<List<CloudConnection>> listCloudConnections({CloudProvider? provider});
 
-  Future<CloudAccessInventory> getCloudAccessInventory();
-
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   );
 
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  });
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  );
 
   Future<void> deleteCloudConnection(String id);
 
@@ -73,11 +53,15 @@ abstract interface class CloudAccessApi {
 abstract interface class TwinApi {
   Future<List<Twin>> getTwins();
 
-  Future<DashboardStats> getDashboardStats();
-
   Future<Twin> getTwin(String twinId);
 
   Future<Twin> createTwin(String name);
+
+  Future<Twin> duplicateTwin(String twinId, TwinDuplicateRequest request);
+
+  Future<Twin> importTwin(TwinImportRequest request);
+
+  Future<PortableTwinDownload> exportTwin(String twinId);
 
   Future<Twin> updateTwin(String twinId, {String? name, String? state});
 
@@ -98,36 +82,6 @@ abstract interface class TwinApi {
   Future<Result<TwinConfigData>> getTwinConfigResult(String twinId);
 }
 
-abstract interface class PricingApi {
-  Future<Map<String, dynamic>> getPricingStatus();
-
-  Future<PricingHealthResponse> getPricingHealth();
-
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  });
-
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
-  );
-
-  Future<PricingTrace> getPricingCandidateTrace(String reportId);
-
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  });
-
-  Future<Map<String, dynamic>> getRegionsStatus();
-
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult();
-}
-
 abstract interface class PlatformCapabilityApi {
   Future<PlatformProviderCapabilities> getProviderCapabilities();
 }
@@ -143,6 +97,18 @@ abstract interface class OptimizationApi {
   );
 
   Future<OptimizerConfigData?> getOptimizerConfig(String twinId);
+}
+
+abstract interface class ArchitectureApi {
+  Future<ArchitectureProfileDetail> getCanonicalArchitectureContract();
+
+  Future<TwinArchitectureSelection> getTwinArchitectureContract(String twinId);
+
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  );
+
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(String runId);
 }
 
 abstract interface class DeploymentConfigurationApi {
@@ -185,47 +151,35 @@ abstract interface class DeploymentConfigurationApi {
   );
 
   Future<void> deleteSceneGlb(String twinId);
-
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  );
 }
 
 abstract interface class UserFunctionExtensionApi {
   Future<List<ExtensionSlot>> listExtensionSlots();
 
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   );
 
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   );
 
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts();
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId);
 
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(String twinId);
-
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  });
-
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  });
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot);
 }
 
 abstract interface class DeploymentLifecycleApi {
   Future<DeploymentReadinessSnapshot> getDeploymentReadiness(String twinId);
 
   Future<DeploymentReadinessSnapshot> runDeploymentPreflight(String twinId);
+
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  );
 
   Future<OperationSession> deployTwin(String twinId);
 
@@ -234,6 +188,8 @@ abstract interface class DeploymentLifecycleApi {
   Future<DeploymentStatusSnapshot> getDeploymentStatus(String twinId);
 
   Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId);
+
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId);
 
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
@@ -252,27 +208,39 @@ abstract interface class DeploymentLifecycleApi {
   Future<LogTraceStartResult> startLogTrace(String twinId);
 
   Future<BinaryDownload> downloadSimulator(String twinId);
+
+  Future<String> getVisualization(String twinId);
 }
 
 abstract interface class VerificationApi {
   Future<Map<String, dynamic>> verifyInfrastructure(String twinId);
 
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
+  );
+
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  });
+
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
   );
 }
 
 abstract interface class ManagementApi
     implements
         SessionApi,
-        AuthenticationApi,
+        ProfileApi,
         UserPreferencesApi,
         CloudAccessApi,
         TwinApi,
-        PricingApi,
         PlatformCapabilityApi,
         OptimizationApi,
+        ArchitectureApi,
         DeploymentConfigurationApi,
         UserFunctionExtensionApi,
         DeploymentLifecycleApi,

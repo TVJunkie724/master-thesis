@@ -1,164 +1,76 @@
-# Flutter Guardrails — Twin2MultiCloud Frontend
+# Flutter guardrails — current thesis PoC
 
-Read and apply ALL guardrails before any UI work. These rules are project-specific to `twin2multicloud_flutter` and apply across every UI-* skill.
+Read this shared reference completely before Flutter work. It is the single
+guardrail source used by the project UI skills.
 
-## 1. Project Identity
+## Sources and scope
 
-- **App**: `twin2multicloud_flutter` — the Flutter UI of the Twin2MultiCloud platform (the "Orchestrator" front-end in the 5-Layer Digital-Twin architecture).
-- **Targets**: Desktop (Linux, macOS, Windows) and Web. **Mobile is NOT supported** — see commit `f135bac` (`drop mobile support`). Do not add Android/iOS code paths.
-- **Companion projects** (do NOT touch from a UI task):
-  - `2-twin2clouds` — cost optimizer (port 5003)
-  - `3-cloud-deployer` — cloud deployer (port 5004)
-  - `twin2multicloud_backend` / Management API (port 5005)
+Read `FRONTEND_ARCHITECTURE.md`, `integration_vision.md`, `ONBOARDING.md`,
+and `twin2multicloud_flutter/README.md`. The active thesis target and execution
+plan define scope. If a required source is missing, report it before changing
+the affected behavior. Current code/contracts and these architecture sources
+take precedence over superseded examples in older plans.
 
-## 2. Mandatory Reading Before Any UI Work
+The app is a fixed `six-layer-eventing@1` research workflow for Web, macOS,
+Windows and Linux. Mobile is outside scope. No product dashboard, interactive
+application-login provider, architecture selector or pricing-refresh UI.
 
-| Document | Why |
-|----------|-----|
-| `FRONTEND_ARCHITECTURE.md` | Architecture, screen wireframes, twin states, BLoC layout |
-| `integration_vision.md` | 5-Layer Architecture, cross-project responsibilities |
-| `twin2multicloud_flutter/README.md` | Project-local conventions |
-| `ONBOARDING.md` | Cross-project onboarding |
+## Ownership and transport
 
-If a referenced document is missing, STOP and request it before continuing.
+- Riverpod composes configuration, local PoC profile, theme, adapters and simple
+  global resources. Feature BLoCs own commands, retries and multi-step state.
+  Do not introduce another state framework or duplicate mutable ownership.
+- Widgets render immutable state and dispatch actions. No HTTP or heavy
+  business logic in `build()`. Reuse existing widgets before adding new ones.
+- Services use `dio` and contact Management API only. Flutter must never call
+  Optimizer (5003), Deployer (5004) or cloud-provider APIs directly.
+- Operation logs use SSE with persisted Management replay/cursors. A reconnect
+  must not issue another Deploy/Destroy command. Dispose subscriptions and
+  controllers; preserve loading, error, empty, retry and terminal states.
+- Application startup uses a configured static local bearer and `/auth/me`.
+  There is no OAuth/JWT issuance or interactive application login. Provider
+  Entra/IAP/workload identity remains a separate deployment/access concern.
+- Routing uses `go_router`; Web back/forward must keep working.
 
-## 3. State Management — `flutter_bloc`
+## Presentation
 
-This project uses the **BLoC pattern** (`flutter_bloc`), NOT Riverpod. Existing wiring lives under `twin2multicloud_flutter/lib/bloc/`:
+Keep the four current surfaces and their dominant next action. Preserve their
+documented responsive boundaries and high text scaling. Use existing theme
+colors, spacing and typography tokens, Material icons and const constructors
+where appropriate. Maintain keyboard navigation, semantics and local failure
+feedback. Do not add mobile-only packages or redesign unrelated screens.
+Use ASCII layouts in plans, not Mermaid.
 
-```
-lib/bloc/
-├── wizard/        → WizardBloc, WizardEvent, WizardState
-└── twin_overview/ → TwinOverviewBloc and friends
-```
+Feature BLoC state remains immutable (`copyWith`/Equatable). Dumb children
+receive data and callbacks instead of owning services or workflow state.
+Simple global state keeps its existing Riverpod owner.
 
-| Rule | Why |
-|------|-----|
-| **One BLoC per feature**, owned by the smart widget at the top of the screen subtree | Predictable ownership — no global state surprises |
-| **Events in, States out** — never call methods on a BLoC from a dumb widget | Keeps presentation reusable and testable |
-| **Immutable state with `copyWith()`** | Prevents mutation bugs, enables `Equatable` comparison |
-| **Always handle loading / data / error / empty** | Users must never see a blank screen |
-| **Dispose subscriptions** in `close()` | Memory leaks are production defects |
+## Credentials, data and cloud safety
 
-## 4. Architectural Layers
+Never put administrator secrets in BLoC state, logs, diagnostics, archives or
+commits. Preserve the transient one-time resource-access credential boundary.
+Do not inspect real credential contents. Do not modify runtime uploads, local
+evidence, user files, Terraform state or another checkout.
 
-| Layer | Folder | Rule |
-|-------|--------|------|
-| Presentation | `lib/screens/`, `lib/widgets/` | Pure UI, no HTTP, no business logic |
-| State | `lib/bloc/` | Holds state, dispatches events, calls services |
-| Services | `lib/services/` | Talks to Management API, Optimizer, Deployer over HTTP/SSE |
-| Models | `lib/models/` | Plain Dart DTOs / value objects |
-| Theme | `lib/theme/` | `colors.dart`, `spacing.dart` — single source of design tokens |
-| Config | `lib/config/` | Endpoints, environment switches |
+A Flutter-only task does not authorize companion-service changes. For an
+explicit cross-project task, handle each service as its own verified slice.
+Never run real cloud E2E, Apply, Destroy or provider preparation without the
+specific reviewed resources/cost/cleanup plan and user authorization.
 
-**Smart/Dumb widget split:** one "smart" widget per screen consumes BLoC state via `BlocBuilder`/`BlocListener`. All children are "dumb" — they receive data through their constructor.
+## Verification and Git
 
-## 5. Backend Integration
+Use the current task's feature branch; never work on master. New branches use
+`codex/<task>` unless the user specifies otherwise. Follow onboarding's
+conventional commits; push/merge only when requested. Do not invent session
+prefixes, alternate branch hierarchies or issue-tracking obligations.
 
-| Concern | Choice |
-|---------|--------|
-| HTTP client | `dio` |
-| Real-time logs | **SSE** via `eventsource_client` (NOT WebSocket, NOT polling) |
-| Auth | JWT issued by Management API; OAuth flows are provider-pluggable (Google first) |
-| Routing | `go_router` (URL-based, required for Web back/forward) |
+Establish the pre-change build baseline and fix regressions before moving to
+another layer. Run `flutter analyze`, relevant tests and the full widget/unit
+suite; verify Web and the current host's desktop build for UI changes. Run
+`python3 scripts/check_flutter_architecture.py` from the repository root.
+Formatting uses `dart format`. Use existing dependencies without an unrelated
+upgrade. Report environmental build blockers separately from code failures.
 
-**Architecture rule** (from `integration_vision.md`): Flutter NEVER calls Deployer or Optimizer directly. Always go through Management API (`Flutter → Management API → {Deployer, Optimizer}`). Any direct call from Flutter to port 5003 / 5004 is a defect.
-
-## 6. Design Tokens — Zero Tolerance for Hardcoded Values
-
-- All colors come from `lib/theme/colors.dart`. New colors are added to the token file first, then referenced.
-- All spacing comes from `lib/theme/spacing.dart`. Magic numbers (`16`, `8`, `24` …) in widget code are a defect.
-- Typography comes from `ThemeData` text styles. Inline `TextStyle` constructors are a defect unless they only override a theme style.
-- Strings: when localization is added later, hardcoded user-facing strings will become defects. For now, group them into a single constants file per screen so the future migration is mechanical.
-
-## 7. Icons
-
-The project uses **Material `Icons`** (Flutter built-in). There is no proprietary icon set. If a Material icon is wrong for the brand, raise a concept item — do not introduce a third-party icon library without architect approval.
-
-## 8. ASCII Diagrams Only
-
-| Forbidden | Required |
-|-----------|----------|
-| Mermaid | ASCII box drawings (see `FRONTEND_ARCHITECTURE.md` for examples) |
-| Pasted screenshots in plans | ASCII layout + widget tree |
-
-ASCII is universal: it diffs cleanly, renders in every terminal, and survives copy-paste between agents.
-
-## 9. Build / Analyze Commands
-
-```bash
-cd twin2multicloud_flutter
-flutter pub get
-flutter analyze            # zero issues required
-flutter test               # unit + widget tests
-flutter build linux        # or macos / windows / web
-flutter run -d chrome      # for Web dev
-flutter run -d linux       # for Desktop dev
-```
-
-If `flutter analyze` reports anything, STOP and fix before continuing.
-
-## 10. Backend Services for Integration / E2E Tests
-
-The Flutter app talks to live services. Bring them up via Docker:
-
-```bash
-docker compose up -d                      # all services
-docker ps                                 # confirm
-# Optimizer    → http://localhost:5003
-# Deployer     → http://localhost:5004
-# Management   → http://localhost:5005   (when implemented)
-```
-
-| Test type | Allowed | Notes |
-|-----------|---------|-------|
-| Unit / widget | ✅ Always | `flutter test` |
-| Integration against running Docker stack | ✅ With user awareness | Hits real local APIs, no mocks |
-| **E2E that deploys real cloud resources** | ❌ Forbidden by default | Costs real money. Requires explicit user instruction. See `onboarding` skill. |
-
-Integration tests use the **real HTTP API**. No mocking the dio client at the integration level. Mock only at the unit level when isolating a specific BLoC from its services.
-
-## 11. Git Workflow
-
-- All UI work happens on the `ai/dev` branch (see `onboarding` skill — Step 0).
-- Commit format: `[AI-MMDD-xxxx] <type>: <description>` (e.g. `[AI-0413-skil] feat(flutter): add dashboard stat cards`).
-- Never push — the user pushes themselves.
-- Merges into `master`: merge commits only, no rebase.
-
-## 12. Files / Folders You Must NOT Touch from a UI Task
-
-| Path | Why |
-|------|-----|
-| `2-twin2clouds/` | Optimizer backend — separate concern |
-| `3-cloud-deployer/` | Deployer backend — separate concern |
-| `twin2multicloud_backend/uploads/` | Runtime upload data — never commit |
-| `twin2multicloud-latex/` | Thesis document |
-| `*_credentials*.json` | Secrets — never commit, never read content into chat |
-| `.ai-session.json` | Session state — read only when needed, do not commit |
-
-## 13. Universal "Don'ts"
-
-| Never | Why |
-|-------|-----|
-| `print()` in committed code | Use `debugPrint` in dev paths, structured logging otherwise |
-| TODO / FIXME / HACK comments shipped to `master` | Either fix it or open a tracked item |
-| Commented-out code in commits | Git history already preserves it |
-| Hardcoded URLs / ports | Use `lib/config/` |
-| Skip the loading / error / empty path | Every async branch needs all three |
-| Direct widget-to-service calls | Always go through a BLoC |
-| New widget without checking `lib/widgets/` first | Reuse before creating |
-
-## 14. Quality Gate (Pre-Handoff)
-
-Before reporting any UI work as complete:
-
-- [ ] `flutter analyze` — zero issues
-- [ ] `flutter test` — all green
-- [ ] `flutter build <target>` — succeeds for Desktop AND Web
-- [ ] No new hardcoded colors / spacings / strings
-- [ ] All async branches have loading + error + empty states
-- [ ] Smart/dumb split respected
-- [ ] BLoC events / states match the plan
-- [ ] No direct calls to Optimizer / Deployer from Flutter
-- [ ] No mobile-only widgets / packages added
-- [ ] Commit messages follow `[AI-MMDD-xxxx] type: …`
+Local API integration tests require awareness of the services being started;
+never start or stop unrelated containers. Do not run cloud E2E implicitly.
+Offline demo/widget tests are not live-provider evidence.

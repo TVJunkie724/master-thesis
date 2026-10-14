@@ -46,11 +46,9 @@ nav:
   - Results and Limits: runtime/known-limitations.md
   - User Guide:
       - user-guide/index.md
-      - Sign In: user-guide/sign-in.md
       - Dashboard and Twins: user-guide/dashboard-and-twins.md
       - Cloud Accounts: user-guide/cloud-accounts.md
       - Configuration Workspace: user-guide/configuration-workspace.md
-      - Pricing Review: user-guide/pricing-review.md
       - User Functions: user-guide/user-function-extensions.md
       - Deployment and Verification: user-guide/deployment.md
       - Offline Demo: user-guide/demo.md
@@ -82,7 +80,7 @@ nav:
           - Overview: contracts-and-data-flow/index.md
           - System Boundaries: contracts-and-data-flow/system-boundaries.md
           - Contract Map: contracts-and-data-flow/contract-map.md
-          - Architecture Profiles: contracts-and-data-flow/architecture-profiles.md
+          - Architecture Profiles: contracts-and-data-flow/canonical-architecture-contract.md
           - User Functions: contracts-and-data-flow/user-function-extensions.md
           - Pricing and Optimization: contracts-and-data-flow/pricing-optimization.md
           - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
@@ -100,7 +98,7 @@ nav:
           - Setup: developer-guide/setup.md
           - Project Structure: developer-guide/project-structure.md
           - API and Contracts: developer-guide/contracts.md
-          - Architecture Contracts: developer-guide/architecture-profile-contracts.md
+          - Architecture Contracts: developer-guide/canonical-architecture-contract.md
           - User Function Extensions: developer-guide/user-function-extensions.md
           - Extension Points: developer-guide/extension-points.md
           - Testing: developer-guide/testing.md
@@ -111,7 +109,5 @@ nav:
           - Provider Capabilities: architecture/provider-capabilities.md
           - Baseline Target: architecture/five-layer-baseline.md
           - Project Background: architecture/project-background.md
-          - Roadmap: architecture/roadmap.md
-          - Refactoring History: architecture/refactoring-roadmap.md
           - Sources: references/index.md
           - Source Provenance: references/source-provenance.md

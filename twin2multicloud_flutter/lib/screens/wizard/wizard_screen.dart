@@ -16,7 +16,7 @@ import '../../features/configuration_workspace/presentation/configuration_worksp
 import '../../features/configuration_workspace/presentation/configuration_workspace_header.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_scaffold.dart';
 import '../../features/configuration_workspace/presentation/configuration_workspace_shell.dart';
-import '../../providers/auth_provider.dart';
+import '../../features/configuration_workspace/presentation/configuration_workspace_strings.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/twins_provider.dart';
 import 'step1_configuration.dart';
@@ -57,7 +57,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
   ConfigurationTaskId? _currentTaskId;
   _WorkspaceExitDestination? _pendingExitDestination;
   Timer? _notificationTimer;
-  bool _extensionCatalogRequested = false;
+  String? _canonicalArchitectureContext;
+  int? _userFunctionsRevision;
 
   @override
   void dispose() {
@@ -70,16 +71,31 @@ class _WizardViewState extends ConsumerState<WizardView> {
     return BlocConsumer<WizardBloc, WizardState>(
       listenWhen: (previous, current) =>
           previous.status != current.status ||
+          previous.canModify != current.canModify ||
           previous.successMessage != current.successMessage ||
           previous.errorMessage != current.errorMessage,
       listener: _handleStateSideEffects,
       builder: (context, state) {
-        if (!_extensionCatalogRequested && state.status == WizardStatus.ready) {
-          _extensionCatalogRequested = true;
+        final catalogContext = state.twinId ?? 'unpersisted';
+        if (_canonicalArchitectureContext != catalogContext &&
+            state.status == WizardStatus.ready) {
+          _canonicalArchitectureContext = catalogContext;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               context.read<WizardBloc>().add(
-                const WizardExtensionCatalogLoadRequested(),
+                const WizardCanonicalArchitectureLoadRequested(),
+              );
+            }
+          });
+        }
+        final architectureRevision = state.architectureSelection?.revision;
+        if (state.architectureWorkflowReady &&
+            _userFunctionsRevision != architectureRevision) {
+          _userFunctionsRevision = architectureRevision;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.read<WizardBloc>().add(
+                const WizardUserFunctionsLoadRequested(),
               );
             }
           });
@@ -89,10 +105,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
           isDarkMode: ref.watch(themeProvider) == ThemeMode.dark,
           navigationEnabled: !commandInProgress,
           onToggleTheme: () => ref.read(themeProvider.notifier).toggle(),
-          onOpenSettings: () =>
+          onOpenCloudAccess: () =>
               _requestExit(context, state, _WorkspaceExitDestination.settings),
-          onLogout: () =>
-              _requestExit(context, state, _WorkspaceExitDestination.logout),
         );
         if (state.status == WizardStatus.loading) {
           return ConfigurationWorkspaceScaffold(
@@ -114,7 +128,12 @@ class _WizardViewState extends ConsumerState<WizardView> {
           appBar: appBar,
           isLoading: false,
           header: ConfigurationWorkspaceHeader(
-            isCreateMode: state.mode == WizardMode.create,
+            phaseIndex:
+                journey.phases.indexWhere(
+                  (phase) => phase.id == journey.currentPhase.id,
+                ) +
+                1,
+            phaseCount: journey.phases.length,
             phaseLabel: journey.currentPhase.label,
             taskLabel: journey.task(journey.currentTaskId).label,
             onClose: commandInProgress
@@ -124,7 +143,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
                     state,
                     _WorkspaceExitDestination.dashboard,
                   ),
-            closeDisabledReason: 'Wait for the current command to finish',
+            closeDisabledReason:
+                ConfigurationWorkspaceStrings.commandInProgress,
           ),
           alerts: ConfigurationAlertStack(
             errorMessage: state.errorMessage,
@@ -138,6 +158,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           ),
           workspace: ConfigurationWorkspaceShell(
             journey: journey,
+            isNavigationEnabled: !commandInProgress,
             onTaskSelected: (taskId) => _selectTask(context, taskId),
             child: _buildTaskContent(context, journey.currentTaskId),
           ),
@@ -148,6 +169,12 @@ class _WizardViewState extends ConsumerState<WizardView> {
   }
 
   void _handleStateSideEffects(BuildContext context, WizardState state) {
+    if (state.status == WizardStatus.ready &&
+        !state.canModify &&
+        state.twinId != null) {
+      context.go('/twins/${state.twinId}/overview');
+      return;
+    }
     if (state.status == WizardStatus.error || state.errorMessage != null) {
       _pendingExitDestination = null;
     }
@@ -215,15 +242,17 @@ class _WizardViewState extends ConsumerState<WizardView> {
         : '';
 
     return ConfigurationNavigationBar(
-      backLabel: journey.previousNavigableTaskId == null ? 'Exit' : 'Back',
+      backLabel: journey.previousNavigableTaskId == null
+          ? ConfigurationWorkspaceStrings.exit
+          : ConfigurationWorkspaceStrings.back,
       backDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : '',
       onBack: commandInProgress
           ? null
           : () => _handleTaskBack(context, state, journey),
       showCalculation:
-          journey.currentTaskId == ConfigurationTaskId.calculateAlternatives,
+          journey.currentTaskId == ConfigurationTaskId.calculateCostAllocation,
       isCalculating: state.isCalculating,
       calculationDisabledReason: _calculationDisabledReason(state),
       onCalculate: !commandInProgress && state.canRequestCalculation
@@ -232,7 +261,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
       isSaving: isSaving,
       hasUnsavedChanges: state.hasUnsavedChanges,
       saveDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : !state.canModify
           ? 'Cannot modify a deployed twin'
           : '',
@@ -241,7 +270,7 @@ class _WizardViewState extends ConsumerState<WizardView> {
           : () => _handleSaveDraft(context, state),
       showFinish: isFinish,
       forwardDisabledReason: commandInProgress
-          ? 'Wait for the current command to finish'
+          ? ConfigurationWorkspaceStrings.commandInProgress
           : forwardDisabledReason,
       onForward: isFinish
           ? canFinish && !commandInProgress
@@ -259,17 +288,11 @@ class _WizardViewState extends ConsumerState<WizardView> {
     if (state.isSelectingDeploymentRun) {
       return 'Deployment selection verification in progress';
     }
-    if (state.isPricingHealthLoading) return 'Checking pricing readiness';
-    if (state.pricingHealthError != null) {
-      return 'Retry pricing readiness before calculating';
+    if (!state.architectureWorkflowReady) {
+      return 'Verify the canonical six-layer-eventing@1 contract first';
     }
-    if (!state.pricingCanCalculate) {
-      final providers = state.pricingBlockingProviders
-          .map((provider) => provider.toUpperCase())
-          .join(', ');
-      return providers.isEmpty
-          ? 'Pricing readiness is unavailable'
-          : 'Pricing unavailable for $providers';
+    if (!state.architectureUserFunctionsReady) {
+      return 'Bind and validate the required user logic first';
     }
     if (!state.isCalcFormValid) return 'Fix form errors before calculating';
     if (state.calcParams == null) return 'Configure parameters first';
@@ -300,6 +323,10 @@ class _WizardViewState extends ConsumerState<WizardView> {
       ConfigurationTaskId.processing ||
       ConfigurationTaskId.retention ||
       ConfigurationTaskId.twinCapabilities => Step2Optimizer(taskId: taskId),
+      ConfigurationTaskId.calculateCostAllocation ||
+      ConfigurationTaskId.reviewImmutableResult => Step2Optimizer(
+        taskId: taskId,
+      ),
       ConfigurationTaskId.dataContracts ||
       ConfigurationTaskId.userLogic ||
       ConfigurationTaskId.twinAssets => Step3Deployer(taskId: taskId),
@@ -434,11 +461,8 @@ class _WizardViewState extends ConsumerState<WizardView> {
         context.go('/dashboard');
       case _WorkspaceExitDestination.settings:
         context.go('/settings');
-      case _WorkspaceExitDestination.logout:
-        await ref.read(authProvider.notifier).logout();
-        if (context.mounted) context.go('/login');
     }
   }
 }
 
-enum _WorkspaceExitDestination { dashboard, settings, logout }
+enum _WorkspaceExitDestination { dashboard, settings }

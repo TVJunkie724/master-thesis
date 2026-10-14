@@ -91,7 +91,7 @@ def build_envelope(
     source_cloud: str = "azure"
 ) -> dict:
     """
-    Build standardized inter-cloud payload envelope per technical_specs.md.
+    Build the legacy compatibility envelope used by this provider helper.
     
     All cross-cloud messages use this envelope format for consistency
     and traceability across cloud providers.

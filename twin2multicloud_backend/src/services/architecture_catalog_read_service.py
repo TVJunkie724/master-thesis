@@ -1,4 +1,4 @@
-"""Read-only Phase 8.3 profile/catalog summaries for future Management APIs."""
+"""Read-only summary of the canonical Six-layer profile bundle."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ class ArchitectureCatalogSummary(BaseModel):
     edge_implementation_count: int
     package_artifact_count: int
     providers: tuple[ProviderProfileSummary, ...]
-    runtime_activation: str = "dark-read-only"
+    runtime_activation: str = "active"
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -61,21 +61,17 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 class ArchitectureCatalogReadService:
-    """Expose a typed internal projection without routes or persistence."""
+    """Expose the active Six-layer inventory projection without persistence."""
 
     @staticmethod
     def read_summary() -> ArchitectureCatalogSummary:
         profile = _read(
-            DEFINITIONS_ROOT
-            / "profiles"
-            / "five-layer-baseline"
-            / "1"
-            / "profile.json"
+            DEFINITIONS_ROOT / "profiles" / "six-layer-eventing" / "1" / "profile.json"
         )
         catalog = _read(
             DEFINITIONS_ROOT
             / "component-catalogs"
-            / "baseline"
+            / "six-layer-eventing"
             / "1"
             / "catalog.json"
         )
@@ -83,7 +79,7 @@ class ArchitectureCatalogReadService:
             _read(
                 DEFINITIONS_ROOT
                 / "provider-implementations"
-                / "five-layer-baseline"
+                / "six-layer-eventing"
                 / "1"
                 / provider
                 / "1.json"
@@ -102,8 +98,7 @@ class ArchitectureCatalogReadService:
                     document["capability_claims"]["missing_capability_ids"]
                 ),
                 reason_codes=tuple(
-                    reason["reason_code"]
-                    for reason in document["unsupported_reasons"]
+                    reason["reason_code"] for reason in document["unsupported_reasons"]
                 ),
             )
             for document in providers

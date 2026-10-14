@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 from src.clients.deployer_client import DeployerClient
 from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
+from src.schemas.telemetry_verification import (
+    TelemetryVerificationHistoryResponse,
+    TelemetryVerificationRecordResponse,
+)
 from src.services.deployment_operation_service import DeploymentOperationService
 from src.services.deployment_read_service import DeploymentReadService
 from src.services.simulator_service import SimulatorDownload, SimulatorDownloadService
@@ -79,10 +83,6 @@ class DeploymentOrchestrator:
             test_destroy_stream_runner=test_destroy_stream_runner,
         )
 
-    async def can_redeploy(self, twin_id: str, user_id: str) -> dict[str, Any]:
-        """Return deployment cooldown readiness."""
-        return await self.read_service.can_redeploy(twin_id, user_id)
-
     async def deploy_twin(
         self,
         twin_id: str,
@@ -91,7 +91,8 @@ class DeploymentOrchestrator:
         test_mode: bool,
         test_stream_runner: TestStreamRunner | None = None,
         skip_state_validation: bool = False,
-    ) -> dict[str, str]:
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         """Start a deploy operation."""
         return await self.operation_service.deploy_twin(
             twin_id=twin_id,
@@ -99,6 +100,7 @@ class DeploymentOrchestrator:
             test_mode=test_mode,
             test_stream_runner=test_stream_runner or self.test_deploy_stream_runner,
             skip_state_validation=skip_state_validation,
+            idempotency_key=idempotency_key,
         )
 
     async def destroy_twin(
@@ -109,7 +111,8 @@ class DeploymentOrchestrator:
         test_mode: bool,
         test_stream_runner: TestStreamRunner | None = None,
         skip_state_validation: bool = False,
-    ) -> dict[str, str]:
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         """Start a destroy operation."""
         return await self.operation_service.destroy_twin(
             twin_id=twin_id,
@@ -117,6 +120,7 @@ class DeploymentOrchestrator:
             test_mode=test_mode,
             test_stream_runner=test_stream_runner or self.test_destroy_stream_runner,
             skip_state_validation=skip_state_validation,
+            idempotency_key=idempotency_key,
         )
 
     async def get_status(
@@ -141,7 +145,9 @@ class DeploymentOrchestrator:
         """Return deployment history."""
         return self.read_service.get_history(twin_id, user_id, limit)
 
-    async def verify_infrastructure(self, twin_id: str, user_id: str, *, test_mode: bool) -> dict[str, Any]:
+    async def verify_infrastructure(
+        self, twin_id: str, user_id: str, *, test_mode: bool
+    ) -> dict[str, Any]:
         """Run structured infrastructure verification."""
         return await self.verification_service.verify_infrastructure(
             twin_id=twin_id,
@@ -156,7 +162,7 @@ class DeploymentOrchestrator:
         body: dict[str, Any],
         *,
         test_mode: bool,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         """Start dataflow verification."""
         return await self.verification_service.start_dataflow_verification(
             twin_id=twin_id,
@@ -165,7 +171,38 @@ class DeploymentOrchestrator:
             test_mode=test_mode,
         )
 
-    async def download_simulator(self, twin_id: str, user_id: str, *, test_mode: bool) -> SimulatorDownload:
+    def get_dataflow_verification(
+        self,
+        twin_id: str,
+        user_id: str,
+        verification_id: str,
+    ) -> TelemetryVerificationRecordResponse:
+        """Return one persisted telemetry verification result."""
+
+        return self.verification_service.get_dataflow_verification(
+            twin_id=twin_id,
+            user_id=user_id,
+            verification_id=verification_id,
+        )
+
+    def list_dataflow_verifications(
+        self,
+        twin_id: str,
+        user_id: str,
+        *,
+        limit: int,
+    ) -> TelemetryVerificationHistoryResponse:
+        """Return bounded telemetry verification history."""
+
+        return self.verification_service.list_dataflow_verifications(
+            twin_id=twin_id,
+            user_id=user_id,
+            limit=limit,
+        )
+
+    async def download_simulator(
+        self, twin_id: str, user_id: str, *, test_mode: bool
+    ) -> SimulatorDownload:
         """Return the IoT simulator archive."""
         return await self.simulator_service.download(
             twin_id=twin_id,

@@ -112,11 +112,15 @@ def test_user_package_discovery_preserves_provider_contracts(
     )
     metadata = project / ".build" / "metadata"
     metadata_provider = "gcp" if provider == "google" else provider
-    expected_metadata = set() if provider == "azure" else {
-        f"notify.{metadata_provider}",
-        f"processor-device-1.{metadata_provider}",
-        f"event-feedback.{metadata_provider}",
-    }
+    expected_metadata = (
+        set()
+        if provider == "azure"
+        else {
+            f"notify.{metadata_provider}",
+            f"processor-device-1.{metadata_provider}",
+            f"event-feedback.{metadata_provider}",
+        }
+    )
     assert {path.stem for path in metadata.glob("*.json")} == expected_metadata
 
 
@@ -139,6 +143,41 @@ def test_processor_build_receives_twin_and_device_identity(monkeypatch, tmp_path
     ]
 
 
+def test_workflow_action_packages_both_extension_and_delivery_functions(
+    monkeypatch, tmp_path
+):
+    project = _project(tmp_path)
+    _source_tree(project, "aws")
+    (project / "config_events.json").write_text(
+        json.dumps(
+            [
+                {
+                    "condition": "twin.temperature > DOUBLE(20)",
+                    "action": {
+                        "type": "step_function",
+                        "functionName": "extension",
+                        "functionNameB": "notification",
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    for name in ("extension", "notification"):
+        source = project / "lambda_functions" / "event_actions" / name
+        source.mkdir(parents=True)
+        (source / "lambda_function.py").write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(
+        user,
+        "_create_lambda_zip",
+        lambda _source, _shared, target, **_kwargs: target.write_bytes(b"zip"),
+    )
+
+    packages = user.build_user_packages(project, {"layer_2_provider": "aws"})
+
+    assert {"extension", "notification"} <= set(packages)
+
+
 @pytest.mark.parametrize(
     ("filename", "payload", "message"),
     [
@@ -146,7 +185,9 @@ def test_processor_build_receives_twin_and_device_identity(monkeypatch, tmp_path
         ("config_iot_devices.json", ["device"], "Device config must be an array"),
     ],
 )
-def test_config_shapes_fail_before_package_mutation(tmp_path, filename, payload, message):
+def test_config_shapes_fail_before_package_mutation(
+    tmp_path, filename, payload, message
+):
     project = _project(tmp_path)
     (project / filename).write_text(json.dumps(payload), encoding="utf-8")
 

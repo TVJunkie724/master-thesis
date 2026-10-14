@@ -30,23 +30,24 @@ Each payload is sent using its respective device's AWS IoT credentials.
 
 ### Docker (Recommended)
 ```bash
-docker-compose up --build
+docker compose run --build --rm simulator
 ```
 
 ### Python
 ```bash
 pip install -r requirements.txt
-python src/main.py
+python src/main.py --config config.json
 ```
 
 ## Commands
 - `send` - Send next payload (auto-routes to correct device)
+- `listen` - Wait up to five minutes for one AWS IoT Command and acknowledge it
 - `help` - Show commands
 - `exit` - Exit
 
 ## File Structure
 ```
-├── config.json           # Default device config (backward compat)
+├── config.json           # Initial device config; other devices use configs/
 ├── configs/              # Per-device configurations
 │   ├── device-1/
 │   │   ├── config.json
@@ -58,3 +59,9 @@ python src/main.py
 ├── AmazonRootCA1.pem     # AWS Root CA
 └── src/                  # Simulator code
 ```
+
+Run from the extracted package directory. Docker mounts device configs,
+certificates and payloads read-only; credentials are excluded from the image
+build context. Keep the archive private and never commit it. The simulator
+does not restart automatically; `exit` ends the supervised session. Sending or
+listening uses deployed cloud resources and requires an approved evaluation run.

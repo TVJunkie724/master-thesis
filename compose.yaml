@@ -25,7 +25,8 @@ services:
     environment:
       - TWIN2CLOUDS_MODE=INFO
       - PRICING_CATALOG_STORE_ROOT=/var/lib/twin2multicloud-optimizer/pricing-catalogs
-      - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-false}
+      - PRICING_CATALOG_MAX_AGE_DAYS=${PRICING_CATALOG_MAX_AGE_DAYS:-7}
+      - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-true}
     tty: true
     networks:
       - my_master_thesis_network
@@ -60,15 +61,10 @@ services:
       - DATABASE_URL=sqlite:///./data/app.db
       - APP_ENV=development
       - DEBUG=true
-      - DEV_AUTH_ENABLED=true
-      - DEV_AUTH_TOKEN=${THESIS_DEV_AUTH_TOKEN:-dev-token}
+      - POC_AUTH_TOKEN=${THESIS_POC_AUTH_TOKEN:-dev-token}
       - REQUIRE_HTTPS=false
       - CREDENTIAL_RATE_LIMIT_ENABLED=true
       - CREDENTIAL_RATE_LIMIT_STORAGE_URI=memory://
-      - AUTH_RATE_LIMIT_ENABLED=true
-      - AUTH_RATE_LIMIT_STORAGE_URI=memory://
-      - AUTH_TRANSACTION_TTL_SECONDS=600
-      - AUTH_POLL_INTERVAL_MS=1000
       - PYTHONUNBUFFERED=1
       - SEED_DATA=false
       # - ENABLE_TEST_ENDPOINTS=true
@@ -76,11 +72,10 @@ services:
       - OPTIMIZER_URL=http://2twin2clouds:8000
       - DEPLOYER_URL=http://3cloud-deployer:8000
       - DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES=${DEPLOYMENT_PREFLIGHT_MAX_AGE_MINUTES:-1440}
-      - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-false}
+      - ARCHITECTURE_PROFILE_RESOLUTION_ENABLED=${ARCHITECTURE_PROFILE_RESOLUTION_ENABLED:-true}
+      - SUPERVISED_EVALUATION_ENABLED=${SUPERVISED_EVALUATION_ENABLED:-false}
       - UPLOAD_DIR=/app/uploads
     secrets:
-      - source: management_api_jwt_secret
-        target: JWT_SECRET_KEY
       - source: management_api_encryption_key
         target: ENCRYPTION_KEY
     networks:
@@ -123,7 +118,5 @@ volumes:
   deployer_runtime_state:
 
 secrets:
-  management_api_jwt_secret:
-    file: ${THESIS_RUNTIME_SECRETS_DIR:-.secrets/runtime}/JWT_SECRET_KEY
   management_api_encryption_key:
     file: ${THESIS_RUNTIME_SECRETS_DIR:-.secrets/runtime}/ENCRYPTION_KEY

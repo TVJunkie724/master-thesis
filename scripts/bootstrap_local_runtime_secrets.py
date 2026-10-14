@@ -15,19 +15,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-# Docker secret filename, not an embedded credential value.
-JWT_SECRET_FILENAME = "JWT_SECRET_KEY"  # nosec B105
 ENCRYPTION_KEY_FILENAME = "ENCRYPTION_KEY"
-SECRET_FILENAMES = (JWT_SECRET_FILENAME, ENCRYPTION_KEY_FILENAME)
+SECRET_FILENAMES = (ENCRYPTION_KEY_FILENAME,)
 MIN_SECRET_LENGTH = 32
 MAX_SECRET_FILE_BYTES = 4096
 KNOWN_INSECURE_VALUES = {
-    "local-development-jwt-secret-change-me",
     "local-development-encryption-key-change-me",
-    "your-secret-key-change-in-production",
     "your-fernet-key-here",
-    "dev-secret-change-in-production",
-    "dev-secret-key",
 }
 
 
@@ -51,7 +45,7 @@ def bootstrap_local_runtime_secrets(
     environment: Mapping[str, str] | None = None,
     create_secret_file: SecretFileCreator | None = None,
 ) -> SecretBootstrapResult:
-    """Create or validate the local JWT/encryption secret pair."""
+    """Create or validate the local CloudConnection encryption key."""
     env = os.environ if environment is None else environment
     creator = create_secret_file or _create_secret_file
     target_dir = secrets_dir.expanduser().absolute()
@@ -92,9 +86,6 @@ def bootstrap_local_runtime_secrets(
             values[filename] = _generate_secret(filename)
             statuses[filename] = "created"
 
-    if values[JWT_SECRET_FILENAME] == values[ENCRYPTION_KEY_FILENAME]:
-        raise SecretBootstrapError("JWT_SECRET_KEY and ENCRYPTION_KEY must be different.")
-
     created_paths: list[Path] = []
     try:
         for filename in missing:
@@ -107,7 +98,7 @@ def bootstrap_local_runtime_secrets(
         if isinstance(exc, SecretBootstrapError):
             raise
         raise SecretBootstrapError(
-            "Failed to persist the complete local runtime secret pair."
+            "Failed to persist the local runtime encryption key."
         ) from exc
 
     for filename in SECRET_FILENAMES:
@@ -174,13 +165,17 @@ def _read_secret_file(path: Path) -> str:
     except SecretBootstrapError:
         raise
     except (OSError, UnicodeDecodeError) as exc:
-        raise SecretBootstrapError(f"Secret file cannot be read safely: {path}") from exc
+        raise SecretBootstrapError(
+            f"Secret file cannot be read safely: {path}"
+        ) from exc
     finally:
         if descriptor is not None:
             os.close(descriptor)
     value = value.removesuffix("\n")
     if value != value.strip():
-        raise SecretBootstrapError(f"Secret file contains surrounding whitespace: {path}")
+        raise SecretBootstrapError(
+            f"Secret file contains surrounding whitespace: {path}"
+        )
     return value
 
 
@@ -194,7 +189,9 @@ def _require_regular_secret_file(path: Path) -> os.stat_result:
     if metadata.st_nlink != 1:
         raise SecretBootstrapError(f"Secret target must not be hard-linked: {path}")
     if hasattr(os, "getuid") and metadata.st_uid != os.getuid():
-        raise SecretBootstrapError(f"Secret target must be owned by the current user: {path}")
+        raise SecretBootstrapError(
+            f"Secret target must be owned by the current user: {path}"
+        )
     return metadata
 
 
@@ -203,7 +200,9 @@ def _normalize_secret_permissions(path: Path) -> None:
     try:
         os.chmod(path, 0o600, follow_symlinks=False)
     except OSError as exc:
-        raise SecretBootstrapError(f"Secret file permissions cannot be secured: {path}") from exc
+        raise SecretBootstrapError(
+            f"Secret file permissions cannot be secured: {path}"
+        ) from exc
 
 
 def _validate_secret(filename: str, value: str) -> None:
@@ -237,8 +236,6 @@ def _validate_secret(filename: str, value: str) -> None:
 
 
 def _generate_secret(filename: str) -> str:
-    if filename == JWT_SECRET_FILENAME:
-        return secrets.token_urlsafe(48)
     if filename == ENCRYPTION_KEY_FILENAME:
         return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
     raise SecretBootstrapError(f"Unsupported secret target: {filename}")
@@ -272,9 +269,13 @@ def _create_secret_file(path: Path, value: str) -> None:
         finally:
             os.close(directory_descriptor)
     except FileExistsError as exc:
-        raise SecretBootstrapError(f"Secret target was created concurrently: {path}") from exc
+        raise SecretBootstrapError(
+            f"Secret target was created concurrently: {path}"
+        ) from exc
     except OSError as exc:
-        raise SecretBootstrapError(f"Secret file cannot be created securely: {path}") from exc
+        raise SecretBootstrapError(
+            f"Secret file cannot be created securely: {path}"
+        ) from exc
     finally:
         if descriptor is not None:
             os.close(descriptor)
@@ -310,7 +311,9 @@ def _encrypted_cloud_connection_count(database_path: Path) -> int:
             ).fetchone()
             if table_exists is None:
                 return 0
-            result = connection.execute("SELECT COUNT(*) FROM cloud_connections").fetchone()
+            result = connection.execute(
+                "SELECT COUNT(*) FROM cloud_connections"
+            ).fetchone()
             return int(result[0]) if result is not None else 0
         finally:
             connection.close()
@@ -339,7 +342,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     for filename in SECRET_FILENAMES:
-        print(f"{filename}: {result.statuses[filename]} ({result.secrets_dir / filename})")
+        print(
+            f"{filename}: {result.statuses[filename]} ({result.secrets_dir / filename})"
+        )
     return 0
 
 

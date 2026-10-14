@@ -273,23 +273,6 @@ classifications:
     - aws.digital_twin.query.mapping:2026.07.17
     review_status: verified
     publishable: true
-  aws.digital_twin_account_bundle_month.model.v1:
-    id: aws.digital_twin_account_bundle_month.model.v1
-    provider: aws
-    layer: digital_twin
-    service: AWSIoTTwinMaker
-    field: digital_twin.account_bundle_month
-    pricing_model_type: account_wide_tiered_bundle
-    billing_unit_semantics: account_bundle_month
-    tier_semantics: four_entity_count_tiers
-    included_usage_semantics: included_queries_and_api_calls_with_overage
-    region_scope: regional
-    currency: USD
-    effective_date: '2026-07-17'
-    evidence_source_refs:
-    - aws.digital_twin.account_bundle_month.mapping:2026.07.17
-    review_status: verified
-    publishable: true
   aws.grafana_editor_user_month.model.v1:
     id: aws.grafana_editor_user_month.model.v1
     provider: aws

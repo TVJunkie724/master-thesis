@@ -2,17 +2,20 @@
 // State for the Wizard BLoC state machine
 
 import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
+
+import '../../models/architecture_profile.dart';
+import '../../models/architecture_path.dart';
 import '../../models/calc_params.dart';
 import '../../models/calc_result.dart';
-import '../../models/architecture_path.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
 import '../../models/deployer_config.dart';
 import '../../models/optimizer_config.dart';
-import '../../models/pricing_health.dart';
 import '../../models/provider_capability.dart';
 import '../../models/resolved_deployment_specification.dart';
+import '../../models/resolved_twin_architecture.dart';
 import '../../models/user_function_extension.dart';
 import '../../utils/twin_state_utils.dart';
 
@@ -27,6 +30,10 @@ enum WizardMode { create, edit }
 enum WizardStatus { initial, loading, ready, saving, error }
 
 enum SceneGlbCommandPhase { idle, uploading, deleting }
+
+enum ArchitectureDetailPhase { idle, loading, ready, error }
+
+enum ResolvedArchitecturePhase { idle, loading, ready, incompatible, error }
 
 /// Source of credential data
 enum CredentialSource {
@@ -96,13 +103,13 @@ class SceneGlbCommandState extends Equatable {
 
 /// Immutable state for the wizard BLoC
 class WizardState extends Equatable {
-  static const requiredPricingProviders = {'aws', 'azure', 'gcp'};
   // === Mode & Navigation ===
   final WizardMode mode;
   final int currentStep; // 0, 1, 2
   final int highestStepReached; // For step indicator gating
   final WizardStatus status;
   final String? twinState; // Lifecycle state: draft, deployed, etc.
+  final bool hasBeenDeployed;
 
   // === Transient UI (cleared on step change) ===
   final String? errorMessage;
@@ -137,12 +144,18 @@ class WizardState extends Equatable {
   final OptimizerDeploymentRunData? savedDeploymentRun;
   final bool isSelectingDeploymentRun;
   final String? deploymentRunSelectionError;
-  final PricingHealthResponse? pricingHealth;
-  final bool isPricingHealthLoading;
-  final String? pricingHealthError;
   final PlatformProviderCapabilities? providerCapabilities;
   final bool providerCapabilitiesLoading;
   final String? providerCapabilitiesError;
+
+  // === Architecture profile workflow ===
+  final TwinArchitectureSelection? architectureSelection;
+  final ArchitectureDetailPhase architectureDetailPhase;
+  final ArchitectureProfileDetail? architectureProfileDetail;
+  final String? architectureDetailError;
+  final ResolvedArchitecturePhase resolvedArchitecturePhase;
+  final ResolvedTwinArchitectureRead? resolvedArchitecture;
+  final String? resolvedArchitectureError;
 
   // === Persistent Data: Step 3 Section 2 ===
   final String?
@@ -176,10 +189,9 @@ class WizardState extends Equatable {
   eventActionRequirements; // functionName -> requirements.txt
   final String? stateMachineContent; // AWS/Azure/GCP workflow JSON/YAML
   final bool stateMachineValidated;
-  final bool extensionCatalogLoading;
+  final bool userFunctionsLoading;
   final List<ExtensionSlot> extensionSlots;
-  final List<UserFunctionArtifact> extensionArtifacts;
-  final List<TwinExtensionBinding> extensionBindings;
+  final List<TwinUserFunction> twinUserFunctions;
   final Map<String, UserFunctionSourceDraft> extensionDrafts;
   final Map<String, UserFunctionValidationResult> extensionValidationResults;
   final Map<String, UserFunctionWorkflowPhase> extensionPhases;
@@ -199,11 +211,6 @@ class WizardState extends Equatable {
   final String? userConfigContent; // config_user.json content
   final bool userConfigValidated;
 
-  // === Zip Upload State ===
-  final bool zipUploadInProgress; // True during upload/extraction
-  final bool
-  forceCollapseSections; // Triggers section collapse after zip success
-
   // === State Tracking ===
   final bool hasUnsavedChanges;
   final bool step3Invalidated; // True when new calc invalidates Section 3 data
@@ -214,6 +221,7 @@ class WizardState extends Equatable {
     this.highestStepReached = 0,
     this.status = WizardStatus.initial,
     this.twinState,
+    this.hasBeenDeployed = false,
     this.errorMessage,
     this.successMessage,
     this.warningMessage,
@@ -241,12 +249,16 @@ class WizardState extends Equatable {
     this.savedDeploymentRun,
     this.isSelectingDeploymentRun = false,
     this.deploymentRunSelectionError,
-    this.pricingHealth,
-    this.isPricingHealthLoading = false,
-    this.pricingHealthError,
     this.providerCapabilities,
     this.providerCapabilitiesLoading = false,
     this.providerCapabilitiesError,
+    this.architectureSelection,
+    this.architectureDetailPhase = ArchitectureDetailPhase.idle,
+    this.architectureProfileDetail,
+    this.architectureDetailError,
+    this.resolvedArchitecturePhase = ResolvedArchitecturePhase.idle,
+    this.resolvedArchitecture,
+    this.resolvedArchitectureError,
     this.deployerDigitalTwinName,
     this.configEventsJson,
     this.configIotDevicesJson,
@@ -269,10 +281,9 @@ class WizardState extends Equatable {
     this.eventActionRequirements = const {},
     this.stateMachineContent,
     this.stateMachineValidated = false,
-    this.extensionCatalogLoading = false,
+    this.userFunctionsLoading = false,
     this.extensionSlots = const [],
-    this.extensionArtifacts = const [],
-    this.extensionBindings = const [],
+    this.twinUserFunctions = const [],
     this.extensionDrafts = const {},
     this.extensionValidationResults = const {},
     this.extensionPhases = const {},
@@ -286,9 +297,6 @@ class WizardState extends Equatable {
     this.sceneConfigValidated = false,
     this.userConfigContent,
     this.userConfigValidated = false,
-    // Zip upload state
-    this.zipUploadInProgress = false,
-    this.forceCollapseSections = false,
     this.hasUnsavedChanges = false,
     this.step3Invalidated = false,
   });
@@ -299,17 +307,79 @@ class WizardState extends Equatable {
 
   /// Can modifications (save draft, finish config) be made?
   /// Returns false for deployed/deploying/destroying twins.
-  bool get canModify => TwinStateUtils.canEdit(twinState);
+  bool get canModify =>
+      TwinStateUtils.canEdit(twinState, hasBeenDeployed: hasBeenDeployed);
 
   /// Legacy persistence gate for entering workload configuration.
-  bool get canProceedToStep2 => twinName?.trim().isNotEmpty == true;
+  bool get canProceedToStep2 =>
+      twinId != null &&
+      twinName?.trim().isNotEmpty == true &&
+      architectureWorkflowReady;
+
+  bool get hasActiveArchitectureProfile {
+    final selected = architectureSelection?.profileRef;
+    final detail = architectureProfileDetail?.summary.ref;
+    return selected != null &&
+        detail != null &&
+        _sameArchitectureRef(selected, detail) &&
+        selected.id == 'six-layer-eventing' &&
+        selected.version == '1';
+  }
+
+  bool get usesSixLayerProfile {
+    if (!hasActiveArchitectureProfile) return false;
+    final reference = architectureSelection!.profileRef;
+    return reference.id == 'six-layer-eventing' && reference.version == '1';
+  }
+
+  bool get architectureWorkflowReady {
+    final selected = architectureSelection?.profileRef;
+    final detail = architectureProfileDetail?.summary.ref;
+    return architectureDetailPhase == ArchitectureDetailPhase.ready &&
+        selected != null &&
+        detail != null &&
+        _sameArchitectureRef(selected, detail) &&
+        selected.id == 'six-layer-eventing' &&
+        selected.version == '1';
+  }
+
+  Set<String> get architectureWorkloadFieldIds => Set.unmodifiable(
+    architectureProfileDetail?.summary.workloadFieldIds ?? const <String>{},
+  );
 
   /// Can proceed from Step 2 to Step 3?
   bool get canProceedToStep3 =>
       calcResult != null &&
       !isCalculating &&
       !isSelectingDeploymentRun &&
-      deploymentReview.ready;
+      deploymentReview.ready &&
+      resolvedArchitectureReadyForSelectedRun;
+
+  bool get resolvedArchitectureReadyForSelectedRun {
+    if (!hasActiveArchitectureProfile) return true;
+    final resolved = resolvedArchitecture;
+    final run = deploymentRun;
+    final selected = architectureSelection?.profileRef;
+    final specification = run?.specification;
+    if (resolvedArchitecturePhase != ResolvedArchitecturePhase.ready ||
+        resolved == null ||
+        run == null ||
+        selected == null ||
+        specification == null ||
+        resolved.calculationRunId != run.id ||
+        !_sameArchitectureRef(resolved.architecture.profileRef, selected) ||
+        resolved.architecture.deploymentSpecificationDigest !=
+            specification.digest) {
+      return false;
+    }
+    if (specification is! ResolvedDeploymentSpecificationV2) return false;
+    final expectedStatus = specification.readiness.evaluationOnly
+        ? 'offline_contract_fixture'
+        : 'publishable';
+    return resolved.architecture.schemaVersion ==
+            ResolvedTwinArchitecture.v2SchemaVersion &&
+        resolved.architecture.resolutionStatus == expectedStatus;
+  }
 
   ResolvedDeploymentReview get deploymentReview =>
       ResolvedDeploymentReview.fromRun(
@@ -339,29 +409,41 @@ class WizardState extends Equatable {
 
   UserFunctionWorkflowPhase extensionPhase(String slotId) =>
       extensionPhases[slotId] ??
-      (extensionBinding(slotId) == null
+      (twinUserFunction(slotId) == null
           ? UserFunctionWorkflowPhase.draft
-          : UserFunctionWorkflowPhase.bound);
+          : UserFunctionWorkflowPhase.saved);
 
-  TwinExtensionBinding? extensionBinding(String slotId) {
-    for (final binding in extensionBindings) {
-      if (binding.slotId == slotId && binding.active) return binding;
+  TwinUserFunction? twinUserFunction(String slotId) {
+    for (final userFunction in twinUserFunctions) {
+      if (userFunction.slotId == slotId) return userFunction;
     }
     return null;
   }
 
   bool get extensionContractActive =>
-      extensionCatalogLoading ||
-      extensionErrors.containsKey('_catalog') ||
+      userFunctionsLoading ||
+      extensionErrors.containsKey('_sources') ||
       extensionSlots.isNotEmpty;
 
-  bool get extensionBindingsReady =>
+  bool get userFunctionsReady =>
       extensionSlots.isNotEmpty &&
       extensionSlots.every(
         (slot) =>
-            extensionPhase(slot.slotId) == UserFunctionWorkflowPhase.bound &&
-            extensionBinding(slot.slotId) != null,
+            extensionPhase(slot.slotId) == UserFunctionWorkflowPhase.saved &&
+            twinUserFunction(slot.slotId) != null,
       );
+
+  bool get architectureUserFunctionsReady {
+    final requiredSlots = architectureProfileDetail?.summary.extensionSlots;
+    if (requiredSlots == null) return false;
+    if (requiredSlots.isEmpty) return true;
+    return requiredSlots.every(
+      (required) =>
+          extensionPhase(required.slotId) == UserFunctionWorkflowPhase.saved &&
+          twinUserFunction(required.slotId)?.slotVersion ==
+              required.slotVersion,
+    );
+  }
 
   Map<String, DeployerArtifactValidationFeedback> feedbackWithout(
     String artifactId,
@@ -371,31 +453,13 @@ class WizardState extends Equatable {
     )..remove(artifactId),
   );
 
-  bool get pricingCanCalculate {
-    if (isPricingHealthLoading || pricingHealthError != null) return false;
-    final health = pricingHealth;
-    if (health?.schemaVersion != PricingHealthResponse.supportedSchemaVersion) {
-      return false;
-    }
-    final providers = health?.providers;
-    if (providers == null) return false;
-    return requiredPricingProviders.every(
-      (provider) => providers[provider]?.canCalculate == true,
-    );
-  }
-
-  List<String> get pricingBlockingProviders => requiredPricingProviders
-      .where(
-        (provider) => pricingHealth?.providers[provider]?.canCalculate != true,
-      )
-      .toList(growable: false);
-
   bool get canRequestCalculation =>
       calcParams != null &&
       isCalcFormValid &&
+      architectureWorkflowReady &&
+      architectureUserFunctionsReady &&
       !isCalculating &&
-      !isSelectingDeploymentRun &&
-      pricingCanCalculate;
+      !isSelectingDeploymentRun;
 
   PlatformLayerCapability? providerCapability(String? provider, String layer) {
     if (provider == null || providerCapabilitiesError != null) return null;
@@ -420,9 +484,27 @@ class WizardState extends Equatable {
       'GCP',
   };
 
-  /// Set of required provider names (from optimizer result) that are NOT configured
+  Set<CloudProvider> get requiredDeploymentProviders {
+    if (hasActiveArchitectureProfile) {
+      if (!resolvedArchitectureReadyForSelectedRun) return const {};
+      return resolvedArchitecture!.architecture.providers;
+    }
+    return Set.unmodifiable(
+      layerProviders.values.map((value) {
+        final canonical = value.toLowerCase();
+        return CloudProvider.values.firstWhere(
+          (provider) => provider.name == canonical,
+        );
+      }),
+    );
+  }
+
+  /// Set of required provider names from the selected immutable architecture
+  /// that are not configured.
   Set<String> get unconfiguredProviders {
-    final required = layerProviders.values.toSet();
+    final required = requiredDeploymentProviders
+        .map((provider) => provider.name.toUpperCase())
+        .toSet();
     return required.difference(configuredProviders);
   }
 
@@ -442,11 +524,13 @@ class WizardState extends Equatable {
 
   bool get isConfigurationReadyForFinish =>
       twinName?.trim().isNotEmpty == true &&
+      architectureWorkflowReady &&
       calcResult != null &&
       deploymentReview.ready &&
+      resolvedArchitectureReadyForSelectedRun &&
       unconfiguredProviders.isEmpty &&
       deployerReadiness.ready &&
-      (!extensionContractActive || extensionBindingsReady) &&
+      architectureUserFunctionsReady &&
       !step3Invalidated;
 
   DeployerConfigData get deployerConfigData => DeployerConfigData(
@@ -485,6 +569,7 @@ class WizardState extends Equatable {
         layer5Provider: layer5Provider,
         deviceIds: deviceIds,
         eventActionNames: eventActionFunctionNames,
+        profileOwnsMandatoryEventBehavior: usesSixLayerProfile,
       );
 
   DeployerConfigReadiness get deployerReadiness =>
@@ -523,6 +608,7 @@ class WizardState extends Equatable {
   /// Get event action function names from validated config_events.json
   /// Handles both singular 'action' and plural 'actions' formats
   List<String> get eventActionFunctionNames {
+    if (usesSixLayerProfile) return [];
     if (!configEventsValidated || configEventsJson == null) return [];
     if (calcParams?.useEventChecking != true) return [];
     try {
@@ -593,11 +679,13 @@ class WizardState extends Equatable {
 
   /// Should show feedback function input?
   bool get shouldShowFeedbackFunction =>
+      !usesSixLayerProfile &&
       configIotDevicesValidated &&
       (calcParams?.returnFeedbackToDevice ?? false);
 
   /// Should show state machine input?
   bool get shouldShowStateMachine =>
+      !usesSixLayerProfile &&
       configIotDevicesValidated &&
       (calcParams?.triggerNotificationWorkflow ?? false);
 
@@ -619,6 +707,7 @@ class WizardState extends Equatable {
     int? highestStepReached,
     WizardStatus? status,
     String? twinState,
+    bool? hasBeenDeployed,
     String? errorMessage,
     String? successMessage,
     String? warningMessage,
@@ -647,14 +736,22 @@ class WizardState extends Equatable {
     OptimizerDeploymentRunData? savedDeploymentRun,
     bool? isSelectingDeploymentRun,
     String? deploymentRunSelectionError,
-    PricingHealthResponse? pricingHealth,
-    bool? isPricingHealthLoading,
-    String? pricingHealthError,
-    bool clearPricingHealthError = false,
     PlatformProviderCapabilities? providerCapabilities,
     bool? providerCapabilitiesLoading,
     String? providerCapabilitiesError,
     bool clearProviderCapabilitiesError = false,
+    TwinArchitectureSelection? architectureSelection,
+    bool clearArchitectureSelection = false,
+    ArchitectureDetailPhase? architectureDetailPhase,
+    ArchitectureProfileDetail? architectureProfileDetail,
+    String? architectureDetailError,
+    bool clearArchitectureProfileDetail = false,
+    bool clearArchitectureDetailError = false,
+    ResolvedArchitecturePhase? resolvedArchitecturePhase,
+    ResolvedTwinArchitectureRead? resolvedArchitecture,
+    String? resolvedArchitectureError,
+    bool clearResolvedArchitecture = false,
+    bool clearResolvedArchitectureError = false,
     String? deployerDigitalTwinName,
     String? configEventsJson,
     String? configIotDevicesJson,
@@ -677,10 +774,9 @@ class WizardState extends Equatable {
     Map<String, String>? eventActionRequirements,
     String? stateMachineContent,
     bool? stateMachineValidated,
-    bool? extensionCatalogLoading,
+    bool? userFunctionsLoading,
     List<ExtensionSlot>? extensionSlots,
-    List<UserFunctionArtifact>? extensionArtifacts,
-    List<TwinExtensionBinding>? extensionBindings,
+    List<TwinUserFunction>? twinUserFunctions,
     Map<String, UserFunctionSourceDraft>? extensionDrafts,
     Map<String, UserFunctionValidationResult>? extensionValidationResults,
     Map<String, UserFunctionWorkflowPhase>? extensionPhases,
@@ -705,13 +801,14 @@ class WizardState extends Equatable {
     bool clearDeploymentRun = false,
     bool clearSavedDeploymentRun = false,
     bool clearDeploymentRunSelectionError = false,
+    bool clearPayloadsJson = false,
+    bool clearEventFeedbackContent = false,
+    bool clearEventFeedbackRequirements = false,
+    bool clearStateMachineContent = false,
     // L4 content clear flags
     bool clearHierarchyContent = false,
     bool clearSceneConfigContent = false,
     bool clearUserConfigContent = false,
-    // Zip upload fields
-    bool? zipUploadInProgress,
-    bool? forceCollapseSections,
   }) {
     return WizardState(
       mode: mode ?? this.mode,
@@ -719,6 +816,7 @@ class WizardState extends Equatable {
       highestStepReached: highestStepReached ?? this.highestStepReached,
       status: status ?? this.status,
       twinState: twinState ?? this.twinState,
+      hasBeenDeployed: hasBeenDeployed ?? this.hasBeenDeployed,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess
           ? null
@@ -765,18 +863,31 @@ class WizardState extends Equatable {
       deploymentRunSelectionError: clearDeploymentRunSelectionError
           ? null
           : (deploymentRunSelectionError ?? this.deploymentRunSelectionError),
-      pricingHealth: pricingHealth ?? this.pricingHealth,
-      isPricingHealthLoading:
-          isPricingHealthLoading ?? this.isPricingHealthLoading,
-      pricingHealthError: clearPricingHealthError
-          ? null
-          : (pricingHealthError ?? this.pricingHealthError),
       providerCapabilities: providerCapabilities ?? this.providerCapabilities,
       providerCapabilitiesLoading:
           providerCapabilitiesLoading ?? this.providerCapabilitiesLoading,
       providerCapabilitiesError: clearProviderCapabilitiesError
           ? null
           : (providerCapabilitiesError ?? this.providerCapabilitiesError),
+      architectureSelection: clearArchitectureSelection
+          ? null
+          : (architectureSelection ?? this.architectureSelection),
+      architectureDetailPhase:
+          architectureDetailPhase ?? this.architectureDetailPhase,
+      architectureProfileDetail: clearArchitectureProfileDetail
+          ? null
+          : (architectureProfileDetail ?? this.architectureProfileDetail),
+      architectureDetailError: clearArchitectureDetailError
+          ? null
+          : (architectureDetailError ?? this.architectureDetailError),
+      resolvedArchitecturePhase:
+          resolvedArchitecturePhase ?? this.resolvedArchitecturePhase,
+      resolvedArchitecture: clearResolvedArchitecture
+          ? null
+          : (resolvedArchitecture ?? this.resolvedArchitecture),
+      resolvedArchitectureError: clearResolvedArchitectureError
+          ? null
+          : (resolvedArchitectureError ?? this.resolvedArchitectureError),
       deployerDigitalTwinName:
           deployerDigitalTwinName ?? this.deployerDigitalTwinName,
       configEventsJson: configEventsJson ?? this.configEventsJson,
@@ -790,30 +901,35 @@ class WizardState extends Equatable {
           validatingArtifactIds ?? this.validatingArtifactIds,
       artifactValidationFeedback:
           artifactValidationFeedback ?? this.artifactValidationFeedback,
-      payloadsJson: payloadsJson ?? this.payloadsJson,
+      payloadsJson: clearPayloadsJson
+          ? null
+          : (payloadsJson ?? this.payloadsJson),
       payloadsValidated: payloadsValidated ?? this.payloadsValidated,
       // L2 fields
       processorContents: processorContents ?? this.processorContents,
       processorValidated: processorValidated ?? this.processorValidated,
       processorRequirements:
           processorRequirements ?? this.processorRequirements,
-      eventFeedbackContent: eventFeedbackContent ?? this.eventFeedbackContent,
+      eventFeedbackContent: clearEventFeedbackContent
+          ? null
+          : (eventFeedbackContent ?? this.eventFeedbackContent),
       eventFeedbackValidated:
           eventFeedbackValidated ?? this.eventFeedbackValidated,
-      eventFeedbackRequirements:
-          eventFeedbackRequirements ?? this.eventFeedbackRequirements,
+      eventFeedbackRequirements: clearEventFeedbackRequirements
+          ? null
+          : (eventFeedbackRequirements ?? this.eventFeedbackRequirements),
       eventActionContents: eventActionContents ?? this.eventActionContents,
       eventActionValidated: eventActionValidated ?? this.eventActionValidated,
       eventActionRequirements:
           eventActionRequirements ?? this.eventActionRequirements,
-      stateMachineContent: stateMachineContent ?? this.stateMachineContent,
+      stateMachineContent: clearStateMachineContent
+          ? null
+          : (stateMachineContent ?? this.stateMachineContent),
       stateMachineValidated:
           stateMachineValidated ?? this.stateMachineValidated,
-      extensionCatalogLoading:
-          extensionCatalogLoading ?? this.extensionCatalogLoading,
+      userFunctionsLoading: userFunctionsLoading ?? this.userFunctionsLoading,
       extensionSlots: extensionSlots ?? this.extensionSlots,
-      extensionArtifacts: extensionArtifacts ?? this.extensionArtifacts,
-      extensionBindings: extensionBindings ?? this.extensionBindings,
+      twinUserFunctions: twinUserFunctions ?? this.twinUserFunctions,
       extensionDrafts: extensionDrafts ?? this.extensionDrafts,
       extensionValidationResults:
           extensionValidationResults ?? this.extensionValidationResults,
@@ -834,9 +950,6 @@ class WizardState extends Equatable {
           ? null
           : (userConfigContent ?? this.userConfigContent),
       userConfigValidated: userConfigValidated ?? this.userConfigValidated,
-      zipUploadInProgress: zipUploadInProgress ?? this.zipUploadInProgress,
-      forceCollapseSections:
-          forceCollapseSections ?? this.forceCollapseSections,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
       step3Invalidated: step3Invalidated ?? this.step3Invalidated,
     );
@@ -853,6 +966,7 @@ class WizardState extends Equatable {
     highestStepReached,
     status,
     twinState,
+    hasBeenDeployed,
     errorMessage,
     successMessage,
     warningMessage,
@@ -880,12 +994,16 @@ class WizardState extends Equatable {
     savedDeploymentRun,
     isSelectingDeploymentRun,
     deploymentRunSelectionError,
-    pricingHealth,
-    isPricingHealthLoading,
-    pricingHealthError,
     providerCapabilities,
     providerCapabilitiesLoading,
     providerCapabilitiesError,
+    architectureSelection,
+    architectureDetailPhase,
+    architectureProfileDetail,
+    architectureDetailError,
+    resolvedArchitecturePhase,
+    resolvedArchitecture,
+    resolvedArchitectureError,
     deployerDigitalTwinName, // FIXED: was missing
     configEventsJson,
     configIotDevicesJson,
@@ -908,10 +1026,9 @@ class WizardState extends Equatable {
     eventActionRequirements,
     stateMachineContent,
     stateMachineValidated,
-    extensionCatalogLoading,
+    userFunctionsLoading,
     extensionSlots,
-    extensionArtifacts,
-    extensionBindings,
+    twinUserFunctions,
     extensionDrafts,
     extensionValidationResults,
     extensionPhases,
@@ -925,9 +1042,15 @@ class WizardState extends Equatable {
     sceneConfigValidated,
     userConfigContent,
     userConfigValidated,
-    zipUploadInProgress,
-    forceCollapseSections,
     hasUnsavedChanges,
     step3Invalidated,
   ];
 }
+
+bool _sameArchitectureRef(
+  PinnedArchitectureReference left,
+  PinnedArchitectureReference right,
+) =>
+    left.id == right.id &&
+    left.version == right.version &&
+    left.digest == right.digest;

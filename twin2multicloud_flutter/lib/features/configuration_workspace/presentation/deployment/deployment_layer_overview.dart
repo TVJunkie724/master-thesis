@@ -111,7 +111,6 @@ class DeploymentLayerOverview extends StatelessWidget {
           isValid: state.payloadsValidated ? true : null,
           showEditBadge: true,
           initiallyExpanded: !state.payloadsValidated,
-          forceCollapsed: state.forceCollapseSections,
           child: FileEditorBlock(
             showHeader: false,
             filename: 'payloads.json',
@@ -220,22 +219,24 @@ class DeploymentLayerOverview extends StatelessWidget {
         if (selectable)
           CollapsibleBlockWrapper(
             title: 'config_user.json',
-            subtitle: 'Grafana dashboard configuration',
+            subtitle: 'Graph-required access identity',
             icon: Icons.dashboard,
             isValid: state.userConfigValidated ? true : null,
             showEditBadge: true,
             initiallyExpanded: !state.userConfigValidated,
-            forceCollapsed: state.forceCollapseSections,
             copyContent: state.userConfigContent,
             child: FileEditorBlock(
               showHeader: false,
               filename: 'config_user.json',
-              description: 'Grafana dashboard user configuration',
+              description:
+                  'Provider-owned Twin access identity; the minimal L5 snapshot uses Management authentication.',
               icon: Icons.dashboard,
               isHighlighted: true,
               constraints:
-                  '• Dashboard panels and queries\n• Data source configuration',
-              exampleContent: Step3Examples.userConfig,
+                  '• Platform user identity\n• Selected-provider access intent',
+              exampleContent: provider?.toLowerCase() == 'azure'
+                  ? Step3Examples.azureUserConfig
+                  : Step3Examples.userConfig,
               initialContent: state.userConfigContent ?? '',
               isValidated: state.userConfigValidated,
               isValidating: state.isArtifactValidating('user-config'),
@@ -305,7 +306,6 @@ class _SceneEditor extends StatelessWidget {
           isValid: state.sceneConfigValidated ? true : null,
           showEditBadge: true,
           initiallyExpanded: !state.sceneConfigValidated,
-          forceCollapsed: state.forceCollapseSections,
           copyContent: state.sceneConfigContent,
           child: FileEditorBlock(
             showHeader: false,

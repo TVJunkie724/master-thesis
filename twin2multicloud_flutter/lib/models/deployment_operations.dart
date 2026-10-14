@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 
 import '../core/result.dart';
+import 'cleanup_evidence.dart';
 
 enum DeploymentOperationType {
   deploy('deploy'),
@@ -113,6 +114,7 @@ class DeploymentOperationSummary extends Equatable {
   final DeploymentOperationStatus status;
   final String? errorCode;
   final String? errorMessage;
+  final CleanupEvidence? cleanupEvidence;
   final DateTime? startedAt;
   final DateTime? completedAt;
 
@@ -124,6 +126,7 @@ class DeploymentOperationSummary extends Equatable {
     required this.status,
     this.errorCode,
     this.errorMessage,
+    this.cleanupEvidence,
     this.startedAt,
     this.completedAt,
   });
@@ -147,6 +150,11 @@ class DeploymentOperationSummary extends Equatable {
       status: DeploymentOperationStatus.parse(json['status'], 'status'),
       errorCode: _optionalString(json, 'error_code'),
       errorMessage: _optionalString(json, 'error_message'),
+      cleanupEvidence: _optionalObject(
+        json,
+        'cleanup_evidence',
+        CleanupEvidence.fromJson,
+      ),
       startedAt: startedAt,
       completedAt: completedAt,
     );
@@ -161,6 +169,7 @@ class DeploymentOperationSummary extends Equatable {
     status,
     errorCode,
     errorMessage,
+    cleanupEvidence,
     startedAt,
     completedAt,
   ];

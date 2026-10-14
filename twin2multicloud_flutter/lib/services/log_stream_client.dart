@@ -31,6 +31,7 @@ class SseLogEvent {
 
   bool get isComplete => type == 'complete' || type == 'done';
   bool get isError => type == 'error';
+  bool get isWarning => type == 'warning';
   bool get isLog => type == 'log';
   bool get isHeartbeat => type == 'heartbeat';
 }

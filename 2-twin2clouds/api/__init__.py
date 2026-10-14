@@ -1,6 +1,6 @@
 # API Routers Package
 # This package contains FastAPI routers for different endpoint categories
 
-from . import calculation, pricing, regions, file_status, credentials
+from . import calculation, capabilities, pricing, validation
 
-__all__ = ["calculation", "credentials", "file_status", "pricing", "regions"]
+__all__ = ["calculation", "capabilities", "pricing", "validation"]

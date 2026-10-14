@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 
 import rest_api
+from src.api.preflight import build_provider_preflight
 
 client = TestClient(rest_api.app)
 
@@ -12,7 +13,6 @@ AWS_PAYLOAD = {
     "aws_access_key_id": "AKIATESTTEST",
     "aws_secret_access_key": "secretkey123456789",
     "aws_region": "eu-central-1",
-    "permission_set_version": "thesis-demo-v1",
 }
 
 AZURE_PAYLOAD = {
@@ -23,14 +23,12 @@ AZURE_PAYLOAD = {
     "azure_region": "westeurope",
     "azure_region_iothub": "westeurope",
     "azure_region_digital_twin": "westeurope",
-    "permission_set_version": "thesis-demo-v1",
 }
 
 GCP_PAYLOAD = {
     "gcp_project_id": "demo-project",
     "gcp_credentials_file": '{"type":"service_account","client_email":"deployer@demo-project.iam.gserviceaccount.com","private_key":"super-secret-key"}',
     "gcp_region": "europe-west1",
-    "permission_set_version": "thesis-demo-v1",
 }
 
 
@@ -48,36 +46,35 @@ def test_aws_preflight_passes_when_checker_is_valid(mock_check):
     assert response.status_code == 200
     data = response.json()
     assert data["provider"] == "aws"
-    assert data["expected_permission_set_version"] == "thesis-demo-v1"
-    assert data["supplied_permission_set_version"] == "thesis-demo-v1"
-    assert data["permission_set_status"] == "matched"
     assert data["ready"] is True
     assert data["status"] == "passed"
     assert data["checks"][0]["code"] == "AWS_READY"
 
 
-@patch("src.api.credentials.check_aws_credentials")
-def test_preflight_fails_missing_permission_set_version(mock_check):
-    mock_check.return_value = {
-        "status": "valid",
-        "message": "All required permissions are present.",
-        "summary": {"total_required": 1, "valid": 1, "missing": 0},
-        "by_service": {},
-    }
-    payload = dict(AWS_PAYLOAD)
-    payload.pop("permission_set_version")
+def test_aws_preflight_preserves_regional_sts_and_identity_center_checks():
+    data = build_provider_preflight(
+        "aws",
+        {
+            "status": "valid",
+            "message": "ready",
+            "sts_region_validation": {
+                "status": "ready",
+                "region": "eu-central-1",
+                "endpoint_mode": "regional",
+            },
+            "identity_center_region": {
+                "status": "not_configured",
+                "region": "eu-west-1",
+                "instance_count": 0,
+            },
+        },
+    )
 
-    response = client.post("/permissions/preflight/aws", json=payload)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["ready"] is False
-    assert data["permission_set_status"] == "missing"
-    assert data["checks"][0]["code"] == "OUTDATED_PERMISSION_SET"
-    assert data["checks"][0]["details"] == {
-        "expected_permission_set_version": "thesis-demo-v1",
-        "supplied_permission_set_version": None,
-        "permission_set_status": "missing",
+    assert data.ready is False
+    assert {check.code for check in data.checks} == {
+        "AWS_READY",
+        "REGIONAL_STS_READY",
+        "IDENTITY_CENTER_PRIMARY_REGION_NOT_FOUND",
     }
 
 
@@ -135,7 +132,12 @@ def test_azure_preflight_keeps_expiring_secret_as_warning(mock_check):
             "days_until_expiration": 10,
         },
         "by_layer": {},
-        "summary": {"total_layers": 1, "valid_layers": 1, "partial_layers": 0, "invalid_layers": 0},
+        "summary": {
+            "total_layers": 1,
+            "valid_layers": 1,
+            "partial_layers": 0,
+            "invalid_layers": 0,
+        },
     }
 
     response = client.post("/permissions/preflight/azure", json=AZURE_PAYLOAD)
@@ -143,8 +145,61 @@ def test_azure_preflight_keeps_expiring_secret_as_warning(mock_check):
     assert response.status_code == 200
     data = response.json()
     assert data["ready"] is True
-    assert [check["code"] for check in data["checks"]] == ["AZURE_READY", "CREDENTIAL_EXPIRING_SOON"]
+    assert [check["code"] for check in data["checks"]] == [
+        "AZURE_READY",
+        "CREDENTIAL_EXPIRING_SOON",
+    ]
     assert data["checks"][1]["status"] == "warning"
+
+
+def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
+    data = build_provider_preflight(
+        "azure",
+        {
+            "status": "valid",
+            "message": "Azure subscription permissions are ready.",
+            "microsoft_graph_authority": {
+                "status": "consent_required",
+                "message": "Tenant admin consent is missing.",
+                "missing_permissions": ["Application.ReadWrite.All"],
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert [check.code for check in data.checks] == [
+        "AZURE_READY",
+        "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+    ]
+    assert data.checks[1].permissions == [
+        "Microsoft Graph: Application.ReadWrite.All"
+    ]
+
+
+def test_azure_preflight_keeps_rbac_and_graph_failures_separate():
+    data = build_provider_preflight(
+        "azure",
+        {
+            "status": "partial",
+            "message": "repair required",
+            "administrator_authority": {
+                "status": "invalid",
+                "message": "subscription Owner is missing",
+                "owner_assignment_found": False,
+                "missing_actions": ["Microsoft.Authorization/roleAssignments/write"],
+            },
+            "microsoft_graph_authority": {
+                "status": "ready",
+                "message": "ready",
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert [check.code for check in data.checks] == [
+        "MICROSOFT_GRAPH_AUTHORITY_READY",
+        "AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
+    ]
 
 
 @patch("src.api.credentials.check_azure_credentials")
@@ -158,7 +213,12 @@ def test_azure_preflight_maps_missing_actions(mock_check):
                 "missing_actions": ["Microsoft.Authorization/roleAssignments/write"],
             }
         },
-        "summary": {"total_layers": 1, "valid_layers": 0, "partial_layers": 1, "invalid_layers": 0},
+        "summary": {
+            "total_layers": 1,
+            "valid_layers": 0,
+            "partial_layers": 1,
+            "invalid_layers": 0,
+        },
     }
 
     response = client.post("/permissions/preflight/azure", json=AZURE_PAYLOAD)
@@ -167,7 +227,9 @@ def test_azure_preflight_maps_missing_actions(mock_check):
     data = response.json()
     assert data["ready"] is False
     assert data["checks"][0]["code"] == "MISSING_PERMISSIONS"
-    assert data["checks"][0]["permissions"] == ["Microsoft.Authorization/roleAssignments/write"]
+    assert data["checks"][0]["permissions"] == [
+        "Microsoft.Authorization/roleAssignments/write"
+    ]
 
 
 @patch("src.api.credentials.check_gcp_credentials")
@@ -253,6 +315,34 @@ def test_gcp_preflight_warns_for_deferred_resource_scoped_permissions(mock_check
     assert data["checks"][1]["code"] == "RESOURCE_SCOPED_PERMISSIONS_DEFERRED"
     assert data["checks"][1]["status"] == "warning"
     assert data["checks"][1]["permissions"] == ["storage.objects.create"]
+
+
+@patch("src.api.credentials.check_gcp_credentials")
+def test_gcp_preflight_fails_when_fixed_api_baseline_is_incomplete(mock_check):
+    mock_check.return_value = {
+        "status": "invalid",
+        "message": "The fixed Phase 8 API baseline is incomplete.",
+        "api_status": {
+            "status": "checked",
+            "by_layer": {
+                "phase8_api_baseline": {
+                    "status": "invalid",
+                    "present_apis": [],
+                    "missing_apis": ["container.googleapis.com"],
+                }
+            },
+        },
+        "permission_status": None,
+        "required_roles": [],
+    }
+
+    response = client.post("/permissions/preflight/gcp", json=GCP_PAYLOAD)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ready"] is False
+    assert data["checks"][0]["code"] == "MISSING_APIS"
+    assert data["checks"][0]["apis"] == ["container.googleapis.com"]
 
 
 @patch("src.api.credentials.check_gcp_credentials")

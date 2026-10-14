@@ -1,32 +1,21 @@
 # API
 
-The Management API is the public application boundary. Optimizer and Deployer APIs are
-internal contracts used by it.
+The Management API is the only application boundary used by Flutter. Optimizer
+and Deployer APIs are internal contracts.
 
-## Live References
-
-| Service | Swagger UI | OpenAPI JSON |
+| Service | Swagger | OpenAPI |
 |---|---|---|
-| Management API | `http://localhost:5005/docs` | `http://localhost:5005/openapi.json` |
+| Management | `http://localhost:5005/docs` | `http://localhost:5005/openapi.json` |
 | Optimizer | `http://localhost:5003/docs` | `http://localhost:5003/openapi.json` |
 | Deployer | `http://localhost:5004/docs` | `http://localhost:5004/openapi.json` |
 
-## Authentication
+Protected Management routes use the configured local development bearer. This
+is a single-user PoC mechanism, not production authentication.
 
-Protected Management API endpoints require a bearer token. Development mode offers an
-explicit local token only when enabled. Production expects real OAuth/SAML-issued
-application tokens; institutional SAML activation remains externally gated.
+Deploy and Destroy progress uses SSE backed by durable operation state. Clients
+recover from a page or stream interruption by resuming the recorded operation;
+they must not issue a second provider mutation.
 
-## Streaming
-
-Long-running deployment/log workflows use SSE for server-to-client progress. Durable
-status/history remains available through REST, so clients recover after stream or page
-loss by re-reading operation state.
-
-## Internal API Rule
-
-Optimizer and Deployer ports are published for local development and OpenAPI inspection.
-That does not authorize Flutter to call them. Internal contract errors are transformed
-at the Management API boundary into owner-scoped, redacted public responses.
-
-See [API and Contracts](../developer-guide/contracts.md) for evolution rules.
+Internal errors are transformed at the Management boundary into owner-scoped,
+redacted responses. Reaching local ports 5003 or 5004 does not make them Flutter
+integration points.

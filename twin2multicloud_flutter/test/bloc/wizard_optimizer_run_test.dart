@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -6,12 +8,13 @@ import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/core/app_logger.dart';
 import 'package:twin2multicloud_flutter/models/calc_params.dart';
 import 'package:twin2multicloud_flutter/models/optimizer_config.dart';
-import 'package:twin2multicloud_flutter/models/pricing_health.dart';
 import 'package:twin2multicloud_flutter/models/resolved_deployment_specification.dart';
+import 'package:twin2multicloud_flutter/models/resolved_twin_architecture.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
 
 import '../fixtures/typed_api_fixtures.dart';
+import '../fixtures/architecture_wizard_fixture.dart';
 
 final class _MockApiService extends Mock implements ApiService {}
 
@@ -31,7 +34,12 @@ void main() {
   });
   setUp(() {
     api = _MockApiService();
-    when(() => api.getPricingHealth()).thenAnswer((_) async => _health());
+    when(() => api.getRunResolvedArchitecture(any())).thenAnswer((invocation) {
+      final runId = invocation.positionalArguments.single as String;
+      return Future.value(
+        resolvedArchitectureFixture(runId: runId, twinId: 'new-twin'),
+      );
+    });
     when(() => api.selectOptimizerRunForDeployment(any(), any())).thenAnswer((
       invocation,
     ) async {
@@ -59,13 +67,17 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
     bloc.add(const WizardCalculateRequested());
-    await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+    await bloc.stream.firstWhere(
+      (state) => state.deploymentReview.ready || state.errorMessage != null,
+    );
 
+    expect(bloc.state.errorMessage, isNull);
+    expect(bloc.state.deploymentReview.ready, isTrue);
     expect(bloc.state.twinId, 'new-twin');
     expect(bloc.state.calcResult, run.optimization.result);
     expect(bloc.state.optimizationResultData, run.optimization);
@@ -89,7 +101,7 @@ void main() {
         if (runAttempts == 1) throw Exception('optimizer unavailable');
         return TypedApiFixtures.optimizerRun(twinId: 'new-twin');
       });
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -117,7 +129,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) => completer.future);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -166,10 +178,7 @@ void main() {
           selectedForDeploymentAt: selectedAt,
         );
       });
-      final bloc = WizardBloc(
-        api: api,
-        logger: AppLogger(sink: logSink),
-      );
+      final bloc = _bloc(api, logger: AppLogger(sink: logSink));
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -198,6 +207,57 @@ void main() {
     },
   );
 
+  test(
+    'six-layer v2 offline evidence loads for review without deployment selection',
+    () async {
+      final run = _sixLayerOptimizerRun();
+      final profile =
+          (run.deploymentRun.specification as ResolvedDeploymentSpecificationV2)
+              .architectureProfileRef;
+      when(() => api.createTwin('Factory twin')).thenAnswer(
+        (_) async =>
+            TypedApiFixtures.twin(id: 'new-twin', name: 'Factory twin'),
+      );
+      when(
+        () => api.createOptimizerRun('new-twin', any()),
+      ).thenAnswer((_) async => run);
+      when(
+        () => api.getRunResolvedArchitecture(run.id),
+      ).thenAnswer((_) async => _sixLayerResolvedArchitecture());
+      final bloc = _bloc(
+        api,
+        initialState: architectureReadyWizardState(
+          persisted: false,
+          profileId: profile.id,
+          profileVersion: profile.version,
+          profileDigest: profile.digest,
+        ),
+      );
+      addTearDown(bloc.close);
+      await _prepare(
+        bloc,
+        params: CalcParams.sixLayer(scenario: SixLayerWorkloadScenario.small),
+      );
+
+      bloc.add(const WizardCalculateRequested());
+      await bloc.stream.firstWhere(
+        (state) =>
+            state.deploymentReview.state ==
+                ResolvedDeploymentReviewState.evaluationOnly &&
+            state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready,
+      );
+
+      expect(bloc.state.deploymentReview.ready, isFalse);
+      expect(bloc.state.resolvedArchitectureReadyForSelectedRun, isTrue);
+      expect(bloc.state.canProceedToStep3, isFalse);
+      expect(bloc.state.warningMessage, contains('evaluation-only'));
+      verifyNever(
+        () => api.selectOptimizerRunForDeployment('new-twin', run.id),
+      );
+      verify(() => api.getRunResolvedArchitecture(run.id)).called(1);
+    },
+  );
+
   test('changed inputs invalidate a verified deployment run', () async {
     final run = TypedApiFixtures.optimizerRun(twinId: 'new-twin');
     when(() => api.createTwin('Factory twin')).thenAnswer(
@@ -206,7 +266,7 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
@@ -239,12 +299,23 @@ void main() {
     when(
       () => api.createOptimizerRun('new-twin', any()),
     ).thenAnswer((_) async => run);
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc);
 
     bloc.add(const WizardCalculateRequested());
-    await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+    final resolvedState = await bloc.stream.firstWhere(
+      (state) =>
+          state.resolvedArchitecturePhase == ResolvedArchitecturePhase.ready ||
+          state.resolvedArchitecturePhase ==
+              ResolvedArchitecturePhase.incompatible ||
+          state.resolvedArchitecturePhase == ResolvedArchitecturePhase.error,
+    );
+    expect(
+      resolvedState.resolvedArchitectureReadyForSelectedRun,
+      isTrue,
+      reason: resolvedState.resolvedArchitectureError,
+    );
     bloc.add(const WizardGoToStep(2));
     await bloc.stream.firstWhere((state) => state.currentStep == 2);
 
@@ -270,12 +341,24 @@ void main() {
       when(
         () => api.createOptimizerRun('new-twin', any()),
       ).thenAnswer((_) async => run);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
       bloc.add(const WizardCalculateRequested());
-      await bloc.stream.firstWhere((state) => state.deploymentReview.ready);
+      final resolvedState = await bloc.stream.firstWhere(
+        (state) =>
+            state.resolvedArchitecturePhase ==
+                ResolvedArchitecturePhase.ready ||
+            state.resolvedArchitecturePhase ==
+                ResolvedArchitecturePhase.incompatible ||
+            state.resolvedArchitecturePhase == ResolvedArchitecturePhase.error,
+      );
+      expect(
+        resolvedState.resolvedArchitectureReadyForSelectedRun,
+        isTrue,
+        reason: resolvedState.resolvedArchitectureError,
+      );
       final originalParams = bloc.state.calcParams!;
       bloc.add(const WizardNextStep());
       await bloc.stream.firstWhere((state) => state.currentStep == 1);
@@ -315,7 +398,7 @@ void main() {
       when(
         () => api.createOptimizerRun('new-twin', any()),
       ).thenAnswer((_) => pendingRun.future);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -360,7 +443,7 @@ void main() {
       when(
         () => api.selectOptimizerRunForDeployment('new-twin', 'run-123'),
       ).thenAnswer((_) => pendingSelection.future);
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -430,7 +513,7 @@ void main() {
         if (attempts == 1) throw Exception('verification unavailable');
         return retry.future;
       });
-      final bloc = WizardBloc(api: api);
+      final bloc = _bloc(api);
       addTearDown(bloc.close);
       await _prepare(bloc);
 
@@ -467,7 +550,7 @@ void main() {
   );
 
   test('blank create-mode name blocks twin and optimizer calls', () async {
-    final bloc = WizardBloc(api: api);
+    final bloc = _bloc(api);
     addTearDown(bloc.close);
     await _prepare(bloc, twinName: '   ');
 
@@ -480,43 +563,73 @@ void main() {
   });
 }
 
+WizardBloc _bloc(
+  _MockApiService api, {
+  AppLogger logger = const AppLogger(),
+  WizardState? initialState,
+}) => WizardBloc(
+  api: api,
+  logger: logger,
+  initialState: initialState ?? architectureReadyWizardState(persisted: false),
+);
+
 Future<void> _prepare(
   WizardBloc bloc, {
   String twinName = 'Factory twin',
+  CalcParams? params,
 }) async {
   bloc
     ..add(WizardTwinNameChanged(twinName))
-    ..add(WizardCalcParamsChanged(CalcParams.defaultParams()))
-    ..add(const WizardPricingHealthLoadRequested());
+    ..add(WizardCalcParamsChanged(params ?? CalcParams.defaultParams()));
   await bloc.stream.firstWhere(
-    (state) =>
-        state.twinName == twinName &&
-        state.calcParams != null &&
-        state.pricingHealth != null,
+    (state) => state.twinName == twinName && state.calcParams != null,
   );
 }
 
-PricingHealthResponse _health() => PricingHealthResponse.fromJson({
-  'schema_version': 'pricing-health.v1',
-  'providers': {
-    for (final provider in const ['aws', 'azure', 'gcp'])
-      provider: {
-        'provider': provider,
-        'state': 'fresh',
-        'severity': 'success',
-        'review_required': false,
-        'can_calculate': true,
-        'calculation_source': 'fresh',
-        'pricing_freshness': 'fresh',
-        'source_label': '${provider.toUpperCase()} source',
-        'credential_summary': {
-          'provider': provider,
-          'purpose': 'pricing',
-          'scope': 'user',
-          'identity_label': '${provider.toUpperCase()} pricing',
-          'status': 'active',
-        },
-        'primary_message': '$provider pricing is ready',
-      },
-  },
-});
+OptimizerRunData _sixLayerOptimizerRun() {
+  final specification = _jsonFixture(
+    '../contracts/resolved-deployment-specification/v2/fixtures/valid/'
+    'six-layer-aws-azure-eventing-small.json',
+  );
+  final runId = specification['calculation_run_id']! as String;
+  final optimization = TypedApiFixtures.optimization();
+  final deploymentRun = OptimizerDeploymentRunData.fromDetailJson({
+    'id': runId,
+    'twin_id': 'new-twin',
+    'status': 'succeeded',
+    'deployment_compatibility_status': 'ready',
+    'deployment_specification_digest': specification['digest'],
+    'deployment_specification_version': specification['schema_version'],
+    'resolved_deployment_specification': specification,
+    'created_at': TypedApiFixtures.timestamp.toIso8601String(),
+    'selected_for_deployment_at': null,
+  });
+  return OptimizerRunData(
+    id: runId,
+    twinId: 'new-twin',
+    optimization: optimization,
+    deploymentRun: deploymentRun,
+    totalMonthlyCost: optimization.result.totalCost,
+    currency: 'USD',
+    createdAt: TypedApiFixtures.timestamp,
+    completedAt: TypedApiFixtures.timestamp.add(const Duration(seconds: 1)),
+  );
+}
+
+ResolvedTwinArchitectureRead _sixLayerResolvedArchitecture() {
+  final architecture = _jsonFixture(
+    '../contracts/architecture-profiles/v2/fixtures/valid/'
+    'six-layer-aws-azure-eventing-small-resolved.json',
+  );
+  return ResolvedTwinArchitectureRead.fromJson({
+    'twin_id': 'new-twin',
+    'calculation_run_id': architecture['calculation_run_id'],
+    'selected_for_deployment_at': null,
+    'architecture_compatibility_status': 'ready',
+    'origin': 'native_v2',
+    'architecture': architecture,
+  });
+}
+
+Map<String, dynamic> _jsonFixture(String path) =>
+    jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;

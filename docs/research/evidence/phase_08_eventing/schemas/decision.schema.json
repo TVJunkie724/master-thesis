@@ -11,7 +11,6 @@
     "decision_status",
     "approval_scope",
     "profile_candidates",
-    "historical_profile",
     "profile_parity_decision_ref",
     "domain_event_flow_contract_ref",
     "input_digests",
@@ -36,9 +35,8 @@
       "const": "offline evidence and exact non-executable Phase 8.9 blueprint; no claim of deployed or live-cloud verification"
     },
     "profile_candidates": {
-      "const": ["five-layer-baseline@2", "six-layer-eventing@1"]
+      "const": ["six-layer-eventing@1"]
     },
-    "historical_profile": {"const": "five-layer-baseline@1"},
     "profile_parity_decision_ref": {
       "const": "phase-08-eventing-profile-parity@1"
     },

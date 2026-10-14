@@ -1,0 +1,813 @@
+# Supervised Six-layer live evaluation
+
+Current checkpoint (2026-10-09): the [application observation](application-closeout-results.md)
+adds one actual AWS normal deployment, reconnect and downloaded-simulator
+command/L3/Event→L4/L5 assertion to the previously separated cuts. Its two sample
+conditions, popup-observation limitation, supplementary journaled identity cleanup,
+Destroy retry and inactive markers remain explicit. The
+[frozen model comparison](poc-cost-model-results.md) is offline evidence, not bills
+or Medium/Large live qualification. The JSON matrix remains a frozen planning
+input; no complete-profile matrix-wide pass is inferred.
+
+Historical status (2026-10-04): all three provider-local and all six directed Core telemetry
+cases have passed live. Bounded account preparation and all six standalone
+federation probes are also verified. Current Azure runs use the approved
+one-administrator contract.
+The [Core evaluation record](../../plans/2026-09-16_poc_core_evaluation.md)
+separately records each attempt, metrics, Destroy and independent inventory,
+including inactive provider tombstones. Complete-profile, command roundtrip,
+storage transitions and L4/L5 verification remain separate evaluations.
+The [compact Core results](core-telemetry-results.md) consolidate the nine
+successful paths and explicitly retain measurement gaps and cleanup limitations.
+
+Current execution is deliberately split: the nine Core observations are followed
+by the [isolated AWS/Azure L4 check](../../plans/2026-10-04_poc_l4_evaluation.md),
+then separately scoped simulator/command and graphical-L5 evidence. The L4
+native-state correction and supervised runner now have two isolated live passes
+(AWS/Azure), including model/state/replay readback and clean independent inventory.
+The complete-graph staged protocol later in this
+document applies only after its outstanding implementation/approval gates clear;
+it does not require repeating all nine Core runs or keeping resources alive while
+later layers are developed. A local-adapter L4 check cannot substitute for
+Event-to-L4 delivery using the deployed identity. L5 remains last and no Grafana
+restoration or GCP L4/L5 replacement is implied.
+
+The [integration close-out plan](../../plans/2026-10-04_poc_integration_closeout.md)
+specifies the next one-message simulator/feedback assertion, SDK-owned identity
+cleanup and read-only Event/L4 dependency findings. Its offline tests and saved
+plans are not live command-delivery evidence.
+
+## Purpose
+
+The live evaluation answers the research questions with the smallest useful
+deployment set. It is a cross-stack thesis protocol, not a Deployer component
+test suite. The complete-profile planning input is
+`small-scenario-matrix.json`. The earlier, separately scoped Core evaluation uses
+the nine deterministic inputs from `scripts/prepare_core_evaluation.py`.
+
+The revised matrix contains two complete provider-local baselines (AWS/Azure) and six directed
+multi-cloud focus cases. Every AWS/Azure/GCP direction is the primary focus of
+one case. The focus edges use the two contracts implemented as cross-cloud PoC
+boundaries: canonical domain events and Twin projection. Hot, cool and archive
+remain co-located. The authenticated raw-history reader belongs to L3, not L5.
+Visualization is an independent consumer; remote reader authentication is not
+implemented and such consumers remain blocked. Incidental reverse or additional cross-cloud
+edges remain part of the recorded graph but do not create extra scenarios.
+
+## Current prerequisite checkpoint
+
+**Scope correction (2026-09-16):** GCP L4/L5 are excluded, without replacement
+VMs or a custom Twin platform. GCP L1–L3 and Eventing remain in scope. The
+eight complete-graph planning candidates do not replace the separately scoped
+nine-case Core telemetry evaluation. The [Core evaluation implementation](../../plans/2026-09-16_poc_core_evaluation.md)
+adds a fixed Terraform `core` scope and offline preparation for all three local
+and six directed cases. L4/L5, their Twin projection consumer and related routes
+are absent, not merely checked later inside a complete Apply.
+Research questions remain unchanged; this is an implementation finding and a
+limit on the available functional comparison, not a measured negative result.
+
+**Historical integration checkpoint (2026-10-08):** the isolated AWS/Azure graphical L5
+experiment passed on 2026-10-05. Its provider-local Lambda/Flex consumers are
+now wired into the normal Terraform graph, with separate L5 cost terms and
+owner-scoped Management HTML access. Empty panels prove readiness, not data
+delivery. A representative normal application run is still required; the
+isolated seeded-data observations do not establish simulator-to-L5 delivery.
+Unsupported remote consumers remain blocked. The previous empty L5 subtotal
+and reader-only outputs are superseded, not evidence of a free visualization.
+Old candidate, image and budget digests cannot approve the revised graphs.
+
+Core inputs are a bounded research lane, not deployment-ready Management
+manifests. Directed Core cases put ingestion at the source and Event Layer,
+processing and storage at the destination. The command return path requires
+both directed identity bindings. Their coverage and costs must be recorded
+separately from the different full-profile focus cases. Retained delivery sizing
+is conservative; no new cost quote or live readiness follows from mock plans.
+
+**Historical L5 blocker (2026-09-07):** JSON readback does not establish graphical
+equivalence. The [minimal visualization review](l5-visualization-feasibility.md)
+finds that restoring AWS Managed Grafana exceeds the unchanged technical caps
+without verified credits; Azure billing still needs resolution. The earlier
+GCP VM proposal is superseded by the GCP L4/L5 exclusion. Earlier dashboard prerequisite checks below are
+historical and do not clear this gate. No dashboard restoration or additional
+spending is authorized by the existing reader-only budget proposal.
+
+On 2026-08-29, the supervised account-level gate completed without Terraform
+Apply or workload-resource creation. AWS identity, Region, regional STS, IAM
+Identity Center, and 108 required permissions are ready. Azure subscription,
+Regions, Microsoft Graph authority, all 16 required resource providers, and all
+eight permission groups were ready under the then-active two-principal
+contract. The GCP project, billing check, Region, all
+18 Six-layer APIs, and all 80 project-testable permissions are ready.
+
+The secret-free local summary is
+`.evidence/provider-bootstrap-2026-08-29/provider-free-final-readiness.json`
+with SHA-256
+`f8dbf103e4b0878ba1d16375d61872594b968576ae034a3a947860eb67c926a4`.
+Because `.evidence/` is intentionally ignored, a different checkout must obtain
+the supervised evidence separately and verify this digest. These results do
+not satisfy the remaining quota/capacity, L4/L5, directed federation, or
+scenario records.
+
+The follow-up provider probe used only GET, LIST, and DESCRIBE control-plane
+operations and emitted no provider scope, resource name, credential path, or
+credential value. AWS has sufficient checked Lambda, TwinMaker, and Kinesis
+headroom. Azure exposes every required resource type in the configured Regions
+and Microsoft.Web usage is readable; the App, DocumentDB, and
+EventHub control planes expose the relevant usage only at resource scope or
+after creation and therefore remain explicitly partial. GCP exposes the
+required machine types and sufficient Small compute, disk, address, zonal GKE,
+Firestore, and Cloud Run quota.
+
+AWS and Azure L4/L5 account/Region prerequisites pass. GCP L5 remains an
+Apply-time access check. The GCP project has no organization ancestor, so the
+approved L4 PoC path uses one supervised console-generated custom OAuth
+configuration for direct Cloud Run IAP. It is performed only after the first
+approved GCP scenario has passed L1--L3 and Event Layer verification and before
+its L4 check. The exact time, cost, evidence, abort, and rollback boundaries are
+frozen in
+[`gcp-l4-iap-bootstrap-runbook.md`](gcp-l4-iap-bootstrap-runbook.md). This
+decision does not claim that the prerequisite has passed; no such mutation has
+been made.
+
+The exact six standalone identity checks, resources, time limits, direct cost
+caps, cleanup order, and residual-inventory rules are frozen in
+[`directed-federation-probe-plan.json`](directed-federation-probe-plan.json).
+Its record digest is
+`sha256:29d1024d5180e79b86ff198da4c21c61c83f89c703753b850efe3686c0505754`.
+The exact plan received supervised approval for run `26083001`. All six
+directions passed with immediate cleanup and clean active residual inventory.
+Only the expected, non-usable GCP soft-delete tombstones remain.
+
+On 2026-09-03 the Azure credential contract was deliberately reduced to one
+administrator for the isolated thesis subscription. The current readiness gate
+requires subscription Owner, `Application.ReadWrite.All`, and
+`AppRoleAssignment.ReadWrite.All`. On 2026-09-04, a supervised one-time
+operator session applied those grants to the existing application and removed
+the four redundant subscription roles. No application, secret or workload
+resource was created, no Terraform action ran and no direct charge was
+incurred. With the operator session removed, the application credential then
+passed the non-mutating Owner, Microsoft Graph, Region, all six Azure
+control-plane and L4/L5 prerequisite checks. Quota evidence remains partial
+only for services that expose usage at resource scope or after creation. The
+first supervised Azure-to-AWS attempt under this current authority reached AWS
+OIDC provider creation but stopped before target-role or billable-runner
+creation because AWS returned the provider ARN with an equivalent trailing
+slash. The harness correctly stopped on the unexpected representation, but a
+cleanup-ownership flag was set after the strict comparison and its initial
+record therefore incorrectly reported clean residual inventory. An immediate
+tag- and issuer-bound reconciliation found and deleted exactly one provider;
+the final AWS, Azure Resource Manager and Microsoft Graph inventories are
+clean and direct cost was USD 0.00. The harness now allowlists only the two
+equivalent ARN forms and owns the returned provider before validating it. This
+attempt contributes operational and cleanup evidence to RQ1 and a zero-cost
+boundary observation to RQ3; it does not claim the RQ2 exchange succeeded. No
+retry was started.
+
+On 2026-09-06, each newly supervised Azure-to-AWS retry was preceded and
+followed by an independent six-class inventory check. The first retry reached
+the bounded ACI runner for 57.237 seconds but its AWS exchange failed because
+the trust-policy condition omitted the trailing path separator that is part of
+the complete Azure issuer URL. Cleanup and the independent inventory were
+clean; the condition prefix now preserves the issuer host and complete path.
+The next two retries stopped before ACI: the first on HTTP 400 while the new
+audience service principal propagated, the second on HTTP 404 while its app
+role assignment propagated. The latter initially left one service principal
+visible after the normal delete; one exact object-bound delete retry removed
+it and the independent inventory then passed all six classes. The harness now
+retries only these two exact Graph mutations on HTTP 400/404 within the
+existing deadline and reissues only the cleanup-owned service-principal delete
+during reconciliation.
+
+The fourth retry passed the managed-identity token, AWS web-identity exchange,
+and AWS session-identity check in 40.320 seconds. Immediate cleanup and the
+independent AWS, Azure Resource Manager, and Microsoft Graph inventory passed
+all six classes. No Terraform Apply, Twin workload, message transfer, or full
+E2E run occurred. RQ1 gains measured Entra propagation and cleanup behavior;
+RQ2 now has standalone directed-identity evidence for five of six directions;
+RQ3 bounds the two billable retries by their unchanged USD 0.01 per-attempt
+technical caps rather than inferring an unobserved provider invoice. At this
+checkpoint, Azure-to-GCP was the only remaining directed prerequisite.
+
+Azure-to-GCP then completed under the same independently cleaned retry model.
+The first attempt reached ACI for 51.225 seconds, but the immediate terminated-
+container log request returned HTTP 400; the exchange was therefore not
+claimed even though cleanup and eight independent active-inventory checks were
+clean. The harness now retries only empty, HTTP 400, or HTTP 404 log reads
+within the existing deadline. The second attempt stopped before ACI after
+creating the GCP provider because a downstream validator still rejected the
+bounded retry suffix. Cleanup was clean and direct cost was USD 0.00. GCP does
+not permit a soft-deleted pool ID to be reused for approximately 30 days, so
+subsequent attempts use a two-digit suffix inside the already approved name
+prefix and retain the tombstones as explicit, non-active evidence.
+
+The third attempt passed the managed-identity and GCP STS stages but stopped at
+service-account impersonation after 33.908 seconds of ACI runtime. Immediate
+cleanup and all eight active-inventory checks were clean. The runner now
+retries only that exact token-generation operation ten times at five-second
+intervals, still within its 300-second limit. The fourth attempt passed the
+managed-identity assertion, GCP workload-identity exchange, and one target
+service-account access-token issuance in 57.268 seconds. Immediate cleanup and
+an independent ten-class inventory were clean; the four expected pool/provider
+tombstones are deleted and unusable. RQ1 records log, namespace, and IAM
+propagation behavior; RQ2 now has standalone directed-identity evidence for
+all six directions. RQ3 records three Azure-to-GCP attempts that reached ACI,
+each below its USD 0.01 technical cap, without inferring an exact provider
+invoice. No Terraform Apply, Twin workload, message transfer, or full E2E run
+occurred.
+
+The following earlier attempt records remain historical evidence and must not
+be read as validation of the current credential contract.
+
+After the earlier split-authority prerequisite passed, a second Azure-to-AWS
+attempt stopped before ACI creation because the new managed-identity service principal
+was not yet readable through Microsoft Graph. Direct cost remained USD 0.00.
+The normal cleanup calls completed; one application remained temporarily
+visible and was removed by one exact object-bound delete retry. The final AWS,
+Azure Resource Manager and active Microsoft Graph inventories are clean. The
+harness now waits within the existing overall deadline for the managed identity
+to become Graph-readable and retries only the known application delete during
+residual reconciliation. In accordance with `first_exchange_failed`, no further
+cloud retry was started without renewed supervision.
+
+The subsequently approved retry passed the managed-identity visibility gate
+but stopped before ACI creation when the newly created audience service
+principal and its app role had not yet propagated sufficiently for the exact
+app-role assignment. Cleanup and residual inventory were immediately clean;
+direct cost again remained USD 0.00. The harness now also waits for that exact
+service principal to expose the expected app-role ID before creating the
+assignment. No additional cloud retry was started after this failure.
+
+The next explicitly approved retry again stopped before ACI creation and
+incurred USD 0.00. A read-only comparison with the deleted-object inventory
+confirms that the preparation principal created the audience application and
+set its identifier URI before Microsoft Graph rejected creation of the
+associated service principal with HTTP 403. The preparation token contains
+exactly the three approved Graph permissions. Microsoft documents
+`Application.ReadWrite.OwnedBy` as sufficient for
+[creating a service principal](https://learn.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals?view=graph-rest-1.0),
+while `appRoleAssignmentRequired` defaults to `false`. The probe therefore no
+longer writes that redundant property: the destination trust already requires
+the explicitly assigned `EventBridge.Exchange` role claim. The harness now
+records application creation, identifier-URI update and service-principal
+creation as separate stages. Cleanup and active residual inventory were clean;
+no further retry was started.
+
+The following supervised attempt proved that the reduced request had not yet
+been reached: Microsoft Graph accepted the application creation but returned
+HTTP 404 for the immediate identifier-URI update. ACI was not created, cleanup
+and active residual inventory were clean, and direct cost was USD 0.00. The
+harness now retries only that idempotent PATCH on HTTP 404 within the existing
+overall deadline; every other response remains fail-closed. This records an
+additional Entra read-after-write propagation boundary without expanding the
+permission or resource scope. No further cloud retry was started.
+
+## Execution boundary
+
+Scenario Apply remains disabled until all of the following are present for one
+scenario:
+
+1. an immutable Small workload digest;
+2. an Optimizer candidate and cost trace matching the exact assignments;
+3. a graph, RDS, manifest, and preparation-plan digest;
+4. a reviewed numerical budget cap and maximum runtime;
+5. real CloudConnection selections and a passing or honestly blocked
+   graph-derived readiness result;
+6. explicit Apply and Destroy confirmations; and
+7. an external timer plus a named operator responsible for residual cleanup.
+
+The checked matrix is validated in its current non-executable state with:
+
+```bash
+python scripts/validate_live_evaluation_plan.py --require-state planned
+```
+
+After all nine numerical budget caps have been reviewed, the tracked plan must
+record `status: approved_for_supervised_execution` and
+`execution_enabled: true`. Before any provider action, the operator then runs
+the same validator with `--require-state ready`. This transition validates the
+plan only; it never replaces the distinct Apply and Destroy confirmations.
+
+The normal application continues to deploy only the cost-selected Small
+candidate. Small uses the published static sizing bounds and becomes
+deployable only after the independent graph-derived account preflight;
+Medium/Large calculations remain evaluation-only until their explicit live
+capacity gates are demonstrated. Runtime capacity observations for Small are
+evaluation outputs, not impossible preconditions to the first deployment.
+Explicit candidate selection remains an operator-only evaluation hook and
+must not become a public profile or provider-override feature.
+
+Before any live authorization, one planned candidate can be reproduced from
+the pinned catalogs without provider access:
+
+```bash
+python scripts/materialize_live_evaluation_candidate.py \
+  small-focus-aws-to-azure --output /tmp/candidate.json
+```
+
+The output contains the exact candidate, cost ledger, RTA and RDS and is marked
+`offline_planned_candidate`. It is an input to budget review, not deployment or
+live evidence. The strict public workload model rejects candidate overrides;
+only the disabled-by-default Management evaluation endpoint can pass the
+repository-validated internal binding to the Optimizer.
+
+The complete nine-scenario handoff is materialized into a new, non-overwriting
+directory with:
+
+```bash
+python scripts/materialize_live_evaluation_candidate.py --all \
+  --output-dir /tmp/six-layer-live-candidates
+```
+
+The directory contains one digest-bound candidate file per checked scenario
+and `candidate-pack-manifest.json`, including the calculated monthly totals
+used for the separate budget review. The totals are estimates, not approved
+Apply caps, and materialization still performs no provider or Deployer call.
+
+Build the schema- and digest-bound offline budget proposal from that exact
+candidate pack with:
+
+```bash
+python scripts/review_live_evaluation_budget.py \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --output /tmp/six-layer-live-budget-proposal.json
+```
+
+The bounded policy is checked in as
+`small-scenario-budget-policy.json`; the proposal generated for the current
+planned matrix is `small-scenario-budget-proposal.json`. The method scales the
+complete monthly candidate estimate from 730 hours to the 60-minute window,
+multiplies that result by three, adds a one-dollar uncertainty buffer, and
+rounds upward to half-dollar increments. The refreshed proposals are bounded
+to USD 2–3 per scenario and USD 20 across the nine-scenario portfolio.
+
+Meters expressed as `count`, `seats/month`, or `GiB-month` remain mandatory
+billing-semantics review items. If the exact Terraform plan or current provider
+terms reveal a non-prorated minimum or retention charge that does not fit the
+proposal, that scenario is blocked; its cap is not raised automatically.
+
+The provider-terms review on 2026-09-06 originally found two unresolved
+pre-authorization boundaries. The 2026-09-07 PoC simplification removed all
+managed and self-hosted Grafana resources from the active Six-layer profile;
+The initial reader-only shortcut was not graphical L5. The 2026-10-08 mapping
+instead uses a separate Lambda/Flex consumer of the provider-local L3 reader,
+with no
+dashboard seat, workspace, cluster, disk, or load-balancer minimum. GCP image
+publication is reduced to at most four content-addressed images and uses the
+default-pool `e2-standard-2` worker. [Cloud Build pricing](https://cloud.google.com/build/pricing)
+currently assigns its promotional monthly free tier to that worker. If the
+free tier is exhausted, the four 20-minute build timeouts bound worker charges
+to USD 0.48 at the reviewed USD 0.006 per build-minute rate. Current usage and
+terms must still be checked before Apply; no free-tier assumption is promoted
+to observed cost.
+
+The remaining reviewed semantics do not justify treating a monthly Optimizer
+amount as an immediate bill. Azure Container Registry is priced per day and
+its Tasks per running CPU-second according to the
+[ACR pricing page](https://azure.microsoft.com/en-us/pricing/details/container-registry/).
+AWS S3 Standard-IA and Glacier Deep Archive and GCP Nearline and Archive apply
+minimum object-storage durations, including early-deletion charges, rather
+than charging for an empty bucket. The current provider terms document the
+respective [AWS S3](https://aws.amazon.com/s3/pricing/) and
+[Google Cloud Storage](https://cloud.google.com/storage/pricing) boundaries.
+All actual object counts and sizes must therefore come from the supervised
+test payload and Destroy evidence, not the normalized monthly capacity model.
+
+The same offline checkpoint repeated the three provider-local Terraform tests
+with mock providers. The plans passed and reported 107 AWS, 81 Azure, and 143
+GCP resources to add, with no changes or destroys. These counts were captured
+before the L5 simplification and remain historical evidence; refreshed mock
+plans are the authority for the current graph. Mock plans do not authorize the
+image-foundation target Apply, image publication, full Apply, or the GCP
+post-cluster Kubernetes Apply. The exact current plan and Cloud Build usage
+remain mandatory pre-authorization checks.
+
+These values are bounded operator-review proposals, not expected spend,
+provider-enforced hard stops, or approved caps. The checked matrix therefore
+retains nine `null` caps, `planned_not_executed`, and
+`execution_enabled: false`. A human must review the exact Terraform plan,
+provider proration/minimum-charge semantics, named operator, and cleanup
+responsibility before copying any cap into the matrix.
+
+The same policy fixes one external timer that starts before Terraform Plan,
+warns at 45 minutes, triggers Destroy at 50 minutes, and reserves the remaining
+ten minutes for Destroy progress and residual-inventory reconciliation. The
+60-minute metrics gate remains the terminal after-the-fact validation; it does
+not replace that external timer.
+
+After the tracked matrix is approved, all nine budget caps are set, and the
+candidate pack has been regenerated against that exact plan digest, build one
+non-overwriting Management request offline:
+
+```bash
+python scripts/build_supervised_evaluation_request.py \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --scenario-id small-focus-aws-to-azure \
+  --output /tmp/small-focus-aws-to-azure.request.json
+```
+
+The command validates the ready plan and candidate pack and performs no HTTP
+or cloud call. During the supervised session, the operator temporarily enables
+`SUPERVISED_EVALUATION_ENABLED`, posts that body to the owner-scoped
+`/twins/{twin_id}/optimizer-runs/supervised-evaluation` endpoint, then disables
+the hook again. The resulting calculation run is selected and processed by the
+same preflight, Apply, replay, access, verification, Destroy, and cleanup path
+as a normal cost-selected run.
+
+Final metrics are accepted into the evidence index only when their provider
+scope equals the exact candidate placement and every checkpoint provider
+matches the candidate's component assignment. This prevents measurements from
+a different deployment from being attached to a valid candidate digest.
+
+Create the non-overwriting, not-started evidence index beside the future
+evidence files:
+
+```bash
+python scripts/manage_live_evaluation_evidence.py create \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --output /tmp/six-layer-live-evidence/evidence-index.json
+```
+
+After recording only redacted artifacts from the supervised workflow, validate
+the index and every referenced file digest with:
+
+```bash
+python scripts/manage_live_evaluation_evidence.py validate \
+  --candidate-pack /tmp/six-layer-live-candidates \
+  --record /tmp/six-layer-live-evidence/evidence-index.json
+```
+
+The evaluation-only schema is
+`schemas/live-evaluation-evidence.schema.json`. It fixes three provider checks,
+all six directed identity exchanges, and the nine scenario records. A completed
+scenario cannot validate without readiness, Terraform plan, Apply, access,
+telemetry, evaluation metrics, Destroy, cleanup, and provider-cost artifacts.
+The completed evaluation additionally requires one representative `replay`
+artifact attached to its source scenario. A blocker is valid only when it is
+explicit and evidence-backed; an Apply followed by a blocker still requires
+its metrics record, Destroy and cleanup evidence. This index references the
+normal application outputs and does not execute an operation itself. A
+completed scenario has exactly one artifact of every required kind. Its cleanup
+artifact must be a clean `cleanup-evidence.v1` record covering the exact
+candidate providers, and its observed-cost value must name the one indexed
+provider-cost export.
+
+### Runtime-image readiness
+
+The credential-free image checkpoint is recorded in
+`small-runtime-image-readiness.json` and verified with:
+
+```bash
+python scripts/verify_live_evaluation_image_readiness.py
+```
+
+The record is bound to candidate-pack manifest
+`sha256:e5610e90570d44d9aff97537b721ff3324b1f2ad2b853b2fbe2e0e3ff3ffb476`
+and has record digest
+`sha256:9ecdd560136650fd99d5287fdfa9418341a107bf4ea0deea74cd8fe6a7e793d9`.
+The public broker image and all four pinned build inputs resolve at their
+declared registry digests. All six required static custom runtime images build
+locally for `linux/amd64`. No image was pushed and no provider registry was
+mutated, so local image IDs are deliberately not represented as deployable
+registry digests.
+
+The GCP processor extension is not a static profile image. Its context is
+content-bound to the one canonical evaluation function already referenced by
+the candidate pack. That exact artifact is now frozen, packaged deterministically,
+built locally for `linux/amd64`, and checked against its runtime-envelope
+contract. The same immutable source applies only to the four candidates that
+place L2 on GCP. Registry publication remains part of a separately approved
+scenario deployment; the local check did not create a parallel image
+publication system.
+
+## Cost-efficient order
+
+For each required provider and directed route:
+
+1. run identity and read-only readiness probes;
+2. validate pinned runtime images;
+3. exercise the minimum short-lived workload-identity exchange and remove its
+   probe resources;
+4. review the full Small Terraform plan and budget cap;
+5. deploy exactly one scenario;
+6. verify L1-L3 plus the Event Layer and stop on failure;
+7. verify L4 queryability;
+8. verify the authenticated, bounded L5 raw-history and hourly-rollup readback;
+9. run the simulator and one complete telemetry/command roundtrip;
+10. destroy immediately; and
+11. reconcile provider inventory before starting the next scenario and attach
+   observed provider cost when the provider billing export becomes available.
+
+No scenario may be left active merely to speed up the next one. Shared account
+capabilities are recorded separately from Twin-owned resources.
+
+### One run record with staged verification
+
+Each deployment attempt has one run directory and one metrics document bound
+to its scenario and candidate digest. Use `provider_local` or
+`directed_multicloud` throughout the attempt. L1-L3/Eventing, L4, L5, simulator,
+and cleanup observations are stages of this record; no additional component
+report is required. Existing `component_probe` records remain optional
+diagnostics and cannot substitute for a final scenario.
+
+The Deployer retains one atomic graph-bound Apply/Destroy path. All layers are
+created together; the following checks are staged inside that deployment:
+
+1. provider, image, account, and regional prerequisites;
+2. Apply the approved Small candidate;
+3. immediately verify L1-L3 plus Eventing and record that lifecycle phase;
+4. on a missing checkpoint, stop and Destroy without exercising L4/L5;
+5. otherwise verify L4 queryability, then L5 access as separate gates;
+6. only then run the complete simulator protocol and retain its samples;
+7. Destroy, reconcile inventory, and proceed to the next provider-local or
+   directed scenario only when cleanup is clean.
+
+For the first approved GCP scenario only, the separately approved manual step
+in
+[`gcp-l4-iap-bootstrap-runbook.md`](gcp-l4-iap-bootstrap-runbook.md) is inserted
+between steps 4 and 5. It configures IAP on the already-created Twin Explorer;
+it is not another deployment or a reusable product workflow.
+
+The same order applies to all nine scenarios. On an early abort, keep the
+failed phase, mark unexecuted phases `skipped` with null timing, explain the
+abort in `limitations`, and retain only samples actually observed. Never
+invent samples to fill the planned batch. The one metrics record still
+contains the Destroy and inventory attempts. The evidence index marks the
+scenario `blocked`; an incomplete run cannot satisfy the final matrix. A
+retry receives a new run directory, preserving the aborted attempt.
+
+GCP-L1 additionally retains its observed-capacity gate for the selected
+non-HA 1+1 Small broker/adapter allocation. The early GCP L1-L3/Eventing phase
+must establish its behavior before L4/L5 and the simulator continue. The
+existing BifroMQ/Pub/Sub capability decision remains separate from that live
+capacity evidence.
+
+### Shared application verification
+
+Observe UI reconnect and persisted operation replay once during a
+representative scenario of the evaluated application revision. Attach its
+`replay` artifact to that scenario, recording the revision, operation ID,
+resumed cursor and absence of a second Apply. The completed evaluation index
+requires at least one such artifact, not one per scenario. Repeat it only if
+the shared operation/reconnect implementation changes. A blocked evaluation
+without this observation must state the missing application evidence.
+
+Provider authentication, directed data paths, functional checks and cleanup
+remain scenario-specific. Every run retains its own Apply/Destroy operation
+references. This shared check does not replace any cloud-path evidence.
+
+### Minimal PoC diagnostics
+
+The application reuses provider-native logs; it does not introduce a separate
+monitoring platform. A `TRACE-*` or `VERIFY-*` message may emit the payload-free
+`diagnostic-checkpoint.v1` record at a bounded set of stages. Ordinary Twin
+traffic does not emit these records, and a checkpoint contains identifiers,
+stage, provider, component, status, and timestamp only—never telemetry or
+credential payloads.
+
+For the inexpensive component trace, the active graph requires this forward
+path:
+
+```text
+l1_accepted
+  -> event_layer_durable
+  -> l2_started
+  -> l2_completed
+  -> l3_hot_persisted
+```
+
+CloudWatch log groups, every active Azure Log Analytics workspace, and the GCP
+Cloud Functions, Cloud Run, worker-pool, and GKE log resource types are queried
+read-only for the correlation identifier. The trace completes early when the
+full path is observed. A timeout, unavailable provider query, or missing stage
+produces a `partial` result with the exact missing checkpoints; the UI must not
+turn this into an unqualified success.
+
+The same record vocabulary includes L4 queryability and the command/receipt
+path for later supervised probes. Those stages are not claimed by the cheap
+L1-L3 trace. L5 is intentionally a supervised, machine-readable access
+observation. The operator opens the returned provider URL, authenticates
+through the declared provider-native mode, and executes exactly two bounded
+JSON queries: raw history and an hourly rollup. A valid typed no-data result is
+acceptable before the simulator runs. There is no dashboard, plugin
+installation, credential rotation, or separate monitoring service. L4
+data-flow verification, L5 readback evidence, command receipt, and provider
+inventory remain separate evidence sources in the live protocol.
+
+Infrastructure diagnosis stays similarly bounded: Terraform state classifies
+L1, the independent Event Layer, L2, L3, L4, and L5; provider SDK checks cover
+the resources that cannot be established honestly from state alone. Existing
+stable error codes, operation IDs, persisted deployment logs, SSE replay, and
+cleanup evidence provide the failure context. Continuous alerting, dashboards,
+log retention beyond the short PoC window, and automatic incident remediation
+remain outside scope.
+
+## Evidence record
+
+Each executed scenario must produce a secret-free evidence directory with:
+
+- input, pricing, candidate, graph, RDS, and manifest digests;
+- account scopes and region labels without credential values;
+- readiness, preparation, confirmations, and operation correlation IDs;
+- Terraform plan/apply timestamps and terminal status;
+- operation references; the representative scenario also carries replay evidence;
+- access-surface readiness and telemetry trace result;
+- one validated `live-evaluation-metrics.v1` measurement document;
+- Destroy result, provider inventory, and residual classification; and
+- budget cap, observed cost, deviations, and limitations.
+
+An unresolved provider blocker is a valid result. Offline or mocked success is
+never substituted for missing live evidence.
+
+## Structured measurement protocol
+
+Functional verification and descriptive measurement are separate. One
+successful message proves that a path is reachable; it does not establish a
+latency distribution. Unless a reviewed run record states otherwise, each
+required direction therefore uses five warm-up messages followed by 50
+measured messages with the same payload and cadence.
+
+Every successful trace carries one non-null event identifier unchanged across
+all primary stops. The simulator, application, and provider observations record
+timestamps for the applicable path stops:
+
+```text
+telemetry:
+simulator_sent
+  -> l1_accepted
+  -> event_layer_durable
+  -> l2_started/l2_completed
+  -> l3_hot_persisted
+  -> l4_queryable
+
+command/receipt:
+command_issued
+  -> event_layer_command_durable
+  -> l1_command_published
+  -> simulator_command_received
+
+provider delivery outcome (separate durable evidence, not device execution):
+command_issued
+  -> outcome_event_durable
+  -> outcome_persisted/outcome_queryable
+```
+
+The exact expected path is declared per metrics document so a component probe
+does not pretend to cover absent downstream stages. A successful sample must
+contain that complete ordered path. Failed and timed-out samples retain their
+partial path and a typed failure code.
+
+The `command_receipt` measurement ends at `simulator_command_received`. The
+persisted provider-delivery outcome proves accepted/failed handoff separately
+and is not presented as a portable arbitrary device-action result. AWS
+additionally records its native IoT Command terminal response; Azure and GCP
+are compared at the common receipt boundary.
+
+When the same command trace contains provider-delivery outcome checkpoints,
+the metrics record retains them as `auxiliary_stages`. They do not alter the
+ordered command-receipt path or its latency calculation.
+
+The clock source and maximum observed skew are checked within the recorded run
+window. Unsynchronized clocks invalidate the measurement. Every metrics record
+is also bounded to the plan's 60-minute maximum runtime and must contain Plan,
+Apply, Destroy, and inventory-reconciliation measurements. A component probe
+adds at least the readiness phase it actually exercises; a final scenario
+records infrastructure, L1-L3/eventing, L4, and L5 readiness, including honest
+failed or skipped states. Terminal cleanup evidence is mandatory even when a
+functional phase fails.
+
+The result reports:
+
+- end-to-end mean, p50, p95, and maximum latency;
+- success, failure, timeout, retry, duplicate, ordering, and DLQ observations;
+- Terraform plan, Apply, readiness, L4/L5 readiness, Destroy, and inventory
+  reconciliation durations;
+- deployed provider resources and SKUs;
+- approved budget, calculated monthly estimate, and later observed incremental
+  provider cost; and
+- cleanup residuals and explicit limitations.
+
+Terraform per-resource create/update/destroy durations are retained when the
+CLI reports them, with provider IDs removed. They are diagnostic evidence for
+service-provisioning behavior, not a mandatory cross-provider ranking metric:
+resource boundaries and timing granularity differ by provider. The comparable
+primary infrastructure measurements remain Plan, Apply, readiness, Destroy and
+inventory reconciliation. Failed attempts keep the elapsed phase and any
+resource timings observed before the abort.
+
+Consecutive-stage latency and extra charts are optional diagnostics or
+RQ-specific analysis. Keep collected checkpoint data and automatic delivery
+counters; no additional measurement campaign is required to populate extra
+plots. A failed/skipped lifecycle phase with a documented limitation permits
+an incomplete sample batch, including zero samples after an early abort.
+Completed runs still require the declared batch and all lifecycle phases.
+
+The evidence validator accepts only bounded UTF-8 JSON, JSONL, CSV, log, or
+text artifacts (maximum 8 MiB each). Besides path and digest validation, it
+rejects sensitive JSON/CSV fields and recognizable private keys, access keys,
+tokens, and connection secrets. Credential files, binary archives, raw
+Terraform state, and one-time access values must never be copied into the
+evaluation directory.
+
+Latency is an evaluation metric only. It does not re-enter the Optimizer as an
+objective or weighted score.
+
+The schema is
+`schemas/live-evaluation-metrics.schema.json`. Validate one or more recorded
+runs without cloud access:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py validate \
+  --record /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json
+```
+
+Generate the four core CSV tables into a new,
+non-overwriting directory:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py summarize \
+  --record /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json \
+  --output-dir /tmp/six-layer-live-evaluation-summary
+```
+
+For the final thesis comparison, pass all nine final metrics files as repeated
+`--record` arguments and add `--require-complete-matrix`. The batch gate rejects
+duplicate runs or scenarios, missing or unexpected matrix entries, and mixed
+architecture contracts, source revisions, workload/simulator digests, or
+measurement protocols. Aborted runs and optional component probes do not count
+as final matrix evidence; the summary labels them `run_outcome: incomplete`.
+
+The default outputs are `run-summary.csv`, `lifecycle.csv`, `resources.csv`,
+and `cost-observations.csv`. Add `--diagnostics` to derive `stage-latency.csv`,
+`end-to-end-latency-p95.svg`, and `lifecycle-duration.svg` from the same data
+when a finding needs them. These remain derived artifacts; the digest-bound
+JSON measurement document is the primary evidence. A delayed provider-cost
+export is either recorded atomically with value, interval, and source path, or left
+entirely pending; it never delays Destroy or cleanup.
+
+Assemble the primary metrics document from one reviewed metadata template, one
+explicit sample plan, and one or more copied provider/simulator checkpoint logs:
+
+```bash
+python scripts/manage_live_evaluation_metrics.py collect \
+  --template /tmp/six-layer-live-evidence/<run>/metrics-template.json \
+  --sample-plan /tmp/six-layer-live-evidence/<run>/sample-plan.json \
+  --checkpoint-log /tmp/six-layer-live-evidence/<run>/checkpoints.jsonl \
+  --output /tmp/six-layer-live-evidence/<run>/evaluation-metrics.json
+```
+
+The collector is offline, refuses to overwrite output, rejects unplanned traces
+and duplicate or unexpected stages, accepts plain and provider-wrapped JSON log
+records, and validates direction, provider scope, clocks, stage/layer mappings,
+and run-time bounds before writing. It does not query a cloud or start a
+simulator.
+
+For an abort before the first sample, the sample-plan file contains
+`{"schema_version": "live-evaluation-sample-plan.v1", "samples": []}` and
+`--checkpoint-log` may be omitted. The template must still contain the failed
+or skipped lifecycle phases, the abort explanation and terminal cleanup.
+An otherwise completed run with missing samples is rejected.
+
+### Existing evidence sources
+
+The supervised operator collects the evidence from the normal owner-scoped
+Twin workflow; there is no second product-like evaluation orchestrator:
+
+| Evidence | Canonical source |
+|---|---|
+| Input, workload, pricing, allocation, cost trace, RTA and RDS | candidate pack plus the selected Optimizer run and its pricing-evidence response |
+| Account scopes | secret-free CloudConnection metadata; never the imported credential payload |
+| Graph-derived readiness | `deployment-preflight` response and cached `deployment-readiness` response |
+| Reviewed account changes | digest-bound `deployment-preparation` request and response |
+| Apply/Destroy correlation; one shared replay observation | deployment history and persisted logs per run; representative owner-scoped SSE reconnect with `Last-Event-ID` |
+| L4/L5 access | secret-free `deployment-access` response plus supervised, authenticated raw-history and hourly-rollup JSON readback; credential values are excluded |
+| Telemetry roundtrip | persisted data-flow verification record |
+| Timing, reliability, resources and measurement protocol | one `live-evaluation-metrics.v1` document per attempt, including early verification and cleanup; incomplete attempts remain explicit |
+| Cleanup and residuals | terminal Destroy operation and its typed `cleanup-evidence.v1` output |
+| Observed cost | one indexed provider billing export whose path is bound from the metrics document after Destroy; provider-dependent delay does not postpone cleanup or keep a scenario active |
+
+Apply and Destroy are initiated only from their distinct confirmed UI actions
+during the supervised run. The API operation and stream IDs are retained as
+the correlation evidence; screenshots are optional supporting evidence, not a
+substitute for the persisted operation result.
+
+### Phase 8 boundary
+
+The application already owns read-only provider preflight and reviewed account
+preparation. It deliberately does not own a generic cross-provider identity
+laboratory. The six minimal federation probes are therefore a supervised
+evaluation activity against the exact Terraform/runtime identity contracts,
+performed before the full scenarios and immediately cleaned up. Each probe
+records provider-native success or an explicit blocker plus residual-resource
+evidence. A full Twin deployment must not be used to relabel a missing
+standalone prerequisite probe as successful.
+
+The component plan deliberately grants no destination data-plane permission:
+AWS targets prove the exchange with STS GetCallerIdentity, Azure targets with
+one Reader-scoped ARM GET inside an isolated probe resource group, and GCP
+targets with one service-account impersonation. Only the two Azure-source
+paths need provider-hosted compute to exercise the exact managed-identity
+source; each runner is pinned, has no ingress, is limited to 1 vCPU/1 GiB and
+300 seconds, and has a USD 0.01 technical cap. The other four directions have
+no directly charged probe resource. GCP soft-deletes federation pools,
+providers, and service accounts; their non-usable tombstones are recorded with
+purge times and are the only accepted non-active residual class.

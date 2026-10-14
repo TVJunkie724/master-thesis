@@ -101,11 +101,6 @@ rules:
     target_unit: api_call
     multiplier: 1
     description: Normalize AWS IoT TwinMaker unified-data access to one API call.
-  per_account_bundle_month:
-    source_units: ["Month", "Queries", "API Calls"]
-    target_unit: account_bundle_month
-    multiplier: 1
-    description: Preserve an account-wide monthly bundle tier as one composite schedule entry.
   per_user_month:
     source_units: ["User/Month", "user/month", "User Month"]
     target_unit: user_month

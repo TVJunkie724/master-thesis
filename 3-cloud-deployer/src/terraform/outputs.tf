@@ -195,7 +195,7 @@ output "azure_storage_portal_url" {
 
 output "azure_adt_access_instructions" {
   description = "How to access Azure Digital Twins and 3D Scenes Studio"
-  value = var.layer_4_provider == "azure" ? join("\n", [
+  value = local.azure_v1_enabled && var.layer_4_provider == "azure" ? join("\n", [
     "========== Azure Digital Twins Access ==========",
     "ADT Instance: ${local.azure_adt_name}",
     "ADT Endpoint: https://${azurerm_digital_twins_instance.main[0].host_name}",
@@ -496,7 +496,7 @@ output "aws_grafana_sso_warning" {
 # ==============================================================================
 
 output "gcp_project_id" {
-  description = "GCP Project ID (provided or auto-created)"
+  description = "Existing GCP project selected for deployment"
   value       = local.deploy_gcp ? local.gcp_project_id : null
 }
 
@@ -601,6 +601,93 @@ output "gcp_ingestion_url" {
   value       = try(google_cloudfunctions2_function.ingestion[0].url, null)
 }
 
+output "gcp_component_ingestion_output" {
+  description = "Six-layer GCP ingestion output topic consumed by the selected processing route"
+  value       = try(google_pubsub_topic.gcp_gcp_pubsub_separated_embedded_topics["received"].id, null)
+}
+
+output "gcp_six_layer_mqtt_endpoint" {
+  description = "Authenticated TLS MQTT endpoint for the Six-layer GCP device edge"
+  value = try(
+    "mqtts://${google_compute_address.gcp_six_layer_mqtt[0].address}:8883",
+    null,
+  )
+}
+
+output "gcp_six_layer_mqtt_server_certificate" {
+  description = "Self-signed PoC server certificate to trust for the GCP MQTT endpoint"
+  value       = try(tls_self_signed_cert.gcp_six_layer_mqtt[0].cert_pem, null)
+}
+
+output "gcp_six_layer_mqtt_device_credentials" {
+  description = "Generated deployment-scoped shared device credential for the bounded GCP MQTT PoC"
+  sensitive   = true
+  value = local.gcp_six_layer_l1_enabled ? {
+    username = random_password.gcp_six_layer_mqtt_device_username[0].result
+    password = random_password.gcp_six_layer_mqtt_device_password[0].result
+  } : null
+}
+
+output "gcp_six_layer_build_source_bucket" {
+  description = "Internal deployment-owned Cloud Build source bucket"
+  value       = try(google_storage_bucket.gcp_six_layer_cloud_build_sources[0].name, null)
+}
+
+output "aws_six_layer_build_source_bucket" {
+  description = "Internal deployment-owned CodeBuild source bucket"
+  value       = try(aws_s3_bucket.aws_aws_ecr_if_container_selected[0].bucket, null)
+}
+
+output "aws_six_layer_codebuild_project" {
+  description = "Internal regional CodeBuild project for content-addressed Six-layer images"
+  value       = try(aws_codebuild_project.aws_aws_ecr_if_container_selected[0].name, null)
+}
+
+output "aws_six_layer_ecr_repository_url" {
+  description = "Internal ECR repository URL for content-addressed Six-layer images"
+  value       = try(aws_ecr_repository.aws_aws_ecr_if_container_selected[0].repository_url, null)
+}
+
+output "aws_six_layer_ecr_repository_name" {
+  description = "Internal ECR repository name for image digest resolution"
+  value       = try(aws_ecr_repository.aws_aws_ecr_if_container_selected[0].name, null)
+}
+
+output "azure_six_layer_resource_group_name" {
+  description = "Internal Azure Six-layer image publication resource group"
+  value       = try(azurerm_resource_group.main[0].name, null)
+}
+
+output "azure_six_layer_location" {
+  description = "Internal Azure Six-layer image publication location"
+  value       = try(azurerm_resource_group.main[0].location, null)
+}
+
+output "azure_six_layer_acr_name" {
+  description = "Internal ACR name for content-addressed Six-layer images"
+  value       = try(azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].name, null)
+}
+
+output "azure_six_layer_acr_login_server" {
+  description = "Internal ACR login server for content-addressed Six-layer images"
+  value       = try(azurerm_container_registry.azure_azure_acr_basic_if_container_selected[0].login_server, null)
+}
+
+output "gcp_six_layer_build_service_account" {
+  description = "Internal least-privilege Cloud Build execution identity"
+  value       = try(google_service_account.gcp_six_layer_runtime["build"].email, null)
+}
+
+output "gcp_six_layer_registry_prefix" {
+  description = "Internal Artifact Registry prefix for content-addressed Six-layer images"
+  # Reference the repository itself so targeted image-foundation applies also
+  # materialize this output in state before the publisher runs.
+  value = try(
+    "${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].location}-docker.pkg.dev/${local.gcp_project_id}/${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].repository_id}/",
+    null,
+  )
+}
+
 output "gcp_hot_writer_url" {
   description = "URL of the hot writer function (multi-cloud)"
   value       = try(google_cloudfunctions2_function.hot_writer[0].url, null)
@@ -621,10 +708,23 @@ output "gcp_archive_writer_url" {
 # ==============================================================================
 
 output "aws_cloudwatch_log_groups" {
-  description = "Map of AWS CloudWatch Log Group names by function"
-  value = var.enable_aws_logging ? {
-    for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
-  } : {}
+  description = "Map of active AWS CloudWatch Log Group names by diagnostic responsibility"
+  value = merge(
+    var.enable_aws_logging ? {
+      for key, log_group in aws_cloudwatch_log_group.lambda : key => log_group.name
+    } : {},
+    { for key, log_group in aws_cloudwatch_log_group.aws_six_layer_lambda : key => log_group.name },
+    local.aws_event_enabled ? {
+      "EVENT" = aws_cloudwatch_log_group.eventing[0].name
+    } : {},
+    local.aws_six_layer_bridge_enabled ? {
+      "BRIDGE" = aws_cloudwatch_log_group.aws_six_layer_bridge[0].name
+    } : {},
+    # A targeted Event/L4 research cut can omit the background storage mover.
+    local.aws_six_layer_storage_mover_enabled ? try({
+      "L3-storage-mover" = aws_cloudwatch_log_group.aws_aws_cloudwatch[0].name
+    }, {}) : {},
+  )
 }
 
 output "aws_cloudwatch_log_group_iot" {
@@ -633,11 +733,34 @@ output "aws_cloudwatch_log_group_iot" {
 }
 
 output "azure_log_analytics_workspace_id" {
-  description = "Azure Log Analytics Workspace ID (GUID for API queries)"
-  value       = try(azurerm_log_analytics_workspace.main[0].workspace_id, null)
+  description = "Primary Azure Log Analytics Workspace ID (GUID for API queries)"
+  value = try(
+    azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].workspace_id,
+    azurerm_log_analytics_workspace.main[0].workspace_id,
+    null,
+  )
 }
 
 output "azure_log_analytics_workspace_name" {
-  description = "Azure Log Analytics Workspace resource name"
-  value       = try(azurerm_log_analytics_workspace.main[0].name, null)
+  description = "Primary Azure Log Analytics Workspace resource name"
+  value = try(
+    azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].name,
+    azurerm_log_analytics_workspace.main[0].name,
+    null,
+  )
+}
+
+output "azure_log_analytics_workspace_ids" {
+  description = "Active Azure Log Analytics workspaces by diagnostic responsibility"
+  value = merge(
+    local.azure_v1_enabled && var.enable_azure_logging ? {
+      "legacy" = azurerm_log_analytics_workspace.main[0].workspace_id
+    } : {},
+    local.azure_six_layer_enabled ? {
+      "six-layer" = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].workspace_id
+    } : {},
+    local.azure_event_enabled ? {
+      "eventing" = azurerm_log_analytics_workspace.eventing[0].workspace_id
+    } : {},
+  )
 }

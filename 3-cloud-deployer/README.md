@@ -1,53 +1,68 @@
-# Multi-Cloud Digital Twin Deployer
+# Twin2MultiCloud Cloud Deployer
 
-The infrastructure execution service of the Twin2MultiCloud PoC. It receives
-a Management-owned deployment package, validates it, builds function packages
-and Terraform inputs, then executes provider operations.
+The Deployer translates one immutable Six-layer deployment graph into
+graph-derived readiness, bounded account preparation, isolated Terraform and
+provider operations, runtime verification, access handoff, and cleanup
+evidence.
 
-## Run
+It is an internal service. Flutter calls it only through the Management API.
 
-From the repository root:
+## Scope
+
+- validate request-scoped deployment administrator credentials;
+- derive exact APIs, resource providers, permissions, quotas, identities,
+  packages, Terraform inputs, probes and cleanup expectations from the graph;
+- return a non-mutating readiness result;
+- execute only reviewed, confirmed, idempotent account preparation;
+- stage one-use immutable operation packages;
+- Deploy and Destroy in isolated workspaces;
+- report typed progress, verification and cleanup results;
+- expose provider-accurate L4/L5 access metadata.
+
+The Deployer does not own users, Twin lifecycle, cost calculation, credential
+persistence, arbitrary deployment projects, architecture selection, or a
+provider administration console.
+
+## Input boundary
+
+The canonical operation package is bound to:
+
+- calculation run and architecture/specification digests;
+- exact component and directed-edge assignments;
+- allowlisted typed Twin configuration and bounded extensions;
+- selected CloudConnection fingerprints and current readiness evidence;
+- Deployment Manifest v4 integrity.
+
+Unknown project layouts, secret-bearing portable evidence, and downstream
+reconstruction of missing graph values fail closed.
+
+## Provider preparation
+
+Readiness is non-mutating. Supported preparation may register exact Azure
+resource providers and enable exact GCP APIs after explicit confirmation.
+External billing, quota, organization policy, consent, legal, capacity, and
+credential-lifecycle tasks remain typed manual blockers.
+
+Twin Destroy removes Twin-owned resources. Shared account capabilities remain
+recorded as retained prerequisites.
+
+## Operation model
+
+Management creates and persists the operation; the Deployer performs the
+provider work. Reconnect/replay is handled through Management so a UI transport
+failure cannot duplicate Apply or Destroy.
+
+Terraform source templates are protected. Each operation receives an isolated
+workspace, exact packages, and graph-derived tfvars. Only allowlisted outputs,
+verification results, access metadata, and cleanup evidence leave it.
+
+## Safe verification
 
 ```bash
-./thesis.sh up --no-flutter
+cd 3-cloud-deployer
+PYTHONPATH=. python -m pytest -q
 ```
 
-The internal API reference is at [localhost:5004/docs](http://localhost:5004/docs).
-Flutter calls the Management API, never the Deployer directly.
-
-## Execution boundary
-
-New deployment packages use **DeploymentManifest v3**, with the frozen
-architecture and deployment specification. The Deployer compiles a deterministic
-graph, validates package/Terraform bindings, and acquires the staged package
-through a one-use token. Manifest v2 remains historical read compatibility;
-it is not the format for new deployments.
-
-Execution uses a temporary workspace. Only allowlisted Terraform/device outputs
-return to the private runtime-state store. Reusable credentials remain owned
-by Management Cloud Connections, not project folders or templates.
-
-Graph compilation is implemented. Final live-cloud evidence and the current
-L4→L5/Grafana binding gap remain separate limitations:
-[Results and Limits](../docs-site/docs/runtime/known-limitations.md).
-
-## Code and reference
-
-| Path | Purpose |
-|---|---|
-| `src/api/` | internal HTTP operations |
-| `src/architecture_profiles/` | resolved deployment graph |
-| `src/deployment_specification/`, `src/terraform_inputs/` | manifest validation and typed input translation |
-| `src/providers/` | provider and Terraform execution |
-| `src/operation_packages.py` | short-lived operation packages |
-| `src/runtime_state.py` | durable private execution state |
-| `templates/digital-twin/` | canonical read-only template |
-| `tests/` | safe tests and separately opt-in live E2E |
-
-- [Deployer reference](../docs-site/docs/components/deployer.md)
-- [Deployment lifecycle](../docs-site/docs/contracts-and-data-flow/deployment-lifecycle.md)
-- [Cloud setup](../docs-site/docs/cloud-setup/index.md)
-- [Testing](../docs-site/docs/developer-guide/testing.md)
-
-Live deploy/destroy and provider E2E require deliberate cloud access and can
-incur costs.
+Unit/contract tests and credential-free Terraform validation create no cloud
+resources. Live E2E is opt-in, supervised, budgeted, and followed by explicit
+Destroy plus residual inventory.

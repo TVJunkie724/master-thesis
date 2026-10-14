@@ -24,16 +24,14 @@ def test_registry_contains_complete_provider_layer_matrix():
     )
 
 
-def test_gcp_l4_and_l5_are_planned_but_unavailable():
+def test_profile_neutral_gcp_l4_and_l5_remain_unsupported():
     gcp = next(
-        item for item in get_provider_capabilities().providers
-        if item.provider == "gcp"
+        item for item in get_provider_capabilities().providers if item.provider == "gcp"
     )
 
     for layer_id in ("l4", "l5"):
         capability = next(item for item in gcp.layers if item.layer == layer_id)
         assert capability.availability is CapabilityAvailability.UNSUPPORTED
-        assert capability.roadmap.value == "planned"
         assert capability.reason_code == "DEPLOYMENT_PATH_NOT_IMPLEMENTED"
 
 
@@ -55,9 +53,7 @@ def test_nested_and_flat_cheapest_paths_use_canonical_layer_ids():
         "l4": "AWS",
         "l5": "Azure",
     }
-    assert selections_from_cheapest_path({"L3_cold": "google"}) == {
-        "l3_cool": "google"
-    }
+    assert selections_from_cheapest_path({"L3_cold": "google"}) == {"l3_cool": "google"}
 
 
 def test_package_build_rejects_unavailable_capability_before_filesystem_side_effects(
@@ -88,3 +84,21 @@ def test_supported_terraform_configuration_passes_capability_gate():
             "layer_5_provider": "azure",
         }
     )
+
+
+def test_six_layer_graph_can_use_registered_gcp_l4_and_l5():
+    validate_terraform_provider_capabilities(
+        {
+            "layer_4_provider": "gcp",
+            "layer_5_provider": "google",
+        },
+        architecture_profile=("six-layer-eventing", "1"),
+    )
+
+    with pytest.raises(ProviderCapabilityError):
+        validate_terraform_provider_capabilities(
+            {
+                "layer_4_provider": "gcp",
+                "layer_5_provider": "google",
+            },
+        )

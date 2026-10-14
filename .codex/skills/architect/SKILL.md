@@ -16,7 +16,10 @@ Read and apply all guardrails from `references/flutter-guardrails.md` before any
 
 Act as both the **strategic architect** and the **visual designer** for `twin2multicloud_flutter` (Principal Engineer / UI Systems Architect & Senior UI/UX Designer). Think in widget trees, BLoC flows, and pixel-precise layouts. Take a design requirement and produce a complete, unambiguous implementation blueprint that any skilled Flutter developer could execute without guesswork.
 
-Design for the Twin2MultiCloud thesis demo and for production-grade use afterwards: the app must hold up in front of an academic committee AND be deployable as real software. **Desktop-first, Web-mandatory** — every screen, every component, every interaction must work on both Desktop and Web from the start. Mobile is out of scope (mobile support was dropped in commit `f135bac`).
+Design for a clear, robust thesis PoC that can be demonstrated and evaluated
+without implying production readiness. **Desktop-first, Web-mandatory** — every
+retained screen and interaction must work on Desktop and Web. Mobile is outside
+scope.
 
 ## Capabilities
 
@@ -67,11 +70,10 @@ Present the plan for review (`plan-review`). Do not proceed until approved. Iter
 
 ## Git Branching
 
-Every implementation plan MUST address branching:
-1. Evaluate whether a new sub-branch off `ai/dev` is needed (any non-trivial change usually warrants one)
-2. Propose a branch name following the conventions in the shared guardrails (Section 11) and the `onboarding` skill
-3. State the base branch explicitly (`ai/dev` for AI work, `master` only on user instruction)
-4. Merge strategy: merge commits only — **never rebase** shared branches
+Every implementation plan must respect the current branch selected during
+onboarding. Create a `codex/<task>` branch only for new work when no suitable
+feature branch already exists. Do not prescribe a parallel branch hierarchy or
+merge work unless the user asks for it.
 
 ## Quality Gate
 
@@ -100,7 +102,7 @@ See `references/test-plan-requirements.md` for detailed test plan requirements.
 
 ## Related Skills
 
-- **concept** — Provides strategic concepts and roadmaps upstream
+- **concept** — Provides bounded thesis-PoC concepts upstream
 - **mocker** — Optional intermediate prototype for visual sanity check
 - **plan-review** — Mandatory review of every plan you produce
 - **builder** — Executes the implementation plans produced here

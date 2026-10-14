@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/dashboard_stats.dart';
-import '../models/pricing_health.dart';
 import '../models/twin.dart';
+import '../models/twin_transfer.dart';
 import 'runtime_providers.dart';
 
 export 'runtime_providers.dart'
@@ -10,25 +9,6 @@ export 'runtime_providers.dart'
 final twinsProvider = FutureProvider<List<Twin>>((ref) async {
   final api = ref.read(apiServiceProvider);
   return api.getTwins();
-});
-
-/// Dashboard statistics provider.
-///
-/// Tries the dedicated /dashboard/stats endpoint first (includes cost data).
-/// Falls back to computing counts from the twins list if the endpoint fails.
-final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
-  final api = ref.read(apiServiceProvider);
-  try {
-    return await api.getDashboardStats();
-  } catch (_) {
-    // Fallback: compute counts from twins list (cost unavailable)
-    final twins = await ref.read(twinsProvider.future);
-    return DashboardStats.fromTwins(twins);
-  }
-});
-
-final pricingHealthProvider = FutureProvider<PricingHealthResponse>((ref) {
-  return ref.read(apiServiceProvider).getPricingHealth();
 });
 
 final twinCommandProvider =
@@ -47,8 +27,44 @@ class TwinCommandController extends Notifier<AsyncValue<void>> {
     try {
       await ref.read(apiServiceProvider).deleteTwin(twinId);
       ref.invalidate(twinsProvider);
-      ref.invalidate(dashboardStatsProvider);
       state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<Twin?> duplicateTwin(String twinId, TwinDuplicateRequest request) =>
+      _runTwinMutation(
+        () => ref.read(apiServiceProvider).duplicateTwin(twinId, request),
+      );
+
+  Future<Twin?> importTwin(TwinImportRequest request) =>
+      _runTwinMutation(() => ref.read(apiServiceProvider).importTwin(request));
+
+  Future<PortableTwinDownload?> exportTwin(String twinId) async {
+    if (state.isLoading) return null;
+
+    state = const AsyncLoading();
+    try {
+      final download = await ref.read(apiServiceProvider).exportTwin(twinId);
+      state = const AsyncData(null);
+      return download;
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<Twin?> _runTwinMutation(Future<Twin> Function() command) async {
+    if (state.isLoading) return null;
+
+    state = const AsyncLoading();
+    try {
+      final twin = await command();
+      ref.invalidate(twinsProvider);
+      state = const AsyncData(null);
+      return twin;
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
       rethrow;

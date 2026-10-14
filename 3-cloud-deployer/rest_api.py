@@ -26,6 +26,7 @@ from src.api import (
     status,
     validation,
     verify,
+    visualization,
 )
 
 # --------- Lifespan context manager ----------
@@ -43,19 +44,18 @@ app = FastAPI(
     description="Internal API for deploying, destroying, and inspecting Digital Twin resources.",
     openapi_tags=[
         {
-            "name": "Projects", 
-            "description": "Project lifecycle management: upload, configure, validate, delete. "
-                          "Includes config retrieval, simulator download, and AWS TwinMaker cleanup."
+            "name": "Projects",
+            "description": "Bounded Twin deployment workspaces and operation packages."
         },
         {
             "name": "Infrastructure", 
-            "description": "Infrastructure deployment and status. Deploy/destroy cloud resources "
-                          "across all 5 layers (L1-L5) with Terraform. Check deployment status."
+            "description": "Infrastructure deployment and status for the closed-world "
+                          "six-layer-eventing@1 profile."
         },
         {
             "name": "Validation", 
-            "description": "Pre-deployment validation endpoints. Validate project zip structure, "
-                          "config files, function code, state machines, and simulator payloads."
+            "description": "Validate typed configuration, function code, state machines, "
+                          "simulator payloads, and staged deployment requirements."
         },
         {
             "name": "Permissions - Upload", 
@@ -102,4 +102,5 @@ app.include_router(credentials.router)
 app.include_router(functions.router)
 app.include_router(logs.router)
 app.include_router(verify.router)
+app.include_router(visualization.router)
 app.include_router(capabilities.router)

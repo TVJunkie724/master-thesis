@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
@@ -14,12 +15,23 @@ void main() {
     final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
     dio.httpClientAdapter = CallbackAdapter((options) {
       seen.add('${options.method} ${options.path}');
+      if (options.path == '/twins/twin-1/deployment-preparation') {
+        expect(options.data, {
+          'plan_digest': _planDigest,
+          'requirements_digest': _requirementsDigest,
+          'confirmed': true,
+          'manual_requirement_ids': <String>[],
+        });
+      }
       return switch (options.path) {
         '/twins/twin-1/deployment-readiness' => jsonResponse(
           readinessResponse(DeploymentReadinessSnapshot.cachedSchemaVersion),
         ),
         '/twins/twin-1/deployment-preflight' => jsonResponse(
           readinessResponse(DeploymentReadinessSnapshot.preflightSchemaVersion),
+        ),
+        '/twins/twin-1/deployment-preparation' => jsonResponse(
+          preparationResponse(),
         ),
         '/twins/twin-1/deploy' || '/twins/twin-1/destroy' => jsonResponse({
           'session_id': 'session-1',
@@ -41,6 +53,9 @@ void main() {
           'source_deployment': null,
           'redacted': true,
         }),
+        '/twins/twin-1/deployment-access' => jsonResponse(
+          deploymentAccessResponse(),
+        ),
         '/twins/twin-1/deployments' => jsonResponse({
           'schema_version': 'deployment-history.v1',
           'deployments': <Object>[],
@@ -75,6 +90,14 @@ void main() {
       (await api.runDeploymentPreflight('twin-1')).source,
       DeploymentReadinessSource.preflight,
     );
+    final preparationRequest = DeploymentPreparationRequest(
+      planDigest: _planDigest,
+      requirementsDigest: _requirementsDigest,
+    );
+    expect(
+      (await api.prepareDeployment('twin-1', preparationRequest)).status,
+      DeploymentPreparationStatus.ready,
+    );
     expect((await api.deployTwin('twin-1')).sessionId, 'session-1');
     expect((await api.destroyTwin('twin-1')).sseUrl, '/sse/deploy/session-1');
     expect(
@@ -84,6 +107,12 @@ void main() {
     expect((await api.getDeploymentOutputs('twin-1')).outputs, {
       'endpoint': 'https://example.test',
     });
+    expect(
+      (await api.getDeploymentAccess(
+        'twin-1',
+      )).surfaceFor(DeploymentLayer.l5)?.provider.name,
+      'gcp',
+    );
     expect(
       (await api.getDeploymentHistory('twin-1', limit: 7)).deployments,
       isEmpty,
@@ -102,10 +131,12 @@ void main() {
     expect(seen, [
       'GET /twins/twin-1/deployment-readiness',
       'POST /twins/twin-1/deployment-preflight',
+      'POST /twins/twin-1/deployment-preparation',
       'POST /twins/twin-1/deploy',
       'POST /twins/twin-1/destroy',
       'GET /twins/twin-1/deployment-status',
       'GET /twins/twin-1/outputs',
+      'GET /twins/twin-1/deployment-access',
       'GET /twins/twin-1/deployments',
       'GET /twins/twin-1/logs',
       'POST /twins/twin-1/log-trace/start',
@@ -132,6 +163,89 @@ void main() {
       ),
     );
   });
+
+  test('deployment access encodes the opaque twin path segment', () async {
+    String? path;
+    final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+    dio.httpClientAdapter = CallbackAdapter((options) {
+      path = options.path;
+      final response = deploymentAccessResponse();
+      response['twin_id'] = 'twin/with space';
+      return jsonResponse(response);
+    });
+
+    final snapshot = await ApiService(
+      dio: dio,
+    ).getDeploymentAccess('twin/with space');
+
+    expect(path, '/twins/twin%2Fwith%20space/deployment-access');
+    expect(snapshot.twinId, 'twin/with space');
+  });
+
+  test(
+    'deployment access rejects malformed responses before BLoC use',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          ...deploymentAccessResponse(),
+          'schema_version': 'deployment-access.v2',
+        }),
+      );
+
+      await expectLater(
+        ApiService(dio: dio).getDeploymentAccess('twin-1'),
+        throwsA(
+          isA<AppException>().having(
+            (error) => error.code,
+            'code',
+            'DEPLOYMENT_ACCESS_CONTRACT_INVALID',
+          ),
+        ),
+      );
+    },
+  );
+
+  test('deployment access preserves safe 403 and 404 error mapping', () async {
+    for (final statusCode in [403, 404]) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter(
+        (_) => jsonResponse({
+          'detail': statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        }, statusCode: statusCode),
+      );
+
+      try {
+        await ApiService(dio: dio).getDeploymentAccess('twin-1');
+        fail('Expected HTTP $statusCode to fail.');
+      } on DioException catch (error) {
+        final safe = AppException.fromDioError(error);
+        expect(safe.code, 'HTTP_$statusCode');
+        expect(
+          safe.message,
+          statusCode == 404 ? 'Twin not found' : 'Forbidden',
+        );
+      }
+    }
+  });
+
+  test(
+    'historical access is represented by the typed unsupported state',
+    () async {
+      final response = deploymentAccessResponse()
+        ..['availability'] = 'unsupported'
+        ..['reason_code'] = 'unsupported_historical_profile'
+        ..['surfaces'] = <Object>[];
+      final dio = Dio(BaseOptions(baseUrl: 'http://management.test'));
+      dio.httpClientAdapter = CallbackAdapter((_) => jsonResponse(response));
+
+      final snapshot = await ApiService(dio: dio).getDeploymentAccess('twin-1');
+
+      expect(snapshot.availability, DeploymentAccessAvailability.unsupported);
+      expect(snapshot.reasonCode, 'unsupported_historical_profile');
+      expect(snapshot.surfaces, isEmpty);
+    },
+  );
 
   test('deployment adapter rejects invalid pagination before I/O', () async {
     var requestCount = 0;
@@ -238,10 +352,10 @@ class CallbackAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ResponseBody jsonResponse(Map<String, dynamic> body) {
+ResponseBody jsonResponse(Map<String, dynamic> body, {int statusCode = 200}) {
   return ResponseBody.fromString(
     jsonEncode(body),
-    200,
+    statusCode,
     headers: {
       Headers.contentTypeHeader: ['application/json'],
     },
@@ -271,10 +385,9 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
         'ready': true,
         'status': 'ready',
         'summary': 'Cloud connection preflight passed',
-        'expected_permission_set_version': 'thesis-demo-v1',
-        'supplied_permission_set_version': 'thesis-demo-v1',
-        'permission_set_status': 'matched',
         'checked_at': '2026-07-14T09:00:00Z',
+        'graph_digest': _graphDigest,
+        'requirements_digest': _requirementsDigest,
         'checks': [
           {
             'component': 'optimizer',
@@ -285,9 +398,111 @@ Map<String, dynamic> readinessResponse(String schemaVersion) {
             'permissions': <String>[],
           },
         ],
+        'requirements': [_readyRequirement],
       },
     ],
     'checked_at': '2026-07-14T09:00:00Z',
+    'graph_digest': _graphDigest,
+    'requirements_digest': _requirementsDigest,
+    'preparation_plan': {
+      'schema_version': DeploymentPreparationPlan.schemaVersion,
+      'graph_digest': _graphDigest,
+      'requirements_digest': _requirementsDigest,
+      'plan_digest': _planDigest,
+      'actions': <Object>[],
+      'manual_requirements': <Object>[],
+    },
     'issues': <Object>[],
   };
 }
+
+Map<String, dynamic> preparationResponse() => {
+  'schema_version': DeploymentPreparationResponse.schemaVersion,
+  'twin_id': 'twin-1',
+  'plan_digest': _planDigest,
+  'requirements_digest': _requirementsDigest,
+  'status': 'ready',
+  'completed_actions': <Object>[],
+  'failed_actions': <Object>[],
+  'remaining_action_ids': <String>[],
+  'acknowledged_manual_requirement_ids': <String>[],
+  'pending_manual_requirement_ids': <String>[],
+  'retry_safe': true,
+  'readiness': readinessResponse(
+    DeploymentReadinessSnapshot.preflightSchemaVersion,
+  ),
+};
+
+const _graphDigest =
+    'sha256:1111111111111111111111111111111111111111111111111111111111111111';
+const _requirementsDigest =
+    'sha256:2222222222222222222222222222222222222222222222222222222222222222';
+const _planDigest =
+    'sha256:3333333333333333333333333333333333333333333333333333333333333333';
+
+const _readyRequirement = {
+  'requirement_id': 'aws:provider_scope',
+  'requirement_type': 'provider_scope',
+  'provider': 'aws',
+  'capability_id': 'aws:provider_scope',
+  'preparation_mode': 'none',
+  'mandatory': true,
+  'status': 'ready',
+  'message': 'Provider scope is ready.',
+  'action': 'No action required.',
+  'source_node_ids': <String>[],
+  'source_edge_ids': <String>[],
+};
+
+Map<String, dynamic> deploymentAccessResponse() => {
+  'schema_version': 'deployment-access.v1',
+  'twin_id': 'twin-1',
+  'deployment_id': 'deployment-1',
+  'generated_at': '2026-07-14T08:30:00Z',
+  'availability': 'available',
+  'reason_code': null,
+  'surfaces': [
+    {
+      'layer': 'l4',
+      'provider': 'azure',
+      'service_id': 'azure_digital_twins',
+      'display_name': 'Azure Digital Twins Explorer',
+      'url': 'https://l4.example.invalid/',
+      'auth': {
+        'mode': 'azure_entra',
+        'principal_label': 'researcher@example.invalid',
+        'credential_action': 'none',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['browse'],
+      'limitations': <String>[],
+    },
+    {
+      'layer': 'l5',
+      'provider': 'gcp',
+      'service_id': 'gcp_raw_history_reader',
+      'display_name': 'GCP Raw-history Reader',
+      'url': 'https://l5.example.invalid/',
+      'auth': {
+        'mode': 'gcp_identity_token',
+        'principal_label': 'researcher@example.invalid',
+        'credential_action': 'none',
+      },
+      'readiness': {
+        'resource': 'ready',
+        'access_binding': 'ready',
+        'content': 'pending',
+        'data_probe': 'pending',
+        'browser_sign_in': 'unverified',
+      },
+      'capabilities': ['recent-raw', 'hourly-rollups'],
+      'limitations': <String>[],
+    },
+  ],
+};

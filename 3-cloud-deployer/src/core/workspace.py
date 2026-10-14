@@ -11,7 +11,6 @@ import shutil
 import tempfile
 from typing import Iterator
 
-import constants as CONSTANTS
 from src.core.deployment_errors import WorkspaceSyncError
 from src.core.observability import OperationContext, operation_step, redact_sensitive
 from src.core.secure_files import atomic_write_private_bytes
@@ -20,7 +19,7 @@ from src.core.secure_files import atomic_write_private_bytes
 logger = logging.getLogger(__name__)
 
 EXCLUDED_DIR_NAMES = {
-    CONSTANTS.PROJECT_VERSIONS_DIR_NAME,
+    "versions",
     ".build",
     ".terraform",
     ".mypy_cache",

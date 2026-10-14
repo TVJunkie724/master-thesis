@@ -27,13 +27,10 @@ class OperationSessionResponse(BaseModel):
 
     session_id: str
     sse_url: str
-
-
-class RedeployReadinessResponse(BaseModel):
-    """Redeployment cooldown status."""
-
-    ready: bool
-    remaining_seconds: int
+    operation_record_id: str
+    idempotency_key: str
+    reused: bool = False
+    status_url: str
 
 
 class ActiveDeploymentSessionResponse(BaseModel):
@@ -87,20 +84,3 @@ class SceneGlbUploadResponse(BaseModel):
 
     message: str
     size_mb: float
-
-
-class ValidationBranchResultResponse(BaseModel):
-    """Single downstream branch result in dual credential validation."""
-
-    valid: bool
-    message: str
-    permissions: Any | None = None
-
-
-class DualCredentialValidationResponse(BaseModel):
-    """Combined Optimizer and Deployer credential validation response."""
-
-    provider: str
-    valid: bool
-    optimizer: ValidationBranchResultResponse
-    deployer: ValidationBranchResultResponse

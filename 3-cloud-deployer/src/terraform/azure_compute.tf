@@ -19,7 +19,7 @@
 # ==============================================================================
 
 resource "azurerm_service_plan" "l2" {
-  count               = var.layer_2_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_2_provider == "azure" ? 1 : 0
   name                = local.azure_l2_plan_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -34,7 +34,7 @@ resource "azurerm_service_plan" "l2" {
 # ==============================================================================
 
 resource "azurerm_linux_function_app" "l2" {
-  count               = var.layer_2_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_2_provider == "azure" ? 1 : 0
   name                = local.azure_l2_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -171,7 +171,7 @@ resource "azurerm_linux_function_app" "l2" {
 # Full deployments use Terraform's zip_deploy_file. The dedicated function API
 # can still publish an updated aggregate bundle independently between full applies.
 resource "azurerm_linux_function_app" "user" {
-  count               = var.layer_2_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_2_provider == "azure" ? 1 : 0
   name                = local.azure_user_functions_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -265,7 +265,7 @@ resource "azurerm_linux_function_app" "user" {
 
 # Logic App workflow resource (creates the container)
 resource "azurerm_logic_app_workflow" "event_notification" {
-  count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name                = local.azure_event_workflow_name
   location            = azurerm_resource_group.main[0].location
   resource_group_name = azurerm_resource_group.main[0].name
@@ -282,7 +282,7 @@ resource "azurerm_logic_app_workflow" "event_notification" {
 # FIX: Apply workflow definition via ARM template deployment
 # Without this, the Logic App appears empty in the Azure Portal designer
 resource "azurerm_resource_group_template_deployment" "logic_app_definition" {
-  count               = var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_2_provider == "azure" && var.trigger_notification_workflow && var.use_event_checking ? 1 : 0
   name                = local.azure_logic_app_name
   resource_group_name = azurerm_resource_group.main[0].name
   deployment_mode     = "Incremental"

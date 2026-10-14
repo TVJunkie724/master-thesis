@@ -8,7 +8,6 @@ from types import SimpleNamespace
 import pytest
 
 from src.models.deployment import Deployment
-from src.models.optimizer_config import OptimizerConfiguration
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.deployment_repository import DeploymentRepository
@@ -17,19 +16,8 @@ from src.services.deployment_read_service import DeploymentReadService
 from src.services.service_errors import EntityNotFoundError
 
 
-class FakeDeployerClient:
-    """Test double for cooldown checks without network calls."""
-
-    def __init__(self):
-        self.calls = []
-
-    async def check_cooldown(self, destroyed_at, uses_gcp_firestore):
-        self.calls.append((destroyed_at, uses_gcp_firestore))
-        return {"ready": False, "remaining_seconds": 123}
-
-
 def _create_user(db, email: str = "reader@example.test") -> User:
-    user = User(email=email, name="Reader", auth_provider="google")
+    user = User(email=email, name="Reader")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -50,38 +38,6 @@ def _service(db, deployer_client=None) -> DeploymentReadService:
         deployment_repository=DeploymentRepository(db),
         deployer_client=deployer_client,
     )
-
-
-@pytest.mark.asyncio
-async def test_can_redeploy_skips_deployer_for_non_gcp_twin(db_session):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user)
-    fake_client = FakeDeployerClient()
-
-    result = await _service(db_session, fake_client).can_redeploy(twin.id, user.id)
-
-    assert result == {"ready": True, "remaining_seconds": 0}
-    assert fake_client.calls == []
-
-
-@pytest.mark.asyncio
-async def test_can_redeploy_uses_optimizer_l3_hot_for_gcp_cooldown(db_session):
-    user = _create_user(db_session)
-    twin = _create_twin(db_session, user, state=TwinState.DESTROYED)
-    twin.destroyed_at = datetime.utcnow() - timedelta(minutes=1)
-    db_session.add(
-        OptimizerConfiguration(
-            twin_id=twin.id,
-            cheapest_l3_hot="GCP",
-        )
-    )
-    db_session.commit()
-    fake_client = FakeDeployerClient()
-
-    result = await _service(db_session, fake_client).can_redeploy(twin.id, user.id)
-
-    assert result == {"ready": False, "remaining_seconds": 123}
-    assert fake_client.calls == [(twin.destroyed_at, True)]
 
 
 @pytest.mark.asyncio

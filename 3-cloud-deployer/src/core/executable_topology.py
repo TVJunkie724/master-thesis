@@ -9,8 +9,7 @@ from typing import Any
 ERROR_HANDLING_FIELD = "integrateErrorHandling"
 UNSUPPORTED_ERROR_HANDLING_TOPOLOGY = "UNSUPPORTED_ERROR_HANDLING_TOPOLOGY"
 UNSUPPORTED_ERROR_HANDLING_MESSAGE = (
-    "The executable five-layer baseline does not deploy the requested "
-    "error-handling topology"
+    "The executable Six-layer PoC does not deploy the requested error-handling topology"
 )
 
 
@@ -22,10 +21,7 @@ class UnsupportedErrorHandlingTopologyError(ValueError):
     message = UNSUPPORTED_ERROR_HANDLING_MESSAGE
 
     def __init__(self) -> None:
-        super().__init__(
-            f"{UNSUPPORTED_ERROR_HANDLING_TOPOLOGY}: "
-            f"{self.message}"
-        )
+        super().__init__(f"{UNSUPPORTED_ERROR_HANDLING_TOPOLOGY}: {self.message}")
 
     def as_detail(self) -> dict[str, str]:
         """Return the stable API-safe error detail."""

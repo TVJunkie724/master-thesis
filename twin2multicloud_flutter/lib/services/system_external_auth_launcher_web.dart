@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:js_interop';
+
 import 'package:web/web.dart' as web;
 
 import 'external_auth_launcher.dart';
@@ -28,6 +31,20 @@ class _WebExternalAuthLaunchHandle implements ExternalAuthLaunchHandle {
     target.location.href = uri.toString();
     target.focus();
     return true;
+  }
+
+  @override
+  Future<bool> renderHtml(String html) async {
+    final blob = web.Blob(
+      [html.toJS].toJS,
+      web.BlobPropertyBag(type: 'text/html'),
+    );
+    final url = web.URL.createObjectURL(blob);
+    try {
+      return await navigate(Uri.parse(url));
+    } finally {
+      Timer(const Duration(minutes: 1), () => web.URL.revokeObjectURL(url));
+    }
   }
 
   @override

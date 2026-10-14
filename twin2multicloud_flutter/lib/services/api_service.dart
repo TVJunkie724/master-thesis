@@ -1,23 +1,23 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import '../core/result.dart';
+import '../models/architecture_profile.dart';
 import '../models/calc_params.dart';
-import '../models/authentication.dart';
-import '../models/cloud_access_inventory.dart';
 import '../models/cloud_connection.dart';
-import '../models/dashboard_stats.dart';
+import '../models/deployment_access.dart';
 import '../models/deployment_operations.dart';
 import '../models/deployment_readiness.dart';
+import '../models/deployment_verification.dart';
 import '../models/deployer_config.dart';
 import '../models/optimizer_config.dart';
-import '../models/pricing_candidate_review.dart';
-import '../models/pricing_health.dart';
-import '../models/pricing_refresh_run.dart';
 import '../models/provider_capability.dart';
 import '../models/resolved_deployment_specification.dart';
+import '../models/resolved_twin_architecture.dart';
 import '../models/twin.dart';
 import '../models/twin_config.dart';
+import '../models/twin_transfer.dart';
 import '../models/user_function_extension.dart';
 import '../models/user.dart';
 import '../models/wizard_config_requests.dart';
@@ -65,10 +65,20 @@ String? _normalizeToken(String? value) {
   return value;
 }
 
+String _managementPathSegment(String value, String label) {
+  if (value.isEmpty || RegExp(r'[\x00-\x1F\x7F]').hasMatch(value)) {
+    throw AppException(
+      '$label must be a non-empty opaque identifier.',
+      code: 'DEPLOYMENT_REQUEST_INVALID',
+    );
+  }
+  return Uri.encodeComponent(value);
+}
+
 class ApiService implements ManagementApi {
   final Dio _dio;
   late final Uri _baseUri;
-  String? _token;
+  final String? _token;
   void Function()? _unauthorizedHandler;
 
   ApiService({Dio? dio, Uri? baseUri, String? initialAuthToken})
@@ -85,7 +95,6 @@ class ApiService implements ManagementApi {
         },
         onError: (error, handler) {
           if (error.response?.statusCode == 401 && _token != null) {
-            _token = null;
             _unauthorizedHandler?.call();
           }
           return handler.next(error);
@@ -93,9 +102,6 @@ class ApiService implements ManagementApi {
       ),
     );
   }
-
-  @override
-  void setToken(String? token) => _token = _normalizeToken(token);
 
   @override
   void setUnauthorizedHandler(void Function()? handler) {
@@ -107,59 +113,6 @@ class ApiService implements ManagementApi {
   Future<String?> getAuthToken() async => _token;
 
   @override
-  Future<List<AuthProviderCapability>> getAuthProviders() async {
-    final response = await _dio.get('/auth/providers');
-    final body = _contractMap(response.data, 'auth providers');
-    final providers = body['providers'];
-    if (providers is! List) {
-      throw const FormatException(
-        'Invalid API contract: auth providers must be an array.',
-      );
-    }
-    return List<AuthProviderCapability>.unmodifiable(
-      providers.indexed.map(
-        (entry) => AuthProviderCapability.fromJson(
-          _contractMap(entry.$2, 'auth providers[${entry.$1}]'),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Future<AuthLoginTransaction> startExternalLogin(
-    IdentityProvider provider,
-  ) async {
-    final response = await _dio.post(
-      '/auth/providers/${provider.apiValue}/login',
-    );
-    return AuthLoginTransaction.fromJson(
-      _contractMap(response.data, 'authentication start'),
-    );
-  }
-
-  @override
-  Future<AuthExchangeResult> exchangeAuthSession(
-    AuthLoginTransaction transaction,
-  ) async {
-    final response = await _dio.post(
-      '/auth/session/exchange',
-      data: transaction.toCommandJson(),
-    );
-    return AuthExchangeResult.fromJson(
-      _contractMap(response.data, 'authentication exchange'),
-    );
-  }
-
-  @override
-  Future<void> cancelAuthSession(AuthLoginTransaction transaction) async {
-    await _dio.post('/auth/session/cancel', data: transaction.toCommandJson());
-  }
-
-  @override
-  Future<void> logoutSession() async {
-    await _dio.post('/auth/logout');
-  }
-
   @override
   Future<User> getCurrentUser() async {
     final response = await _dio.get('/auth/me');
@@ -181,14 +134,6 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<CloudAccessInventory> getCloudAccessInventory() async {
-    final response = await _dio.get('/cloud-access');
-    return CloudAccessInventory.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
   Future<CloudConnection> createCloudConnection(
     CloudConnectionCreateRequest request,
   ) async {
@@ -200,22 +145,22 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<CloudConnection> updateCloudConnection(
-    String id, {
-    String? displayName,
-    Map<String, dynamic>? cloudScope,
-    bool? isDefaultForPricing,
-  }) async {
-    final response = await _dio.patch(
-      '/cloud-connections/$id',
-      data: {
-        if (displayName != null) 'display_name': displayName,
-        if (cloudScope != null) 'cloud_scope': cloudScope,
-        if (isDefaultForPricing != null)
-          'is_default_for_pricing': isDefaultForPricing,
-      },
+  Future<CloudConnection> importCloudConnection(
+    CloudConnectionImportRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/cloud-connections/import',
+      data: FormData.fromMap({
+        'metadata': request.metadataJson,
+        'file': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
     );
-    return CloudConnection.fromJson(response.data as Map<String, dynamic>);
+    return CloudConnection.fromJson(
+      _contractMap(response.data, 'cloud connection import'),
+    );
   }
 
   @override
@@ -273,11 +218,12 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionValidationResult> validateUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<UserFunctionValidationResult> validateTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
     final response = await _dio.post(
-      '/user-function-artifacts/validate',
+      '/twins/$twinId/user-functions/${upload.slot.slotId}/validate',
       data: _extensionMultipart(upload),
       options: Options(contentType: 'multipart/form-data'),
     );
@@ -287,112 +233,53 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<UserFunctionArtifact> createUserFunctionArtifact(
-    UserFunctionArtifactUpload upload,
+  Future<TwinUserFunction> saveTwinUserFunction(
+    String twinId,
+    UserFunctionSourceUpload upload,
   ) async {
-    final response = await _dio.post(
-      '/user-function-artifacts',
+    final response = await _dio.put(
+      '/twins/$twinId/user-functions/${upload.slot.slotId}',
       data: _extensionMultipart(upload),
       options: Options(contentType: 'multipart/form-data'),
     );
-    return UserFunctionArtifact.fromJson(
-      _contractMap(response.data, 'user-function artifact'),
+    return TwinUserFunction.fromJson(
+      _contractMap(response.data, 'Twin user function'),
     );
   }
 
   @override
-  Future<List<UserFunctionArtifact>> listUserFunctionArtifacts() async {
-    final response = await _dio.get('/user-function-artifacts');
-    final body = _contractMap(response.data, 'user-function artifacts');
+  Future<List<TwinUserFunction>> listTwinUserFunctions(String twinId) async {
+    final response = await _dio.get('/twins/$twinId/user-functions');
+    final body = _contractMap(response.data, 'Twin user functions');
     _requireContractFields(body, const {
       'schema_version',
       'items',
-      'total',
-      'limit',
-      'offset',
-    }, 'user-function artifacts');
-    if (body['schema_version'] != 'user-function-artifact-list.v1') {
+    }, 'Twin user functions');
+    if (body['schema_version'] != 'twin-user-function-list.v1') {
       throw const FormatException(
-        'Unsupported user-function artifact list schema version.',
+        'Unsupported Twin user-function list schema version.',
       );
     }
     final items = body['items'];
     if (items is! List) {
       throw const FormatException(
-        'Invalid API contract: user-function artifacts must be an array.',
+        'Invalid API contract: Twin user functions must be an array.',
       );
     }
     return List.unmodifiable(
       items.indexed.map(
-        (entry) => UserFunctionArtifact.fromJson(
-          _contractMap(entry.$2, 'user-function artifacts[${entry.$1}]'),
+        (entry) => TwinUserFunction.fromJson(
+          _contractMap(entry.$2, 'Twin user functions[${entry.$1}]'),
         ),
       ),
     );
   }
 
   @override
-  Future<List<TwinExtensionBinding>> listTwinExtensionBindings(
-    String twinId,
-  ) async {
-    final response = await _dio.get('/twins/$twinId/extension-bindings');
-    final body = _contractMap(response.data, 'extension bindings');
-    _requireContractFields(body, const {
-      'schema_version',
-      'items',
-    }, 'extension bindings');
-    if (body['schema_version'] != 'twin-extension-binding-list.v1') {
-      throw const FormatException(
-        'Unsupported extension-binding list schema version.',
-      );
-    }
-    final items = body['items'];
-    if (items is! List) {
-      throw const FormatException(
-        'Invalid API contract: extension bindings must be an array.',
-      );
-    }
-    return List.unmodifiable(
-      items.indexed.map(
-        (entry) => TwinExtensionBinding.fromJson(
-          _contractMap(entry.$2, 'extension bindings[${entry.$1}]'),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Future<TwinExtensionBinding> bindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot,
-    String artifactId, {
-    int? expectedRevision,
-  }) async {
-    final response = await _dio.put(
-      '/twins/$twinId/extension-bindings/${slot.slotId}',
-      data: {
-        'artifact_id': artifactId,
-        'slot_version': slot.slotVersion,
-        if (expectedRevision != null) 'expected_revision': expectedRevision,
-      },
-    );
-    return TwinExtensionBinding.fromJson(
-      _contractMap(response.data, 'extension binding'),
-    );
-  }
-
-  @override
-  Future<void> unbindTwinExtensionArtifact(
-    String twinId,
-    ExtensionSlot slot, {
-    int? expectedRevision,
-  }) async {
+  Future<void> deleteTwinUserFunction(String twinId, ExtensionSlot slot) async {
     await _dio.delete(
-      '/twins/$twinId/extension-bindings/${slot.slotId}',
-      queryParameters: {
-        'slot_version': slot.slotVersion,
-        if (expectedRevision != null) 'expected_revision': expectedRevision,
-      },
+      '/twins/$twinId/user-functions/${slot.slotId}',
+      queryParameters: {'slot_version': slot.slotVersion},
     );
   }
 
@@ -405,18 +292,15 @@ class ApiService implements ManagementApi {
         'Invalid API contract: twins response must be an array.',
       );
     }
+    if (data.length > 32) {
+      throw const FormatException(
+        'Invalid API contract: twin inventory is too large.',
+      );
+    }
     return List<Twin>.unmodifiable(
       data.indexed.map(
         (entry) => Twin.fromJson(_contractMap(entry.$2, 'twins[${entry.$1}]')),
       ),
-    );
-  }
-
-  @override
-  Future<DashboardStats> getDashboardStats() async {
-    final response = await _dio.get('/dashboard/stats');
-    return DashboardStats.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
     );
   }
 
@@ -438,6 +322,62 @@ class ApiService implements ManagementApi {
   Future<Twin> createTwin(String name) async {
     final response = await _dio.post('/twins/', data: {'name': name});
     return Twin.fromJson(_contractMap(response.data, 'twin'));
+  }
+
+  @override
+  Future<Twin> duplicateTwin(
+    String twinId,
+    TwinDuplicateRequest request,
+  ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.post(
+      '/twins/$id/duplicate',
+      data: request.toJson(),
+    );
+    return Twin.fromJson(_contractMap(response.data, 'duplicated twin'));
+  }
+
+  @override
+  Future<Twin> importTwin(TwinImportRequest request) async {
+    final response = await _dio.post(
+      '/twins/import',
+      data: FormData.fromMap({
+        'new_name': request.newName,
+        'archive': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
+    );
+    return Twin.fromJson(_contractMap(response.data, 'imported twin'));
+  }
+
+  @override
+  Future<PortableTwinDownload> exportTwin(String twinId) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get(
+      '/twins/$id/export',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    final bytes = switch (response.data) {
+      Uint8List value => value,
+      List<int> value => Uint8List.fromList(value),
+      _ => throw const FormatException(
+        'Invalid portable Twin contract: response must be binary.',
+      ),
+    };
+    return PortableTwinDownload(
+      filename: _attachmentFilename(
+        response.headers.value('content-disposition'),
+      ),
+      mediaType:
+          response.headers.value(Headers.contentTypeHeader) ??
+          PortableTwinDownload.mediaTypeZip,
+      bytes: bytes,
+    );
   }
 
   @override
@@ -478,92 +418,69 @@ class ApiService implements ManagementApi {
     return updateTwinConfig(twinId, request.toJson());
   }
 
-  // ============================================================
-  // Optimizer Endpoints (Step 2)
-  // ============================================================
-
-  /// Get pricing data freshness status for all providers
   @override
-  Future<Map<String, dynamic>> getPricingStatus() async {
-    final response = await _dio.get('/optimizer/pricing-status');
-    return response.data;
+  Future<ArchitectureProfileDetail> getCanonicalArchitectureContract() async {
+    final response = await _dio.get('/architecture-contract');
+    final detail = ArchitectureProfileDetail.fromJson(
+      _contractMap(response.data, 'canonical architecture contract'),
+    );
+    if (detail.summary.profileId != 'six-layer-eventing' ||
+        detail.summary.profileVersion != '1') {
+      throw const FormatException(
+        'Invalid API contract: canonical architecture identity differs.',
+      );
+    }
+    return detail;
   }
 
   @override
-  Future<PricingHealthResponse> getPricingHealth() async {
-    final response = await _dio.get('/optimizer/pricing-health');
-    return PricingHealthResponse.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
+  Future<TwinArchitectureSelection> getTwinArchitectureContract(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/architecture-contract');
+    final selection = TwinArchitectureSelection.fromJson(
+      _contractMap(response.data, 'Twin architecture contract'),
     );
+    if (selection.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: architecture selection Twin differs.',
+      );
+    }
+    return selection;
   }
 
   @override
-  Future<PricingRefreshRun> startPricingRefresh(
-    String provider, {
-    String? connectionId,
-    bool force = true,
-  }) async {
-    final response = await _dio.post(
-      '/optimizer/pricing-refresh/${provider.toLowerCase()}',
-      data: {'pricing_connection_id': connectionId, 'force': force},
-      options: Options(receiveTimeout: const Duration(minutes: 20)),
+  Future<ResolvedTwinArchitectureRead> getSelectedResolvedArchitecture(
+    String twinId,
+  ) async {
+    final response = await _dio.get('/twins/$twinId/resolved-architecture');
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'selected resolved architecture'),
     );
-    return PricingRefreshRun.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
+    if (resolved.twinId != twinId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture Twin differs.',
+      );
+    }
+    return resolved;
   }
 
   @override
-  Future<PricingCandidateReportList> listPricingCandidateReports(
-    String provider,
-    String refreshRunId,
+  Future<ResolvedTwinArchitectureRead> getRunResolvedArchitecture(
+    String runId,
   ) async {
     final response = await _dio.get(
-      '/optimizer/pricing-review/${provider.toLowerCase()}/candidate-reports',
-      queryParameters: {'refresh_run_id': refreshRunId},
+      '/optimizer-runs/$runId/resolved-architecture',
     );
-    return PricingCandidateReportList.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
+    final resolved = ResolvedTwinArchitectureRead.fromJson(
+      _contractMap(response.data, 'run resolved architecture'),
     );
-  }
-
-  @override
-  Future<PricingTrace> getPricingCandidateTrace(String reportId) async {
-    final response = await _dio.get(
-      '/optimizer/pricing-review/candidate-reports/$reportId/trace',
-    );
-    return PricingTrace.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  @override
-  Future<PricingReviewDecision> createPricingReviewDecision(
-    String reportId,
-    String decision, {
-    String? candidateId,
-    String? rationale,
-  }) async {
-    final response = await _dio.post(
-      '/optimizer/pricing-review/decisions',
-      data: {
-        'report_id': reportId,
-        'decision': decision,
-        if (candidateId != null) 'selected_candidate_id': candidateId,
-        if (rationale != null && rationale.trim().isNotEmpty)
-          'rationale': rationale.trim(),
-      },
-    );
-    return PricingReviewDecision.fromJson(
-      Map<String, dynamic>.from(response.data as Map),
-    );
-  }
-
-  /// Get regions data freshness status for all providers
-  @override
-  Future<Map<String, dynamic>> getRegionsStatus() async {
-    final response = await _dio.get('/optimizer/regions-status');
-    return response.data;
+    if (resolved.calculationRunId != runId) {
+      throw const FormatException(
+        'Invalid API contract: resolved architecture run differs.',
+      );
+    }
+    return resolved;
   }
 
   /// Run, validate, and persist one optimizer calculation through Management.
@@ -799,56 +716,8 @@ class ApiService implements ManagementApi {
   }
 
   // ============================================================
-  // Zip Upload and Extraction (Step 3 Auto-Population)
-  // ============================================================
-
-  /// Upload project.zip and extract contents for wizard auto-population.
-  ///
-  /// Returns extracted config files, function code, and assets.
-  /// GLB files are automatically saved to the server if present.
-  ///
-  /// Validation errors are aggregated (not fail-fast) to provide
-  /// maximum feedback on first upload.
-  @override
-  Future<Map<String, dynamic>> uploadProjectZip(
-    String twinId,
-    Uint8List fileBytes,
-    String filename,
-  ) async {
-    final formData = FormData.fromMap({
-      'file': MultipartFile.fromBytes(fileBytes, filename: filename),
-    });
-    final response = await _dio.post(
-      '/twins/$twinId/deployer/upload-zip',
-      data: formData,
-      options: Options(
-        sendTimeout: const Duration(seconds: 120),
-        receiveTimeout: const Duration(seconds: 120),
-      ),
-    );
-    return response.data;
-  }
-
-  // ============================================================
   // Result-Returning Methods (Type-Safe Error Handling)
   // ============================================================
-
-  /// Get pricing status with structured error handling.
-  @override
-  Future<Result<Map<String, dynamic>>> getPricingStatusResult() async {
-    try {
-      final data = await getPricingStatus();
-      return Success(data);
-    } on DioException catch (e) {
-      return Failure(AppException.fromDioError(e));
-    } catch (e) {
-      return Failure(
-        AppException(
-          'Failed to load pricing status: ${ApiErrorHandler.extractMessage(e)}',
-        ),
-      );
-    }
-  }
 
   /// Get twin config with structured error handling.
   @override
@@ -893,6 +762,22 @@ class ApiService implements ManagementApi {
     );
   }
 
+  @override
+  Future<DeploymentPreparationResponse> prepareDeployment(
+    String twinId,
+    DeploymentPreparationRequest request,
+  ) async {
+    final response = await _dio.post(
+      '/twins/$twinId/deployment-preparation',
+      data: request.toJson(),
+    );
+    return DeploymentPreparationResponse.fromJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+      expectedRequest: request,
+    );
+  }
+
   /// Deploy a twin's infrastructure
   @override
   Future<OperationSession> deployTwin(String twinId) async {
@@ -919,6 +804,16 @@ class ApiService implements ManagementApi {
   Future<DeploymentOutputsSnapshot> getDeploymentOutputs(String twinId) async {
     final response = await _dio.get('/twins/$twinId/outputs');
     return DeploymentOutputsSnapshot.fromJson(_responseMap(response.data));
+  }
+
+  @override
+  Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId) async {
+    final twinPath = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get('/twins/$twinPath/deployment-access');
+    return DeploymentAccessSnapshot.fromJson(
+      _responseMap(response.data),
+      expectedTwinId: twinId,
+    );
   }
 
   @override
@@ -1020,7 +915,7 @@ class ApiService implements ManagementApi {
   // Deployment Verification
   // ==========================================================================
 
-  /// Run structured infrastructure verification (L0-L5 checks)
+  /// Run structured infrastructure verification for the selected architecture.
   /// Returns {checks: List, summary: {pass_count, fail_count, skip_count, total, healthy}}
   @override
   Future<Map<String, dynamic>> verifyInfrastructure(String twinId) async {
@@ -1031,22 +926,85 @@ class ApiService implements ManagementApi {
     return response.data as Map<String, dynamic>;
   }
 
-  /// Start data flow verification with SSE streaming.
-  /// Returns {session_id, sse_url} for connecting to SSE.
+  /// Start one persisted data-flow verification with SSE streaming.
   @override
-  Future<Map<String, dynamic>> verifyDataFlow(
+  Future<TelemetryVerificationStart> verifyDataFlow(
     String twinId,
     Map<String, dynamic> payload,
   ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
     final response = await _dio.post(
-      '/twins/$twinId/verify/dataflow',
+      '/twins/$id/verify/dataflow',
       data: {'payload': payload},
       options: Options(receiveTimeout: const Duration(seconds: 30)),
     );
-    return response.data as Map<String, dynamic>;
+    return TelemetryVerificationStart.fromJson(
+      _contractMap(response.data, 'telemetry verification session'),
+    );
   }
 
-  /// Download IoT simulator package (L1 provider determined by backend).
+  @override
+  Future<TelemetryVerificationHistory> listDataFlowVerifications(
+    String twinId, {
+    int limit = 25,
+  }) async {
+    _validateRange(
+      'Telemetry verification history limit',
+      limit,
+      minimum: 1,
+      maximum: 25,
+    );
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get(
+      '/twins/$id/verify/dataflow',
+      queryParameters: {'limit': limit},
+    );
+    return TelemetryVerificationHistory.fromJson(
+      _contractMap(response.data, 'telemetry verification history'),
+    );
+  }
+
+  @override
+  Future<TelemetryVerificationRecord> getDataFlowVerification(
+    String twinId,
+    String verificationId,
+  ) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final recordId = _managementPathSegment(
+      verificationId,
+      'Telemetry verification ID',
+    );
+    final response = await _dio.get('/twins/$id/verify/dataflow/$recordId');
+    return TelemetryVerificationRecord.fromJson(
+      _contractMap(response.data, 'telemetry verification record'),
+    );
+  }
+
+  /// Fetch the fixed L5 snapshot through owner-scoped Management authentication.
+  @override
+  Future<String> getVisualization(String twinId) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get<List<int>>(
+      '/twins/$id/deployment-access/visualization',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    final bytes = response.data;
+    if (bytes == null ||
+        bytes.isEmpty ||
+        bytes.length > 1024 * 1024 ||
+        response.headers.value(Headers.contentTypeHeader)?.split(';').first !=
+            'text/html') {
+      throw const AppException(
+        'Invalid L5 visualization response.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      );
+    }
+    return utf8.decode(bytes);
+  }
+
   @override
   Future<BinaryDownload> downloadSimulator(String twinId) async {
     final response = await _dio.get(
@@ -1086,7 +1044,7 @@ Map<String, dynamic> _responseMap(Object? value) {
   return Map<String, dynamic>.from(value);
 }
 
-FormData _extensionMultipart(UserFunctionArtifactUpload upload) {
+FormData _extensionMultipart(UserFunctionSourceUpload upload) {
   return FormData.fromMap({
     'metadata': MultipartFile.fromBytes(
       upload.metadataBytes,

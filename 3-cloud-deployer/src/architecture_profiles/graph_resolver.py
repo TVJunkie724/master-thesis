@@ -9,9 +9,9 @@ from typing import Any
 from src.deployment_specification.errors import DeploymentSpecificationError
 from src.deployment_specification.models import ValidatedDeploymentManifest
 
+from . import contracts
 from .binding_resolver import resolve_node_bindings
 from .catalog import DeploymentComponentCatalog
-from . import contracts
 from .graph_evidence import content_digest
 from .graph_models import (
     GraphBinding,
@@ -21,8 +21,8 @@ from .graph_models import (
     frozen_mapping,
 )
 from .registry import ArchitectureProfileRegistry
+from .requirements import resolve_graph_requirements
 from .stage_planner import STAGES, plan_stages
-
 
 GRAPH_SCHEMA_VERSION = "resolved-deployment-graph.v1"
 
@@ -38,18 +38,32 @@ def resolve_deployment_graph(
 ) -> ResolvedDeploymentGraph:
     """Resolve every architecture assignment and edge before side effects."""
 
-    if manifest.manifest_version != "3.0" or manifest.architecture is None:
+    if manifest.manifest_version != "4.0" or manifest.architecture is None:
         _fail(
             "DEPLOYMENT_MANIFEST_VERSION_UNSUPPORTED",
             "deployment_manifest.manifest_version",
-            "New graph resolution requires DeploymentManifest v3",
+            "Graph resolution requires DeploymentManifest v4",
         )
-    registry = registry or ArchitectureProfileRegistry()
-    catalog = DeploymentComponentCatalog(registry)
     architecture = manifest.architecture
+    profile_ref = architecture["architecture_profile_ref"]
+    registry = registry or ArchitectureProfileRegistry(
+        profile_id=str(profile_ref["id"]), profile_version=str(profile_ref["version"])
+    )
+    catalog = DeploymentComponentCatalog(registry)
     specification = manifest.specification.specification
+    specification_components = (
+        specification["component_selections"]
+        if manifest.specification.schema_version
+        == "resolved-deployment-specification.v2"
+        else specification["components"]
+    )
     specification_by_id = {
-        item["component_id"]: item for item in specification["components"]
+        (
+            item["implementation_component_id"]
+            if "implementation_component_id" in item
+            else item["component_id"]
+        ): item
+        for item in specification_components
     }
     assignments = sorted(
         architecture["component_assignments"],
@@ -175,6 +189,10 @@ def resolve_deployment_graph(
         used_specification_ids.update(specification_ids)
         component_by_assignment[assignment["assignment_id"]] = component
 
+    node_by_deployment_component = {
+        node.deployment_component_id: node for node in nodes
+    }
+
     edges: list[GraphEdge] = []
     support_node_by_component: dict[str, GraphNode] = {}
     destination_bindings: set[tuple[str, str]] = set()
@@ -216,7 +234,9 @@ def resolve_deployment_graph(
             )
         support_node_ids: list[str] = []
         for support_component_id in edge["glue_component_ids"]:
-            support_node = support_node_by_component.get(support_component_id)
+            support_node = node_by_deployment_component.get(
+                support_component_id
+            ) or support_node_by_component.get(support_component_id)
             if support_node is None:
                 try:
                     support_component = catalog.component(support_component_id)
@@ -320,6 +340,7 @@ def resolve_deployment_graph(
                     (),
                 )
                 support_node_by_component[support_component_id] = support_node
+                node_by_deployment_component[support_component_id] = support_node
                 nodes.append(support_node)
                 component_by_assignment[support_assignment_id] = support_component
                 used_specification_ids.update(support_specification_ids)
@@ -434,12 +455,22 @@ def resolve_deployment_graph(
             "bindings",
             "Graph binding identifier is duplicated",
         )
-    topological_node_ids = _topological_order(node_tuple, edge_tuple)
+    topological_node_ids = _topological_order(
+        node_tuple,
+        edge_tuple,
+        allowed_cycle_ids=frozenset(
+            registry.profile["graph_policy"]["allowed_cycle_ids"]
+        ),
+    )
     stages = plan_stages(
         node_tuple,
         edge_tuple,
         bindings,
         topological_node_ids,
+    )
+    requirements = resolve_graph_requirements(node_tuple, edge_tuple)
+    requirements_digest = content_digest(
+        [requirement.to_contract() for requirement in requirements]
     )
     catalog_ref = {
         "id": registry.catalog["catalog_id"],
@@ -477,6 +508,8 @@ def resolve_deployment_graph(
         "edges": [edge.to_contract() for edge in edge_tuple],
         "bindings": [binding.to_contract() for binding in bindings],
         "stages": [stage.to_contract() for stage in stages],
+        "requirements": [requirement.to_contract() for requirement in requirements],
+        "requirements_digest": requirements_digest,
         "compatibility": dict(manifest.manifest["compatibility"]),
     }
     return ResolvedDeploymentGraph(
@@ -491,6 +524,8 @@ def resolve_deployment_graph(
         edges=edge_tuple,
         bindings=bindings,
         stages=stages,
+        requirements=requirements,
+        requirements_digest=requirements_digest,
         compatibility=frozen_mapping(manifest.manifest["compatibility"]),
         content_digest=content_digest(without_digest),
     )
@@ -573,26 +608,115 @@ def _artifact_closure(
 def _topological_order(
     nodes: tuple[GraphNode, ...],
     edges: tuple[GraphEdge, ...],
+    *,
+    allowed_cycle_ids: frozenset[str] = frozenset(),
 ) -> tuple[str, ...]:
-    indegree = {node.node_id: 0 for node in nodes}
-    outgoing: dict[str, list[str]] = defaultdict(list)
+    """Order the condensation graph and expand only profile-allowlisted cycles."""
+
+    nodes_by_id = {node.node_id: node for node in nodes}
+    outgoing: dict[str, set[str]] = defaultdict(set)
     for edge in edges:
-        outgoing[edge.source_node_id].append(edge.destination_node_id)
-        indegree[edge.destination_node_id] += 1
-    ready = sorted(node_id for node_id, count in indegree.items() if count == 0)
-    ordered: list[str] = []
-    while ready:
-        node_id = ready.pop(0)
-        ordered.append(node_id)
+        outgoing[edge.source_node_id].add(edge.destination_node_id)
+
+    next_index = 0
+    indexes: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    components: list[tuple[str, ...]] = []
+
+    def visit(node_id: str) -> None:
+        nonlocal next_index
+        indexes[node_id] = next_index
+        lowlinks[node_id] = next_index
+        next_index += 1
+        stack.append(node_id)
+        on_stack.add(node_id)
         for destination in sorted(outgoing[node_id]):
-            indegree[destination] -= 1
-            if indegree[destination] == 0:
-                ready.append(destination)
-                ready.sort()
-    if len(ordered) != len(nodes):
+            if destination not in indexes:
+                visit(destination)
+                lowlinks[node_id] = min(lowlinks[node_id], lowlinks[destination])
+            elif destination in on_stack:
+                lowlinks[node_id] = min(lowlinks[node_id], indexes[destination])
+        if lowlinks[node_id] != indexes[node_id]:
+            return
+        connected: list[str] = []
+        while stack:
+            member = stack.pop()
+            on_stack.remove(member)
+            connected.append(member)
+            if member == node_id:
+                break
+        components.append(tuple(sorted(connected)))
+
+    for node_id in sorted(nodes_by_id):
+        if node_id not in indexes:
+            visit(node_id)
+
+    cyclic_components = [
+        component
+        for component in components
+        if len(component) > 1
+        or any(node_id in outgoing[node_id] for node_id in component)
+    ]
+    actual_cycle_ids = {
+        "cycle."
+        + ".".join(
+            sorted(
+                nodes_by_id[node_id].logical_component_id.removeprefix("component.")
+                for node_id in component
+            )
+        )
+        for component in cyclic_components
+    }
+    if actual_cycle_ids != set(allowed_cycle_ids):
         _fail(
             "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN",
             "resolved_twin_architecture.resolved_edges",
-            "Resolved deployment graph contains a forbidden cycle",
+            "Resolved deployment graph cycles differ from the profile allowlist",
         )
-    return tuple(ordered)
+
+    component_by_node = {
+        node_id: index
+        for index, component in enumerate(components)
+        for node_id in component
+    }
+    component_outgoing: dict[int, set[int]] = defaultdict(set)
+    indegree = {index: 0 for index in range(len(components))}
+    for source, destinations in outgoing.items():
+        source_component = component_by_node[source]
+        for destination in destinations:
+            destination_component = component_by_node[destination]
+            if source_component == destination_component:
+                continue
+            if destination_component not in component_outgoing[source_component]:
+                component_outgoing[source_component].add(destination_component)
+                indegree[destination_component] += 1
+
+    ready = sorted(
+        (index for index, count in indegree.items() if count == 0),
+        key=lambda index: components[index],
+    )
+    ordered_components: list[int] = []
+    while ready:
+        component_index = ready.pop(0)
+        ordered_components.append(component_index)
+        for destination in sorted(
+            component_outgoing[component_index],
+            key=lambda index: components[index],
+        ):
+            indegree[destination] -= 1
+            if indegree[destination] == 0:
+                ready.append(destination)
+                ready.sort(key=lambda index: components[index])
+    if len(ordered_components) != len(components):
+        _fail(
+            "DEPLOYMENT_GRAPH_CYCLE_FORBIDDEN",
+            "resolved_twin_architecture.resolved_edges",
+            "Resolved deployment condensation graph contains a cycle",
+        )
+    return tuple(
+        node_id
+        for component_index in ordered_components
+        for node_id in components[component_index]
+    )

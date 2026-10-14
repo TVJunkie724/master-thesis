@@ -10,7 +10,7 @@
 | Flutter | `./thesis.sh test frontend` | no |
 | Flutter integration | `./thesis.sh test frontend-integration` | no; read-only local stack |
 | Optimizer | container `pytest tests/ -v` | no live refresh by default |
-| Deployer | container `pytest tests/ --ignore=tests/e2e -v` | no |
+| Deployer | container `pytest tests/ -v` | no |
 | Documentation | strict MkDocs build + link checks | no |
 
 Current suites contain route/contract, unit, integration, security, migration, widget,
@@ -20,16 +20,17 @@ cases.
 
 ## Optimizer-To-Terraform Drift Gate
 
-The root gate checks that selected resource values reach Terraform without
-reconstructing SKU, capacity, storage class, schedule, memory or scaling values
-downstream. It covers contracts and mock plans, not live deployability:
+The complete root gate proves that the exact cost-model winner is deployable
+without reconstructing SKU, capacity, storage class, schedule, memory, or
+scaling values downstream:
 
 ```text
 Optimizer formula/deployment selection
-  -> ResolvedDeploymentSpecification v1 + digest
+  -> ResolvedDeploymentSpecification v2 + digest
+  -> ResolvedTwinArchitecture v2 + digest
   -> Management validation and immutable persistence
-  -> DeploymentManifest v3 + resolved architecture
-  -> Deployer graph and allowlisted typed tfvars
+  -> DeploymentManifest v4
+  -> Deployer allowlisted typed tfvars
   -> Terraform variable validation and resource attributes
 ```
 
@@ -38,9 +39,9 @@ Deployer, and native Terraform drift suites. The no-argument command then runs
 the full safe suites, Ruff, Bandit, dependency/compile checks, Flutter analysis,
 tests and host builds, strict MkDocs, Compose, and repository static checks.
 
-The command refuses `RUN_E2E_TESTS=1`, credential-overlay environment switches,
-and `compose.cloud.local.yaml`. Provider credential variables are removed from
-all child processes. Temporary Management runtime secrets and Compose resources
+The command refuses credential-overlay environment switches and
+`compose.cloud.local.yaml`. Provider credential variables are removed from all
+child processes. Temporary Management runtime secrets and Compose resources
 live under isolated operating-system/Docker namespaces and are removed whether
 the gate succeeds or fails. Terraform tests use mock providers and never call
 `apply`. The canonical Deployer root module versions its
@@ -51,9 +52,12 @@ remain untracked.
 ## Python Security/Quality
 
 Service images include development requirements for pytest and static/security checks.
-Bandit and Ruff findings must be evaluated in context; suppressions require a local,
-specific reason. Secret-redaction tests deliberately inject secret-like values into
-downstream messages and prove they do not persist or return.
+Ruff enforces the shared Python 3.11 critical-correctness baseline (`E4`, `E7`,
+`E9`, and `F`) in all three services. Broader modernization rules are not part
+of the thesis gate. Bandit findings must be evaluated in context; suppressions
+require a local, specific reason. Secret-redaction tests deliberately inject
+secret-like values into downstream messages and prove they do not persist or
+return.
 
 ## Flutter Gate
 

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from decimal import Decimal
-import re
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol, runtime_checkable
 from uuid import UUID
@@ -12,7 +12,6 @@ from uuid import UUID
 from . import contracts
 from .diagnostics import ArchitectureResolutionError
 from .registry import ArchitectureProfileRegistry
-
 
 BUNDLE_FIELDS = (
     "optimization_strategy_id",
@@ -107,6 +106,7 @@ class ArchitectureResolutionContext:
     catalog: Mapping[str, Any]
     provider_profiles: Mapping[str, Mapping[str, Any]]
     extension_bindings: tuple[ExtensionBindingRef, ...]
+    resolution_status: str = "publishable"
     layer_options: Mapping[
         str,
         tuple[tuple[str, Decimal], ...],
@@ -182,69 +182,13 @@ class ArchitectureOptimizationStrategy(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
-class ArchitectureStrategyRegistry:
-    """Register one strategy per exact immutable optimization bundle."""
-
-    def __init__(self) -> None:
-        self._strategies: dict[
-            OptimizationBundleRef,
-            ArchitectureOptimizationStrategy,
-        ] = {}
-        self._frozen = False
-
-    def register(
-        self,
-        profile: Mapping[str, Any],
-        strategy: ArchitectureOptimizationStrategy,
-    ) -> None:
-        if self._frozen:
-            raise RuntimeError("Architecture strategy registry is frozen")
-        profile_ref = ArchitectureProfileRef.from_profile(profile)
-        if profile_ref not in strategy.supported_profile_refs:
-            raise RuntimeError(
-                "Architecture strategy does not declare the registered profile"
-            )
-        bundle_ref = OptimizationBundleRef.from_profile(profile)
-        if bundle_ref in self._strategies:
-            raise RuntimeError(
-                "Duplicate architecture strategy bundle registration"
-            )
-        self._strategies[bundle_ref] = strategy
-
-    def freeze(self) -> None:
-        if not self._strategies:
-            raise RuntimeError(
-                "Architecture strategy registry has no registered strategy"
-            )
-        self._frozen = True
-
-    def resolve(
-        self,
-        profile: Mapping[str, Any],
-    ) -> ArchitectureOptimizationStrategy:
-        if not self._frozen:
-            raise RuntimeError("Architecture strategy registry is not frozen")
-        bundle_ref = OptimizationBundleRef.from_profile(profile)
-        strategy = self._strategies.get(bundle_ref)
-        profile_ref = ArchitectureProfileRef.from_profile(profile)
-        if (
-            strategy is None
-            or profile_ref not in strategy.supported_profile_refs
-        ):
-            raise ArchitectureResolutionError(
-                "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
-                "architectureProfile",
-                "No registered strategy supports the exact profile bundle",
-            )
-        return strategy
-
-
 def build_resolution_context(
     *,
     registry: ArchitectureProfileRegistry,
     calculation_run_id: str,
     architecture_profile: Mapping[str, Any],
     extension_bindings: object,
+    resolution_status: str = "publishable",
 ) -> ArchitectureResolutionContext:
     """Validate references only and return immutable repository definitions."""
 
@@ -287,7 +231,25 @@ def build_resolution_context(
             exc.path,
             str(exc),
         ) from exc
-    if profile["lifecycle_status"] != "active":
+    if resolution_status not in {"publishable", "offline_contract_fixture"}:
+        raise ArchitectureResolutionError(
+            "ARCH_WORKLOAD_INCOMPATIBLE",
+            "resolutionStatus",
+            "Architecture resolution status is unsupported",
+        )
+    if (
+        resolution_status == "offline_contract_fixture"
+        and profile["schema_version"] != "architecture-profile.v2"
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_PROFILE_BUNDLE_INCOMPATIBLE",
+            "resolutionStatus",
+            "Offline draft resolution is restricted to v2 implementation evidence",
+        )
+    if (
+        resolution_status == "publishable"
+        and profile["lifecycle_status"] != "active"
+    ):
         raise ArchitectureResolutionError(
             "ARCH_PROFILE_NOT_FOUND",
             "architectureProfile",
@@ -305,6 +267,7 @@ def build_resolution_context(
         catalog=registry.catalog,
         provider_profiles=MappingProxyType(dict(registry.providers)),
         extension_bindings=normalized_bindings,
+        resolution_status=resolution_status,
     )
 
 

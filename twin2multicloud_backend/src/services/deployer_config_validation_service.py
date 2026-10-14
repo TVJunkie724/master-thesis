@@ -9,8 +9,12 @@ from sqlalchemy.orm import Session
 from src.clients.deployer_client import DeployerClient
 from src.models.deployer_config import DeployerConfiguration
 from src.repositories.twin_repository import TwinRepository
-from src.schemas.deployer_config import ConfigValidationRequest, ConfigValidationResponse
+from src.schemas.deployer_config import (
+    ConfigValidationRequest,
+    ConfigValidationResponse,
+)
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
+from src.services.architecture_projection_service import provider_by_logical_component
 from src.services.secret_redaction import redact_secret_like_text
 from src.services.service_errors import EntityNotFoundError, ValidationError
 
@@ -77,11 +81,17 @@ class DeployerConfigValidationService:
     @staticmethod
     def _validate_config_type(config_type: str, provider: str | None) -> None:
         if config_type not in CONFIG_TYPE_ENDPOINTS:
-            raise ValidationError(f"Invalid config_type. Use: {list(CONFIG_TYPE_ENDPOINTS.keys())}")
+            raise ValidationError(
+                f"Invalid config_type. Use: {list(CONFIG_TYPE_ENDPOINTS.keys())}"
+            )
         if config_type in L2_CONFIG_TYPES and not provider:
-            raise ValidationError(f"provider is required for {config_type} validation (aws, azure, google)")
+            raise ValidationError(
+                f"provider is required for {config_type} validation (aws, azure, google)"
+            )
         if config_type in L4_CONFIG_TYPES and not provider:
-            raise ValidationError(f"provider is required for {config_type} validation (aws or azure)")
+            raise ValidationError(
+                f"provider is required for {config_type} validation (aws or azure)"
+            )
 
     async def _post_validation_request(
         self,
@@ -104,9 +114,20 @@ class DeployerConfigValidationService:
                 deployer_endpoint,
                 files,
                 provider=request.provider,
+                context_params=(
+                    self._phase8_user_config_context(twin)
+                    if config_type == "user-config"
+                    else None
+                ),
             )
 
-        files = {"file": (f"config_{config_type}.json", request.content.encode(), "application/json")}
+        files = {
+            "file": (
+                f"config_{config_type}.json",
+                request.content.encode(),
+                "application/json",
+            )
+        }
         return await self.deployer_client.validate_config_file(deployer_endpoint, files)
 
     @staticmethod
@@ -118,15 +139,48 @@ class DeployerConfigValidationService:
         return (f"code{extension}", content.encode(), "text/plain")
 
     @staticmethod
-    def _l4_upload_files(twin, config_type: str, content: str) -> dict[str, tuple[str, bytes, str]]:
+    def _l4_upload_files(
+        twin, config_type: str, content: str
+    ) -> dict[str, tuple[str, bytes, str]]:
         if config_type != "scene-config":
-            return {"file": (f"{config_type}.json", content.encode(), "application/json")}
+            return {
+                "file": (f"{config_type}.json", content.encode(), "application/json")
+            }
 
         config = twin.deployer_config
         hierarchy_content = config.hierarchy_content if config else ""
         return {
             "scene_file": ("scene.json", content.encode(), "application/json"),
-            "hierarchy_file": ("hierarchy.json", (hierarchy_content or "").encode(), "application/json"),
+            "hierarchy_file": (
+                "hierarchy.json",
+                (hierarchy_content or "").encode(),
+                "application/json",
+            ),
+        }
+
+    @staticmethod
+    def _phase8_user_config_context(twin) -> dict[str, str] | None:
+        selection = twin.architecture_selection
+        if selection is None:
+            return None
+        identity = (selection.profile_id, selection.profile_version)
+        if identity != ("six-layer-eventing", "1"):
+            return None
+
+        providers = provider_by_logical_component(twin)
+        l4_provider = providers.get("component.twin-state")
+        l5_provider = providers.get("component.visualization")
+        if l4_provider is None or l5_provider is None:
+            raise ValidationError(
+                "Select one complete optimized architecture before validating "
+                "Phase 8 user access."
+            )
+
+        return {
+            "architecture_profile_id": selection.profile_id,
+            "architecture_profile_version": selection.profile_version,
+            "layer_4_provider": l4_provider,
+            "layer_5_provider": l5_provider,
         }
 
     def _mark_validation_success(self, twin_id: str, twin, config_type: str) -> None:

@@ -1,4 +1,4 @@
-"""Structured L0-L5 infrastructure verification."""
+"""Structured Six-layer infrastructure verification."""
 
 from __future__ import annotations
 
@@ -170,6 +170,13 @@ def verify_infrastructure(
                 providers.get("layer_1_provider", ""),
                 "No devices configured",
                 "L1",
+            ),
+            _state_check(
+                state,
+                ("eventing",),
+                name="Event Layer infrastructure",
+                provider=providers.get("event_layer_provider", ""),
+                layer="EVENT",
             ),
             _state_check(
                 state,

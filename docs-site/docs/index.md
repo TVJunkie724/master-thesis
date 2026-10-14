@@ -1,42 +1,55 @@
-# Twin2MultiCloud PoC
+# Twin2MultiCloud Documentation
 
-Twin2MultiCloud connects Digital Twin cost optimization with multi-cloud
-deployment. It extends two predecessor projects with a Management API and
-Flutter UI.
+Twin2MultiCloud is a thesis proof of concept for configuring, cost-optimizing,
+deploying, and verifying one standalone Six-layer Digital Twin architecture
+across AWS, Azure, and Google Cloud.
 
-## Start here
+It is intentionally not a general cloud-management product. The implemented
+scope exists to produce traceable evidence for operationalization, functional
+provider comparability, cost effects, provider-local baselines, and Eventing as
+an explicit responsibility.
 
-| Question | Read |
+## Current boundary
+
+| Area | Implemented offline | Still requires supervised live evidence |
+|---|---|---|
+| Architecture | fixed `six-layer-eventing@1` contract | real regional service capacity |
+| Optimization | cost-only strategy with full trace | sensitivity interpretation against live observations |
+| Pricing | frozen, cited, hashed snapshots | no live refresh is part of the PoC |
+| Credentials | encrypted deployment CloudConnections, graph readiness, bounded preparation services | Flutter confirmation/repair closure, real account permissions and external prerequisites |
+| Deployment | immutable operations, packages, SSE replay, verification and cleanup contracts | provider Apply/Destroy results |
+| Evaluation | deterministic fixtures and coverage design | three local plus six directed multi-cloud Small runs |
+
+The historical Five-layer calculation remains Optimizer-only comparison
+evidence. It cannot be selected or deployed.
+
+## Choose a path
+
+| Goal | Start here |
 |---|---|
-| How do I run it? | [Quickstart](getting-started/fresh-clone.md) |
-| What can I try and expect? | [PoC Walkthrough](user-guide/multi-cloud-walkthrough.md) |
-| How does it work? | [System Context](architecture/system-context.md) |
-| What is implemented and what remains open? | [Results and Limits](runtime/known-limitations.md) |
-| Why was it built this way? | [Engineering Decisions](architecture/engineering-decisions.md) |
+| run a safe local stack or offline demo | [Getting Started](getting-started/index.md) |
+| perform the supported workflow | [User Guide](user-guide/index.md) |
+| understand ownership and boundaries | [Architecture](architecture/index.md) |
+| change one service | [Components](components/flutter.md) |
+| inspect contracts and evidence flow | [Contracts & Data Flow](contracts-and-data-flow/index.md) |
+| prepare supervised provider access | [Cloud Setup](cloud-setup/index.md) |
+| test or troubleshoot | [Runtime](runtime/index.md) and [Developer Guide](developer-guide/index.md) |
 
-The **Reference** navigation contains service internals, contracts, operations
-and development details. It is not required reading for the first walkthrough.
+## Service boundary
 
-## Scope
+```text
+Flutter UI
+    |
+    | HTTP(S) + SSE
+    v
+Management API  --------->  Cost Optimizer
+    |
+    +-------------------->  Cloud Deployer  -----> AWS / Azure / GCP
+```
 
-The PoC estimates monthly cost for a bounded five-layer Digital Twin model and
-preserves the selected calculation as deployment evidence. The Management API
-coordinates configuration, credentials and execution; Flutter calls only that API.
+Flutter calls only Management. Management owns user/Twin state and durable
+workflow evidence. The Optimizer owns cost semantics and the immutable
+resolution. The Deployer owns provider readiness, execution, verification, and
+cleanup.
 
-The offline demo is ready for a repeatable UI walkthrough. Local startup does
-not require cloud credentials. New deployments require a resolved architecture
-and Manifest v3, while architecture-profile resolution defaults to off.
-See [Results and Limits](runtime/known-limitations.md) before using cloud operations.
-
-This is a research prototype. Implemented code, offline verification and
-successful live-cloud execution are distinct evidence levels.
-
-## Documentation boundaries
-
-This site describes the current implementation and how to use it. Scientific
-reasoning and evaluation design live in
-[Research Notes](https://github.com/TVJunkie724/master-thesis/tree/master/docs/research).
-[Project evolution](architecture/evolution.md) and
-[source provenance](references/source-provenance.md) explain the predecessors.
-
-Use [Troubleshooting](runtime/troubleshooting.md) when a local step fails.
+Offline tests, mocks, and fixtures never count as live-cloud validation.

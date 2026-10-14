@@ -8,8 +8,8 @@
 **Feature:** [Feature Name]
 **Date:** [YYYY-MM-DD]
 **Plan:** [Repo-relative path to the implementation plan]
-**Session:** AI-MMDD-xxxx (from `.ai-session.json`)
-**Branch:** ai/dev[/<feature-slug>]
+**Commits:** [Verified commit IDs]
+**Branch:** [Current feature branch from onboarding]
 
 ### Verification Summary
 
@@ -38,8 +38,8 @@
 **Feature:** [Feature Name]
 **Date:** [YYYY-MM-DD]
 **Plan:** [Repo-relative path to the implementation plan]
-**Session:** AI-MMDD-xxxx
-**Branch:** ai/dev[/<feature-slug>]
+**Commits:** [Verified commit IDs]
+**Branch:** [Current feature branch from onboarding]
 
 ### Failed Items
 
@@ -47,7 +47,7 @@
 |-------|------|----------|--------------|
 | 4 | Card padding 12px (plan said `Spacing.md` = 16px) | `lib/widgets/dashboard/stat_card.dart:42` | Replace `12` with `Spacing.md` |
 | 6 | `WizardBloc` does not handle `WizardSubmitted` event | `lib/bloc/wizard/wizard_bloc.dart` — no `on<WizardSubmitted>` | Add the handler with the loading→data→error transitions specified in plan §6 |
-| 9 | `LoginScreen` calls `http://localhost:5005/auth/google` from `dio` instance directly | `lib/screens/login_screen.dart:88` | Move into `AuthService.signInWithGoogle()` |
+| 9 | Widget performs a Management request directly | [Verified widget path and line] | Dispatch through the existing feature state owner and Management adapter |
 
 ### Severity Summary
 
@@ -66,6 +66,6 @@
 
 ## Notes
 
-- Always include the **session ID** so the user can `git log --grep="AI-MMDD-xxxx"` to find related commits.
+- Include verified commit IDs so the user can locate the reviewed changes; session metadata is optional.
 - Always include **repo-relative file paths with line numbers** as evidence — never paraphrase ("somewhere in the wizard").
 - Never include hypothetical fixes ("might also want to refactor X"). The audit verifies the plan; improvements belong in a new architect cycle.

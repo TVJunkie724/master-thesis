@@ -32,8 +32,8 @@
     "status": {"const": "selected_documented_live_pending"},
     "profile_ownership": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 1,
       "items": {"$ref": "#/$defs/profileOwnership"}
     },
     "logical_shape": {"$ref": "#/$defs/logicalShape"},
@@ -108,11 +108,7 @@
       "required": ["profile_id", "bridge_presence", "owner"],
       "properties": {
         "profile_id": {
-          "enum": [
-            "five-layer-baseline@1",
-            "five-layer-baseline@2",
-            "six-layer-eventing@1"
-          ]
+          "const": "six-layer-eventing@1"
         },
         "bridge_presence": {"$ref": "#/$defs/nonEmptyString"},
         "owner": {"$ref": "#/$defs/nonEmptyString"}
@@ -201,12 +197,13 @@
         "required_fields",
         "optional_fields",
         "routing_fields",
+        "event_type_registry",
         "forbidden_fields",
         "unknown_event_type_or_schema",
         "consumer_idempotency_key"
       ],
       "properties": {
-        "contract_id": {"const": "eventing-envelope.v1"},
+        "contract_id": {"const": "canonical-domain-event.v1"},
         "encoding": {"const": "utf-8-json"},
         "max_serialized_event_bytes": {"const": 98304},
         "current_scenario_max_serialized_event_bytes": {
@@ -216,7 +213,7 @@
         },
         "required_fields": {
           "type": "array",
-          "minItems": 13,
+          "minItems": 11,
           "items": {"$ref": "#/$defs/field"}
         },
         "optional_fields": {
@@ -224,11 +221,55 @@
           "items": {"$ref": "#/$defs/field"}
         },
         "routing_fields": {"$ref": "#/$defs/stringArray"},
+        "event_type_registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "core_flow_contract_ref",
+            "core_event_types",
+            "profile_extension_contract_ref",
+            "profile_extension_event_types",
+            "closed_union_rule",
+            "cost_scope_rule"
+          ],
+          "properties": {
+            "core_flow_contract_ref": {
+              "const": "domain-event-flow@1#channels"
+            },
+            "core_event_types": {
+              "const": [
+                "telemetry.received.v1",
+                "telemetry.processed.v1",
+                "event.matched.v1",
+                "notification.requested.v1",
+                "device.command.requested.v1",
+                "extension.action.outcome.v1",
+                "notification.workflow.outcome.v1",
+                "device.command.outcome.v1"
+              ]
+            },
+            "profile_extension_contract_ref": {
+              "const": "twin_projection.v1"
+            },
+            "profile_extension_event_types": {
+              "const": [
+                "twin.state.upserted",
+                "twin.model.upserted",
+                "twin.relationship.upserted",
+                "twin.relationship.deleted"
+              ]
+            },
+            "closed_union_rule": {
+              "const": "only_core_and_profile_extension_event_types_are_allowed"
+            },
+            "cost_scope_rule": {
+              "const": "phase_8_8_scenario_costs_cover_core_event_types_only; projection_workload_and_route_costs_are_owned_by_phase_08_complete_service_bundles"
+            }
+          }
+        },
         "forbidden_fields": {"$ref": "#/$defs/stringArray"},
         "unknown_event_type_or_schema": {"$ref": "#/$defs/nonEmptyString"},
-        "consumer_idempotency_key": {
-          "const": ["event_id", "invocation_id"]
-        }
+        "consumer_idempotency_key": {"const": ["event_id"]}
       }
     },
     "acceptanceSignal": {
@@ -257,7 +298,7 @@
       ],
       "properties": {
         "delivery_guarantee": {"const": "at_least_once"},
-        "ordering_scope": {"const": "per_device_id"},
+        "ordering_scope": {"const": "per_source_id_and_source_sequence"},
         "producer_ack_boundary": {"$ref": "#/$defs/nonEmptyString"},
         "bridge_ack_boundary": {
           "const": "destination_broker_durable_acceptance"
@@ -389,7 +430,7 @@
           "additionalProperties": false,
           "required": [
             "event_id",
-            "invocation_id",
+            "source_ordering_identity",
             "replay_id",
             "replay_marker",
             "audit_outcome",
@@ -397,9 +438,11 @@
           ],
           "properties": {
             "event_id": {"const": "preserve"},
-            "invocation_id": {"const": "preserve"},
-            "replay_id": {"const": "new_uuid"},
-            "replay_marker": {"const": "required"},
+            "source_ordering_identity": {
+              "const": "preserve_source_id_and_source_sequence"
+            },
+            "replay_id": {"const": "new_uuid_in_payload"},
+            "replay_marker": {"const": "payload_replay_id_required"},
             "audit_outcome": {"const": "required"},
             "ordering_degradation_outcome": {
               "$ref": "#/$defs/nonEmptyString"

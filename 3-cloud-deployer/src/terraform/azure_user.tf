@@ -12,18 +12,18 @@
 
 # Query tenant's verified domains (needed for user creation validation)
 data "azuread_domains" "tenant" {
-  count = (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") ? 1 : 0
+  count = local.azure_v1_enabled && (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") ? 1 : 0
 }
 
 locals {
   # Azure user provisioning enabled when L4 or L5 is Azure AND email is provided
-  azure_user_enabled = (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") && var.platform_user_email != ""
+  azure_user_enabled = local.azure_v1_enabled && (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") && var.platform_user_email != ""
 
   # Extract domain from email
   user_email_domain = local.azure_user_enabled ? split("@", var.platform_user_email)[1] : ""
 
   # Get verified domains from tenant - MUST guard access when neither L4 nor L5 is Azure
-  tenant_verified_domains = (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") ? try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], []) : []
+  tenant_verified_domains = local.azure_v1_enabled && (var.layer_4_provider == "azure" || var.layer_5_provider == "azure") ? try([for d in data.azuread_domains.tenant[0].domains : d.domain_name if d.verified], []) : []
 
   # Check if email domain is verified in tenant
   user_domain_is_verified = contains(local.tenant_verified_domains, local.user_email_domain)
@@ -79,4 +79,13 @@ locals {
     local.existing_platform_user_object_id,
     try(azuread_user.platform_user[0].object_id, null)
   ) : null
+
+  # Provider schema validation still inspects required arguments on resources
+  # whose count is zero. The placeholder is therefore used only while the
+  # platform-user assignments are disabled; an enabled assignment resolves the
+  # real existing or newly created Entra object id above.
+  platform_user_role_principal_id = coalesce(
+    local.platform_user_object_id,
+    "00000000-0000-0000-0000-000000000000"
+  )
 }

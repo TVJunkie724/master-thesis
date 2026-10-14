@@ -77,7 +77,9 @@ locals {
     (var.layer_3_cold_provider != var.layer_3_archive_provider && var.layer_3_archive_provider == "azure") ||
     (var.layer_4_provider != var.layer_3_hot_provider && var.layer_3_hot_provider == "azure")
   )
-  azure_l0_enabled = local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure"
+  azure_l0_enabled = local.azure_v1_enabled && (
+    local.azure_cross_cloud_receiver_required || var.layer_4_provider == "azure"
+  )
   azure_l0_function_plan_sku = (
     var.layer_4_provider == "azure"
     ? var.azure_l4_function_plan_sku
@@ -105,7 +107,7 @@ locals {
 # Fail before provider execution if an active Azure component is missing its
 # immutable optimizer-owned deployment selection.
 resource "terraform_data" "azure_deployment_specification_guard" {
-  count = local.deploy_azure ? 1 : 0
+  count = local.azure_v1_enabled ? 1 : 0
 
   input = {
     iot_hub_sku                    = var.azure_iot_hub_sku

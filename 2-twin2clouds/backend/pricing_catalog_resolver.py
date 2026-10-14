@@ -36,7 +36,7 @@ class PricingCatalogResolver:
         self,
         context: PricingCatalogContext,
         *,
-        require_fresh: bool = True,
+        require_fresh: bool = False,
     ) -> ResolvedPricingCatalogs:
         snapshots: dict[str, PricingCatalogSnapshot] = {}
         for provider in ("aws", "azure", "gcp"):

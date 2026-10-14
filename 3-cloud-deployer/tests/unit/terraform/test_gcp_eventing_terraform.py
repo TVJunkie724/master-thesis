@@ -1,0 +1,148 @@
+"""Static topology guards for the GCP Six-layer Event Layer."""
+
+from pathlib import Path
+
+
+TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+
+
+def _source(name: str) -> str:
+    return (TERRAFORM_ROOT / name).read_text(encoding="utf-8")
+
+
+def test_gcp_extension_http_boundaries_keep_only_bound_service_account_invokers():
+    source = _source("gcp_six_layer.tf")
+    blocks = {}
+    for role in ("processor_extension", "action_sink"):
+        blocks[role] = source.split(
+            f'resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_{role}_invoker"', 1
+        )[1].split('\nresource "', 1)[0]
+        assert '"roles/run.invoker"' in blocks[role]
+        assert '"serviceAccount:' in blocks[role]
+        assert "allUsers" not in blocks[role]
+        assert "allAuthenticatedUsers" not in blocks[role]
+    assert 'gcp_six_layer_runtime["processor"].email' in blocks["processor_extension"]
+    for caller in ("domain", "workflow"):
+        assert f'gcp_six_layer_runtime["{caller}"].email' in blocks["action_sink"]
+
+
+def test_gcp_event_layer_assigns_consumers_to_l1_l2_and_hot_owners():
+    source = _source("gcp_eventing.tf")
+
+    assert "local.six_layer_eventing_enabled" in source
+    assert 'var.event_layer_provider == "google"' in source
+    assert "gcp_event_local_processed_roles" in source
+    assert '"historical-persistence"' in source
+    assert '"twin-state-update"' in source
+    assert 'local.gcp_event_l2_local ? ["rule-evaluator"]' in source
+    assert "gcp_event_local_control_event_types" in source
+    assert "EVENT_LOCAL_CONTROL_TYPES_JSON" in source
+    assert "gcp_event_twin_local" not in source
+
+
+def test_gcp_six_layer_processing_returns_to_event_and_hot_projects_directly():
+    source = _source("gcp_six_layer.tf")
+
+    assert 'name  = "EVENT_LAYER_PROVIDER"' in source
+    assert 'name  = "REMOTE_TELEMETRY_TOPIC"' in source
+    assert 'name  = "TWIN_REMOTE_CONTROL_TOPIC"' in source
+    assert (
+        'local.six_layer_eventing_enabled && var.layer_4_provider != "google"' in source
+    )
+    assert (
+        "local.six_layer_eventing_enabled && "
+        "local.gcp_six_layer_remote_processed_inbound && local.gcp_six_layer_l2_enabled"
+        in source
+    )
+
+
+def test_gcp_l2_rule_evaluator_can_return_matches_to_selected_event_layer():
+    source = _source("gcp_six_layer.tf")
+    processor = source.split(
+        'resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service"',
+        maxsplit=1,
+    )[1].split(
+        'resource "google_cloud_run_v2_service" "gcp_six_layer_processor_extension"',
+        maxsplit=1,
+    )[0]
+
+    assert 'name  = "EVENT_LAYER_PROVIDER"' in processor
+    assert 'name  = "PROCESSED_TOPIC"' in processor
+    assert 'name  = "REMOTE_TELEMETRY_TOPIC"' in processor
+    assert 'name  = "REMOTE_CONTROL_TOPIC"' in processor
+    assert 'google_pubsub_topic.domain_events["control"].id' in processor
+
+
+def test_gcp_remote_event_layer_grants_ingress_control_outbox_publish():
+    source = _source("gcp_six_layer.tf")
+    ingress_policy = source.split(
+        'resource "google_pubsub_topic_iam_member" '
+        '"gcp_six_layer_ingress_domain_publisher"',
+        maxsplit=1,
+    )[1].split(
+        'resource "google_pubsub_topic_iam_member" '
+        '"gcp_six_layer_processor_publishers"',
+        maxsplit=1,
+    )[0]
+
+    assert "local.six_layer_eventing_enabled" in ingress_policy
+    assert '"remote-control-outbound"' in ingress_policy
+    assert '"domain"' in ingress_policy
+    assert 'gcp_six_layer_runtime["ingress"].email' in ingress_policy
+
+
+def test_gcp_large_bridge_uses_pull_workers_only_for_telemetry_sources():
+    eventing = _source("gcp_eventing.tf")
+    bridge = _source("six_layer_bridge_gcp.tf")
+
+    assert "gcp_event_local_worker_count" in eventing
+    assert "local.gcp_six_layer_bridge_worker_count" in eventing
+    assert (
+        'resource "google_cloud_run_v2_worker_pool" "gcp_six_layer_cross_cloud_bridge"'
+        in bridge
+    )
+    assert "gcp_six_layer_bridge_worker_channel_ids" in bridge
+    assert "gcp_six_layer_bridge_worker_sources" in bridge
+    assert "gcp_six_layer_bridge_push_sources" in bridge
+    assert 'name  = "BRIDGE_SUBSCRIPTION"' in bridge
+    assert "from phase8_eventing.gcp.runtime import run_worker; run_worker()" in bridge
+    assert 'role         = "roles/pubsub.subscriber"' in bridge
+
+
+def test_gcp_l1_uses_the_resolved_small_medium_and_large_node_profiles():
+    foundation = _source("gcp_six_layer.tf")
+    edge = _source("gcp_six_layer_l1.tf")
+
+    assert (
+        '"dimension.gcp.apache.bifromq-4.0.0-incubating-on-gke-standard.'
+        'resource_count"' in foundation
+    )
+    assert 'local.gcp_six_layer_bifromq_broker_nodes == 12' in foundation
+    assert 'local.gcp_six_layer_bifromq_broker_nodes == 3' in foundation
+    assert 'local.gcp_six_layer_bifromq_integration_nodes == 4' in foundation
+    assert 'local.gcp_six_layer_bifromq_integration_nodes == 1' in foundation
+    assert (
+        'local.gcp_six_layer_large_scenario ? "e2-standard-8" : '
+        '"e2-standard-4"' in foundation
+    )
+    assert (
+        'local.gcp_six_layer_large_scenario ? '
+        '"e2-standard-8" : "e2-standard-2"' in foundation
+    )
+    assert "replicas = local.gcp_six_layer_adapter_replicas" in edge
+
+
+def test_gcp_bifromq_pod_pins_the_non_root_image_identity():
+    edge = _source("gcp_six_layer_l1.tf")
+    deployment = edge.split(
+        'resource "kubernetes_deployment_v1" '
+        '"gcp_apache_bifromq_4_0_0_incubating_on_gke_standard"',
+        maxsplit=1,
+    )[1].split(
+        'resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer"',
+        maxsplit=1,
+    )[0]
+
+    assert "run_as_non_root = true" in deployment
+    assert "run_as_user  = 1000" in deployment
+    assert "run_as_group = 1000" in deployment

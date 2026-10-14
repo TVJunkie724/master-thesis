@@ -15,7 +15,6 @@ void main() {
     final gcpL4 = contract.capability('google', 'l4');
     expect(gcpL4.selectable, isFalse);
     expect(gcpL4.availability, CapabilityAvailability.unsupported);
-    expect(gcpL4.roadmap, CapabilityRoadmap.planned);
     expect(gcpL4.sourcesAgree, isTrue);
     expect(gcpL4.restrictionSource, 'restricted_by_both');
   });

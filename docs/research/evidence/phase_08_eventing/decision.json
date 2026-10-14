@@ -5,22 +5,20 @@
   "decision_status": "approved",
   "approval_scope": "offline evidence and exact non-executable Phase 8.9 blueprint; no claim of deployed or live-cloud verification",
   "profile_candidates": [
-    "five-layer-baseline@2",
     "six-layer-eventing@1"
   ],
-  "historical_profile": "five-layer-baseline@1",
   "profile_parity_decision_ref": "phase-08-eventing-profile-parity@1",
   "domain_event_flow_contract_ref": "domain-event-flow@1",
   "input_digests": {
-    "bridge_decision": "sha256:5f666a39ed1bdbb6723e2af79357c86fc5570a13c4e2d2ce5ee0a25cd2351345",
-    "domain_event_flow_contract": "sha256:44d530c06af795948c41ad46384ed7a5479b681c8841d2de7ce22fd33f3b5590",
+    "bridge_decision": "sha256:0fa06821d6c3a0f9f9c5f69a84c5f66eb606f47cea41d7d53801ebd9d4671262",
+    "domain_event_flow_contract": "sha256:994eceaa179e02344cf7323d2a63eb0710e079d4b4a9f71e02c4c8a15a2d7dbc",
     "formula_and_unit_ledger": "sha256:acf0b42bd2d2d5f0e8980f38f8ee03b5aa8661b07c5a96475406924fa315701a",
-    "implementation_component_manifest": "sha256:7758a81f40d119fec8a61d03d3a8eb36c3825f732129a0edfcc925df26a85ab5",
-    "mandatory_capabilities": "sha256:4f390a62c6e5f42d4f84be3e3dc6677b585f69b114b7e7078cdffc73859ab66f",
+    "implementation_component_manifest": "sha256:f9bc8822ba97d4f7c0c154c467f6132e3dee68cb5c48d8a168c9fb48aab86753",
+    "mandatory_capabilities": "sha256:e2caf5d62e95016b3c63ba620865b4586bf93982a0f4dec8d5c900ed28d42f55",
     "pricing_model_matrix": "sha256:9cb3ac4ea4a3ee690ae68131b7975c1cff43bbdf83435fea6020b45bf168e16b",
-    "profile_parity_decision": "sha256:14bfd44260c2be4e01e15f83c16d65a183d12ceaf12695dc7a156e53c338cdbb",
-    "provider_capability_matrix": "sha256:45aeb0fcecfb03efd9677c15a4330b8dc9dae0d7547310049f62de329835e9b9",
-    "scenario_cost_results": "sha256:d3c8ad970747793510ec9f2fd1a83eff756ecfe057391f052112f9a340b30650",
+    "profile_parity_decision": "sha256:3c871851be203120b447d47b4befc9c000add54ef662dd8bbca0bcf313d73f60",
+    "provider_capability_matrix": "sha256:9751e48eba9ba56c959218c5cd86e0caee2ef4f2029ef742338b6620b104e943",
+    "scenario_cost_results": "sha256:363c13cc6cbfb2671a7886934e6f9f35c097717d2cb75e1352bceb4205dd6aed",
     "scenario_inputs": "sha256:1391c4463df31027e6f08bc67c538669a7b18777a9e42136af9d3f79db1f327b",
     "source_ledger": "sha256:1eac77342f4def391a6cb2071a87c57bad02d181eb1fc9503db59f52dc452a96"
   },
@@ -58,13 +56,16 @@
     "selection_used_cost": false,
     "scope": "incremental embedded domain-event, Event-Layer, bridge, landing, transfer, retention, workflow, device boundary, and observability costs; not full-profile totals"
   },
-  "scenario_result_digest": "sha256:64b8059c4bd6a051624802252bd5922b39ba3d1249a388ebd9bf1ef91f59dc27",
+  "scenario_result_digest": "sha256:06191b57423c95854e4848be47dccfd0d9dba18ba0260d08c8dfcb5e6dc3c43a",
   "known_differences": [
-    "five-layer-baseline@2 embeds mandatory domain-event behavior in ingestion and processing responsibilities; six-layer-eventing@1 owns transport semantics in an independent Eventing responsibility.",
+    "six-layer-eventing@1 is validated as a standalone PoC architecture without inheritance from an intermediate runtime profile.",
     "Provider bundles are functionally aligned compositions, not one-to-one service equivalents.",
     "Single-cloud paths use the complete local event-domain bundle and no bridge; this does not claim a complete executable whole Twin. Cross-cloud paths use source-owned durable forwarding to the destination broker data plane.",
     "EMQX Cloud Dedicated Flex is functionally admissible but not selected because its public reproducible price matrix stops below the 100,000-session Large scenario; cost was not used to choose the cheapest service.",
-    "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles."
+    "The published cost results are separate event-scope estimates and intentionally do not rank full Twin profiles.",
+    "A pre-activation implementation review on 2026-08-08 replaced the planning-only unlimited operator wait for route faults with the already costed six-attempt provider budget, an application-safe terminal record where the trigger exposes the current attempt, and the selected provider-native terminal destination as fallback; functional scope and selected services did not change.",
+    "A pre-activation contract review on 2026-08-08 superseded the planning-only eventing-envelope.v1 with the shared canonical-domain-event.v1 used by both approved profiles and the runtime; ordering is source_id/source_sequence, consumer idempotency is event_id, and optional redrive identity is payload.replay_id. Selected services, workload sizes, and cost formulas did not change.",
+    "The standalone Phase 8.8 scenarios price the eight core event-domain channels. The closed bridge/runtime registry also permits the four twin_projection.v1 profile-extension variants whose explicit workloads and route costs are owned by the later complete-service profile calculation; this separation prevents projection traffic from being omitted at profile level or double-counted in the earlier event-scope figures."
   ],
   "residual_risks": [
     {

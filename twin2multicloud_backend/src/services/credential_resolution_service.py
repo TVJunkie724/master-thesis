@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.services.errors import CredentialResolutionFailed
 from src.services.provider_contract import normalize_optional_provider_id
-from src.utils.crypto import decrypt, decrypt_scoped
+from src.utils.crypto import decrypt_scoped
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,6 @@ class ProviderCredentials:
     provider: ProviderName
     source: str
     source_id: str | None
-    optimizer_payload: dict[str, Any]
     deployer_validation_payload: dict[str, Any]
     deployer_config_payload: dict[str, Any]
     gcp_credentials_json: dict[str, Any] | None = None
@@ -93,7 +92,7 @@ class CredentialResolutionService:
                     errors,
                     provider,
                     "INVALID_CLOUD_CONNECTION_PURPOSE",
-                    "Pricing Cloud Connections cannot provide deployment credentials",
+                    "Only deployment Cloud Connections can provide credentials",
                     source_id=connection_id,
                 )
             payload = self._decrypt_cloud_connection(
@@ -103,14 +102,6 @@ class CredentialResolutionService:
                 raise self._failed_from_errors(errors)
             return self._build_provider_credentials(
                 provider, payload, "cloud_connection", connection_id
-            )
-
-        payload = self._legacy_twin_config_payload(
-            config, user_id, getattr(twin, "id", ""), provider
-        )
-        if payload is not None:
-            return self._build_provider_credentials(
-                provider, payload, "legacy_twin_config", None
             )
 
         raise self._failed(
@@ -199,13 +190,11 @@ class CredentialResolutionService:
             }
 
         if provider == "gcp":
-            payload = {
+            return {
                 "gcp_project_id": credentials.project_id,
-                "gcp_billing_account": credentials.billing_account,
                 "gcp_region": credentials.region,
                 "gcp_credentials_file": credentials.service_account_json,
             }
-            return {key: value for key, value in payload.items() if value is not None}
 
         raise CredentialResolutionFailed(
             "Cannot resolve deployment credentials",
@@ -217,30 +206,19 @@ class CredentialResolutionService:
         )
 
     @classmethod
-    def build_optimizer_payload(
-        cls, provider: str, payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        provider = cls._normalize_provider(provider)
-        if provider == "gcp":
-            project_id = payload.get(
-                "gcp_project_id"
-            ) or cls._gcp_project_id_from_service_account(payload)
-            result = {
-                "gcp_credentials_file": payload.get("gcp_credentials_file"),
-                "gcp_project_id": project_id,
-                "gcp_region": payload.get("gcp_region"),
-            }
-            if payload.get("gcp_billing_account"):
-                result["gcp_billing_account"] = payload.get("gcp_billing_account")
-            return {key: value for key, value in result.items() if value}
-        return payload.copy()
-
-    @classmethod
     def build_deployer_validation_payload(
         cls, provider: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        if cls._normalize_provider(provider) == "gcp":
-            return cls.build_optimizer_payload(provider, payload)
+        provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload)
+        if provider == "gcp":
+            result = {
+                "gcp_credentials_file": payload.get("gcp_credentials_file"),
+                "gcp_project_id": payload.get("gcp_project_id"),
+                "gcp_region": payload.get("gcp_region"),
+            }
+            return {key: value for key, value in result.items() if value}
         return payload.copy()
 
     @classmethod
@@ -250,21 +228,18 @@ class CredentialResolutionService:
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
         provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload), None
         if provider != "gcp":
             return payload.copy(), None
 
         service_account_raw = payload.get("gcp_credentials_file")
         service_account_json = cls._parse_gcp_service_account(service_account_raw)
-        project_id = payload.get(
-            "gcp_project_id"
-        ) or cls._gcp_project_id_from_service_account(payload)
         deployer_payload = {
-            "gcp_project_id": project_id,
+            "gcp_project_id": payload.get("gcp_project_id"),
             "gcp_region": payload.get("gcp_region") or "europe-west1",
             "gcp_credentials_file": "gcp_credentials.json",
         }
-        if payload.get("gcp_billing_account"):
-            deployer_payload["gcp_billing_account"] = payload["gcp_billing_account"]
         return {
             key: value for key, value in deployer_payload.items() if value
         }, service_account_json
@@ -295,42 +270,6 @@ class CredentialResolutionService:
 
         return required_providers(twin)
 
-    @classmethod
-    def required_providers_from_optimizer(cls, optimizer_config) -> set[str]:
-        """Return the historical seven-slot provider projection.
-
-        This remains a migration/read compatibility boundary. Executable v3
-        packages pass their selected-architecture provider set explicitly.
-        """
-
-        if optimizer_config is None:
-            return set()
-        fields = (
-            "cheapest_l1",
-            "cheapest_l2",
-            "cheapest_l3_hot",
-            "cheapest_l3_cool",
-            "cheapest_l3_archive",
-            "cheapest_l4",
-            "cheapest_l5",
-        )
-        providers = {
-            cls._normalize_provider(getattr(optimizer_config, field, None))
-            for field in fields
-        }
-        return {provider for provider in providers if provider}
-
-    @classmethod
-    def required_providers_for_compatibility(cls, twin) -> set[str]:
-        """Prefer the immutable architecture and fall back for legacy twins."""
-
-        selected = cls.required_providers_from_architecture(twin)
-        if selected:
-            return selected
-        return cls.required_providers_from_optimizer(
-            getattr(twin, "optimizer_config", None)
-        )
-
     def _build_provider_credentials(
         self,
         provider: str,
@@ -349,7 +288,6 @@ class CredentialResolutionService:
             provider=provider,
             source=source,
             source_id=source_id,
-            optimizer_payload=self.build_optimizer_payload(provider, payload),
             deployer_validation_payload=self.build_deployer_validation_payload(
                 provider, payload
             ),
@@ -384,119 +322,13 @@ class CredentialResolutionService:
             return {}
         return parsed if isinstance(parsed, dict) else {}
 
-    def _legacy_twin_config_payload(
-        self,
-        config,
-        user_id: str,
-        twin_id: str,
-        provider: str,
-    ) -> dict[str, Any] | None:
-        """Read legacy encrypted twin credentials for migration compatibility only."""
-        try:
-            if provider == "aws":
-                has_legacy = any(
-                    getattr(config, field, None)
-                    for field in ("aws_access_key_id", "aws_secret_access_key")
-                )
-                if not has_legacy:
-                    return None
-                payload = {
-                    "aws_access_key_id": self._decrypt_optional(
-                        config.aws_access_key_id, user_id, twin_id
-                    ),
-                    "aws_secret_access_key": self._decrypt_optional(
-                        config.aws_secret_access_key, user_id, twin_id
-                    ),
-                    "aws_region": config.aws_region,
-                }
-                if config.aws_session_token:
-                    payload["aws_session_token"] = decrypt(
-                        config.aws_session_token, user_id, twin_id
-                    )
-                if config.aws_sso_region:
-                    payload["aws_sso_region"] = config.aws_sso_region
-                return payload
-
-            if provider == "azure":
-                has_legacy = any(
-                    getattr(config, field, None)
-                    for field in (
-                        "azure_subscription_id",
-                        "azure_tenant_id",
-                        "azure_client_id",
-                        "azure_client_secret",
-                    )
-                )
-                if not has_legacy:
-                    return None
-                azure_region = config.azure_region
-                return {
-                    "azure_subscription_id": self._decrypt_optional(
-                        config.azure_subscription_id, user_id, twin_id
-                    ),
-                    "azure_tenant_id": self._decrypt_optional(
-                        config.azure_tenant_id, user_id, twin_id
-                    ),
-                    "azure_client_id": self._decrypt_optional(
-                        config.azure_client_id, user_id, twin_id
-                    ),
-                    "azure_client_secret": self._decrypt_optional(
-                        config.azure_client_secret, user_id, twin_id
-                    ),
-                    "azure_region": azure_region,
-                    "azure_region_iothub": config.azure_region_iothub or azure_region,
-                    "azure_region_digital_twin": config.azure_region_digital_twin
-                    or azure_region,
-                }
-
-            has_legacy = any(
-                getattr(config, field, None)
-                for field in (
-                    "gcp_project_id",
-                    "gcp_billing_account",
-                    "gcp_service_account_json",
-                )
-            )
-            if not has_legacy:
-                return None
-            return {
-                "gcp_project_id": config.gcp_project_id,
-                "gcp_billing_account": self._decrypt_optional(
-                    config.gcp_billing_account, user_id, twin_id
-                ),
-                "gcp_region": config.gcp_region,
-                "gcp_credentials_file": self._decrypt_optional(
-                    config.gcp_service_account_json, user_id, twin_id
-                ),
-            }
-        except ValueError as exc:
-            logger.warning(
-                "Legacy twin credential resolution failed for provider %s: %s",
-                provider,
-                type(exc).__name__,
-            )
-            raise self._failed(
-                [],
-                provider,
-                "INVALID_LEGACY_CREDENTIAL_PAYLOAD",
-                "Legacy twin credential payload cannot be decrypted",
-            ) from exc
-
-    @staticmethod
-    def _decrypt_optional(
-        ciphertext: str | None, user_id: str, twin_id: str
-    ) -> str | None:
-        if not ciphertext:
-            return None
-        return decrypt(ciphertext, user_id, twin_id)
-
     def _deployment_providers(
         self, twin, required_providers: set[str] | None
     ) -> list[str]:
         selected_providers = (
             required_providers
             if required_providers is not None
-            else self.required_providers_for_compatibility(twin)
+            else self.required_providers_from_architecture(twin)
         )
         providers = {
             self._normalize_provider(provider)
@@ -522,15 +354,9 @@ class CredentialResolutionService:
                 "azure_region_iothub",
                 "azure_region_digital_twin",
             ),
-            "gcp": ("gcp_credentials_file", "gcp_region"),
+            "gcp": ("gcp_project_id", "gcp_credentials_file", "gcp_region"),
         }[provider]
         missing = [field for field in required if not payload.get(field)]
-        if provider == "gcp" and not (
-            payload.get("gcp_project_id")
-            or payload.get("gcp_billing_account")
-            or cls._gcp_project_id_from_service_account(payload)
-        ):
-            missing.append("gcp_project_id_or_billing_account")
         return [
             cls._error(
                 provider,
@@ -540,6 +366,25 @@ class CredentialResolutionService:
             )
             for field in missing
         ]
+
+    @staticmethod
+    def _azure_deployer_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        """Project Azure credentials onto the current single-admin contract.
+
+        Older encrypted Cloud Connections can contain retired preparation keys.
+        They are deliberately ignored here and never cross the Deployer boundary.
+        """
+
+        fields = (
+            "azure_subscription_id",
+            "azure_tenant_id",
+            "azure_client_id",
+            "azure_client_secret",
+            "azure_region",
+            "azure_region_iothub",
+            "azure_region_digital_twin",
+        )
+        return {field: payload[field] for field in fields if payload.get(field)}
 
     @staticmethod
     def _connection_id(config, provider: str) -> str | None:
@@ -553,18 +398,6 @@ class CredentialResolutionService:
         if not provider or not isinstance(provider, str):
             return ""
         return normalize_optional_provider_id(provider) or ""
-
-    @classmethod
-    def _gcp_project_id_from_service_account(
-        cls, payload: dict[str, Any]
-    ) -> str | None:
-        service_account = cls._parse_gcp_service_account(
-            payload.get("gcp_credentials_file"), allow_missing=True
-        )
-        if not service_account:
-            return None
-        project_id = service_account.get("project_id")
-        return project_id if isinstance(project_id, str) and project_id else None
 
     @staticmethod
     def _parse_gcp_service_account(

@@ -11,7 +11,7 @@
 # after Terraform provisions the ADT instance, as models are generated
 # dynamically from config_hierarchy.json.
 #
-# Canonical five-layer-baseline@1 update path:
+# Canonical six-layer-eventing@1 update path:
 #     L2 Persister (AWS, Azure, or GCP)
 #       -> authenticated HTTPS
 #       -> Azure L0 ADT Pusher
@@ -26,7 +26,7 @@
 # ==============================================================================
 
 resource "azurerm_digital_twins_instance" "main" {
-  count               = var.layer_4_provider == "azure" ? 1 : 0
+  count               = local.azure_v1_enabled && var.layer_4_provider == "azure" ? 1 : 0
   name                = local.azure_adt_name
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
@@ -44,7 +44,7 @@ resource "azurerm_digital_twins_instance" "main" {
 # ==============================================================================
 
 resource "azurerm_role_assignment" "identity_adt_owner" {
-  count                = var.layer_4_provider == "azure" ? 1 : 0
+  count                = local.azure_v1_enabled && var.layer_4_provider == "azure" ? 1 : 0
   scope                = azurerm_digital_twins_instance.main[0].id
   role_definition_name = "Azure Digital Twins Data Owner"
   principal_id         = azurerm_user_assigned_identity.main[0].principal_id
@@ -65,7 +65,7 @@ resource "azurerm_role_assignment" "identity_adt_owner" {
 # ==============================================================================
 
 locals {
-  l4_azure_scene_enabled = var.layer_4_provider == "azure" && var.needs_3d_model && var.scene_assets_path != ""
+  l4_azure_scene_enabled = local.azure_v1_enabled && var.layer_4_provider == "azure" && var.needs_3d_model && var.scene_assets_path != ""
   scene_assets_azure     = var.scene_assets_path != "" ? "${var.scene_assets_path}/azure" : ""
 }
 
@@ -129,7 +129,7 @@ resource "azurerm_role_assignment" "adt_storage_reader" {
 
 locals {
   # Enable user ADT access when L4=Azure AND email is provided
-  l4_azure_user_enabled = var.layer_4_provider == "azure" && var.platform_user_email != ""
+  l4_azure_user_enabled = local.azure_v1_enabled && var.layer_4_provider == "azure" && var.platform_user_email != ""
 }
 
 resource "azurerm_role_assignment" "adt_user_owner" {
@@ -139,7 +139,7 @@ resource "azurerm_role_assignment" "adt_user_owner" {
 
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
   name         = uuidv5("dns", "${var.platform_user_email}-adt-owner-${local.deployment_suffix}")
-  principal_id = local.platform_user_object_id
+  principal_id = local.platform_user_role_principal_id
 
   depends_on = [azuread_user.platform_user]
 }
@@ -157,7 +157,7 @@ resource "azurerm_role_assignment" "scenes_user_contributor" {
 
   # Descriptive prefix + shared deployment suffix to avoid conflicts on re-deploy
   name         = uuidv5("dns", "${var.platform_user_email}-scenes-contributor-${local.deployment_suffix}")
-  principal_id = local.platform_user_object_id
+  principal_id = local.platform_user_role_principal_id
 
   depends_on = [azuread_user.platform_user]
 }

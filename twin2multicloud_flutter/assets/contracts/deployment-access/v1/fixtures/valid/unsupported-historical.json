@@ -1,0 +1,9 @@
+{
+  "schema_version": "deployment-access.v1",
+  "twin_id": "twin-historical-example",
+  "deployment_id": "deployment-historical-example",
+  "generated_at": "2026-07-31T12:00:00Z",
+  "availability": "unsupported",
+  "reason_code": "unsupported_historical_profile",
+  "surfaces": []
+}

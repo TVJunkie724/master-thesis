@@ -10,12 +10,14 @@ from src.api.dependencies import get_current_user
 from src.api.routes.error_models import ERROR_RESPONSES
 from src.models.database import get_db
 from src.models.user import User
+from src.repositories.deployment_repository import DeploymentRepository
 from src.repositories.twin_repository import TwinRepository
 from src.services.deployment_stream_service import (
     get_session,
+    persisted_operation_last_event_id,
+    stream_persisted_operation_events,
     stream_session_events,
 )
-
 
 router = APIRouter(prefix="/sse", tags=["sse"])
 
@@ -44,7 +46,35 @@ async def stream_deploy_logs(
 ):
     session = await get_session(session_id)
     if session is None:
-        raise HTTPException(status_code=404, detail="Deployment stream session not found")
+        deployment = DeploymentRepository(db).get_by_session_id(session_id)
+        if deployment is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Deployment stream session not found",
+            )
+        twin = TwinRepository(db).get_active_for_user(
+            deployment.twin_id,
+            current_user.id,
+        )
+        if twin is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Deployment stream session not found",
+            )
+        if last_event_id > persisted_operation_last_event_id(deployment, db):
+            raise HTTPException(
+                status_code=422,
+                detail="Deployment stream cursor is outside persisted history",
+            )
+        return StreamingResponse(
+            stream_persisted_operation_events(deployment, last_event_id, db),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     twin = TwinRepository(db).get_active_for_user(session.twin_id, current_user.id)
     if twin is None:

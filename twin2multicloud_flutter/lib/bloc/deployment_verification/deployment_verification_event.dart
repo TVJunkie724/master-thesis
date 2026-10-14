@@ -14,6 +14,11 @@ class DeploymentVerificationInfrastructureRequested
   const DeploymentVerificationInfrastructureRequested();
 }
 
+class DeploymentVerificationHistoryRequested
+    extends DeploymentVerificationEvent {
+  const DeploymentVerificationHistoryRequested();
+}
+
 class DeploymentVerificationDataFlowRequested
     extends DeploymentVerificationEvent {
   final String payloadText;

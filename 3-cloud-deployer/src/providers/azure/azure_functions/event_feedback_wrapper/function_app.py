@@ -17,7 +17,6 @@ import os
 import sys
 
 import azure.functions as func
-from azure.iot.hub import IoTHubRegistryManager
 import urllib.request
 import urllib.error
 
@@ -60,6 +59,8 @@ def _get_registry_manager():
     """Lazy initialization of IoT Hub Registry Manager."""
     global _registry_manager
     if _registry_manager is None:
+        from azure.iot.hub import IoTHubRegistryManager
+
         _registry_manager = IoTHubRegistryManager(_get_iot_hub_connection_string())
     return _registry_manager
 

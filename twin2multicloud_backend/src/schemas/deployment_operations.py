@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from src.models.twin import TwinState
-
+from src.schemas.cleanup_evidence import CleanupEvidence
 
 DeploymentOperationStatus = Literal["pending", "running", "success", "failed"]
 DeploymentOperationType = Literal["deploy", "destroy", "test"]
@@ -19,11 +19,13 @@ class ActiveDeploymentSessionResponse(BaseModel):
 class DeploymentOperationSummaryResponse(BaseModel):
     id: str
     session_id: str
+    idempotency_key: str | None = None
     operation_id: str | None = None
     operation_type: DeploymentOperationType
     status: DeploymentOperationStatus
     error_code: str | None = None
     error_message: str | None = None
+    cleanup_evidence: CleanupEvidence | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
 

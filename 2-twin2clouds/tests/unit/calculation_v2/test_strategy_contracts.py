@@ -46,19 +46,11 @@ def _path_exists(document, path):
 def test_only_cost_strategy_is_enabled():
     contracts = strategy_contracts()
 
-    assert set(contracts) == {
-        OptimizationObjective.COST,
-        OptimizationObjective.LATENCY,
-        OptimizationObjective.EMISSIONS,
-        OptimizationObjective.RESILIENCE,
-    }
+    assert set(contracts) == {OptimizationObjective.COST}
     assert [contract.objective for contract in enabled_strategy_contracts()] == [
         OptimizationObjective.COST
     ]
     assert contracts[OptimizationObjective.COST].status == ObjectiveStatus.ENABLED
-    assert contracts[OptimizationObjective.LATENCY].status == ObjectiveStatus.DISABLED
-    assert contracts[OptimizationObjective.EMISSIONS].status == ObjectiveStatus.DISABLED
-    assert contracts[OptimizationObjective.RESILIENCE].status == ObjectiveStatus.DISABLED
 
 
 def test_strategy_contracts_validate_without_internal_drift():
@@ -141,17 +133,9 @@ def test_gcp_scheduler_contract_binds_official_job_month_to_transition_runtime()
     assert binding.normalizer == "fixed_job_month_cost"
 
 
-def test_future_objectives_are_not_runtime_selectable_with_formula_bindings():
-    for objective in (
-        OptimizationObjective.LATENCY,
-        OptimizationObjective.EMISSIONS,
-        OptimizationObjective.RESILIENCE,
-    ):
-        contract = get_strategy_contract(objective.value)
-        assert contract.status == ObjectiveStatus.DISABLED
-        assert contract.pricing_intents == ()
-        assert contract.formula_bindings == ()
-        assert contract.extension_note
+def test_future_objectives_are_absent_from_runtime_contracts():
+    with pytest.raises(ValueError):
+        get_strategy_contract("latency")
 
 
 @pytest.mark.parametrize(

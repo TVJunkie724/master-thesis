@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -13,13 +12,11 @@ final class _MockManagementApi extends Mock implements ManagementApi {}
 
 void main() {
   late _MockManagementApi api;
-  late Completer<UserFunctionValidationResult> validationResponse;
-  late Completer<TwinExtensionBinding> bindingResponse;
 
   setUpAll(() {
     registerFallbackValue(_slot);
     registerFallbackValue(
-      UserFunctionArtifactUpload(
+      UserFunctionSourceUpload(
         slot: _slot,
         draft: UserFunctionSourceDraft(
           filename: 'fallback.zip',
@@ -29,17 +26,12 @@ void main() {
     );
   });
 
-  setUp(() {
-    api = _MockManagementApi();
-    validationResponse = Completer<UserFunctionValidationResult>();
-    bindingResponse = Completer<TwinExtensionBinding>();
-  });
+  setUp(() => api = _MockManagementApi());
 
   blocTest<WizardBloc, WizardState>(
     'moves a selected archive back to draft without retaining validation',
     build: () => WizardBloc(api: api),
-    seed: () => WizardState(
-      extensionSlots: const [_slot],
+    seed: () => _readyDraft().copyWith(
       extensionValidationResults: const {'processor.telemetry': _validation},
       extensionPhases: const {
         'processor.telemetry': UserFunctionWorkflowPhase.valid,
@@ -48,8 +40,8 @@ void main() {
     act: (bloc) => bloc.add(
       WizardExtensionSourceSelected(
         slotId: _slot.slotId,
-        fileBytes: Uint8List.fromList([1, 2, 3]),
-        fileName: 'processor.zip',
+        fileBytes: Uint8List.fromList([9, 8, 7]),
+        fileName: 'replacement.zip',
       ),
     ),
     expect: () => [
@@ -63,27 +55,12 @@ void main() {
             (state) => state.extensionValidation(_slot.slotId),
             'validation',
             isNull,
+          )
+          .having(
+            (state) => state.extensionDraft(_slot.slotId)?.bytes,
+            'replacement bytes',
+            orderedEquals([9, 8, 7]),
           ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'does not suppress a same-sized replacement archive',
-    build: () => WizardBloc(api: api),
-    seed: _readyDraft,
-    act: (bloc) => bloc.add(
-      WizardExtensionSourceSelected(
-        slotId: _slot.slotId,
-        fileBytes: Uint8List.fromList([9, 8, 7]),
-        fileName: 'processor.zip',
-      ),
-    ),
-    expect: () => [
-      isA<WizardState>().having(
-        (state) => state.extensionDraft(_slot.slotId)?.bytes,
-        'replacement bytes',
-        orderedEquals([9, 8, 7]),
-      ),
     ],
   );
 
@@ -117,7 +94,7 @@ void main() {
     'transitions from draft through validating to valid',
     setUp: () {
       when(
-        () => api.validateUserFunctionArtifact(any()),
+        () => api.validateTwinUserFunction(any(), any()),
       ).thenAnswer((_) async => _validation);
     },
     build: () => WizardBloc(api: api),
@@ -146,35 +123,91 @@ void main() {
   );
 
   blocTest<WizardBloc, WizardState>(
-    'ignores a validation response for a replaced draft',
+    'saves the validated source directly on the Twin',
     setUp: () {
       when(
-        () => api.validateUserFunctionArtifact(any()),
-      ).thenAnswer((_) => validationResponse.future);
+        () => api.saveTwinUserFunction(any(), any()),
+      ).thenAnswer((_) async => _userFunction);
     },
     build: () => WizardBloc(api: api),
-    seed: _readyDraft,
-    act: (bloc) async {
-      bloc.add(const WizardExtensionValidationRequested('processor.telemetry'));
-      await untilCalled(() => api.validateUserFunctionArtifact(any()));
-      bloc.add(
-        WizardExtensionSourceSelected(
-          slotId: _slot.slotId,
-          fileBytes: Uint8List.fromList([9, 8, 7]),
-          fileName: 'replacement.zip',
-        ),
-      );
-      await bloc.stream.firstWhere(
-        (state) =>
-            state.extensionDraft(_slot.slotId)?.filename == 'replacement.zip',
-      );
-      validationResponse.complete(_validation);
-    },
+    seed: _validatedDraft,
+    act: (bloc) =>
+        bloc.add(const WizardExtensionSaveRequested('processor.telemetry')),
     expect: () => [
       isA<WizardState>().having(
         (state) => state.extensionPhase(_slot.slotId),
         'phase',
-        UserFunctionWorkflowPhase.validating,
+        UserFunctionWorkflowPhase.saving,
+      ),
+      isA<WizardState>()
+          .having(
+            (state) => state.extensionPhase(_slot.slotId),
+            'phase',
+            UserFunctionWorkflowPhase.saved,
+          )
+          .having(
+            (state) => state.twinUserFunction(_slot.slotId),
+            'Twin function',
+            _userFunction,
+          ),
+    ],
+  );
+
+  blocTest<WizardBloc, WizardState>(
+    'maps save failures to an error without source disclosure',
+    setUp: () {
+      when(() => api.saveTwinUserFunction(any(), any())).thenThrow(
+        const AppException(
+          'The function source could not be saved.',
+          code: 'SERVICE_UNAVAILABLE',
+        ),
+      );
+    },
+    build: () => WizardBloc(api: api),
+    seed: _validatedDraft,
+    act: (bloc) =>
+        bloc.add(const WizardExtensionSaveRequested('processor.telemetry')),
+    expect: () => [
+      isA<WizardState>().having(
+        (state) => state.extensionPhase(_slot.slotId),
+        'phase',
+        UserFunctionWorkflowPhase.saving,
+      ),
+      isA<WizardState>()
+          .having(
+            (state) => state.extensionPhase(_slot.slotId),
+            'phase',
+            UserFunctionWorkflowPhase.error,
+          )
+          .having(
+            (state) => state.extensionErrors[_slot.slotId],
+            'safe error',
+            contains('could not be saved'),
+          ),
+    ],
+  );
+
+  blocTest<WizardBloc, WizardState>(
+    'removes the current Twin function',
+    setUp: () {
+      when(
+        () => api.deleteTwinUserFunction(any(), any()),
+      ).thenAnswer((_) async {});
+    },
+    build: () => WizardBloc(api: api),
+    seed: () => _readyDraft().copyWith(
+      twinUserFunctions: [_userFunction],
+      extensionPhases: const {
+        'processor.telemetry': UserFunctionWorkflowPhase.saved,
+      },
+    ),
+    act: (bloc) =>
+        bloc.add(const WizardExtensionDeleteRequested('processor.telemetry')),
+    expect: () => [
+      isA<WizardState>().having(
+        (state) => state.extensionPhase(_slot.slotId),
+        'phase',
+        UserFunctionWorkflowPhase.saving,
       ),
       isA<WizardState>()
           .having(
@@ -183,256 +216,16 @@ void main() {
             UserFunctionWorkflowPhase.draft,
           )
           .having(
-            (state) => state.extensionValidation(_slot.slotId),
-            'validation',
+            (state) => state.twinUserFunction(_slot.slotId),
+            'Twin function',
             isNull,
-          ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'creates and binds the validated immutable artifact',
-    setUp: () {
-      when(
-        () => api.createUserFunctionArtifact(any()),
-      ).thenAnswer((_) async => _artifact);
-      when(
-        () => api.bindTwinExtensionArtifact(
-          any(),
-          any(),
-          any(),
-          expectedRevision: any(named: 'expectedRevision'),
-        ),
-      ).thenAnswer((_) async => _binding);
-    },
-    build: () => WizardBloc(api: api),
-    seed: () => _readyDraft().copyWith(
-      twinId: 'twin-1',
-      extensionValidationResults: const {'processor.telemetry': _validation},
-      extensionPhases: const {
-        'processor.telemetry': UserFunctionWorkflowPhase.valid,
-      },
-    ),
-    act: (bloc) =>
-        bloc.add(const WizardExtensionBindRequested('processor.telemetry')),
-    expect: () => [
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.binding,
-      ),
-      isA<WizardState>()
-          .having(
-            (state) => state.extensionPhase(_slot.slotId),
-            'phase',
-            UserFunctionWorkflowPhase.bound,
-          )
-          .having(
-            (state) => state.extensionBinding(_slot.slotId),
-            'binding',
-            _binding,
-          ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'marks a completed binding stale when its draft was replaced',
-    setUp: () {
-      when(
-        () => api.createUserFunctionArtifact(any()),
-      ).thenAnswer((_) async => _artifact);
-      when(
-        () => api.bindTwinExtensionArtifact(
-          any(),
-          any(),
-          any(),
-          expectedRevision: any(named: 'expectedRevision'),
-        ),
-      ).thenAnswer((_) => bindingResponse.future);
-    },
-    build: () => WizardBloc(api: api),
-    seed: () => _readyDraft().copyWith(
-      twinId: 'twin-1',
-      extensionValidationResults: const {'processor.telemetry': _validation},
-      extensionPhases: const {
-        'processor.telemetry': UserFunctionWorkflowPhase.valid,
-      },
-    ),
-    act: (bloc) async {
-      bloc.add(const WizardExtensionBindRequested('processor.telemetry'));
-      await untilCalled(
-        () => api.bindTwinExtensionArtifact(
-          any(),
-          any(),
-          any(),
-          expectedRevision: any(named: 'expectedRevision'),
-        ),
-      );
-      bloc.add(
-        WizardExtensionSourceSelected(
-          slotId: _slot.slotId,
-          fileBytes: Uint8List.fromList([9, 8, 7]),
-          fileName: 'replacement.zip',
-        ),
-      );
-      await bloc.stream.firstWhere(
-        (state) =>
-            state.extensionDraft(_slot.slotId)?.filename == 'replacement.zip',
-      );
-      bindingResponse.complete(_binding);
-    },
-    expect: () => [
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.binding,
-      ),
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.draft,
-      ),
-      isA<WizardState>()
-          .having(
-            (state) => state.extensionPhase(_slot.slotId),
-            'phase',
-            UserFunctionWorkflowPhase.stale,
-          )
-          .having(
-            (state) => state.extensionBinding(_slot.slotId),
-            'binding',
-            _binding,
-          ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'maps validation API failures to invalid without source disclosure',
-    setUp: () {
-      when(() => api.validateUserFunctionArtifact(any())).thenThrow(
-        const AppException(
-          'The source archive is invalid.',
-          code: 'EXTENSION_ARCHIVE_UNSAFE',
-        ),
-      );
-    },
-    build: () => WizardBloc(api: api),
-    seed: _readyDraft,
-    act: (bloc) => bloc.add(
-      const WizardExtensionValidationRequested('processor.telemetry'),
-    ),
-    expect: () => [
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.validating,
-      ),
-      isA<WizardState>()
-          .having(
-            (state) => state.extensionPhase(_slot.slotId),
-            'phase',
-            UserFunctionWorkflowPhase.invalid,
-          )
-          .having(
-            (state) => state.extensionErrors[_slot.slotId],
-            'safe error',
-            allOf(contains('invalid'), isNot(contains('def process'))),
-          ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'maps a non-stale bind API failure to the error phase',
-    setUp: () {
-      when(
-        () => api.createUserFunctionArtifact(any()),
-      ).thenAnswer((_) async => _artifact);
-      when(
-        () => api.bindTwinExtensionArtifact(
-          any(),
-          any(),
-          any(),
-          expectedRevision: any(named: 'expectedRevision'),
-        ),
-      ).thenThrow(
-        const AppException(
-          'The binding service is unavailable.',
-          code: 'SERVICE_UNAVAILABLE',
-        ),
-      );
-    },
-    build: () => WizardBloc(api: api),
-    seed: () => _readyDraft().copyWith(
-      twinId: 'twin-1',
-      extensionValidationResults: const {'processor.telemetry': _validation},
-      extensionPhases: const {
-        'processor.telemetry': UserFunctionWorkflowPhase.valid,
-      },
-    ),
-    act: (bloc) =>
-        bloc.add(const WizardExtensionBindRequested('processor.telemetry')),
-    expect: () => [
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.binding,
-      ),
-      isA<WizardState>().having(
-        (state) => state.extensionPhase(_slot.slotId),
-        'phase',
-        UserFunctionWorkflowPhase.error,
-      ),
-    ],
-  );
-
-  blocTest<WizardBloc, WizardState>(
-    'maps stale binding errors without disclosing the source archive',
-    setUp: () {
-      when(
-        () => api.createUserFunctionArtifact(any()),
-      ).thenAnswer((_) async => _artifact);
-      when(
-        () => api.bindTwinExtensionArtifact(
-          any(),
-          any(),
-          any(),
-          expectedRevision: any(named: 'expectedRevision'),
-        ),
-      ).thenThrow(
-        const AppException(
-          'The extension binding revision is stale.',
-          code: 'EXTENSION_BINDING_UNRESOLVED',
-        ),
-      );
-    },
-    build: () => WizardBloc(api: api),
-    seed: () => _readyDraft().copyWith(
-      twinId: 'twin-1',
-      extensionValidationResults: const {'processor.telemetry': _validation},
-      extensionPhases: const {
-        'processor.telemetry': UserFunctionWorkflowPhase.valid,
-      },
-    ),
-    act: (bloc) =>
-        bloc.add(const WizardExtensionBindRequested('processor.telemetry')),
-    expect: () => [
-      isA<WizardState>(),
-      isA<WizardState>()
-          .having(
-            (state) => state.extensionPhase(_slot.slotId),
-            'phase',
-            UserFunctionWorkflowPhase.stale,
-          )
-          .having(
-            (state) => state.extensionErrors[_slot.slotId],
-            'safe error',
-            allOf(contains('stale'), isNot(contains('def process'))),
           ),
     ],
   );
 }
 
 WizardState _readyDraft() => WizardState(
+  twinId: 'twin-1',
   extensionSlots: const [_slot],
   extensionDrafts: {
     'processor.telemetry': UserFunctionSourceDraft(
@@ -440,6 +233,13 @@ WizardState _readyDraft() => WizardState(
       bytes: Uint8List.fromList([1, 2, 3]),
       configuration: const {'scale_factor': 1},
     ),
+  },
+);
+
+WizardState _validatedDraft() => _readyDraft().copyWith(
+  extensionValidationResults: const {'processor.telemetry': _validation},
+  extensionPhases: const {
+    'processor.telemetry': UserFunctionWorkflowPhase.valid,
   },
 );
 
@@ -473,10 +273,9 @@ const _validation = UserFunctionValidationResult(
   checks: ['schema_valid', 'secret_scan_passed'],
 );
 
-final _artifact = UserFunctionArtifact(
-  schemaVersion: 'user-function-artifact.v1',
-  artifactId: '00000000-0000-4000-8000-000000000001',
-  artifactState: 'valid',
+final _userFunction = TwinUserFunction(
+  functionId: '00000000-0000-4000-8000-000000000001',
+  twinId: 'twin-1',
   artifactDigest: _validation.artifactDigest,
   slotId: _slot.slotId,
   slotVersion: _slot.slotVersion,
@@ -485,21 +284,7 @@ final _artifact = UserFunctionArtifact(
   declaredCapabilities: _slot.permissionCapabilities,
   validatorVersion: 'user-function-validator.v1',
   sourceFiles: _validation.sourceFiles,
-  dependencyCount: 0,
+  dependencies: _validation.dependencies,
   createdAt: DateTime.utc(2026, 7, 19),
-);
-
-final _binding = TwinExtensionBinding(
-  bindingId: '10000000-0000-4000-8000-000000000001',
-  twinId: 'twin-1',
-  slotId: _slot.slotId,
-  slotVersion: _slot.slotVersion,
-  artifactId: _artifact.artifactId,
-  artifactDigest: _artifact.artifactDigest,
-  bindingDigest:
-      'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-  active: true,
-  revision: 1,
-  createdAt: DateTime.utc(2026, 7, 19),
-  unboundAt: null,
+  updatedAt: DateTime.utc(2026, 7, 19),
 );

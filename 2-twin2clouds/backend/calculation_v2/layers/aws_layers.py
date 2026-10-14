@@ -11,33 +11,31 @@ Each layer calculator:
 4. Returns structured LayerResult with breakdown
 """
 
-from typing import Dict, Any
-
-from .contracts import (
-    BaseLayerCalculatorSet,
-    ComponentDeploymentSelection,
-    LayerResult,
-    SUPPORTED_LAYER_KEYS,
-    TransitionRuntimeResult,
-)
+from typing import Any, Dict
 
 from ..components.aws import (
+    AWSDynamoDBCalculator,
+    AWSEventBridgeCalculator,
+    AWSGrafanaCalculator,
     AWSIoTCoreCalculator,
     AWSLambdaCalculator,
-    AWSStepFunctionsCalculator,
-    AWSEventBridgeCalculator,
-    AWSDynamoDBCalculator,
-    AWSS3IACalculator,
     AWSS3GlacierCalculator,
+    AWSS3IACalculator,
+    AWSStepFunctionsCalculator,
     AWSTwinMakerCalculator,
-    AWSGrafanaCalculator,
 )
-from ..components.aws.twinmaker import evaluate_twinmaker_context
 from ..deployment_profiles import (
     AWS_MOVER_LAMBDA_MEMORY_MB,
     AWS_STANDARD_LAMBDA_MEMORY_MB,
     MOVER_FUNCTION_DURATION_MS,
     STANDARD_FUNCTION_DURATION_MS,
+)
+from .contracts import (
+    SUPPORTED_LAYER_KEYS,
+    BaseLayerCalculatorSet,
+    ComponentDeploymentSelection,
+    LayerResult,
+    TransitionRuntimeResult,
 )
 
 
@@ -467,26 +465,12 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
         queries_per_month: float,
         api_calls_per_month: float,
         pricing: Dict[str, Any],
-        account_pricing_context: Dict[str, Any] | None = None,
     ) -> LayerResult:
         """
         Calculate L4 Twin Management layer cost.
         
         Components: IoT TwinMaker
         """
-        evaluation = evaluate_twinmaker_context(
-            account_pricing_context,
-            pricing,
-        )
-        if not evaluation.comparable:
-            return self._result(
-                layer="L4",
-                total_cost=0,
-                components={},
-                details={"pricingContext": dict(evaluation.diagnostic)},
-                unsupported_reason=evaluation.reason_code,
-            )
-
         breakdown = self.twinmaker.calculate_standard_cost(
             entity_count=entity_count,
             queries_per_month=queries_per_month,
@@ -504,7 +488,6 @@ class AWSLayerCalculators(BaseLayerCalculatorSet):
                 "twinmaker_api_calls": breakdown.api_call_cost,
             },
             details={
-                "pricingContext": dict(evaluation.diagnostic),
                 "calculation": {
                     "pricingMode": "STANDARD",
                     "currency": "USD",

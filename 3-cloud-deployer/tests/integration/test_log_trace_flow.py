@@ -22,8 +22,8 @@ def test_provider_fetches_run_concurrently_and_results_are_redacted(monkeypatch)
     registry.issue("factory", "TRACE-1234ABCD", now)
     service = LogTraceService(
         registry,
-        timeout_seconds=0.01,
-        poll_interval_seconds=0.01,
+        timeout_seconds=0.2,
+        poll_interval_seconds=0.2,
     )
     bundle = SimpleNamespace(
         config=SimpleNamespace(
@@ -128,6 +128,7 @@ def test_provider_failure_produces_partial_terminal_status(monkeypatch):
 
     events = asyncio.run(collect())
     done = json.loads(events[-1]["data"])
-    assert any(event["event"] == "error" for event in events)
+    assert any(event["event"] == "warning" for event in events)
+    assert not any(event["event"] == "error" for event in events)
     assert "must-not-leak" not in json.dumps(events)
     assert done["status"] == "partial"

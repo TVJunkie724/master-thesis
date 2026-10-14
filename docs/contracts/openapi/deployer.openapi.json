@@ -42,18 +42,6 @@
             ],
             "description": "AWS Region where IAM Identity Center (SSO) is enabled, if different from aws_region",
             "title": "Aws Sso Region"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -64,26 +52,22 @@
         "title": "AWSCredentialsRequest",
         "type": "object"
       },
-      "AssetExtractionResult": {
-        "description": "Extracted binary assets (GLB files for 3D visualization).",
+      "AzureCredentialsCheckResponse": {
+        "description": "Response schema for Azure credential validation.",
         "properties": {
-          "scene_glb": {
+          "administrator_authority": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FileExtractionResult"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
-            ]
-          }
-        },
-        "title": "AssetExtractionResult",
-        "type": "object"
-      },
-      "AzureCredentialsCheckResponse": {
-        "description": "Response schema for Azure credential validation.",
-        "properties": {
+            ],
+            "description": "Secret-safe subscription Owner authority result",
+            "title": "Administrator Authority"
+          },
           "by_layer": {
             "additionalProperties": true,
             "description": "Permission results organized by deployment layer",
@@ -113,6 +97,19 @@
             "title": "Message",
             "type": "string"
           },
+          "microsoft_graph_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe Microsoft Graph application-permission result",
+            "title": "Microsoft Graph Authority"
+          },
           "recommended_roles": {
             "anyOf": [
               {
@@ -123,7 +120,7 @@
                 "type": "null"
               }
             ],
-            "description": "Recommended roles: custom (preferred) and builtin alternatives",
+            "description": "Required Azure role for the thesis-PoC administrator",
             "title": "Recommended Roles"
           },
           "status": {
@@ -149,17 +146,19 @@
         "type": "object"
       },
       "AzureCredentialsRequest": {
+        "additionalProperties": false,
         "description": "Request body for Azure credential validation.",
         "properties": {
           "azure_client_id": {
-            "description": "Service Principal Client/Application ID",
+            "description": "Azure thesis-PoC administrator Client/Application ID",
             "title": "Azure Client Id",
             "type": "string"
           },
           "azure_client_secret": {
-            "description": "Service Principal Client Secret",
+            "description": "Azure thesis-PoC administrator Client Secret",
             "title": "Azure Client Secret",
-            "type": "string"
+            "type": "string",
+            "writeOnly": true
           },
           "azure_region": {
             "description": "Azure Region for general resources (e.g., 'italynorth')",
@@ -185,18 +184,6 @@
             "description": "Azure AD Tenant ID",
             "title": "Azure Tenant Id",
             "type": "string"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
@@ -232,11 +219,11 @@
         "title": "Body_buildFunctionZip",
         "type": "object"
       },
-      "Body_extractProjectZip": {
+      "Body_inspectDeploymentRequirements": {
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
-            "description": "Project ZIP file to extract",
+            "description": "Generated deployment package",
             "title": "File",
             "type": "string"
           }
@@ -244,29 +231,39 @@
         "required": [
           "file"
         ],
-        "title": "Body_extractProjectZip",
+        "title": "Body_inspectDeploymentRequirements",
         "type": "object"
       },
-      "Body_importProjectZip": {
+      "Body_prepareDeploymentAccountPrerequisites": {
         "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "expected_plan_digest": {
+            "title": "Expected Plan Digest",
+            "type": "string"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
-            "description": "Project zip file",
+            "description": "Generated deployment package",
             "title": "File",
             "type": "string"
           }
         },
         "required": [
+          "expected_plan_digest",
+          "confirmed",
           "file"
         ],
-        "title": "Body_importProjectZip",
+        "title": "Body_prepareDeploymentAccountPrerequisites",
         "type": "object"
       },
       "Body_stageDeploymentOperationPackage": {
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
-            "description": "Generated deployment package",
+            "description": "Generated Twin deployment package",
             "title": "File",
             "type": "string"
           }
@@ -344,21 +341,6 @@
         "title": "Body_validatePayloadsWithDevices",
         "type": "object"
       },
-      "Body_validateProjectZip": {
-        "properties": {
-          "file": {
-            "contentMediaType": "application/octet-stream",
-            "description": "Project zip file to validate",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_validateProjectZip",
-        "type": "object"
-      },
       "Body_validateSceneConfig": {
         "properties": {
           "hierarchy_file": {
@@ -432,14 +414,6 @@
           "unsupported"
         ],
         "title": "CapabilityAvailability",
-        "type": "string"
-      },
-      "CapabilityRoadmap": {
-        "enum": [
-          "none",
-          "planned"
-        ],
-        "title": "CapabilityRoadmap",
         "type": "string"
       },
       "CapabilityVerificationLevel": {
@@ -552,10 +526,51 @@
         "title": "DataFlowRequest",
         "type": "object"
       },
+      "DeployerArchitectureProfileRef": {
+        "additionalProperties": false,
+        "description": "Pinned identity of the canonical architecture contract.",
+        "properties": {
+          "digest": {
+            "maxLength": 71,
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "title": "DeployerArchitectureProfileRef",
+        "type": "object"
+      },
       "DeployerCompleteValidation": {
         "additionalProperties": false,
         "description": "Bounded input for complete deployer configuration validation.",
         "properties": {
+          "architecture_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeployerArchitectureProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cheapest_path": {
             "anyOf": [
               {
@@ -762,78 +777,6 @@
         "title": "DeployerValidationResponse",
         "type": "object"
       },
-      "FileExtractionResult": {
-        "description": "Result of extracting a single file from the ZIP.",
-        "properties": {
-          "content": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          },
-          "exists": {
-            "title": "Exists",
-            "type": "boolean"
-          },
-          "is_binary": {
-            "default": false,
-            "title": "Is Binary",
-            "type": "boolean"
-          },
-          "validation_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Validation Error"
-          }
-        },
-        "required": [
-          "exists"
-        ],
-        "title": "FileExtractionResult",
-        "type": "object"
-      },
-      "FunctionExtractionResult": {
-        "description": "Extracted function code from processor/action/feedback directories.",
-        "properties": {
-          "event_actions": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Event Actions",
-            "type": "object"
-          },
-          "event_feedback": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FileExtractionResult"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "processors": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Processors",
-            "type": "object"
-          }
-        },
-        "title": "FunctionExtractionResult",
-        "type": "object"
-      },
       "GCPCredentialsCheckResponse": {
         "description": "Response schema for GCP credential validation.",
         "properties": {
@@ -902,56 +845,28 @@
         "type": "object"
       },
       "GCPCredentialsRequest": {
+        "additionalProperties": false,
         "description": "Request body for GCP credential validation.",
         "properties": {
-          "gcp_billing_account": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "GCP Billing Account ID for auto-project creation (org accounts)",
-            "title": "Gcp Billing Account"
-          },
           "gcp_credentials_file": {
             "description": "Path to Service Account JSON key file",
             "title": "Gcp Credentials File",
             "type": "string"
           },
           "gcp_project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "GCP Project ID for existing project (private accounts)",
-            "title": "Gcp Project Id"
+            "description": "Existing billing-enabled GCP deployment project ID",
+            "minLength": 1,
+            "title": "Gcp Project Id",
+            "type": "string"
           },
           "gcp_region": {
             "description": "GCP Region (e.g., 'europe-west1')",
             "title": "Gcp Region",
             "type": "string"
-          },
-          "permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Versioned deployment permission-set baseline assigned to this credential.",
-            "title": "Permission Set Version"
           }
         },
         "required": [
+          "gcp_project_id",
           "gcp_credentials_file",
           "gcp_region"
         ],
@@ -1079,10 +994,6 @@
             ],
             "title": "Reason Code"
           },
-          "roadmap": {
-            "$ref": "#/components/schemas/CapabilityRoadmap",
-            "default": "none"
-          },
           "verification_level": {
             "$ref": "#/components/schemas/CapabilityVerificationLevel"
           }
@@ -1170,19 +1081,6 @@
             "title": "Checks",
             "type": "array"
           },
-          "expected_permission_set_version": {
-            "title": "Expected Permission Set Version",
-            "type": "string"
-          },
-          "permission_set_status": {
-            "enum": [
-              "matched",
-              "missing",
-              "outdated"
-            ],
-            "title": "Permission Set Status",
-            "type": "string"
-          },
           "provider": {
             "enum": [
               "aws",
@@ -1207,23 +1105,10 @@
           "summary": {
             "title": "Summary",
             "type": "string"
-          },
-          "supplied_permission_set_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplied Permission Set Version"
           }
         },
         "required": [
           "provider",
-          "expected_permission_set_version",
-          "permission_set_status",
           "ready",
           "status",
           "summary",
@@ -1306,47 +1191,6 @@
         ],
         "title": "ValidationError",
         "type": "object"
-      },
-      "ZipExtractionResponse": {
-        "description": "Full response from /validate/zip/extract endpoint.",
-        "properties": {
-          "assets": {
-            "$ref": "#/components/schemas/AssetExtractionResult"
-          },
-          "files": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FileExtractionResult"
-            },
-            "title": "Files",
-            "type": "object"
-          },
-          "functions": {
-            "$ref": "#/components/schemas/FunctionExtractionResult"
-          },
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          },
-          "validation_errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Validation Errors",
-            "type": "array"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "title": "ZipExtractionResponse",
-        "type": "object"
       }
     }
   },
@@ -1359,7 +1203,7 @@
   "paths": {
     "/": {
       "get": {
-        "description": "**Purpose:** Check API status and active project.\\n\\n**When to call:** For health checks and debugging.",
+        "description": "**Purpose:** Check API status.\\n\\n**When to call:** For health checks and debugging.",
         "operationId": "getApiHealth",
         "responses": {
           "200": {
@@ -1400,7 +1244,7 @@
     },
     "/dataflow/verify": {
       "post": {
-        "description": "Sends one bounded test message and streams phase results for message delivery, hot storage, digital-twin readiness, and event flow.",
+        "description": "Sends one bounded test message and streams phase results for message delivery, hot storage, and trace-correlated digital-twin projection.",
         "operationId": "verifyDataFlow",
         "parameters": [
           {
@@ -1722,42 +1566,33 @@
         ]
       }
     },
-    "/infrastructure/cooldown-check": {
-      "get": {
-        "description": "Check if redeployment is allowed (GCP Firestore 5-min cooldown).\n\n**Zero cloud costs:** Pure calculation with hardcoded 5-min limit. No cloud API calls.\n\nArgs:\n    destroyed_at: ISO timestamp from Management API\n    uses_gcp_firestore: Whether deployment uses GCP as L3-Hot provider\n\nReturns:\n    ready: True if deployment can proceed\n    remaining_seconds: Seconds until ready (0 if ready)",
-        "operationId": "check_cooldown_infrastructure_cooldown_check_get",
+    "/infrastructure/account-preparation": {
+      "post": {
+        "description": "Apply only Azure RP and GCP API actions bound to the reviewed digest.",
+        "operationId": "prepareDeploymentAccountPrerequisites",
         "parameters": [
           {
-            "description": "ISO timestamp of last destroy",
             "in": "query",
-            "name": "destroyed_at",
-            "required": false,
+            "name": "project_name",
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "ISO timestamp of last destroy",
-              "title": "Destroyed At"
-            }
-          },
-          {
-            "description": "Whether deployment uses GCP Firestore",
-            "in": "query",
-            "name": "uses_gcp_firestore",
-            "required": false,
-            "schema": {
-              "default": true,
-              "description": "Whether deployment uses GCP Firestore",
-              "title": "Uses Gcp Firestore",
-              "type": "boolean"
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Project Name",
+              "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_prepareDeploymentAccountPrerequisites"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1765,7 +1600,33 @@
                 "schema": {}
               }
             },
-            "description": "Cooldown status returned"
+            "description": "Preparation completed or returned partial evidence"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
           },
           "422": {
             "content": {
@@ -1776,9 +1637,22 @@
               }
             },
             "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error. Check logs."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Check GCP Firestore deployment cooldown",
+        "summary": "Apply the confirmed graph-derived account preparation plan",
         "tags": [
           "Infrastructure"
         ]
@@ -1930,7 +1804,7 @@
     },
     "/infrastructure/destroy": {
       "post": {
-        "description": "Destroys the full digital twin environment using Terraform.\n\n**Destruction process:**\n1. Runs `terraform destroy` to remove all infrastructure\n2. Cleans up SDK-managed resources (IoT devices, Digital Twin entities)\n\n**If destruction fails for AWS TwinMaker:**\nUse `DELETE /projects/{name}/cleanup/aws-twinmaker` to manually clean entities first.\n\n**Note:** This operation cannot be undone. All data will be lost.",
+        "description": "Destroys the full digital twin environment using Terraform.\n\n**Destruction process:**\n1. Runs `terraform destroy` to remove all infrastructure\n2. Cleans up SDK-managed resources (IoT devices, Digital Twin entities)\n\n**Note:** This operation cannot be undone. All data will be lost.",
         "operationId": "destroy_all_infrastructure_destroy_post",
         "parameters": [
           {
@@ -2425,7 +2299,7 @@
                 "schema": {}
               }
             },
-            "description": "SSE stream with log, error, heartbeat, and done events"
+            "description": "SSE stream with log, warning, terminal error, heartbeat, and done events"
           },
           "403": {
             "description": "Trace belongs to another project"
@@ -2875,7 +2749,7 @@
         ]
       },
       "post": {
-        "description": "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Contributor and User Access Administrator role assignments.",
+        "description": "**Purpose:** Verifies the Azure thesis-PoC administrator.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Subscription Owner authority, deployment resource actions, and the required Microsoft Graph application permissions.",
         "operationId": "verifyAzureCredentialsFromBody",
         "requestBody": {
           "content": {
@@ -3022,7 +2896,7 @@
         ]
       },
       "post": {
-        "description": "**Purpose:** Verifies GCP Service Account credentials against required permissions.\n\n**When to call:** During wizard to validate user-provided GCP credentials.\n\n**Checks:** Project access, API enablement (Pub/Sub, Cloud Functions, Firestore, etc).",
+        "description": "**Purpose:** Verifies GCP Service Account credentials against the selected versioned permission pack.\n\n**When to call:** During wizard to validate user-provided GCP credentials.\n\n**Checks:** Project access, billing, region, the fixed Phase 8 API baseline, project-testable IAM permissions, and explicit deferred resource/provider-operation checks.",
         "operationId": "verifyGcpCredentialsFromBody",
         "requestBody": {
           "content": {
@@ -3078,124 +2952,10 @@
         ]
       }
     },
-    "/projects": {
-      "get": {
-        "description": "**Purpose:** Returns all available projects for the project selector UI.\n\n**Response includes:**\n- Project names and descriptions\n- Version counts (saved ZIP snapshots)\n- Currently active project name",
-        "operationId": "listDeploymentProjects",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project list retrieved successfully"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "List all deployment projects with metadata",
-        "tags": [
-          "Projects"
-        ]
-      },
-      "post": {
-        "description": "**Purpose:** Creates a new deployment project from a ZIP file.\n\n**ZIP structure expected:**\n- config.json (required)\n- config_providers.json (required)\n- config_credentials.json (required)\n- config_iot_devices.json, config_events.json, etc.\n\n**Validation performed:**\n- ZIP structure validation\n- Config schema validation\n- Cross-config consistency checks",
-        "operationId": "createDeploymentProject",
-        "parameters": [
-          {
-            "description": "Name of the new project",
-            "in": "query",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the new project",
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional project description",
-            "in": "query",
-            "name": "description",
-            "required": false,
-            "schema": {
-              "description": "Optional project description",
-              "title": "Description",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project created successfully"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "413": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The uploaded artifact exceeds the configured size limit."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The request body failed validation."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Validation Error - The request body failed schema validation"
-          }
-        },
-        "summary": "Create new project from uploaded ZIP file",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
     "/projects/{project_name}": {
       "delete": {
-        "description": "**Purpose:** Permanently delete a project and all saved versions.\n\n**Side effect:** If this was the active project, resets to default.\n\n**Protected:** Cannot delete the 'template' project.",
-        "operationId": "deleteProject",
+        "description": "Remove durable definition, runtime state, and unused staged packages.",
+        "operationId": "deleteDeploymentWorkspace",
         "parameters": [
           {
             "in": "path",
@@ -3214,7 +2974,7 @@
                 "schema": {}
               }
             },
-            "description": "Project deleted"
+            "description": "Deployment workspace deleted"
           },
           "404": {
             "content": {
@@ -3230,7 +2990,7 @@
             "description": "Not Found - The requested resource does not exist"
           },
           "409": {
-            "description": "Project has an active deployment operation"
+            "description": "Deployment operation is active"
           },
           "422": {
             "content": {
@@ -3256,687 +3016,15 @@
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Delete a project",
+        "summary": "Delete one Twin deployment workspace",
         "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/cleanup/aws-twinmaker": {
-      "delete": {
-        "description": "**Purpose:** Force delete TwinMaker workspace when Terraform destroy fails.\n\n**When to call:** When `terraform destroy` fails due to existing entities.\n\n**Deletion order:** Entities \u2192 Component Types \u2192 Workspace",
-        "operationId": "cleanupAwsTwinmaker",
-        "parameters": [
-          {
-            "description": "Name of the project",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the project",
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "TwinMaker workspace deleted"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Force delete AWS TwinMaker workspace",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/config/{config_type}": {
-      "get": {
-        "description": "**Purpose:** Retrieve a specific configuration file from a project.\n\n**When to call:** To load config for editing in wizard or display.\n\n**Path params:** config_type = config|iot|events|providers|credentials|optimization|aws_hierarchy|azure_hierarchy",
-        "operationId": "getProjectConfig",
-        "parameters": [
-          {
-            "description": "Project name",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Project name",
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Type of configuration to retrieve",
-            "in": "path",
-            "name": "config_type",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/ConfigType",
-              "description": "Type of configuration to retrieve"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Configuration retrieved successfully"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Get project configuration",
-        "tags": [
-          "Projects"
-        ]
-      },
-      "put": {
-        "description": "**Purpose:** Update a specific config file (config.json, config_iot_devices.json, etc).\n\n**When to call:** After wizard field changes to persist configuration.\n\n**Accepts:** Multipart (binary) or JSON (Base64).",
-        "operationId": "updateProjectConfig",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "config_type",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/ConfigType"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Configuration updated"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "413": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The uploaded artifact exceeds the configured size limit."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Update a configuration file",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/export": {
-      "get": {
-        "description": "**Purpose:** Download a portable, non-secret project definition as a ZIP file.\n\n**When to call:** For backup, sharing, or migrating projects.\n\n**Contents:** Non-secret configs, hierarchies, state machines, user code, payloads, and 3D assets. Credentials, Terraform state, generated runtime configuration, device keys, and internal metadata are excluded.",
-        "operationId": "exportProjectZip",
-        "parameters": [
-          {
-            "description": "Name of the project to export",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the project to export",
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project zip file"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Export project as zip",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/files": {
-      "get": {
-        "description": "**Purpose:** Returns recursive file tree for file browser UI.\n\n**When to call:** When displaying project contents in explorer view.",
-        "operationId": "getProjectFileTree",
-        "parameters": [
-          {
-            "description": "Project name",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Project name",
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "File tree structure"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Get project file tree",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/files/{file_path}": {
-      "get": {
-        "description": "**Purpose:** Read a specific file from a project.\n\n**When to call:** When opening a file in the editor.\n\n**Supports:** JSON files return parsed content; others return raw.",
-        "operationId": "getProjectFile",
-        "parameters": [
-          {
-            "description": "Project name",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Project name",
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Relative path to file",
-            "in": "path",
-            "name": "file_path",
-            "required": true,
-            "schema": {
-              "description": "Relative path to file",
-              "title": "File Path",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "File content"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested operation is not permitted in this runtime."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Forbidden - The requested operation or resource is protected"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Get file content",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/import": {
-      "post": {
-        "description": "**Purpose:** Upload a complete project zip to update an existing project.\n\n**Prerequisite:** Project must already exist (create via POST /projects first).\n\n**Validation:** Zip structure and config schema validation performed.",
-        "operationId": "importProjectZip",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional project description update",
-            "in": "query",
-            "name": "description",
-            "required": false,
-            "schema": {
-              "description": "Optional project description update",
-              "title": "Description",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_importProjectZip"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project imported successfully"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Import/update project from zip",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/info": {
-      "patch": {
-        "description": "**Purpose:** Update project description without re-uploading zip.\n\n**Body:** `{\"description\": \"New description\"}`",
-        "operationId": "updateProjectInfo",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project info updated"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Update project metadata",
-        "tags": [
-          "Projects"
+          "Operations"
         ]
       }
     },
     "/projects/{project_name}/operation-package": {
       "post": {
-        "description": "Persist a secret-free project definition and stage secrets for one operation.",
+        "description": "Validate one generated package and stage its secrets for one operation.",
         "operationId": "stageDeploymentOperationPackage",
         "parameters": [
           {
@@ -4018,95 +3106,15 @@
             "description": "Internal Server Error - An unexpected error occurred"
           }
         },
-        "summary": "Stage one short-lived deployment operation package",
+        "summary": "Stage one short-lived Twin deployment package",
         "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/simulator/payloads": {
-      "put": {
-        "description": "**Purpose:** Upload payloads.json for the IoT simulator.\n\n**Validation:** Structure and iotDeviceId validation performed.\n\n**Location:** Saved to iot_device_simulator/payloads.json",
-        "operationId": "uploadSimulatorPayloads",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Payloads uploaded"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "413": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The uploaded artifact exceeds the configured size limit."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Upload IoT simulator payloads",
-        "tags": [
-          "Projects"
+          "Operations"
         ]
       }
     },
     "/projects/{project_name}/simulator/{provider}/download": {
       "get": {
-        "description": "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n**Package contents:**\n- config.json, payloads.json\n- src/: Simulator Python code\n- certificates/ or service_account.json (provider-specific)\n- Dockerfile & docker-compose.yml\n- README.md with setup instructions",
+        "description": "**Purpose:** Download a self-contained IoT device simulator for local/Docker use.\n\n**Package contents:**\n- config.json, payloads.json\n- src/: Simulator Python code\n- provider-specific device credentials and public trust material\n- Dockerfile & docker-compose.yml\n- README.md with setup instructions",
         "operationId": "downloadSimulatorPackage",
         "parameters": [
           {
@@ -4190,120 +3198,25 @@
         ]
       }
     },
-    "/projects/{project_name}/state_machines/{provider}": {
-      "put": {
-        "description": "**Purpose:** Upload AWS Step Function, Azure Logic App, or GCP Workflow.\n\n**Path param:** provider = aws|azure|google\n\n**Validation:** Schema validation performed before saving.",
-        "operationId": "uploadStateMachine",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "provider",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/ProviderEnum"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "State machine uploaded"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "413": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The uploaded artifact exceeds the configured size limit."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Upload state machine definition",
-        "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/summary": {
+    "/projects/{project_name}/visualization": {
       "get": {
-        "description": "**Purpose:** Dashboard overview for Flutter frontend.\n\n**When to call:** When displaying project cards or details.\n\n**Returns:** name, description, providers, deployment/validation status.",
-        "operationId": "getProjectSummary",
+        "operationId": "get_visualization_projects__project_name__visualization_get",
         "parameters": [
           {
-            "description": "Project name",
             "in": "path",
             "name": "project_name",
             "required": true,
             "schema": {
-              "description": "Project name",
               "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "title": "X-Operation-Package",
               "type": "string"
             }
           }
@@ -4311,24 +3224,13 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project summary"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
+              "text/html": {
                 "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                  "type": "string"
                 }
               }
             },
-            "description": "Not Found - The requested resource does not exist"
+            "description": "Successful Response"
           },
           "422": {
             "content": {
@@ -4341,78 +3243,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get project dashboard summary",
+        "summary": "Get Visualization",
         "tags": [
-          "Projects"
-        ]
-      }
-    },
-    "/projects/{project_name}/validate": {
-      "get": {
-        "description": "**Purpose:** Pre-deployment readiness check for existing projects.\n\n**Checks performed:**\n- Required files presence\n- Config content validity (schema validation)\n- Optimization flag dependencies\n- Cross-config consistency (payloads \u2194 devices, credentials \u2194 providers)",
-        "operationId": "validateProjectStructure",
-        "parameters": [
-          {
-            "description": "Name of the project structure to validate",
-            "in": "path",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the project structure to validate",
-              "title": "Project Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project structure is valid"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The requested project or resource was not found."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found - The requested resource does not exist"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Validate project structure and configuration",
-        "tags": [
-          "Projects"
+          "Layer Access"
         ]
       }
     },
@@ -4542,6 +3375,98 @@
           }
         },
         "summary": "Validate complete deployer configuration",
+        "tags": [
+          "Validation"
+        ]
+      }
+    },
+    "/validate/deployment-requirements": {
+      "post": {
+        "description": "Return only digest-bound graph evidence and secret-free requirements.",
+        "operationId": "inspectDeploymentRequirements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Project Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_inspectDeploymentRequirements"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Graph requirements resolved"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Request - The request is invalid for this operation"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "The uploaded artifact exceeds the configured size limit."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Payload Too Large - The uploaded artifact exceeds the endpoint limit"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error. Check logs."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error - An unexpected error occurred"
+          }
+        },
+        "summary": "Resolve exact deployment prerequisites without cloud mutation",
         "tags": [
           "Validation"
         ]
@@ -5058,17 +3983,81 @@
     },
     "/validate/user-config": {
       "post": {
-        "description": "**Purpose:** Validates config_user.json for L5 platform user provisioning (Grafana admin).\n\n**When to call:** To validate platform user configuration before L5 deployment.\n\n**Azure requirement:** Email must use verified domain (*.onmicrosoft.com).",
+        "description": "**Purpose:** Validates config_user.json for L4/L5 browser access.\n\n**When to call:** To validate the platform identity before deployment.\n\n**Phase 8:** Trusted profile and L4/L5 context enables cross-cloud identity, Entra principal, AWS intent, and GCP CIDR checks.\n\n**Historical Azure:** Email must use a verified *.onmicrosoft.com domain.",
         "operationId": "validateUserConfig",
         "parameters": [
           {
-            "description": "L4 provider (aws or azure)",
+            "description": "Historical provider or selected L5 provider",
             "in": "query",
             "name": "provider",
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/ProviderEnum",
-              "description": "L4 provider (aws or azure)"
+              "description": "Historical provider or selected L5 provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "architecture_profile_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Architecture Profile Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "architecture_profile_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Architecture Profile Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layer_4_provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer 4 Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "layer_5_provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Layer 5 Provider"
             }
           }
         ],
@@ -5146,189 +4135,19 @@
           "Validation"
         ]
       }
-    },
-    "/validate/zip": {
-      "post": {
-        "description": "**Purpose:** Validates a project zip file without extracting, checking structure and security.\\n\\n**When to call:** Before uploading a project to verify it meets all requirements.\\n\\n**Checks performed:** Zip integrity, Zip Slip path traversal, required files, schema validation.",
-        "operationId": "validateProjectZip",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_validateProjectZip"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Project zip is valid"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Validate project zip file",
-        "tags": [
-          "Validation"
-        ]
-      }
-    },
-    "/validate/zip/extract": {
-      "post": {
-        "description": "Validates a bounded project ZIP and returns configuration, function, and scene fields for wizard auto-population. Credential files are never returned.",
-        "operationId": "extractProjectZip",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "validation_context",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Validation Context"
-            }
-          },
-          {
-            "description": "Deprecated; credential content cannot be returned",
-            "in": "query",
-            "name": "include_credentials",
-            "required": false,
-            "schema": {
-              "default": false,
-              "description": "Deprecated; credential content cannot be returned",
-              "title": "Include Credentials",
-              "type": "boolean"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_extractProjectZip"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ZipExtractionResponse"
-                }
-              }
-            },
-            "description": "Extraction completed with aggregated validation results"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid request. Correct the supplied parameters or artifact and retry."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Bad Request - The request is invalid for this operation"
-          },
-          "413": {
-            "description": "Compressed or expanded archive limit exceeded"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "The request body failed validation."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Validation Error - The request body failed schema validation"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error. Check logs."
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HttpErrorEnvelope"
-                }
-              }
-            },
-            "description": "Internal Server Error - An unexpected error occurred"
-          }
-        },
-        "summary": "Validate and extract non-secret project fields",
-        "tags": [
-          "Validation"
-        ]
-      }
     }
   },
   "tags": [
     {
-      "description": "Project lifecycle management: upload, configure, validate, delete. Includes config retrieval, simulator download, and AWS TwinMaker cleanup.",
+      "description": "Bounded Twin deployment workspaces and operation packages.",
       "name": "Projects"
     },
     {
-      "description": "Infrastructure deployment and status. Deploy/destroy cloud resources across all 5 layers (L1-L5) with Terraform. Check deployment status.",
+      "description": "Infrastructure deployment and status for the closed-world six-layer-eventing@1 profile.",
       "name": "Infrastructure"
     },
     {
-      "description": "Pre-deployment validation endpoints. Validate project zip structure, config files, function code, state machines, and simulator payloads.",
+      "description": "Validate typed configuration, function code, state machines, simulator payloads, and staged deployment requirements.",
       "name": "Validation"
     },
     {

@@ -93,15 +93,30 @@ class DirectoryAccessor:
             root_path = Path(root)
             if any((root_path / directory).is_symlink() for directory in dirs):
                 raise ValueError("Project validation does not allow symbolic links")
-            # Skip hidden directories and __pycache__
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+            # Source extensions are part of the signed package inventory, even
+            # though their canonical root is hidden. Build/cache dirs are not.
+            dirs[:] = [d for d in dirs if (
+                not d.startswith('.') or
+                (root_path == self._path and d == '.twin2multicloud')
+            ) and d != '__pycache__']
             for filename in filenames:
                 full_path = os.path.join(root, filename)
                 if Path(full_path).is_symlink():
                     raise ValueError("Project validation does not allow symbolic links")
                 rel_path = os.path.relpath(full_path, self._path)
                 # Normalize to forward slashes for consistency
-                files.append(rel_path.replace('\\', '/'))
+                relative = rel_path.replace('\\', '/')
+                # Operation-owned metadata/state are restored after the ZIP is
+                # validated. They are not members of its immutable inventory.
+                if relative in {
+                    '.operation-package.json', '.operation-package.lock',
+                    'terraform/terraform.tfstate', 'terraform/terraform.tfstate.backup',
+                } or relative.startswith('iot_devices_auth/'):
+                    continue
+                if (relative.startswith('iot_device_simulator/') and
+                        Path(relative).match('**/config_generated*.json')):
+                    continue
+                files.append(relative)
         return files
     
     def list_files(self) -> List[str]:

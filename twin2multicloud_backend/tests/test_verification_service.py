@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from src.models.optimizer_config import OptimizerConfiguration
+from src.models.deployment import Deployment
+from src.models.telemetry_verification import TelemetryVerification
 from src.models.twin import DigitalTwin, TwinState
 from src.models.user import User
 from src.repositories.twin_repository import TwinRepository
+from src.services.deployment_service import PreparedDeploymentProject
 from src.services.errors import ExternalServiceError, ExternalServiceUnavailable
 from src.services.service_errors import (
     DownstreamServiceError,
@@ -15,14 +19,12 @@ from src.services.service_errors import (
     ValidationError,
 )
 from src.services.verification_service import DeploymentVerificationService
-from src.services.deployment_service import PreparedDeploymentProject
 
 
 def _create_user(db) -> User:
     user = User(
         email="verification-service@example.test",
         name="Verification Service",
-        auth_provider="google",
     )
     db.add(user)
     db.commit()
@@ -35,6 +37,16 @@ def _create_twin(db, user: User, state: TwinState = TwinState.DEPLOYED) -> Digit
     db.add(twin)
     db.commit()
     db.refresh(twin)
+    if state == TwinState.DEPLOYED:
+        db.add(
+            Deployment(
+                twin_id=twin.id,
+                session_id=f"successful-deploy-{twin.id}",
+                operation_type="deploy",
+                status="success",
+            )
+        )
+        db.commit()
     return twin
 
 
@@ -76,9 +88,13 @@ def _service(
     scheduled=None,
     infrastructure_verifier=None,
     deployer_client=None,
+    session_getter=None,
 ) -> DeploymentVerificationService:
     session_records = session_records if session_records is not None else []
     scheduled = scheduled if scheduled is not None else []
+    kwargs = {}
+    if session_getter is not None:
+        kwargs["session_getter"] = session_getter
     return DeploymentVerificationService(
         db=db,
         twin_repository=TwinRepository(db),
@@ -87,6 +103,7 @@ def _service(
         task_scheduler=_closing_scheduler(scheduled),
         infrastructure_verifier=infrastructure_verifier,
         deployer_client=deployer_client,
+        **kwargs,
     )
 
 
@@ -120,8 +137,6 @@ async def test_verify_infrastructure_returns_mock_result_in_test_mode(db_session
 async def test_verify_infrastructure_uses_architecture_provider(db_session):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="AZURE"))
-    db_session.commit()
     calls = []
 
     async def verifier(prepared_project, provider):
@@ -148,8 +163,6 @@ async def test_verify_infrastructure_normalizes_google_alias_for_deployer_api(
 ):
     user = _create_user(db_session)
     twin = _create_twin(db_session, user)
-    db_session.add(OptimizerConfiguration(twin_id=twin.id, cheapest_l1="Google"))
-    db_session.commit()
     calls = []
 
     async def verifier(prepared_project, provider):
@@ -270,6 +283,8 @@ async def test_start_dataflow_verification_creates_session_and_schedules_proxy(
     )
 
     assert result["sse_url"].startswith("/sse/deploy/")
+    assert result["status"] == "running"
+    assert result["verification_id"]
     assert session_records[0][0] == twin.id
     assert session_records[0][2] == "verify_dataflow"
     assert len(scheduled) == 1
@@ -294,8 +309,12 @@ async def test_start_dataflow_verification_test_mode_does_not_schedule_proxy(
     )
 
     assert result["sse_url"].startswith("/sse/deploy/")
+    assert result["status"] == "not_run"
     assert session_records[0][2] == "verify_dataflow"
     assert scheduled == []
+    record = db_session.get(TelemetryVerification, result["verification_id"])
+    assert record.status == "not_run"
+    assert record.error_code == "TEST_MODE_NOT_RUN"
 
 
 @pytest.mark.asyncio
@@ -400,3 +419,157 @@ async def test_verification_preserves_safe_downstream_preparation_status(db_sess
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.public_detail == "client_secret=[REDACTED]"
+
+
+class _VerificationSession:
+    def __init__(self):
+        self.logs = []
+        self.completion = None
+
+    async def push_log(self, message):
+        self.logs.append(message)
+
+    def on_complete(self, **kwargs):
+        self.completion = kwargs
+
+
+class _DataflowClient:
+    def __init__(self, lines):
+        self.lines = lines
+
+    async def verify_dataflow(self, *_args):
+        for line in self.lines:
+            yield line
+
+
+def _terminal_evidence(**overrides):
+    value = {
+        "schema_version": "telemetry-verification.v1",
+        "trace_id": "VERIFY-1234ABCD",
+        "status": "pass",
+        "pass_count": 3,
+        "fail_count": 0,
+        "skip_count": 0,
+        "total_time": 4.2,
+        "failed_phase": None,
+        "evidence": [
+            {
+                "phase": 1,
+                "kind": "message_accepted",
+                "provider": "aws",
+            },
+            {
+                "phase": 2,
+                "kind": "trace_correlated_hot_record",
+                "provider": "azure",
+                "record_count": 1,
+            },
+            {
+                "phase": 3,
+                "kind": "gcp_twin_projection",
+                "provider": "gcp",
+                "correlation": "source_sequence",
+            },
+        ],
+    }
+    value.update(overrides)
+    return value
+
+
+def _running_verification(db, twin):
+    deployment = db.query(Deployment).filter(Deployment.twin_id == twin.id).first()
+    record = TelemetryVerification(
+        twin_id=twin.id,
+        deployment_id=deployment.id,
+        session_id=f"verification-{twin.id}",
+        device_id="device-1",
+        status="running",
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@pytest.mark.asyncio
+async def test_proxy_persists_closed_trace_correlated_terminal_evidence(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    record = _running_verification(db_session, twin)
+    session = _VerificationSession()
+    terminal = _terminal_evidence()
+
+    async def get_verification_session(_session_id):
+        return session
+
+    service = _service(
+        db_session,
+        deployer_client=_DataflowClient(
+            ["event: done", f"data: {json.dumps(terminal)}", ""]
+        ),
+        session_getter=get_verification_session,
+    )
+
+    await service.proxy_dataflow_sse(
+        verification_id=record.id,
+        session_id=record.session_id,
+        prepared_project=PreparedDeploymentProject("project", "token"),
+        payload={"iotDeviceId": "device-1"},
+    )
+
+    db_session.refresh(record)
+    assert record.status == "pass"
+    assert record.trace_id == "VERIFY-1234ABCD"
+    assert record.result["schema_version"] == "telemetry-verification.v1"
+    assert record.result["evidence"] == terminal["evidence"]
+    assert "failed_phase" not in record.result
+    assert session.completion["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_proxy_rejects_untyped_terminal_without_persisting_secret(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    record = _running_verification(db_session, twin)
+    session = _VerificationSession()
+    terminal = _terminal_evidence(client_secret="must-not-persist")
+
+    async def get_verification_session(_session_id):
+        return session
+
+    service = _service(
+        db_session,
+        deployer_client=_DataflowClient(
+            ["event: done", f"data: {json.dumps(terminal)}", ""]
+        ),
+        session_getter=get_verification_session,
+    )
+
+    await service.proxy_dataflow_sse(
+        verification_id=record.id,
+        session_id=record.session_id,
+        prepared_project=PreparedDeploymentProject("project", "token"),
+        payload={"iotDeviceId": "device-1"},
+    )
+
+    db_session.refresh(record)
+    assert record.status == "fail"
+    assert record.result is None
+    assert record.error_code == "INVALID_VERIFICATION_EVIDENCE"
+    assert "must-not-persist" not in (record.error_message or "")
+    assert all("must-not-persist" not in message for message in session.logs)
+
+
+def test_verification_history_is_owner_scoped_and_typed(db_session):
+    user = _create_user(db_session)
+    twin = _create_twin(db_session, user)
+    record = _running_verification(db_session, twin)
+
+    result = _service(db_session).list_dataflow_verifications(
+        twin.id,
+        user.id,
+        limit=25,
+    )
+
+    assert result.schema_version == "telemetry-verification-history.v1"
+    assert [item.id for item in result.verifications] == [record.id]

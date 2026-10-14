@@ -5,7 +5,7 @@ import '../theme/colors.dart';
 
 /// Utility class that builds individual architecture layer widgets.
 ///
-/// Used by both ArchitectureGraph (for full flowchart view) and
+/// Used by the active layer views and
 /// Step3Deployer (for layer-aligned file editor view).
 class ArchitectureLayerBuilder {
   final CalcResult? calcResult;
@@ -594,33 +594,6 @@ class ArchitectureLayerBuilder {
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  Widget _buildEditableComponentBoxSmall(String name, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: editableColor.withAlpha(20),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: editableColor.withAlpha(150)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: editableColor),
-          const SizedBox(width: 6),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: editableColor,
             ),
           ),
         ],

@@ -36,23 +36,6 @@ void main() {
     expect(await api.getAuthToken(), isNull);
   });
 
-  test('session token can be set and cleared without rebuilding', () async {
-    final seenAuthorization = <Object?>[];
-    final dio = _recordingDio((options) {
-      seenAuthorization.add(options.headers['Authorization']);
-      return _jsonResponse([]);
-    });
-    final api = ApiService(dio: dio);
-
-    api.setToken('session-token');
-    await api.getTwins();
-    api.setToken(null);
-    await api.getTwins();
-
-    expect(seenAuthorization, ['Bearer session-token', null]);
-    expect(await api.getAuthToken(), isNull);
-  });
-
   test('invalid token is rejected without echoing its value', () {
     const secret = 'never echo this';
     try {

@@ -217,6 +217,11 @@ def build_provider_package(
     package_files[wrapper_target] = (ADAPTER_ROOT / wrapper_source).read_text(
         encoding="utf-8"
     )
+    if provider == "azure":
+        # Azure Functions requires host.json at the ZIP root. It belongs to the
+        # reviewed provider wrapper and therefore participates in the immutable
+        # package digest/evidence just like function_app.py.
+        package_files["host.json"] = runtime.canonical_json({"version": "2.0"})
     package_files["_extension_config.json"] = runtime.canonical_json(
         {
             "schema_version": "user-function-runtime-config.v1",

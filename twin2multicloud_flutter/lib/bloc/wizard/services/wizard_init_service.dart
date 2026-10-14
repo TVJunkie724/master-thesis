@@ -115,6 +115,7 @@ class WizardInitService {
         twinId: twinId,
         twinName: twin.name,
         twinState: twin.state,
+        hasBeenDeployed: twin.deployedAt != null,
         debugMode: config.debugMode,
         aws: credentials['aws'] ?? const ProviderCredentials(),
         azure: credentials['azure'] ?? const ProviderCredentials(),
@@ -165,20 +166,20 @@ class WizardInitService {
     CalcResult? optimization,
   ) {
     final specification = run?.specification;
-    if (specification is! ResolvedDeploymentSpecificationV1 ||
+    if (specification is! ResolvedDeploymentSpecificationV2 ||
         optimization == null) {
       return;
     }
-    const pathPrefixBySlot = {
-      ResolvedDeploymentSlot.l1Ingestion: 'L1_',
-      ResolvedDeploymentSlot.l2Processing: 'L2_',
-      ResolvedDeploymentSlot.l3HotStorage: 'L3_hot_',
-      ResolvedDeploymentSlot.l3CoolStorage: 'L3_cool_',
-      ResolvedDeploymentSlot.l3ArchiveStorage: 'L3_archive_',
-      ResolvedDeploymentSlot.l4TwinState: 'L4_',
-      ResolvedDeploymentSlot.l5Visualization: 'L5_',
+    const pathPrefixByComponent = {
+      'component.ingestion': 'L1_',
+      'component.processing': 'L2_',
+      'component.hot-storage': 'L3_hot_',
+      'component.cool-storage': 'L3_cool_',
+      'component.archive-storage': 'L3_archive_',
+      'component.twin-state': 'L4_',
+      'component.visualization': 'L5_',
     };
-    for (final entry in pathPrefixBySlot.entries) {
+    for (final entry in pathPrefixByComponent.entries) {
       final segment = optimization.cheapestPath.cast<String?>().firstWhere(
         (candidate) =>
             candidate?.toLowerCase().startsWith(entry.value.toLowerCase()) ==
@@ -188,9 +189,9 @@ class WizardInitService {
       final expectedProvider = segment == null
           ? null
           : ArchitecturePath.providerForSegment(segment);
-      final actualProviders = specification.components
-          .where((component) => component.slot == entry.key)
-          .map((component) => component.provider.apiValue.toUpperCase())
+      final actualProviders = specification.componentSelections
+          .where((selection) => selection.logicalComponentId == entry.key)
+          .map((selection) => selection.provider.apiValue.toUpperCase())
           .toSet();
       if (expectedProvider == null ||
           actualProviders.length != 1 ||

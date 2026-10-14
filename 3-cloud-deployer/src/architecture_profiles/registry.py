@@ -1,4 +1,4 @@
-"""Fixed-path, immutable Phase 8.3 definition registry for the Deployer."""
+"""Fixed-path, immutable Six-layer definition registry for the Deployer."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ from . import contracts
 
 
 DEFINITIONS_ROOT = contracts.CONTRACT_ROOT.parent / "definitions"
+_PROFILE_DEFINITIONS = {
+    ("six-layer-eventing", "1"): ("six-layer-eventing", "six-layer-eventing"),
+}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -33,19 +36,40 @@ def _freeze(value: Any) -> Any:
 class ArchitectureProfileRegistry:
     """Load definitions without compiling Terraform or building packages."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        profile_id: str = "six-layer-eventing",
+        profile_version: str = "1",
+    ) -> None:
+        definition = _PROFILE_DEFINITIONS.get((profile_id, profile_version))
+        if definition is None:
+            raise contracts.ContractError(
+                "ARCH_PROFILE_UNAVAILABLE",
+                "architecture_profile_ref",
+                "Architecture profile reference is unsupported",
+            )
+        catalog_family, provider_profile_family = definition
         profile = _read(
-            DEFINITIONS_ROOT / "profiles" / "five-layer-baseline" / "1" / "profile.json"
+            DEFINITIONS_ROOT
+            / "profiles"
+            / profile_id
+            / profile_version
+            / "profile.json"
         )
         catalog = _read(
-            DEFINITIONS_ROOT / "component-catalogs" / "baseline" / "1" / "catalog.json"
+            DEFINITIONS_ROOT
+            / "component-catalogs"
+            / catalog_family
+            / "1"
+            / "catalog.json"
         )
         providers = {
             provider: _read(
                 DEFINITIONS_ROOT
                 / "provider-implementations"
-                / "five-layer-baseline"
-                / "1"
+                / provider_profile_family
+                / profile_version
                 / provider
                 / "1.json"
             )

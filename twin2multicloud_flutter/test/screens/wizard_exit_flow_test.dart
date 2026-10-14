@@ -8,12 +8,16 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:twin2multicloud_flutter/bloc/wizard/wizard.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
+import 'package:twin2multicloud_flutter/models/architecture_profile.dart';
+import 'package:twin2multicloud_flutter/models/provider_capability.dart';
+import 'package:twin2multicloud_flutter/models/twin_config.dart';
 import 'package:twin2multicloud_flutter/models/wizard_config_requests.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/wizard/wizard_screen.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
-import 'package:twin2multicloud_flutter/models/twin_config.dart';
 
+import '../fixtures/architecture_profile_fixtures.dart';
+import '../fixtures/provider_capability_fixture.dart';
 import '../fixtures/typed_api_fixtures.dart';
 
 final class _MockApiService extends Mock implements ApiService {}
@@ -34,7 +38,7 @@ void main() {
     ).thenAnswer((_) => persistence.future);
     final harness = await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back to experiments'));
     await tester.pumpAndSettle();
     expect(find.text('Leave Wizard?'), findsOneWidget);
     expect(find.text('Dashboard destination'), findsNothing);
@@ -71,7 +75,7 @@ void main() {
     ).thenThrow(Exception('transport unavailable'));
     final harness = await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.byTooltip('Back to experiments'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save & Leave'));
     await tester.pump();
@@ -100,10 +104,7 @@ void main() {
 
     expect(find.byType(WizardView), findsOneWidget);
     expect(find.text('Dashboard destination'), findsNothing);
-    expect(
-      find.text('Saved. Configuration reverted to draft.'),
-      findsOneWidget,
-    );
+    expect(find.text('Draft saved!'), findsOneWidget);
   });
 
   testWidgets('settings navigation uses the shared unsaved-exit contract', (
@@ -112,9 +113,7 @@ void main() {
     final api = _MockApiService();
     await _pumpWizard(tester, api);
 
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Open cloud access'));
     await tester.pumpAndSettle();
     expect(find.text('Leave Wizard?'), findsOneWidget);
     expect(find.text('Settings destination'), findsNothing);
@@ -123,9 +122,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(WizardView), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Profile menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
+    await tester.tap(find.byTooltip('Open cloud access'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discard Changes'));
     await tester.pumpAndSettle();
@@ -146,11 +143,28 @@ Future<_WizardHarness> _pumpWizard(
   WidgetTester tester,
   _MockApiService api,
 ) async {
+  when(() => api.getCanonicalArchitectureContract()).thenAnswer(
+    (_) async => ArchitectureProfileDetail.fromJson(
+      architectureProfileDetailJson(
+        profileId: 'six-layer-eventing',
+        profileVersion: '1',
+        withExtensionSlot: false,
+      ),
+    ),
+  );
+  when(() => api.getProviderCapabilities()).thenAnswer(
+    (_) async => PlatformProviderCapabilities.fromJson(
+      platformProviderCapabilitiesJson(),
+    ),
+  );
+  when(() => api.listCloudConnections()).thenAnswer((_) async => const []);
   tester.view.physicalSize = const Size(1200, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final bloc = WizardBloc(api: api);
   addTearDown(bloc.close);
+  bloc.add(const WizardInitCreate());
+  await bloc.stream.firstWhere((state) => state.status == WizardStatus.ready);
   bloc.add(const WizardTwinNameChanged('Factory twin'));
   await bloc.stream.firstWhere((state) => state.twinName == 'Factory twin');
 
@@ -168,11 +182,6 @@ Future<_WizardHarness> _pumpWizard(
         builder: (context, state) =>
             const Scaffold(body: Text('Settings destination')),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) =>
-            const Scaffold(body: Text('Login destination')),
-      ),
     ],
   );
   addTearDown(router.dispose);
@@ -182,6 +191,7 @@ Future<_WizardHarness> _pumpWizard(
         appRuntimeProvider.overrideWithValue(
           AppRuntimeConfig.production(
             managementApiBaseUri: Uri.parse('https://management.test'),
+            pocAuthToken: 'local-token',
           ),
         ),
         apiServiceProvider.overrideWithValue(api),
@@ -193,6 +203,12 @@ Future<_WizardHarness> _pumpWizard(
     ),
   );
   await tester.pump();
+  await _pumpUntil(
+    tester,
+    () => bloc.state.architectureDetailPhase == ArchitectureDetailPhase.ready,
+    'canonical architecture load',
+    diagnostic: () => bloc.state.toString(),
+  );
   return _WizardHarness(bloc);
 }
 

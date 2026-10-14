@@ -10,9 +10,6 @@ from backend.calculation_v2.components.azure import (
     AzureIoTHubCalculator,
     AzureLogicAppsCalculator,
 )
-from backend.calculation_v2.components.azure.iot_hub import (
-    IOT_HUB_MAXIMUM_CAPACITY,
-)
 from backend.calculation_v2.engine import _calculate_egress_cost
 from tests.unit.pricing.transfer_fixtures import canonical_transfer_catalog
 
@@ -23,8 +20,16 @@ def _azure_pricing(**overrides):
             "pricing_tiers": {
                 "freeTier": {"limit": 240_000, "threshold": 0, "price": 0},
                 "tier1": {"limit": 120_000_000, "threshold": 12_000_000, "price": 25},
-                "tier2": {"limit": 1_800_000_000, "threshold": 180_000_000, "price": 250},
-                "tier3": {"limit": "Infinity", "threshold": 9_000_000_000, "price": 2500},
+                "tier2": {
+                    "limit": 1_800_000_000,
+                    "threshold": 180_000_000,
+                    "price": 250,
+                },
+                "tier3": {
+                    "limit": "Infinity",
+                    "threshold": 9_000_000_000,
+                    "price": 2500,
+                },
             }
         },
         "azureDigitalTwins": {
@@ -53,19 +58,6 @@ def _azure_pricing(**overrides):
 
 
 class TestAzureIoTHubTiering:
-    def test_formula_capacity_limits_match_deployment_registry(self):
-        from backend.deployment_specification.builder import _contract
-
-        registry = _contract()[1]
-        constraints = registry["components"]["l1.azure.iot_hub"][
-            "combination_constraints"
-        ][0]["ranges_by_selector"]
-
-        assert IOT_HUB_MAXIMUM_CAPACITY == {
-            sku: values["maximum"]
-            for sku, values in constraints.items()
-        }
-
     def test_free_tier_is_used_for_small_workloads(self):
         result = AzureIoTHubCalculator().calculate_selection(
             messages_per_month=200_000,

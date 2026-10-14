@@ -1,0 +1,15 @@
+{
+  "schema_version": "deployment-access-placement-fixtures.v1",
+  "generated_at": "2026-07-31T12:00:00Z",
+  "placements": [
+    {"fixture_id": "l5-aws-l4-aws", "l4_surface": "l4:aws", "l5_surface": "l5:aws"},
+    {"fixture_id": "l5-aws-l4-azure", "l4_surface": "l4:azure", "l5_surface": "l5:aws"},
+    {"fixture_id": "l5-aws-l4-gcp", "l4_surface": "l4:gcp", "l5_surface": "l5:aws"},
+    {"fixture_id": "l5-azure-l4-aws", "l4_surface": "l4:aws", "l5_surface": "l5:azure"},
+    {"fixture_id": "l5-azure-l4-azure", "l4_surface": "l4:azure", "l5_surface": "l5:azure"},
+    {"fixture_id": "l5-azure-l4-gcp", "l4_surface": "l4:gcp", "l5_surface": "l5:azure"},
+    {"fixture_id": "l5-gcp-l4-aws", "l4_surface": "l4:aws", "l5_surface": "l5:gcp"},
+    {"fixture_id": "l5-gcp-l4-azure", "l4_surface": "l4:azure", "l5_surface": "l5:gcp"},
+    {"fixture_id": "l5-gcp-l4-gcp", "l4_surface": "l4:gcp", "l5_surface": "l5:gcp"}
+  ]
+}

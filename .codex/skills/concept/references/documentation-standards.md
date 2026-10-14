@@ -43,7 +43,7 @@ If you cannot list a real source, the document isn't ready to commit.
 | Rule | Description |
 |------|-------------|
 | **No placeholders** | Every example is real, every reference resolves to an existing path or known future path |
-| **No TODOs** | Either complete the section or do not commit it |
+| **No parallel backlog** | Track unfinished work in the active execution plan or a requested GitHub Issue, not distributed TODO files |
 | **Tables for facts** | Fields, properties, scope → tables |
 | **Prose for rules** | Decisions, rationale, guardrails → natural language |
 | **Cross-references** | Link related documents, never duplicate content |
@@ -62,4 +62,5 @@ Before committing any document:
 - [ ] Language consistent with neighbouring docs?
 - [ ] All paths relative?
 - [ ] No Mermaid diagrams (ASCII only)?
-- [ ] Anchored in a Roadmap (`ROADMAP_<PILLAR>.md`)?
+- [ ] Mapped to the active thesis scope and a research, safety, or reproducibility need?
+- [ ] Clear whether the document is durable or removed after implementation?

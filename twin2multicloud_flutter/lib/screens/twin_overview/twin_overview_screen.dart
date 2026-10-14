@@ -1,6 +1,8 @@
 // lib/screens/twin_overview/twin_overview_screen.dart
 // Operational overview for configured Digital Twins.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +12,12 @@ import '../../bloc/twin_overview/twin_overview_event.dart';
 import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../bloc/deployment_verification/deployment_verification.dart';
 import '../../providers/twins_provider.dart';
+import '../../providers/runtime_providers.dart'
+    show externalAuthLauncherProvider;
 import '../../providers/theme_provider.dart';
+import '../../models/deployment_access.dart';
+import '../../models/deployment_readiness.dart';
+import '../../services/external_auth_launcher.dart';
 import '../../theme/spacing.dart';
 import '../../utils/file_download_utils.dart';
 import '../../widgets/branded_app_bar.dart';
@@ -20,6 +27,8 @@ import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/twin_overview/twin_overview_code_artifact.dart';
 import '../../widgets/twin_overview/twin_overview_content.dart';
 import '../../widgets/twin_overview/twin_overview_operation_dialogs.dart';
+import '../../widgets/twin_overview/twin_overview_strings.dart';
+import '../../widgets/twin_overview/deployment_preparation_dialog.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
 class TwinOverviewScreen extends ConsumerWidget {
@@ -110,8 +119,6 @@ class TwinOverviewView extends ConsumerWidget {
             appBar: _buildAppBar(context, ref),
             body: Column(
               children: [
-                // Header section with back button and twin name
-                _buildHeader(context, state),
                 // Alert banners for messages
                 _buildAlertBanners(context, state),
                 // Main content
@@ -126,7 +133,12 @@ class TwinOverviewView extends ConsumerWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
     return BrandedAppBar(
-      title: 'Twin2MultiCloud',
+      title: TwinOverviewStrings.appTitle,
+      leading: IconButton(
+        onPressed: () => context.go('/dashboard'),
+        icon: const Icon(Icons.arrow_back),
+        tooltip: TwinOverviewStrings.backToExperiments,
+      ),
       actions: [
         IconButton(
           icon: Icon(
@@ -135,46 +147,16 @@ class TwinOverviewView extends ConsumerWidget {
                 : Icons.dark_mode,
           ),
           onPressed: () => ref.read(themeProvider.notifier).toggle(),
-          tooltip: 'Toggle theme',
+          tooltip: TwinOverviewStrings.toggleTheme,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        IconButton(
+          onPressed: () => context.go('/settings'),
+          icon: const Icon(Icons.cloud_outlined),
+          tooltip: TwinOverviewStrings.openCloudAccess,
         ),
         const SizedBox(width: AppSpacing.sm),
       ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, TwinOverviewState state) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.maxContentWidthLarge,
-          ),
-          child: Row(
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back to Dashboard'),
-                onPressed: () => context.go('/dashboard'),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -265,7 +247,7 @@ class TwinOverviewView extends ConsumerWidget {
                       size: AppSpacing.iconMd,
                     ),
                     onPressed: onDismiss,
-                    tooltip: 'Dismiss message',
+                    tooltip: TwinOverviewStrings.dismissMessage,
                   ),
                 ],
               ),
@@ -364,6 +346,7 @@ class TwinOverviewView extends ConsumerWidget {
       onRunPreflight: () => context.read<TwinOverviewBloc>().add(
         const TwinOverviewRunDeploymentPreflight(),
       ),
+      onReviewPreparation: () => _reviewDeploymentPreparation(context, state),
       onOpenCloudAccounts: () => context.go('/settings'),
       onDeploy: () => _confirmDeploy(context, state),
       onDestroy: () => _confirmDestroy(context),
@@ -378,12 +361,84 @@ class TwinOverviewView extends ConsumerWidget {
         const TwinOverviewCancelLogTrace(),
       ),
       onDownloadSimulator: () => _confirmSimulatorDownload(context, state),
+      onRetryLayerAccess: () => context.read<TwinOverviewBloc>().add(
+        const TwinOverviewRetryLayerAccess(),
+      ),
+      onOpenLayerAccess: (surface) => _openLayerAccess(context, ref, surface),
       onOutputCopyFeedback: (message) => context.read<TwinOverviewBloc>().add(
         TwinOverviewShowMessage(message, MessageType.success),
       ),
       onViewArtifact: (artifact) => _showCodeArtifact(context, artifact),
       onDownloadArtifact: (artifact) =>
           _downloadCodeArtifact(context, artifact),
+    );
+  }
+
+  Future<void> _reviewDeploymentPreparation(
+    BuildContext context,
+    TwinOverviewLoaded state,
+  ) async {
+    final plan = state.deploymentReadiness.snapshot?.preparationPlan;
+    if (plan == null || !plan.needsReview) return;
+    final request = await showDialog<DeploymentPreparationRequest>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DeploymentPreparationDialog(plan: plan),
+    );
+    if (request != null && context.mounted) {
+      context.read<TwinOverviewBloc>().add(
+        TwinOverviewPrepareDeployment(request),
+      );
+    }
+  }
+
+  void _openLayerAccess(
+    BuildContext context,
+    WidgetRef ref,
+    DeploymentAccessSurface surface,
+  ) {
+    ExternalAuthLaunchHandle handle;
+    try {
+      handle = ref.read(externalAuthLauncherProvider).reserve();
+    } catch (_) {
+      _showLayerLaunchFailure(context, surface);
+      return;
+    }
+    if (surface.serviceId.endsWith('_l5_visualization')) {
+      context.read<TwinOverviewBloc>().add(
+        TwinOverviewOpenVisualization(handle),
+      );
+      return;
+    }
+    unawaited(_navigateLayerAccess(context, handle, surface));
+  }
+
+  Future<void> _navigateLayerAccess(
+    BuildContext context,
+    ExternalAuthLaunchHandle handle,
+    DeploymentAccessSurface surface,
+  ) async {
+    try {
+      final opened = await handle.navigate(surface.url);
+      if (!opened) {
+        throw StateError('External browser refused the navigation.');
+      }
+    } catch (_) {
+      await handle.close();
+      if (context.mounted) _showLayerLaunchFailure(context, surface);
+    }
+  }
+
+  void _showLayerLaunchFailure(
+    BuildContext context,
+    DeploymentAccessSurface surface,
+  ) {
+    context.read<TwinOverviewBloc>().add(
+      TwinOverviewShowMessage(
+        'Could not open ${surface.layer.name.toUpperCase()} '
+        '${surface.displayName} in the external browser.',
+        MessageType.error,
+      ),
     );
   }
 
@@ -463,6 +518,15 @@ class TwinOverviewView extends ConsumerWidget {
       context: context,
       builder: (_) => DeployTwinConfirmationDialog(
         resourceName: state.cloudResourceName ?? state.projectName,
+        connections: [
+          for (final provider
+              in state.deploymentReadiness.snapshot?.providers ?? const [])
+            '${provider.provider.label}: ${provider.connectionDisplayName ?? 'No named connection'}',
+        ],
+        monthlyEstimate:
+            state.optimizerConfig?.optimization?.resolvedArchitecture == null
+            ? null
+            : '${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.monthlyTotal} ${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.currency}',
       ),
     );
     if (confirmed == true && context.mounted) {

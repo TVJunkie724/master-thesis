@@ -2,7 +2,9 @@
 // Events for the Wizard BLoC state machine
 
 import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
+
 import '../../models/calc_params.dart';
 import '../../models/cloud_connection.dart';
 import '../../models/deployer_artifact_validation.dart';
@@ -33,6 +35,28 @@ class WizardInitEdit extends WizardEvent {
 
 class WizardProviderCapabilitiesLoadRequested extends WizardEvent {
   const WizardProviderCapabilitiesLoadRequested();
+}
+
+class WizardCanonicalArchitectureLoadRequested extends WizardEvent {
+  const WizardCanonicalArchitectureLoadRequested();
+}
+
+class WizardResolvedArchitectureLoadRequested extends WizardEvent {
+  final String? runId;
+
+  const WizardResolvedArchitectureLoadRequested({this.runId});
+
+  @override
+  List<Object?> get props => [runId];
+}
+
+class WizardResolvedArchitectureRetried extends WizardEvent {
+  final String? runId;
+
+  const WizardResolvedArchitectureRetried({this.runId});
+
+  @override
+  List<Object?> get props => [runId];
 }
 
 // ============================================================
@@ -171,10 +195,6 @@ class WizardCloudConnectionDeleteRequested extends WizardEvent {
 // ============================================================
 // STEP 2: OPTIMIZER EVENTS
 // ============================================================
-
-class WizardPricingHealthLoadRequested extends WizardEvent {
-  const WizardPricingHealthLoadRequested();
-}
 
 /// Calculation parameters were changed
 class WizardCalcParamsChanged extends WizardEvent {
@@ -443,49 +463,11 @@ class WizardL4CleanupRequested extends WizardEvent {
 }
 
 // ============================================================
-// STEP 3: ZIP UPLOAD EVENTS
-// ============================================================
-
-/// Upload a transient project ZIP after presentation-side confirmation.
-class WizardZipUploadRequested extends WizardEvent {
-  final Uint8List fileBytes;
-  final String fileName;
-
-  const WizardZipUploadRequested({
-    required this.fileBytes,
-    required this.fileName,
-  });
-
-  @override
-  List<Object?> get props => [fileName];
-}
-
-/// Zip upload and extraction completed successfully
-class WizardZipUploadSuccess extends WizardEvent {
-  final Map<String, dynamic> extractionResult;
-  const WizardZipUploadSuccess(this.extractionResult);
-  @override
-  List<Object?> get props => [extractionResult];
-}
-
-/// Zip upload failed with validation errors
-class WizardZipUploadFailure extends WizardEvent {
-  final List<String> errors;
-  final List<String> warnings;
-  const WizardZipUploadFailure({
-    required this.errors,
-    this.warnings = const [],
-  });
-  @override
-  List<Object?> get props => [errors, warnings];
-}
-
-// ============================================================
 // USER-FUNCTION EXTENSION EVENTS
 // ============================================================
 
-class WizardExtensionCatalogLoadRequested extends WizardEvent {
-  const WizardExtensionCatalogLoadRequested();
+class WizardUserFunctionsLoadRequested extends WizardEvent {
+  const WizardUserFunctionsLoadRequested();
 }
 
 class WizardExtensionSourceSelected extends WizardEvent {
@@ -527,10 +509,19 @@ class WizardExtensionValidationRequested extends WizardEvent {
   List<Object?> get props => [slotId];
 }
 
-class WizardExtensionBindRequested extends WizardEvent {
+class WizardExtensionSaveRequested extends WizardEvent {
   final String slotId;
 
-  const WizardExtensionBindRequested(this.slotId);
+  const WizardExtensionSaveRequested(this.slotId);
+
+  @override
+  List<Object?> get props => [slotId];
+}
+
+class WizardExtensionDeleteRequested extends WizardEvent {
+  final String slotId;
+
+  const WizardExtensionDeleteRequested(this.slotId);
 
   @override
   List<Object?> get props => [slotId];

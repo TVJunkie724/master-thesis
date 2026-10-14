@@ -70,8 +70,16 @@ def graph_evidence(graph: ResolvedDeploymentGraph) -> dict[str, Any]:
         "catalog_digest": graph.catalog_ref["digest"],
         "specification_digest": graph.specification_ref["digest"],
         "package_selection_digest": package_selection_digest,
+        "requirements_digest": graph.requirements_digest,
         "node_count": len(graph.nodes),
         "edge_count": len(graph.edges),
         "binding_count": len(graph.bindings),
+        "requirement_count": len(graph.requirements),
+        "requirement_types": sorted(
+            {requirement.requirement_type for requirement in graph.requirements}
+        ),
+        "required_providers": sorted(
+            {requirement.provider for requirement in graph.requirements}
+        ),
         "stage_ids": [stage.stage_id for stage in graph.stages],
     }
