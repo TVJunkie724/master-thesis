@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-14"
+lastUpdated: "2026-10-17"
 version: "2.3"
 ---
 
@@ -11,7 +11,8 @@ version: "2.3"
 Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
 and minimal L5 observations passed. Regular L5 integration and one representative
 AWS application functional observation are complete; model/results chapters are
-updated. Remaining measurement/UI limits are explicit, not further live scope.
+updated. Renewed UI-inclusive verification was requested on 2026-10-17;
+the local findings below block proceeding directly to new cloud deployments.
 
 ## 1. Purpose
 
@@ -33,6 +34,66 @@ and the
 [`live-evaluation-protocol.md`](../research/evaluation/live-evaluation-protocol.md).
 
 ## Current phase status
+
+### Renewed application verification — 2026-10-17, incomplete
+
+Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested
+a renewed end-to-end check including the UI. Existing dated cloud observations
+remain historical evidence, not passes for this new campaign.
+
+Local observations use the real development Management API and Flutter Web,
+not the demo adapter. No provider validation or cloud mutation was performed.
+
+- **Passed, bounded draft case:** create/save through the browser, reload,
+  import a portable archive through the real file chooser, and reload the
+  imported Twin. Source and imported definitions agree except the requested
+  new name and materialization of an empty Deployer configuration row. This
+  is not a populated scenario/user-function roundtrip observation.
+- **Export limitation:** the embedded browser did not produce a confirmed
+  download in two attempts. The import fixture was obtained through the real
+  Management export endpoint instead. Therefore browser Export -> Import is
+  not claimed as a complete pass.
+- **Passed rejection:** a deliberately invalid ZIP was rejected; no Twin with
+  the negative-test name was persisted. The UI only reported a generic error.
+- **Failed, actionable:** Azure JSON selection/parsing works, but persistence
+  fails against the existing local database. The native API readiness test
+  reports HTTP 409 on import; the browser likewise creates no connection.
+  The old `cloud_connections` table retains `is_default_for_pricing BOOLEAN
+  NOT NULL` without a default. The current model no longer writes that column,
+  and the migration source contains no removal of it. The service maps an
+  integrity failure to a generic concurrency conflict. Fresh-schema tests
+  do not cover this upgrade path. Do not replace/delete the database or
+  credentials to turn this into a pass.
+- **Test tooling:** the first macOS gate failed before assertions during Swift
+  package resolution. Explicit Xcode resolution succeeded; the direct native
+  readiness retry built and ran with **7 passes, 1 failed import**. The root
+  gate also fails on macOS Bash when all services already run, because its
+  empty `started_services` array is expanded under `set -u`.
+
+Next steps, in order:
+
+1. Review a minimal, backed-up migration for the obsolete credential columns
+   and regression-test upgrade from the old schema; preserve existing encrypted
+   payloads and bindings. Correct the small test-entrypoint issue separately.
+2. Repeat local browser credential import/manual entry and persistence with
+   synthetic values, populated Twin export/import, configuration/optimization,
+   rejection cases and native API contracts. Resolve the download observation
+   limitation using a supported browser before claiming that interaction.
+3. Prepare fresh, individually bounded UI-led Small runs: AWS and Azure composed
+   L1-L5/Event plus downloaded simulator/command; GCP retains its approved
+   L1-L3/Event scope. Repeat the six directed Core paths as separately scoped
+   observations. Do not imply unsupported GCP L4/L5, cross-cloud L4, directed
+   command return or tier transitions from those passes.
+4. Before each cloud mutation, show the exact graph/artifact revision, resources,
+   regions, cost exposure, cumulative allowance remaining, functional deadline
+   and cleanup reserve. Earlier allowance is not reset by this campaign.
+   Start via UI, verify reconnect without duplicate operations, retain exact
+   telemetry/command/L3/L4/L5 assertions applicable to that run, then Destroy
+   and independently inventory residuals, including simulator identities.
+
+Retain failed attempts, timings and cleanup retries. Map conclusions to the
+existing RQ1-RQ3 and keep mocks, local integration, live observations and
+unverified claims separate. No research-question change or product expansion.
 
 ### Primary-checkout consolidation — 2026-10-14
 
