@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-17"
+lastUpdated: "2026-10-18"
 version: "2.3"
 ---
 
@@ -70,11 +70,44 @@ not the demo adapter. No provider validation or cloud mutation was performed.
   gate also fails on macOS Bash when all services already run, because its
   empty `started_services` array is expanded under `set -u`.
 
-Next steps, in order:
+**Repair checkpoint — 2026-10-18:** the user approved the bounded migration
+and entrypoint correction. Migration 037 removes only the two obsolete
+CloudConnection columns and their two obsolete indexes, in one explicit SQLite
+transaction. Regression tests preserve an existing synthetic opaque payload,
+fingerprint, ID, binding and active index; prove idempotence and complete DDL
+rollback on an unexpected dependency; and reproduce HTTP 409 before upgrade
+followed by a successful encrypted Azure import after upgrade. The Bash gate
+now guards empty-array iteration, with executable stubbed success/failure tests
+for already-running, partially-running and stopped services.
 
-1. Review a minimal, backed-up migration for the obsolete credential columns
-   and regression-test upgrade from the old schema; preserve existing encrypted
-   payloads and bindings. Correct the small test-entrypoint issue separately.
+The local development API auto-reloaded and applied migration 037 before the
+intended operator backup was taken. This is an execution deviation, not a
+pre-migration backup claim. The API was stopped and an owner-only SQLite backup
+of the **post-migration** database was retained locally. The credential table
+was empty at that check; preservation of populated credentials is established
+by synthetic regression tests, not a comparison against a pre-upgrade local
+snapshot. SQLite integrity and foreign-key checks passed. Future schema work
+must stop auto-reloading services and take the backup **before editing** mounted
+migration sources.
+
+Verification: **42 targeted Backend tests**, **23 entrypoint/architecture tests**,
+Ruff and shell syntax checks passed. The ordinary `thesis.sh test
+frontend-integration` now completes all four native groups: **8 + 1 + 1 + 8 = 18
+passes**, including Azure import/list/delete, architecture calculation/selection,
+user functions and isolated Layer Access fixtures. These remain credential-free
+local integration observations, not provider E2E.
+
+The real Web UI also selected and imported the synthetic Azure JSON through
+the browser file chooser against the upgraded existing database; the connection
+remained visible as `untested` after a full reload. No cloud validation was
+invoked. The exact synthetic connection was deleted through the Management API
+after the observation, and absence was confirmed. The earlier browser export
+limitation and full-cloud verification work remain open.
+
+Remaining steps, in order:
+
+1. Keep the completed migration/entrypoint regression gates green; retain the
+   backup-order deviation above instead of rewriting the earlier failed attempt.
 2. Repeat local browser credential import/manual entry and persistence with
    synthetic values, populated Twin export/import, configuration/optimization,
    rejection cases and native API contracts. Resolve the download observation
