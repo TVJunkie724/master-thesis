@@ -67,6 +67,11 @@ def build_provider_preflight(
         "azure": _azure_checks,
         "gcp": _gcp_checks,
     }[provider](safe_result)
+    # Partial successful checks cannot override a failed/unknown checker result.
+    if safe_result.get("status") != "valid" and not any(
+        check.status == "failed" for check in checks
+    ):
+        checks.append(_generic_failure(safe_result, provider))
     ready = bool(checks) and all(
         check.status in {"passed", "warning", "skipped"} for check in checks
     )
@@ -100,6 +105,8 @@ def _aws_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
                 "AWS caller identity was verified through the deployment Region's STS endpoint.",
             )
         )
+    elif sts_region.get("status") == "endpoint_resolved":
+        checks.append(_generic_failure(result, "aws"))
     elif sts_region:
         checks.append(
             _failed(

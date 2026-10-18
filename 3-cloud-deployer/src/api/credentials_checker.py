@@ -834,7 +834,7 @@ def check_aws_credentials(credentials: dict) -> dict:
             session = _create_session(credentials)
             sts_client = _create_regional_sts_client(session, region)
             result["sts_region_validation"] = {
-                "status": "ready",
+                "status": "endpoint_resolved",
                 "region": region,
                 "endpoint_mode": "regional",
             }
@@ -851,6 +851,7 @@ def check_aws_credentials(credentials: dict) -> dict:
         try:
             caller_identity = _get_caller_identity(sts_client)
             result["caller_identity"] = caller_identity
+            result["sts_region_validation"]["status"] = "ready"
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             if error_code in ("InvalidClientTokenId", "SignatureDoesNotMatch"):
