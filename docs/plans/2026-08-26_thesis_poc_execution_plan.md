@@ -128,6 +128,120 @@ Retain failed attempts, timings and cleanup retries. Map conclusions to the
 existing RQ1-RQ3 and keep mocks, local integration, live observations and
 unverified claims separate. No research-question change or product expansion.
 
+#### Populated local workflow checkpoint — 2026-10-18
+
+At `84b07246`, the real Flutter Web release build and Management API accepted
+the frozen Small scenario in EUR, a dependency-free Python processor archive,
+and `scale_factor = 1`. The browser validation returned ten successful checks;
+the saved function and completed Scenario phase survived a reload. A portable
+archive obtained from Management was imported through the actual browser file
+chooser into a separate Twin. Both exported definitions match exactly after
+removing only `source_name`, including workload, regions, source files and
+configuration. The imported Twin calculated and displayed an immutable native
+result with independent GCP Eventing, Azure Twin state and AWS remaining
+components. This is a model observation, not a deployment or live path pass.
+
+Manual Azure entry also rejected missing fields and persisted synthetic values
+as an `untested` connection across reload. The exact test connection was then
+deleted (HTTP 204); a filtered inventory confirmed zero remaining matches.
+No real credential was entered or provider validation invoked.
+
+Two limits remain: the embedded browser again exposed no confirmed ZIP download
+even in the release build, and the imported/reopened User logic panel shows an
+empty configuration field despite the retained value in the backend/archive.
+The latter is a presentation/state restoration defect: the panel reads only
+the transient source draft, not the saved function configuration. It must not
+be described as data loss or as a fully successful UI roundtrip. Flutter analyze
+and the Web release build passed before any proposed fix. No cloud mutation or
+new frontend runtime change was made in this checkpoint.
+
+#### Bounded User logic restoration plan — awaiting approval
+
+All items below are required; this is a repair of the existing Configuration
+Workspace contract, not a new editor or workflow. Remove this temporary plan
+after verification and retain the outcome in the decision log.
+
+**0. Git.** Continue on `codex/phase-8-deployer-graph-resolver`, baseline
+`84b07246`, primary checkout only; focused commit, no push or unrelated files.
+
+**1. Summary.** Restore the non-secret saved configuration when a Twin is
+reopened/imported, without overwriting a replacement draft or pretending that
+its source archive has been selected/validated locally.
+
+**2. Layout.** Preserve the existing layout on Desktop and Web:
+
+```text
+Telemetry processor                         [Saved]
+[Choose source archive]                     [Validate]
+Runtime / dependency summary
+Configuration
+  Scale factor [persisted value, or current draft]
+Validation details
+                         [Remove] [Replace]
+```
+
+**3. Widget tree.** Reuse the complete existing tree; only value restoration
+and form identity change:
+
+```text
+ExtensionSlotList [REUSE]
+  ExtensionSlotPanel [MODIFY, existing file]
+    DynamicConfigurationForm [REUSE]
+      existing typed fields [REUSE]
+```
+
+**4. Components.** Keep all constructors and public DTOs unchanged. In
+`lib/bloc/wizard/wizard_state.dart`, expose effective configuration as current
+draft configuration when present, otherwise saved function configuration,
+otherwise empty. Use this same value in the panel and the existing source
+selection/configuration-change handlers. An explicitly emptied draft must not
+fall back to saved values. In the panel, scope the form key to Twin/slot/saved
+artifact identity so an asynchronous initial load updates fields, but ordinary
+keystrokes do not recreate them. No source bytes are synthesized or downloaded.
+All paths in this subsection are relative to `twin2multicloud_flutter/`.
+
+**5. Responsive.** Retain `AppSpacing.userFunctionCompactBreakpoint` (620 px):
+stacked source controls below it, row above it. No dimensions change.
+
+**6. State.** `WizardBloc` remains the only workflow owner. Existing
+`WizardExtensionSourceSelected` and `WizardExtensionConfigurationChanged`
+retain saved configuration as the initial replacement value; subsequent draft
+edits win. Flow remains `Management -> DTO -> WizardState -> panel -> event ->
+WizardBloc`. Do not fabricate validation checks, change phase admission, or add
+automatic mutation on load.
+
+**7. Tokens.** Reuse current spacing, theme, icons and typography; no new tokens.
+
+**8. Interaction.** Preserve validation, Save/Replace, Remove, loading/error
+and empty states. No new buttons, animations, source editor or endpoints.
+
+**9. Accessibility.** Preserve field labels, semantics and Tab order. Assert
+the restored field value and uninterrupted typed edits, at compact/wide widths.
+
+**10. Integration.** Reuse Management `GET /architecture/extension-slots` and
+`GET /twins/{id}/user-functions`; the latter already returns a non-secret
+configuration map. No response/schema change, downstream calls or new routes.
+
+**11. Tests.** Extend existing state/BLoC/panel tests with hard assertions:
+saved configuration on reopen and replacement-source selection (happy);
+missing saved function and deliberately removed required value (unhappy);
+zero value, asynchronous saved-function arrival, draft precedence, preservation
+of unrelated configuration keys, and keystrokes without focus reset (edges).
+Run analyze, the full widget/unit suite, architecture checker, Web and macOS
+release builds. Repeat the populated import/reload in the real local UI and
+the existing native frontend-integration gate against the already-running
+Management stack. Do not stop unrelated containers or run cloud E2E for this fix.
+
+**12. Definition of done.** All above checks pass; saved values are visible
+after real import/reload, existing edits remain authoritative, and no fabricated
+source or validation evidence appears. Update this execution checkpoint and
+the decision log; architecture/API documentation needs no change because the
+contract is unchanged. Download qualification remains separately open.
+
+Plan review: checked from architecture and implementation perspectives against
+the project plan-review criteria; no API/datatype, layout, dependency or scope
+expansion is required. Builder remains gated on explicit approval of this fix.
+
 ### Primary-checkout consolidation — 2026-10-14
 
 Work continues only in the original `master-thesis` checkout on

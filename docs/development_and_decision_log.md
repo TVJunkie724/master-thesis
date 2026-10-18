@@ -1467,3 +1467,25 @@ references or overfull boxes were reported. Existing template warnings, includin
 the draft's empty bibliography, remain: a successful build is not submission
 readiness. The changed-file secret check found no local credential values or
 private evidence paths among files being committed.
+
+### 2026-10-18 — Populated UI portability observation, bounded finding
+
+The real local Web/Management workflow accepted the frozen Small scenario,
+EUR reporting and an uploaded Python processor with `scale_factor = 1`.
+Validation reported ten passed checks. Reimport through the browser file chooser
+preserved the workload, region metadata and complete function source/configuration;
+the exported definitions differ only in the requested Twin name. Optimization
+through the UI produced the native immutable model result. Manual synthetic
+Azure entry also passed required-field rejection and reload persistence; the
+exact disposable connection was removed and absence verified. These are local
+integration observations, not cloud E2E or provider authorization evidence.
+
+The embedded browser still did not expose a confirmed ZIP download; the import
+fixture came from Management's export endpoint. A newly observed User logic
+restoration defect leaves saved configuration blank in the form, while the
+backend and exported archive retain it correctly. The active execution plan
+contains a narrowly scoped repair awaiting approval under the UI planning gate.
+No source editor, API change, redesign, dependency or new cloud run is needed
+to repair that display/state boundary. Baseline Flutter analyze and Web release
+build passed. Existing historical cloud observations are not relabeled as
+passes for the renewed UI campaign.
