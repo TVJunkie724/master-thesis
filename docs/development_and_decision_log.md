@@ -1489,3 +1489,34 @@ No source editor, API change, redesign, dependency or new cloud run is needed
 to repair that display/state boundary. Baseline Flutter analyze and Web release
 build passed. Existing historical cloud observations are not relabeled as
 passes for the renewed UI campaign.
+
+### 2026-10-18 — Approved restoration and fail-closed cloud admission
+
+The approved User logic repair (`cc3427b4`) preserves saved configuration while
+current edits remain authoritative. All 808 Flutter tests, analyze, architecture
+checks, Web/macOS builds and 18 native local-API integration checks passed.
+Browser reopen/replacement worked; native Export saved the actual ZIP consumed
+by native Import. Definitions match except Twin name. No redesign, API change
+or feature was added; embedded-browser downloads remain unqualified.
+
+Fresh AWS preflight exposed a retired required SQLite column. Migration 038
+(`331db469`) removes only the two obsolete preflight version columns. Unlike
+the earlier migration-037 deviation, the API was stopped and a verified private
+backup taken before editing. All retained application-table values matched;
+integrity/foreign keys and all 704 backend tests passed.
+
+Independent AWS authentication contradicted the initial UI success. STS had been
+marked ready before identity verification; partial success then hid overall
+failure. `c84be449` fixes both boundaries, with 65 focused tests. The final safe
+Deployer suite passed 2,207 tests with one intentional skip and one existing TLS
+deprecation warning. The first run's missing-mount environment failure remains
+retained; eight Terraform mock-plan tests and then the complete suite passed
+with the required read-only repository mount.
+
+AWS currently rejects authentication (`InvalidClientTokenId`); Azure reports
+`AADSTS7000215` (invalid secret). The corrected API persists the AWS failure and
+the real browser displays it. No new cloud workload or simulator identity was
+created. Live execution needs local credential refresh, not another approval.
+RQ1 records these migration/admission failures; RQ2 gains no new live equivalence
+claim; RQ3 gains no new live latency or cost observation. The execution plan
+contains the precise continuation and the distinction from historical passes.

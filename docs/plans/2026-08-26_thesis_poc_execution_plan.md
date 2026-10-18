@@ -155,92 +155,74 @@ be described as data loss or as a fully successful UI roundtrip. Flutter analyze
 and the Web release build passed before any proposed fix. No cloud mutation or
 new frontend runtime change was made in this checkpoint.
 
-#### Bounded User logic restoration plan — awaiting approval
+#### Approved repair and renewed admission — 2026-10-18
 
-All items below are required; this is a repair of the existing Configuration
-Workspace contract, not a new editor or workflow. Remove this temporary plan
-after verification and retain the outcome in the decision log.
+The approved restoration plan is completed in `cc3427b4`: saved non-secret
+configuration initializes the existing form and replacement draft; subsequent
+edits, including explicit removal, remain authoritative. Asynchronous loading
+updates the form without resetting ordinary keystrokes. No API, layout,
+workflow, dependency or architecture contract changed.
 
-**0. Git.** Continue on `codex/phase-8-deployer-graph-resolver`, baseline
-`84b07246`, primary checkout only; focused commit, no push or unrelated files.
+Verification: **808 Flutter tests**, including seven added regressions;
+analyze and architecture checker clean; Web/macOS release builds passed;
+**18 native frontend-integration checks** passed against the real local API.
+The real browser restored the scale factor and validated/saved a replacement.
+Native macOS Export saved an actual ZIP; native Import consumed that same file.
+Re-exported definitions match exactly except Twin name. This closes native
+export/import, not the embedded browser's unqualified download behavior.
 
-**1. Summary.** Restore the non-secret saved configuration when a Twin is
-reopened/imported, without overwriting a replacement draft or pretending that
-its source archive has been selected/validated locally.
+The fresh AWS-only candidate was selected via the explicit supervised hook,
+bound and configured. Read-only preflight exposed another legacy SQLite
+constraint. Migration 038 (`331db469`) removes only the two retired preflight
+permission-version columns. Management was stopped and a verified private backup
+taken **before editing**. All retained application-table values matched afterward;
+integrity and foreign keys passed. **704 backend tests** passed, including the
+service regression that fails before migration and passes afterward.
 
-**2. Layout.** Preserve the existing layout on Desktop and Web:
+Independent authentication exposed a false-positive AWS preflight: STS was marked
+ready before GetCallerIdentity succeeded, and a successful partial check could
+conceal overall failure. `c84be449` fixes both boundaries and rejects non-valid
+checker results for every provider. **65 targeted tests** passed. The final safe
+Deployer suite passed **2,207 tests**, with one intentional skip and one existing
+TLS deprecation warning. The first run's missing-repository-mount failure remains
+retained; the eight native Terraform mock-plan tests and then the complete suite
+passed with the required read-only mount. No production resources were created
+by these mock plans.
 
-```text
-Telemetry processor                         [Saved]
-[Choose source archive]                     [Validate]
-Runtime / dependency summary
-Configuration
-  Scale factor [persisted value, or current draft]
-Validation details
-                         [Remove] [Replace]
-```
+Live admission is blocked: AWS returns `InvalidClientTokenId`; Azure returns
+`AADSTS7000215` (invalid secret). The corrected API and real UI show AWS as
+invalid. No prerequisite was falsely acknowledged and no Terraform Apply ran.
+Resume after local credential refresh: authenticate/check quotas, review the
+exact bounded resource plan, then ordinary UI Deploy, downloaded simulator,
+correlated telemetry/command assertions, L3/L4/L5 readback, immediate Destroy and
+independent inventory. No new full cloud pass or current billing total is claimed;
+historical dated successes remain separate evidence.
 
-**3. Widget tree.** Reuse the complete existing tree; only value restoration
-and form identity change:
+##### AUDIT PASSED — bounded User logic restoration only
 
-```text
-ExtensionSlotList [REUSE]
-  ExtensionSlotPanel [MODIFY, existing file]
-    DynamicConfigurationForm [REUSE]
-      existing typed fields [REUSE]
-```
+Date: 2026-10-18. Commit: `cc3427b4`. Branch:
+`codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
+restoration plan retained in `cb519309` in this document.
 
-**4. Components.** Keep all constructors and public DTOs unchanged. In
-`lib/bloc/wizard/wizard_state.dart`, expose effective configuration as current
-draft configuration when present, otherwise saved function configuration,
-otherwise empty. Use this same value in the panel and the existing source
-selection/configuration-change handlers. An explicitly emptied draft must not
-fall back to saved values. In the panel, scope the form key to Twin/slot/saved
-artifact identity so an asynchronous initial load updates fields, but ordinary
-keystrokes do not recreate them. No source bytes are synthesized or downloaded.
-All paths in this subsection are relative to `twin2multicloud_flutter/`.
+Evidence paths below are relative to `twin2multicloud_flutter/`:
+`panel` = `lib/features/configuration_workspace/presentation/deployment/user_function_extension_panel.dart`;
+`panel_test` = `test/features/configuration_workspace/user_function_extension_panel_test.dart`.
 
-**5. Responsive.** Retain `AppSpacing.userFunctionCompactBreakpoint` (620 px):
-stacked source controls below it, row above it. No dimensions change.
+| Phase | Verified evidence |
+|---|---|
+| 1 Plan integrity | Twelve-section plan in `cb519309`; explicit user approval before implementation. |
+| 2 Structure | `cc3427b4` changes exactly three existing production files and two existing test files. |
+| 3 Widget tree | `panel:98`: existing form reused, only key and values changed; constructors unchanged. |
+| 4 Visual/layout | `panel:54`: existing semantics/layout/theme retained; commit diff adds no visual tokens. |
+| 5 Responsive | `panel:66` retains breakpoint; `panel_test:32` covers async restoration at 420/900 px. |
+| 6 BLoC | `lib/bloc/wizard/wizard_state.dart:407` and `lib/bloc/wizard/handlers/wizard_user_function_extension_handlers.dart:78`: draft-first values and event-owned changes. |
+| 7 Interaction | `panel_test:83`: edits retain focus and override saved values; real replacement validated/saved. |
+| 8 Accessibility | `panel_test:131`: semantic status and keyboard traversal; labels/contrast unchanged. |
+| 9 Integration | Existing Management DTOs only; real API/native roundtrip and 18 integration checks passed. |
+| 10 Quality | Analyze, 808 tests, architecture check and both release builds passed; known dependency build warning retained. |
+| 11 Completeness | All bounded-plan items verified; no source bytes, validation results or new features fabricated. |
 
-**6. State.** `WizardBloc` remains the only workflow owner. Existing
-`WizardExtensionSourceSelected` and `WizardExtensionConfigurationChanged`
-retain saved configuration as the initial replacement value; subsequent draft
-edits win. Flow remains `Management -> DTO -> WizardState -> panel -> event ->
-WizardBloc`. Do not fabricate validation checks, change phase admission, or add
-automatic mutation on load.
-
-**7. Tokens.** Reuse current spacing, theme, icons and typography; no new tokens.
-
-**8. Interaction.** Preserve validation, Save/Replace, Remove, loading/error
-and empty states. No new buttons, animations, source editor or endpoints.
-
-**9. Accessibility.** Preserve field labels, semantics and Tab order. Assert
-the restored field value and uninterrupted typed edits, at compact/wide widths.
-
-**10. Integration.** Reuse Management `GET /architecture/extension-slots` and
-`GET /twins/{id}/user-functions`; the latter already returns a non-secret
-configuration map. No response/schema change, downstream calls or new routes.
-
-**11. Tests.** Extend existing state/BLoC/panel tests with hard assertions:
-saved configuration on reopen and replacement-source selection (happy);
-missing saved function and deliberately removed required value (unhappy);
-zero value, asynchronous saved-function arrival, draft precedence, preservation
-of unrelated configuration keys, and keystrokes without focus reset (edges).
-Run analyze, the full widget/unit suite, architecture checker, Web and macOS
-release builds. Repeat the populated import/reload in the real local UI and
-the existing native frontend-integration gate against the already-running
-Management stack. Do not stop unrelated containers or run cloud E2E for this fix.
-
-**12. Definition of done.** All above checks pass; saved values are visible
-after real import/reload, existing edits remain authoritative, and no fabricated
-source or validation evidence appears. Update this execution checkpoint and
-the decision log; architecture/API documentation needs no change because the
-contract is unchanged. Download qualification remains separately open.
-
-Plan review: checked from architecture and implementation perspectives against
-the project plan-review criteria; no API/datatype, layout, dependency or scope
-expansion is required. Builder remains gated on explicit approval of this fix.
+**APPROVED FOR HANDOFF** for this repair, not for the still-blocked cloud campaign.
 
 ### Primary-checkout consolidation — 2026-10-14
 
