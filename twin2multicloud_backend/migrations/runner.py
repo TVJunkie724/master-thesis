@@ -109,6 +109,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         "037_drop_removed_cloud_connection_columns",
         "migrations.drop_removed_cloud_connection_columns",
     ),
+    Migration(
+        "038_drop_removed_preflight_columns",
+        "migrations.drop_removed_preflight_columns",
+    ),
 )
 
 
