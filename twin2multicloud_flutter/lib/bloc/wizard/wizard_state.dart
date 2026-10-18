@@ -404,6 +404,11 @@ class WizardState extends Equatable {
   UserFunctionSourceDraft? extensionDraft(String slotId) =>
       extensionDrafts[slotId];
 
+  Map<String, dynamic> extensionConfiguration(String slotId) =>
+      extensionDraft(slotId)?.configuration ??
+      twinUserFunction(slotId)?.configuration ??
+      const {};
+
   UserFunctionValidationResult? extensionValidation(String slotId) =>
       extensionValidationResults[slotId];
 

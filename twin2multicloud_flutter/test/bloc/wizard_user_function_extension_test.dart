@@ -28,6 +28,112 @@ void main() {
 
   setUp(() => api = _MockManagementApi());
 
+  test(
+    'effective configuration uses saved values but never replaces a draft',
+    () {
+      final saved = WizardState(twinUserFunctions: [_userFunction]);
+      expect(saved.extensionConfiguration(_slot.slotId), {'scale_factor': 1});
+      expect(saved.extensionDraft(_slot.slotId), isNull);
+      expect(saved.extensionValidation(_slot.slotId), isNull);
+      expect(const WizardState().extensionConfiguration(_slot.slotId), isEmpty);
+      for (final configuration in <Map<String, dynamic>>[
+        {},
+        {'scale_factor': 0},
+        {'scale_factor': 2},
+      ]) {
+        final edited = saved.copyWith(
+          extensionDrafts: {
+            _slot.slotId: UserFunctionSourceDraft(
+              filename: '',
+              bytes: Uint8List(0),
+              configuration: configuration,
+            ),
+          },
+        );
+        expect(edited.extensionConfiguration(_slot.slotId), configuration);
+      }
+    },
+  );
+
+  blocTest<WizardBloc, WizardState>(
+    'replacement source inherits saved configuration without validation',
+    build: () => WizardBloc(api: api),
+    seed: () => WizardState(
+      twinId: 'twin-1',
+      extensionSlots: const [_slot],
+      twinUserFunctions: [_userFunction],
+    ),
+    act: (bloc) => bloc.add(
+      WizardExtensionSourceSelected(
+        slotId: _slot.slotId,
+        fileBytes: Uint8List.fromList([9]),
+        fileName: 'replacement.zip',
+      ),
+    ),
+    expect: () => [
+      isA<WizardState>()
+          .having(
+            (s) => s.extensionConfiguration(_slot.slotId),
+            'configuration',
+            {'scale_factor': 1},
+          )
+          .having(
+            (s) => s.extensionDraft(_slot.slotId)!.bytes,
+            'selected bytes',
+            orderedEquals([9]),
+          )
+          .having(
+            (s) => s.extensionValidation(_slot.slotId),
+            'validation',
+            isNull,
+          )
+          .having(
+            (s) => s.extensionPhase(_slot.slotId),
+            'phase',
+            UserFunctionWorkflowPhase.draft,
+          ),
+    ],
+  );
+
+  for (final clearRequired in [false, true]) {
+    blocTest<WizardBloc, WizardState>(
+      clearRequired
+          ? 'clearing a saved required value stays empty'
+          : 'editing another key preserves saved configuration',
+      build: () => WizardBloc(api: api),
+      seed: () => WizardState(
+        twinId: 'twin-1',
+        extensionSlots: const [_slot],
+        twinUserFunctions: [_userFunction],
+      ),
+      act: (bloc) => bloc.add(
+        WizardExtensionConfigurationChanged(
+          slotId: _slot.slotId,
+          field: clearRequired ? 'scale_factor' : 'other',
+          value: clearRequired ? null : 2,
+        ),
+      ),
+      expect: () => [
+        isA<WizardState>()
+            .having(
+              (s) => s.extensionConfiguration(_slot.slotId),
+              'configuration',
+              clearRequired ? isEmpty : {'scale_factor': 1, 'other': 2},
+            )
+            .having(
+              (s) => s.extensionDraft(_slot.slotId)!.bytes,
+              'no fabricated archive',
+              isEmpty,
+            )
+            .having(
+              (s) => s.extensionPhase(_slot.slotId),
+              'phase',
+              UserFunctionWorkflowPhase.draft,
+            ),
+      ],
+    );
+  }
+
   blocTest<WizardBloc, WizardState>(
     'moves a selected archive back to draft without retaining validation',
     build: () => WizardBloc(api: api),
