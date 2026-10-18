@@ -551,11 +551,14 @@ run_frontend_integration_tests() {
     # Normal Compose/runtime behavior retains the seven-day default.
     export PRICING_CATALOG_MAX_AGE_DAYS="${THESIS_INTEGRATION_PRICING_MAX_AGE_DAYS:-36500}"
     local missing_non_optimizer_services=()
-    for service in "${started_services[@]}"; do
-      if [ "$service" != "2twin2clouds" ]; then
-        missing_non_optimizer_services+=("$service")
-      fi
-    done
+    # macOS Bash 3.2 treats an empty array as unset under `set -u`.
+    if [ "${#started_services[@]}" -gt 0 ]; then
+      for service in "${started_services[@]}"; do
+        if [ "$service" != "2twin2clouds" ]; then
+          missing_non_optimizer_services+=("$service")
+        fi
+      done
+    fi
     if [ "${#missing_non_optimizer_services[@]}" -gt 0 ]; then
       info "Starting missing credential-free services for read-only Flutter integration tests."
       compose_cmd up -d "${missing_non_optimizer_services[@]}"

@@ -176,6 +176,39 @@ class ThesisEntrypointTests(unittest.TestCase):
         self.assertIn("fixture-viewer-", integration_gate)
         self.assertNotIn("--with-credentials", integration_gate)
 
+    def test_integration_gate_executes_with_empty_and_populated_service_arrays(self):
+        # Execute the real shell function; stubs prohibit Docker, Flutter and network use.
+        stubs = r'''
+require_docker() { :; }
+require_flutter() { :; }
+bootstrap_local_runtime_secrets() { :; }
+write_flutter_config() { :; }
+smoke_app() { :; }
+wait_for_url() { :; }
+resolve_host_desktop_device() { echo macos; }
+compose_cmd() {
+  if [ "$1" = ps ]; then printf '%s\n' "$TEST_RUNNING_SERVICES";
+  else echo "COMPOSE:$*"; fi
+}
+docker_cmd() { return 1; }
+flutter() { return "$TEST_FLUTTER_STATUS"; }
+run_frontend_integration_tests
+'''
+        for running in ("2twin2clouds\n3cloud-deployer\nmanagement-api", "", "2twin2clouds"):
+            for status in (0, 23):
+                with self.subTest(running=running, status=status):
+                    result = self.run_bash(stubs, environment={
+                        "TEST_RUNNING_SERVICES": running,
+                        "TEST_FLUTTER_STATUS": str(status),
+                    })
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    if "management-api" in running:
+                        self.assertNotIn("COMPOSE:stop", result.stdout)
+                    elif running:
+                        self.assertIn("COMPOSE:stop 3cloud-deployer management-api", result.stdout)
+                    else:
+                        self.assertIn("COMPOSE:stop 2twin2clouds 3cloud-deployer management-api", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
