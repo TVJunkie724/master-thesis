@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-18"
+lastUpdated: "2026-10-19"
 version: "2.3"
 ---
 
@@ -12,7 +12,8 @@ Status: active execution source; bounded Core, local command, AWS/Azure Event-to
 and minimal L5 observations passed. Regular L5 integration and one representative
 AWS application functional observation are complete; model/results chapters are
 updated. Renewed UI-inclusive verification was requested on 2026-10-17;
-the local findings below block proceeding directly to new cloud deployments.
+the dated checkpoints below distinguish repaired local findings, renewed live
+observations and remaining campaign work.
 
 ## 1. Purpose
 
@@ -197,6 +198,63 @@ exact bounded resource plan, then ordinary UI Deploy, downloaded simulator,
 correlated telemetry/command assertions, L3/L4/L5 readback, immediate Destroy and
 independent inventory. No new full cloud pass or current billing total is claimed;
 historical dated successes remain separate evidence.
+
+#### Renewed AWS application observation — 2026-10-19
+
+The credential rejection above used the obsolete root bundle. The current
+ignored authority authenticates AWS and Azure successfully; no user credential
+expiration is inferred. Commits `343c9a9d` and `6aad6d3a` repair the normal
+Configure transport and empty legacy-map package boundary respectively.
+
+The actual Web UI started the AWS-only composed deployment. Deployment took
+292.6154 seconds; 110 Terraform resource-creation completions are retained with
+per-resource durations. The downloaded simulator's unmodified transmission code
+sent real MQTT telemetry and received its correlated command after 9.63888
+seconds. Verification took 15.297624 seconds. Exact value 42, source sequence
+and event timestamp were checked in hot history, hourly aggregation, active
+TwinMaker projection and both L5 HTML sections. No storage/projection fixture
+was injected to make this application observation pass.
+
+The browser also downloaded the simulator ZIP. Its executable/configuration/
+identity/payload files match the executed Management download; only README text
+differs. The existing UI infrastructure action reports 12/12 passed. The UI
+data-flow action persists three passed phases, zero failures and zero skips
+(3.4 seconds). Failed verification attempts remain retained separately.
+
+Bounded repairs expose download metadata through existing CORS policy, recognize
+the actual enabled shared S3 archive lifecycle rule, send canonical device/time
+fields in UI verification and use the existing TwinMaker evidence-kind contract.
+The L5 response was rendered unchanged on a local proof page; an actual in-app
+popup was not observed and is not claimed. Archive-rule presence is not evidence
+of a completed retention-tier transition. Neither billing totals nor statistical
+latency guarantees are inferred from this single observation.
+
+The exact simulator certificate/policy/thing were removed. Final independent
+inventory covers 24 categories with **zero active resources and one inactive
+IoT Command pending-deletion marker**. Cleanup is therefore not strict-zero.
+A local Management auto-reload interrupted the first Destroy stream; that
+operation is retained as failed, not overwritten. A TwinMaker pre-destroy SDK
+pagination defect was corrected before regular Destroy retries (104.554918 s
+and 42.942686 s). AWS Cloud Control still rejects deletion of the pending command
+with AlreadyExists; one Terraform state entry remains and the application
+correctly reports incomplete cleanup. No state entry was manually removed to
+manufacture success. The interrupted stream also exposed a missing-ID detached
+SSE control frame; automatic restart/reconnect recovery remains unqualified.
+
+Next cleanup action: read-only confirmation that the marker has disappeared,
+then the existing Destroy operation to reconcile its remaining state entry and
+repeat independent inventory. Do not redeploy this namespace meanwhile.
+Temporary supervised admission and the additional provider-auth mount were
+removed after evidence capture; the timeout guard was stopped to avoid repeated
+attempts while AWS deletion is pending.
+
+Final offline gates: 814 Flutter tests, 717 Management tests, 2,214 Deployer
+tests passed; one Deployer test intentionally skipped and one existing TLS
+deprecation warning. Analysis/architecture checks and Web/macOS builds passed.
+No paid cloud operation was triggered by those regression gates. Do not label
+the whole renewed campaign complete: Azure composed, GCP Core and six directed
+Core repetitions remain separate run scopes subject to fresh admission and
+cumulative allowance.
 
 ##### AUDIT PASSED — bounded User logic restoration only
 

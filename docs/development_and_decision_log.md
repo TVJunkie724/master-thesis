@@ -1519,6 +1519,51 @@ in the four map-shaped legacy fields as absence. Populated, malformed, null
 JSON, arrays and scene content remain rejected. The normal package build and
 715 Management tests pass; the failed preparation created no cloud resources.
 
+### 2026-10-19 — Renewed AWS application path and narrow contract repairs
+
+The real UI-led AWS deployment and downloaded simulator now provide correlated
+live L1-L3/Event, L4 projection, L5 raw/hourly readback and command-return evidence.
+Deployment: 292.6154 s; simulator command receipt: 9.63888 s; complete functional
+verification: 15.297624 s. The separate ordinary UI verification persists 3/3
+passed phases in 3.4 s; infrastructure status is 12/12. Per-resource Terraform
+creation times and failed attempts remain in private local evidence.
+
+Four narrow integration corrections were required: browser-visible download
+metadata headers; state-backed recognition of AWS's shared cold/archive lifecycle;
+canonical device/event-time fields on the UI test message; and the existing
+TwinMaker terminal evidence-kind value. These are contract repairs, not new
+features, a redesign or weakened verification. The actual browser simulator
+download differs from the executed API archive only in README text. The returned
+L5 HTML was rendered unchanged locally; the embedded popup remains unqualified.
+
+Cleanup exposed an unsupported boto3 paginator in TwinMaker pre-destroy handling.
+The helper now follows nextToken when no SDK paginator exists, preserving the
+owned-workspace boundary. A local Management auto-reload during Destroy also
+interrupted streaming. The operator stopped the Deployer, backed up the local
+database, retained that exact operation as failed with LOCAL_STREAM_INTERRUPTED,
+and retried the normal Destroy operation. This is an execution deviation and
+manual recovery, not proof of automatic restart recovery. Avoid editing mounted
+backend source during live lifecycle operations.
+
+Final independent inventory: 24 categories, zero active resources, one inactive
+IoT Command pending-deletion marker. The regular Destroy retries took 104.554918 s
+and 42.942686 s; Cloud Control reports AlreadyExists for the pending command, so
+one Terraform state entry and incomplete cleanup remain truthfully visible.
+No manual state removal or terminal success override was used. The browser's
+detached-stream missing-ID error is also retained as an unqualified restart
+recovery boundary. Strict-zero cleanup awaits provider deletion followed by
+normal Destroy/state reconciliation. Simulator identities are removed. Temporary
+test admission/provider-auth mounting and the local timeout guard were removed.
+Verification gates: 814 Flutter, 717 Management and 2,214 Deployer passes, with
+one intentional Deployer skip; analysis, architecture checks and both UI builds
+passed. Raw credentials, logs and evidence remain outside version control.
+
+RQ1 receives lifecycle timing and explicit operational failure/recovery evidence;
+RQ2 receives exact correlated functional assertions only for this renewed AWS
+application run; RQ3 receives observed event/command timing, not a statistical
+performance claim or current billed cost. Other renewed provider/directed runs
+remain separate.
+
 ### 2026-10-18 — Approved restoration and fail-closed cloud admission
 
 The approved User logic repair (`cc3427b4`) preserves saved configuration while
