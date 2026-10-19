@@ -1512,6 +1512,13 @@ the ready-to-deploy lifecycle. A reviewed AWS-only plan has 111 managed entries;
 pre-deploy independent inventory has zero matching resources across 21
 categories. These are admission results, not a completed live deployment.
 
+The next actual UI Deploy exposed a package-boundary mismatch: empty legacy
+code dictionaries persisted by the normal Wizard as JSON text (`{}`) were
+treated as embedded code. The package gate now recognizes only empty objects
+in the four map-shaped legacy fields as absence. Populated, malformed, null
+JSON, arrays and scene content remain rejected. The normal package build and
+715 Management tests pass; the failed preparation created no cloud resources.
+
 ### 2026-10-18 — Approved restoration and fail-closed cloud admission
 
 The approved User logic repair (`cc3427b4`) preserves saved configuration while
