@@ -382,9 +382,18 @@ class ApiService implements ManagementApi {
 
   @override
   Future<Twin> updateTwin(String twinId, {String? name, String? state}) async {
+    if (state != null && state != 'configured') {
+      throw ArgumentError.value(state, 'state', 'Use lifecycle operations');
+    }
+    if (state == 'configured') {
+      if (name != null) {
+        await _dio.put('/twins/$twinId', data: {'name': name});
+      }
+      final response = await _dio.post('/twins/$twinId/configure');
+      return Twin.fromJson(_contractMap(response.data, 'twin'));
+    }
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
-    if (state != null) data['state'] = state;
 
     final response = await _dio.put('/twins/$twinId', data: data);
     return Twin.fromJson(_contractMap(response.data, 'twin'));

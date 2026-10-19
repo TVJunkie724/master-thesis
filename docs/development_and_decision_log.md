@@ -1490,6 +1490,28 @@ to repair that display/state boundary. Baseline Flutter analyze and Web release
 build passed. Existing historical cloud observations are not relabeled as
 passes for the renewed UI campaign.
 
+### 2026-10-19 — Correct credential source and configure transport
+
+The previous authentication rejection used an outdated root credential bundle,
+not the current locally recovered authority. Restoring the current ignored
+bundle and binding a freshly validated connection resolved AWS authentication;
+read-only Azure authentication and authority checks also succeeded. This is
+a credential-source selection error, not evidence that the user's current
+credentials had expired. No credential values enter tracked evidence.
+
+The actual Web workflow then exposed a separate transport mismatch: Finish
+still sent `state: configured` to the metadata update endpoint. The client now
+invokes the existing Management `/configure` operation, preserving distributed
+validation and rejecting other client-owned lifecycle transitions. No backend
+safety gate or screen layout was relaxed. The old service-worker build was
+isolated by serving the fresh build on a separate local origin.
+
+Verification: 814 Flutter tests pass, analysis and architecture gate pass,
+Web/macOS release builds succeed. Actual Web Finish reached CONFIGURED and
+the ready-to-deploy lifecycle. A reviewed AWS-only plan has 111 managed entries;
+pre-deploy independent inventory has zero matching resources across 21
+categories. These are admission results, not a completed live deployment.
+
 ### 2026-10-18 — Approved restoration and fail-closed cloud admission
 
 The approved User logic repair (`cc3427b4`) preserves saved configuration while

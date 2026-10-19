@@ -12,6 +12,102 @@ import '../fixtures/typed_api_fixtures.dart';
 void main() {
   group('ApiService typed contracts', () {
     test(
+      'configures through the dedicated operation without a state body',
+      () async {
+        final requests = <RequestOptions>[];
+        final api = ApiService(
+          dio: _dio((request) {
+            requests.add(request);
+            return _json({..._twinJson(), 'state': 'configured'});
+          }),
+        );
+        final twin = await api.updateTwin('twin-1', state: 'configured');
+        expect(twin.state, 'configured');
+        expect(requests, hasLength(1));
+        expect(requests.single.method, 'POST');
+        expect(requests.single.path, '/twins/twin-1/configure');
+        expect(requests.single.data, isNull);
+      },
+    );
+
+    test('renames through PUT without lifecycle fields', () async {
+      RequestOptions? captured;
+      final api = ApiService(
+        dio: _dio((request) {
+          captured = request;
+          return _json({..._twinJson(), 'name': 'Renamed'});
+        }),
+      );
+      expect((await api.updateTwin('twin-1', name: 'Renamed')).name, 'Renamed');
+      expect(captured?.method, 'PUT');
+      expect(captured?.path, '/twins/twin-1');
+      expect(captured?.data, {'name': 'Renamed'});
+    });
+
+    test('persists an optional name before configuring', () async {
+      final requests = <RequestOptions>[];
+      final api = ApiService(
+        dio: _dio((request) {
+          requests.add(request);
+          return _json({
+            ..._twinJson(),
+            'name': 'Renamed',
+            'state': 'configured',
+          });
+        }),
+      );
+      final twin = await api.updateTwin(
+        'twin-1',
+        name: 'Renamed',
+        state: 'configured',
+      );
+      expect(twin.name, 'Renamed');
+      expect(requests.map((r) => r.method), ['PUT', 'POST']);
+      expect(requests.first.data, {'name': 'Renamed'});
+      expect(requests.last.data, isNull);
+    });
+
+    test(
+      'rejects client-owned lifecycle changes before renaming or HTTP',
+      () async {
+        var requests = 0;
+        final api = ApiService(
+          dio: _dio((_) {
+            requests++;
+            return _json(_twinJson());
+          }),
+        );
+        for (final state in ['deployed', 'destroyed', 'draft', '', 'unknown']) {
+          await expectLater(
+            api.updateTwin('twin-1', name: 'Renamed', state: state),
+            throwsArgumentError,
+          );
+        }
+        expect(requests, 0);
+      },
+    );
+
+    test('propagates configure validation rejection without success', () async {
+      final api = ApiService(
+        dio: _dio(
+          (_) => _json({'detail': 'Invalid configuration'}, statusCode: 400),
+        ),
+      );
+      await expectLater(
+        api.updateTwin('twin-1', state: 'configured'),
+        throwsA(isA<DioException>()),
+      );
+    });
+
+    test('rejects malformed configure success', () async {
+      final api = ApiService(dio: _dio((_) => _json({'state': 'configured'})));
+      await expectLater(
+        api.updateTwin('twin-1', state: 'configured'),
+        throwsFormatException,
+      );
+    });
+
+    test(
       'decodes twin collections and rejects a malformed successful body',
       () async {
         final valid = ApiService(dio: _dio((_) => _json([_twinJson()])));
