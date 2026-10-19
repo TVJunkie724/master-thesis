@@ -1972,6 +1972,27 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
   ]
 }
 
+output "gcp_component_processing_output" {
+  value = local.gcp_six_layer_l2_enabled ? {
+    service_uri = google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+    workflow_id = google_workflows_workflow.gcp_gcp_workflows[0].id
+  } : null
+}
+
+output "gcp_component_cool_storage_output" {
+  value = local.gcp_six_layer_cool_enabled ? {
+    bucket_name = google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name
+  } : null
+}
+
+output "gcp_component_archive_storage_output" {
+  value = local.gcp_six_layer_archive_enabled ? {
+    bucket_name = (local.gcp_six_layer_cool_enabled
+      ? google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name
+    : google_storage_bucket.gcp_gcp_cloud_storage_archive[0].name)
+  } : null
+}
+
 output "gcp_component_twin_state_output" {
   description = "Safe Six-layer GCP L4 browser access and deterministic content evidence"
   value = local.gcp_six_layer_l4_enabled ? {

@@ -1446,6 +1446,13 @@ resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {
 
 # Catalog-owned, secret-free endpoint handoff. The Deployer creates one
 # function-scoped key and uses it only for the bounded post-apply readback.
+output "azure_component_ingestion_output" {
+  value = local.azure_six_layer_l1_enabled ? {
+    iot_hub_name = azurerm_iothub.azure_azure_iot_hub[0].name
+    hostname     = azurerm_iothub.azure_azure_iot_hub[0].hostname
+  } : null
+}
+
 output "azure_component_processing_output" {
   value = local.azure_six_layer_l2_enabled ? {
     function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].name
