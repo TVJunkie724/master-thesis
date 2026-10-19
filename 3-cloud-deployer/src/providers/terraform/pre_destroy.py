@@ -18,9 +18,20 @@ logger = logging.getLogger(__name__)
 
 
 def _paginate(client, operation: str, result_key: str, **kwargs) -> Iterator[dict]:
-    paginator = client.get_paginator(operation)
-    for page in paginator.paginate(**kwargs):
+    # TwinMaker exposes nextToken even where boto3 has no paginator model.
+    if client.can_paginate(operation):
+        for page in client.get_paginator(operation).paginate(**kwargs):
+            yield from page.get(result_key, [])
+        return
+    token = None
+    while True:
+        page = getattr(client, operation)(
+            **kwargs, **({"nextToken": token} if token else {})
+        )
         yield from page.get(result_key, [])
+        token = page.get("nextToken")
+        if not token:
+            return
 
 
 def cleanup_azure_diagnostics(

@@ -9,6 +9,30 @@ import pytest
 from src.providers.terraform import pre_destroy
 
 
+def test_twinmaker_without_sdk_paginator_reads_all_pages():
+    client = Mock()
+    client.can_paginate.return_value = False
+    client.list_workspaces.side_effect = [
+        {"workspaceSummaries": [{"workspaceId": "first"}], "nextToken": "page-2"},
+        {"workspaceSummaries": [{"workspaceId": "second"}]},
+    ]
+    assert list(pre_destroy._paginate(client, "list_workspaces", "workspaceSummaries")) == [
+        {"workspaceId": "first"}, {"workspaceId": "second"},
+    ]
+    client.get_paginator.assert_not_called()
+    assert client.list_workspaces.call_args_list[0].kwargs == {}
+    assert client.list_workspaces.call_args_list[1].kwargs == {"nextToken": "page-2"}
+
+
+def test_pre_destroy_preserves_sdk_paginator_and_scope():
+    client = Mock()
+    client.can_paginate.return_value = True
+    paginator = client.get_paginator.return_value
+    paginator.paginate.return_value = [{"entitySummaries": [{"entityId": "one"}]}]
+    assert list(pre_destroy._paginate(client, "list_entities", "entitySummaries", workspaceId="owned")) == [{"entityId": "one"}]
+    paginator.paginate.assert_called_once_with(workspaceId="owned")
+
+
 @pytest.mark.parametrize('dry_run', [False, True])
 def test_sns_archive_cleanup_uses_only_owned_state_topics(tmp_path, monkeypatch, dry_run):
     context = SimpleNamespace(credentials={'aws': {
