@@ -40,7 +40,7 @@ def test_twinmaker_requires_one_matching_native_snapshot(monkeypatch, change, su
     )
     assert result.success is success
     if success:
-        assert result.evidence["kind"] == "twinmaker_current_state_projection"
+        assert result.evidence["kind"] == "twinmaker_property_projection"
 
 
 class _Response:

@@ -525,7 +525,7 @@ def check_twinmaker_projection(
                     success=True,
                     elapsed=round(time.monotonic() - started, 1),
                     evidence={
-                        "kind": "twinmaker_current_state_projection",
+                        "kind": "twinmaker_property_projection",
                         "correlation": "source_sequence",
                         "entity": entity_id,
                         "metric": metric,

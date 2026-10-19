@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import re
 import tempfile
 from typing import Any
@@ -104,6 +105,28 @@ def _exclusive_resource_ownership() -> dict[str, str]:
 _RESOURCE_OWNERSHIP = _exclusive_resource_ownership()
 
 
+def _shared_aws_archive(project_path: Path, resources: list[str]) -> list[str]:
+    """Prove the same-provider archive rule, not merely a shared S3 bucket."""
+    address = "aws_s3_bucket_lifecycle_configuration.aws_aws_s3_standard_ia"
+    matches = [r for r in resources if _canonical_state_address(r) == address]
+    if not matches:
+        return []
+    try:
+        state = json.loads((project_path / "terraform" / "terraform.tfstate").read_text())
+        for resource in state.get("resources", []):
+            if resource.get("type") != "aws_s3_bucket_lifecycle_configuration" or resource.get("name") != "aws_aws_s3_standard_ia":
+                continue
+            for instance in resource.get("instances", []):
+                for rule in instance.get("attributes", {}).get("rule", []):
+                    if (rule.get("status") == "Enabled"
+                            and any(f.get("prefix") == "history/" for f in rule.get("filter", []))
+                            and any(t.get("storage_class") == "DEEP_ARCHIVE" for t in rule.get("transition", []))):
+                        return matches
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+    return []
+
+
 def _classify_resources(resources: list[str]) -> dict[str, list[str]]:
     classified = {key: [] for key in _STATUS_BY_LOGICAL_COMPONENT.values()}
     for resource in resources:
@@ -148,6 +171,10 @@ def check_terraform_state(
     hot = classified["hot"]
     cold = classified["cold"]
     archive = classified["archive"]
+    if not archive:
+        archive = _shared_aws_archive(
+            project_path or resolve_project_context_path(project_name), resources
+        )
     l4 = classified["l4"]
     l5 = classified["l5"]
     return {

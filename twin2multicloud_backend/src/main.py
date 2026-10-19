@@ -144,6 +144,10 @@ if settings.DEBUG:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=[
+            "Content-Disposition", "X-Twin2MultiCloud-Provider",
+            "X-Twin2MultiCloud-Credential-Class",
+        ],
     )
 else:
     app.add_middleware(
@@ -152,6 +156,10 @@ else:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=[
+            "Content-Disposition", "X-Twin2MultiCloud-Provider",
+            "X-Twin2MultiCloud-Credential-Class",
+        ],
     )
 
 # Routes
