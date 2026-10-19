@@ -58,6 +58,10 @@ not cloud bills. Infrastructure inspection and one telemetry sample are not
 automatic command/L4/L5 proof. L5 opens one Raw/Hourly HTML/SVG snapshot through
 Management, without Grafana or polling; inspect its actual values separately.
 Cleanup shows the returned evidence, not an independent global account scan.
+Failed Destroy is labeled **Cleanup incomplete**, separately from a failed
+deployment. Stored telemetry results remain readable during/after cleanup without
+starting another cloud test. A historical PASS does not clear residual resources
+or make the current cleanup successful; the recorded ERROR/cleanup state remains.
 
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place

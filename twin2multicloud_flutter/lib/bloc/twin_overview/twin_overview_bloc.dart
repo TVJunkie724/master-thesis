@@ -195,6 +195,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         deploymentReadiness: deploymentReadiness,
         layerAccess: layerAccess,
       );
+      loadedState = loadedState.copyWith(
+        deploymentOperation: DeploymentOperationViewState(
+          operationType: deploymentStatus.latestDeployment?.operationType,
+        ),
+      );
       final activeSession = deploymentStatus.activeSession;
       if (activeSession != null &&
           ['deploying', 'destroying'].contains(twinState)) {
@@ -286,6 +291,11 @@ class TwinOverviewBloc extends Bloc<TwinOverviewEvent, TwinOverviewState> {
         var deploymentOperation = currentState is TwinOverviewLoaded
             ? currentState.deploymentOperation
             : const DeploymentOperationViewState();
+        if (!deploymentOperation.isActive) {
+          deploymentOperation = deploymentOperation.copyWith(
+            operationType: deploymentStatus.latestDeployment?.operationType,
+          );
+        }
         if (deploymentOperation.isActive &&
             !{'deploying', 'destroying'}.contains(twinState)) {
           deploymentOperation = deploymentOperation.copyWith(

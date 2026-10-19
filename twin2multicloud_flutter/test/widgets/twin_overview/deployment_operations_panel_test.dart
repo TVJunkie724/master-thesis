@@ -97,7 +97,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Deployment Failed'), findsOneWidget);
+      expect(find.text('Operation failed'), findsOneWidget);
       expect(find.text('Cleanup'), findsOneWidget);
       expect(find.text('Deploy'), findsNothing);
 
@@ -106,6 +106,47 @@ void main() {
 
       expect(viewedLogs, isTrue);
     });
+
+    for (final type in [
+      DeploymentOperationType.destroy,
+      DeploymentOperationType.deploy,
+    ]) {
+      testWidgets('failed $type retains cleanup and correct title', (
+        tester,
+      ) async {
+        var cleanups = 0;
+        await tester.binding.setSurfaceSize(const Size(640, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          buildWidget(
+            state:
+                _state(
+                  twinState: 'error',
+                  canDestroy: true,
+                  lastError: 'Provider operation failed',
+                ).copyWith(
+                  deploymentOperation: DeploymentOperationViewState(
+                    operationType: type,
+                  ),
+                ),
+            onDestroy: () => cleanups++,
+          ),
+        );
+        expect(
+          find.text(
+            type == DeploymentOperationType.destroy
+                ? 'Cleanup incomplete'
+                : 'Deployment failed',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Provider operation failed'), findsOneWidget);
+        expect(find.text('Deploy'), findsNothing);
+        await tester.tap(find.text('Cleanup'));
+        expect(cleanups, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('shows terminal and close action', (tester) async {
       var closed = false;

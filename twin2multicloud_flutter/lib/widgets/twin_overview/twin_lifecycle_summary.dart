@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../bloc/twin_overview/twin_overview_state.dart';
+import '../../models/deployment_operations.dart';
 import '../../theme/spacing.dart';
 import '../../utils/twin_state_utils.dart';
 import 'twin_overview_strings.dart';
@@ -17,6 +18,12 @@ class TwinLifecycleSummary extends StatelessWidget {
     required this.onDelete,
   });
 
+  String get _description => state.twinState == 'error'
+      ? TwinOverviewStrings.operationFailure(
+          state.deploymentOperation.operationType,
+        )
+      : TwinStateUtils.getDescription(state.twinState);
+
   @override
   Widget build(BuildContext context) {
     final nextStep = _nextStep(state);
@@ -27,7 +34,7 @@ class TwinLifecycleSummary extends StatelessWidget {
     return Semantics(
       container: true,
       label:
-          '${state.projectName}. ${TwinStateUtils.getDescription(state.twinState)}. '
+          '${state.projectName}. $_description. '
           '${TwinOverviewStrings.cloudResource}: $resource. '
           '${TwinOverviewStrings.nextStep}: $nextStep',
       child: Card(
@@ -133,7 +140,7 @@ class TwinLifecycleSummary extends StatelessWidget {
       TwinStateUtils.buildBadge(context, state.twinState),
       const SizedBox(height: AppSpacing.xs),
       Text(
-        TwinStateUtils.getDescription(state.twinState),
+        _description,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -221,6 +228,10 @@ String _nextStep(TwinOverviewLoaded state) {
     return TwinOverviewStrings.immutableNext;
   }
   return switch (state.twinState) {
+    'error'
+        when state.deploymentOperation.operationType ==
+            DeploymentOperationType.destroy =>
+      TwinOverviewStrings.cleanupErrorNext,
     'error' => TwinOverviewStrings.errorNext,
     'deployed' => TwinOverviewStrings.deployedNext,
     'destroyed' => TwinOverviewStrings.destroyedNext,

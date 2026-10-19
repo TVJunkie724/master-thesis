@@ -125,6 +125,10 @@ class TwinOverviewContent extends StatelessWidget {
                 if (isDestroyed) ..._destroyedSection(),
                 if (isDestroying) ..._cleanupSection(includeEvidence: true),
                 if (isDeployed) ..._cleanupSection(includeEvidence: true),
+                if (!isDeployed && deploymentVerification != null) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  deploymentVerification!,
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 const _LifecycleSectionHeader(
                   title: TwinOverviewStrings.configurationEvidence,

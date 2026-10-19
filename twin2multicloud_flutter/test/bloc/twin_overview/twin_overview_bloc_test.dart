@@ -506,6 +506,47 @@ void main() {
 
     setUp(() => api = MockApiService());
 
+    for (final type in DeploymentOperationType.values) {
+      test(
+        'restores failed $type on load and refresh without mutation',
+        () async {
+          _stubLoad(
+            api,
+            status: DeploymentStatusSnapshot(
+              schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+              state: DeploymentTwinState.error,
+              lastError: 'Provider operation failed',
+              latestDeployment: DeploymentOperationSummary(
+                id: 'operation-1',
+                sessionId: 'session-1',
+                operationType: type,
+                status: DeploymentOperationStatus.failed,
+              ),
+            ),
+            readiness: _readiness(ready: true),
+          );
+          final bloc = _buildBloc(api);
+          addTearDown(bloc.close);
+          bloc.add(const TwinOverviewLoad('test-id'));
+          final loaded =
+              await bloc.stream.firstWhere((s) => s is TwinOverviewLoaded)
+                  as TwinOverviewLoaded;
+          expect(loaded.deploymentOperation.operationType, type);
+          expect(loaded.deploymentOperation.isActive, isFalse);
+          bloc.add(const TwinOverviewRefresh());
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          expect(
+            (bloc.state as TwinOverviewLoaded)
+                .deploymentOperation
+                .operationType,
+            type,
+          );
+          verifyNever(() => api.deployTwin(any()));
+          verifyNever(() => api.destroyTwin(any()));
+        },
+      );
+    }
+
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'restores persisted cleanup evidence from the latest operation',
       setUp: () => _stubLoad(

@@ -15,6 +15,7 @@ import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/twin_overview/twin_overview_screen.dart';
 import 'package:twin2multicloud_flutter/services/external_auth_launcher.dart';
 import 'package:twin2multicloud_flutter/services/management_api.dart';
+import 'package:twin2multicloud_flutter/widgets/deployment_verification_card.dart';
 import 'package:twin2multicloud_flutter/widgets/terraform_outputs_card.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/cleanup_evidence_panel.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/deployment_operations_panel.dart';
@@ -157,6 +158,15 @@ void main() {
 
     expect(find.byType(LayerAccessPanel), findsOneWidget);
     expect(find.byType(DeploymentOperationsPanel), findsOneWidget);
+    expect(
+      tester
+          .widget<DeploymentVerificationCard>(
+            find.byType(DeploymentVerificationCard),
+          )
+          .historyOnly,
+      isFalse,
+    );
+    expect(find.text('VERIFY DATA FLOW'), findsOneWidget);
     expect(find.byType(TestingUtilitiesPanel), findsOneWidget);
     expect(find.byType(TerraformOutputsCard), findsOneWidget);
     expect(find.byType(TwinOverviewConfigurationReview), findsOneWidget);
@@ -185,6 +195,17 @@ void main() {
 
     expect(find.byType(DeploymentOperationsPanel), findsOneWidget);
     expect(
+      tester
+          .widget<DeploymentVerificationCard>(
+            find.byType(DeploymentVerificationCard),
+          )
+          .historyOnly,
+      isTrue,
+    );
+    expect(find.text('VERIFY DATA FLOW'), findsNothing);
+    expect(find.byType(TestingUtilitiesPanel), findsNothing);
+    expect(find.byType(LayerAccessPanel), findsNothing);
+    expect(
       tester.getTopLeft(find.text('Destroy and cleanup')).dy,
       lessThan(tester.getTopLeft(find.text('Prepare the next run')).dy),
     );
@@ -198,6 +219,16 @@ void main() {
     );
 
     expect(find.byType(CleanupEvidencePanel), findsOneWidget);
+    expect(
+      tester
+          .widget<DeploymentVerificationCard>(
+            find.byType(DeploymentVerificationCard),
+          )
+          .historyOnly,
+      isTrue,
+    );
+    expect(find.text('CHECK INFRASTRUCTURE'), findsNothing);
+    expect(find.text('VERIFY DATA FLOW'), findsNothing);
     expect(find.byType(DeploymentOperationsPanel), findsNothing);
     expect(find.text('Prepare the next run'), findsNothing);
     expect(

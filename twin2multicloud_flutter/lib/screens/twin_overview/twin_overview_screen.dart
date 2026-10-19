@@ -325,14 +325,24 @@ class TwinOverviewView extends ConsumerWidget {
     TwinOverviewLoaded state,
     WidgetRef ref,
   ) {
-    final deploymentVerification = state.twinState == 'deployed'
+    final deploymentVerification =
+        const {
+          'deployed',
+          'destroying',
+          'destroyed',
+          'error',
+        }.contains(state.twinState)
         ? BlocProvider(
+            key: ValueKey(
+              'verification:${state.twinId}:${state.twinState == 'deployed'}',
+            ),
             create: (_) => DeploymentVerificationBloc(
               twinId: state.twinId,
               api: ref.read(apiServiceProvider),
               logStreamClientFactory: ref.read(logStreamClientFactoryProvider),
             ),
             child: DeploymentVerificationCard(
+              historyOnly: state.twinState != 'deployed',
               payloadsJson: state.deployerConfig?.payloadsJson,
               configEventsJson: state.deployerConfig?.configEventsJson,
             ),

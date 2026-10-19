@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
+import 'package:twin2multicloud_flutter/models/deployment_operations.dart';
 import 'package:twin2multicloud_flutter/models/deployment_readiness.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_lifecycle_summary.dart';
 
@@ -44,6 +45,36 @@ void main() {
     );
     expect(find.text('Next: Deploy this bounded experiment.'), findsOneWidget);
   });
+
+  for (final entry in <DeploymentOperationType?, String>{
+    DeploymentOperationType.destroy: 'Cleanup incomplete',
+    DeploymentOperationType.deploy: 'Deployment failed',
+    DeploymentOperationType.test: 'Operation failed',
+    null: 'Operation failed',
+  }.entries) {
+    testWidgets('error summary uses authoritative operation ${entry.key}', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildWidget(
+          state: _state(twinState: 'error').copyWith(
+            deploymentOperation: DeploymentOperationViewState(
+              operationType: entry.key,
+            ),
+          ),
+        ),
+      );
+      expect(find.text(entry.value), findsOneWidget);
+      expect(find.text('ERROR'), findsOneWidget);
+      if (entry.key == DeploymentOperationType.destroy) {
+        expect(
+          find.textContaining('Next: Review cleanup evidence and logs'),
+          findsOneWidget,
+        );
+        expect(find.text('Deployment failed'), findsNothing);
+      }
+    });
+  }
 
   testWidgets('projects verification before Destroy for a deployed Twin', (
     tester,

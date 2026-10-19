@@ -13,11 +13,13 @@ import 'twin_overview/twin_overview_strings.dart';
 class DeploymentVerificationCard extends StatefulWidget {
   final String? payloadsJson;
   final String? configEventsJson;
+  final bool historyOnly;
 
   const DeploymentVerificationCard({
     super.key,
     this.payloadsJson,
     this.configEventsJson,
+    this.historyOnly = false,
   });
 
   @override
@@ -73,6 +75,29 @@ class _DeploymentVerificationCardState
         }
       },
       builder: (context, state) {
+        if (widget.historyOnly) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                TwinOverviewStrings.recordedVerification,
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(TwinOverviewStrings.recordedVerificationScope),
+              const SizedBox(height: AppSpacing.sm),
+              TelemetryEvidencePanel(
+                isLoading: state.isLoadingHistory,
+                isRunning: false,
+                historyError: state.historyError,
+                activeVerificationId: null,
+                terminalEvidence: null,
+                latestRecord: state.latestDataFlowRecord,
+                history: state.verificationHistory,
+              ),
+            ],
+          );
+        }
         return Card(
           elevation: AppSpacing.cardElevationLow,
           child: Padding(

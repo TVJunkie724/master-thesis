@@ -1,4 +1,21 @@
+import '../../models/deployment_operations.dart';
+
 abstract final class TwinOverviewStrings {
+  static String operationFailure(DeploymentOperationType? type) =>
+      switch (type) {
+        DeploymentOperationType.destroy => 'Cleanup incomplete',
+        DeploymentOperationType.deploy => 'Deployment failed',
+        _ => 'Operation failed',
+      };
+  static const cleanupErrorNext =
+      'Review cleanup evidence and logs; retry Cleanup when safe.';
+  static const cleanupErrorDetail =
+      'Cleanup is not confirmed complete. Inspect the reported residuals before retrying. Earlier verification results remain separate.';
+  static const operationErrorDetail =
+      'Orphaned cloud resources may exist. Inspect cleanup evidence before a new experiment.';
+  static const recordedVerification = 'Recorded verification';
+  static const recordedVerificationScope =
+      'Historical telemetry results, not a live resource check or proof of completed cleanup. No new test is started.';
   static const appTitle = 'Twin2MultiCloud';
   static const backToExperiments = 'Back to Twin experiments';
   static const toggleTheme = 'Toggle theme';

@@ -4,6 +4,7 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../models/deployment_operations.dart';
 import '../../theme/spacing.dart';
 import '../deployment_terminal.dart';
+import 'twin_overview_strings.dart';
 
 class DeploymentOperationsPanel extends StatelessWidget {
   final String twinState;
@@ -81,6 +82,7 @@ class DeploymentOperationsPanel extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               _DeploymentErrorBanner(
                 message: lastError!,
+                operationType: operation.operationType,
                 onViewLogs: onViewLogs,
               ),
             ],
@@ -239,10 +241,12 @@ class _PrimaryActionButton extends StatelessWidget {
 
 class _DeploymentErrorBanner extends StatelessWidget {
   final String message;
+  final DeploymentOperationType? operationType;
   final VoidCallback onViewLogs;
 
   const _DeploymentErrorBanner({
     required this.message,
+    required this.operationType,
     required this.onViewLogs,
   });
 
@@ -259,7 +263,7 @@ class _DeploymentErrorBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Deployment Failed',
+                TwinOverviewStrings.operationFailure(operationType),
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
                   fontWeight: FontWeight.bold,
@@ -273,7 +277,9 @@ class _DeploymentErrorBanner extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Orphaned cloud resources may exist. Run Cleanup before retrying deployment.',
+                operationType == DeploymentOperationType.destroy
+                    ? TwinOverviewStrings.cleanupErrorDetail
+                    : TwinOverviewStrings.operationErrorDetail,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
                   fontWeight: FontWeight.w500,

@@ -189,6 +189,12 @@ not an account-scope attestation, actual bill or spending cap.
 Infrastructure checks, telemetry samples, simulator/command use and exact
 L4/L5 data assertions have separate proof boundaries. Cleanup v1 reports its
 recorded checks, not global account inventory or private research observations.
+Error wording follows the persisted operation type: failed Destroy is **Cleanup
+incomplete**, failed Deploy is **Deployment failed**, and unknown operation types
+remain generic. The ERROR state and mutation guards are unchanged. During/after
+cleanup, the existing telemetry evidence panel remains available read-only;
+historical PASS does not establish current resource health or successful cleanup.
+Live verification, simulator and access actions remain limited to deployed Twins.
 
 ## Access handoff
 

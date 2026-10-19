@@ -1521,6 +1521,24 @@ JSON, arrays and scene content remain rejected. The normal package build and
 
 ### 2026-10-19 — Renewed AWS application path and narrow contract repairs
 
+UI follow-up: lifecycle summary and error banner now distinguish Destroy failure
+(`Cleanup incomplete`) from Deploy failure using the existing typed Management
+operation, including after reload. Unknown operation context remains generic;
+neither error-message guessing nor private research inventory determines the
+label. Existing telemetry history stays visible read-only after cleanup, with
+live controls removed and its BLoC recreated when leaving deployed state. Cleanup
+status, residual evidence and destructive confirmations are unchanged. This
+bounded RQ1 evidence-presentation correction adds no provider calls or schema,
+and does not resolve the outstanding AWS deletion marker or detached SSE issue.
+Regression validation: all 827 Flutter tests pass, including typed failure labels,
+reload/refresh, read-only pass/fail/empty/unavailable history, compact layouts and
+200% text scaling. Static analysis and the architecture gate are clean.
+Web and macOS release builds pass. A read-only browser check against the existing
+local Management record confirms `Cleanup incomplete` alongside the separate
+persisted telemetry PASS (3/0/0, 3.40 s), without runnable verification controls.
+Only the local static Web server was restarted; no new cloud run or cleanup was
+triggered by this UI correction.
+
 The real UI-led AWS deployment and downloaded simulator now provide correlated
 live L1-L3/Event, L4 projection, L5 raw/hourly readback and command-return evidence.
 Deployment: 292.6154 s; simulator command receipt: 9.63888 s; complete functional

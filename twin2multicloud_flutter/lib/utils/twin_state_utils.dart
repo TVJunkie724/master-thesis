@@ -85,7 +85,7 @@ class TwinStateUtils {
           color: errorColor,
           icon: Icons.error,
           label: 'ERROR',
-          description: 'Deployment failed',
+          description: 'Operation failed',
         );
       default:
         return TwinStateConfig(
