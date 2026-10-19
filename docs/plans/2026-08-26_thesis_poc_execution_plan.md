@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-19"
+lastUpdated: "2026-10-20"
 version: "2.3"
 ---
 
@@ -257,6 +257,22 @@ Core repetitions remain separate run scopes subject to fresh admission and
 cumulative allowance.
 
 ##### AUDIT PASSED — bounded User logic restoration only
+
+#### AWS cleanup reconciliation — 2026-10-20
+
+The pending IoT Command marker has disappeared. The first ordinary Destroy
+retry (29.518 s) still failed because the previously removed auxiliary Azure
+authentication mount is needed by the shared Terraform root. Restoring that
+existing opt-in mount, without changing credentials, rights or resource
+placement, allowed the next ordinary Destroy to succeed in 32.293 s. Terraform
+refreshed the absent command normally and persisted an empty state; no manual
+state removal or lifecycle override was used. Management now reports
+`destroyed`, successful Destroy and complete cleanup with zero residuals.
+The subsequent independent AWS inventory reports zero in all 24 categories,
+including inactive commands, TwinMaker and simulator identity. The temporary
+authentication mount was removed again. Both attempts and the final inventory
+are retained privately. This closes the renewed AWS cleanup finding, not the
+remaining Azure/GCP/directed application campaign or detached SSE limitation.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded

@@ -1521,6 +1521,18 @@ JSON, arrays and scene content remain rejected. The normal package build and
 
 ### 2026-10-19 — Renewed AWS application path and narrow contract repairs
 
+**Cleanup closure, 2026-10-20:** read-only AWS checks confirmed that the inactive
+IoT Command marker had disappeared. The first normal Destroy retry failed on
+unused Azure-provider authentication in the shared Terraform root (29.518 s).
+The existing opt-in auxiliary-auth mount was restored for the next normal
+Destroy, which succeeded in 32.293 s and reconciled the absent command without
+manual state removal. Management reports destroyed/complete, empty Terraform
+state and zero provider residuals. A subsequent independent inventory is zero
+across all 24 checked categories, including simulator identity. The temporary
+mount was removed afterward. Failed attempts remain retained. This is RQ1
+cleanup/recovery evidence, not a new functional run or a change to the accepted
+shared-root PoC simplification.
+
 UI follow-up: lifecycle summary and error banner now distinguish Destroy failure
 (`Cleanup incomplete`) from Deploy failure using the existing typed Management
 operation, including after reload. Unknown operation context remains generic;
