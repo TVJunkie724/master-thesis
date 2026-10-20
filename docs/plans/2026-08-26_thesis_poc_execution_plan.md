@@ -331,6 +331,18 @@ actual binding, existing/new devices and legacy behavior; the adjacent runtime
 gate also passes (55 tests total). This is not yet a renewed live pass; an
 already-running process is not restarted mid-apply to adopt the change.
 
+The third UI-led attempt, started before that registration correction was loaded,
+confirmed the mismatch live: Terraform applied successfully, the authenticated
+L3 reader returned HTTP 200 with `raw-history-query.v1`, and one DTDL model was
+present. SDK registration then timed out after 180 seconds looking for the
+historical Hub name. No simulator/command/full functional pass is claimed.
+The correction is committed in `4136e12e`; the expanded offline gate passes
+495 tests, and 43 existing Core-runner/runtime/directed-path tests also pass.
+Ordinary Destroy then succeeded with 109 recorded deletion completions and
+complete cleanup; the independent resource-group/resource/role inventory is
+zero. Deployment, per-resource and destroy timings remain attached to this
+failed attempt rather than being replaced by a later successful observation.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.
