@@ -312,8 +312,13 @@ function-scoped existing key for L3 and L5, never a host/master key. It no longe
 creates credentials; initial lookup retries are bounded and permission errors
 remain terminal. The targeted runtime/access/API gate passes 71 tests. Live key
 lookup works, but a data read during concurrent teardown is not functional
-evidence. This attempt remains failed; cleanup and a fresh composed observation
-are still required.
+evidence. This attempt remains failed. Ordinary Destroy subsequently completed
+with 109 recorded resource deletions, empty state and complete provider cleanup;
+the independent resource-group/resource/role-assignment inventory is also zero.
+The real UI displays `DESTROYED` / `COMPLETE` and correctly retains no telemetry
+success for this failed attempt. The expanded Terraform/runtime/access/API gate
+passes 490 tests, including the native Terraform tests with their required
+repository mount. A fresh composed observation is still required.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
