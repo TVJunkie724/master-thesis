@@ -543,6 +543,17 @@ completion; the original browser view required refresh. This is not an
 uninterrupted UI lifecycle pass. A separate minimal authenticated HTTP host
 comparison is the next bounded diagnostic, not a substitute for application E2E.
 
+The completed host diagnostics and their per-client outcomes are recorded in
+the [application closeout results](../research/evaluation/application-closeout-results.md).
+A minimal function with no application logic reproduced intermittent timeouts;
+host-native `curl` and Docker `urllib` also failed individual requests. The
+without-bundle variant did not reach its HTTP probes because the function key
+was not ready. All three diagnostic deployments were destroyed with empty state
+and independently absent resource groups. Neither a speculative application
+rewrite nor a blanket timeout/warm-worker change is justified by these results.
+The composed Azure E2E remains open. The next proposed discriminator is a
+separately approved regional comparison, not an implicit baseline change.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.

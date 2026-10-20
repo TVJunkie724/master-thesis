@@ -159,6 +159,33 @@ owned completion; the stale browser required refresh. This boundary is retained
 instead of reporting an uninterrupted UI E2E pass. The following minimal HTTP
 host comparison is diagnostic-only; it cannot fill the composed Azure gap.
 
+Three disposable HTTP-host diagnostics then separated application code from
+hosting/client behavior. Each used a single West Europe Python 3.12 Flex
+function, 2,048 MB, an on-demand ceiling of one and zero always-ready instances;
+none deployed IoT, Cosmos, Digital Twins or application event handling.
+
+| Diagnostic | Observation | Apply / Destroy |
+|---|---|---|
+| Minimal HTTP function with the existing extension-bundle configuration | First authenticated exact response: 1.013 s; next two requests timed out at 30 s; unauthenticated access returned 401. | 197.147 / 112.332 s |
+| Same minimal function without the extension bundle | Apply succeeded, but the function-scoped key was not available within the bounded lookup. No HTTP or connection-reuse comparison ran. This does not establish a bundle-related root cause. | 255.880 / 112.110 s |
+| Minimal function with the original bundle; independent clients | Docker `requests`: two exact responses (0.940 / 0.276 s). Host `curl --http1.1`: two 30 s timeouts. Docker `urllib`: one exact response (0.413 s), then a 30 s timeout. | 193.560 / 108.599 s |
+
+The third runner's raw `passed` field refers only to its initial two `requests`
+calls. A separate aggregate explicitly records that the **cross-client comparison
+did not pass**; successful individual requests are not promoted to reliable
+availability or application E2E evidence. All three diagnostics have eight
+creation and eight deletion timing observations, empty Terraform state and
+independent resource-group HTTP 404 after Destroy. Temporary access-key copies
+were removed after the resources were deleted.
+
+These observations argue against rewriting the thesis application on speculation
+or blaming only Docker/one HTTP library. They do not distinguish an Azure
+platform issue from all possible network-path effects, prove actual per-request
+cold/warm state, or qualify the missing composed simulator/command/L4/L5 chain.
+No production warm worker, scaling-ceiling change, package rewrite or longer
+ordinary-read timeout was adopted. A different-region diagnostic requires a
+separate scope decision; the existing evaluation baseline remains unchanged.
+
 ### October 20 billing checkpoint
 
 After the renewed Core deployments were destroyed, read-only month-to-date
