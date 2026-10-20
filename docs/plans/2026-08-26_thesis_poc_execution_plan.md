@@ -274,6 +274,27 @@ authentication mount was removed again. Both attempts and the final inventory
 are retained privately. This closes the renewed AWS cleanup finding, not the
 remaining Azure/GCP/directed application campaign or detached SSE limitation.
 
+#### Renewed Azure application attempt — 2026-10-20
+
+The actual UI started the Azure-only composed deployment after native plan
+review. ACR published the storage-mover image; 89 resource creations completed
+before Azure rejected the L4 human-reader assignment: the supplied principal
+was a ServicePrincipal while the resource explicitly requires a User. This is
+an input-selection failure, not functional evidence. The retry will reference
+the existing subscription-owner User; no new identity or broader grant is needed.
+The attempt, immutable image digest, build queue/runtime, per-resource creation
+times and operation logs are retained privately. No simulator verification ran.
+
+Ordinary Destroy then exposed an independent orchestration defect: a fresh
+operation package regenerated an empty Azure storage-mover image variable,
+which the provider rejects even when the failed apply created no job. The
+bounded SDK fallback is retained as cleanup, not a successful Terraform Destroy.
+The narrow correction supplies a schema-valid digest-shaped value only during
+destroy when the variable is absent; it never publishes/pulls an image and is
+not deployment or functional evidence. Existing image references and unrelated
+profiles are preserved. Cleanup regression tests pass (25); live cleanup and
+independent zero inventory remain required before the next attempt.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.
