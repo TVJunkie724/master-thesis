@@ -317,7 +317,17 @@ Destroy. This marker belongs to the new directed run, not the previously closed
 AWS application cleanup. A later inventory must qualify strict-zero cleanup;
 the original observation is immutable. This is Core telemetry evidence only:
 no directed command-return, L4/L5, storage-transition or complete UI pass is
-inferred. The other five renewed directions are not yet qualified here.
+inferred.
+
+Azure→AWS then passed on `af17dcf7` (the application code is unchanged from
+`f5173e7b`). All ten values matched, and both received/processed event streams
+contained ten entries. Main Apply took 412.080 s, verification 32.236 s,
+delivery/readback 28.269 s, and Destroy 232.055 s; total time was 881.984 s.
+All 155 creations and 155 deletions have resource timing records. Independent
+inventory reports zero across all 24 categories, including inactive commands
+and directional trust objects: this observation is strictly green. No additional
+application correction was needed. The remaining four renewed directions are
+not yet qualified here.
 
 #### Renewed Azure application attempt — 2026-10-20
 
