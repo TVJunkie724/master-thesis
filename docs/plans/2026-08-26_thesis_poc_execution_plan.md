@@ -343,6 +343,14 @@ complete cleanup; the independent resource-group/resource/role inventory is
 zero. Deployment, per-resource and destroy timings remain attached to this
 failed attempt rather than being replaced by a later successful observation.
 
+The fourth bounded Azure attempt progressed through device registration but
+hit a 30-second transport timeout on the first L5 request. Initial Azure L5
+readiness now retries transient connection/timeouts and HTTP 502/503/504 at most
+three times, with 30-second request timeouts and 3-second pauses. Authorization,
+unexpected public access and invalid-content failures are not retried; ordinary
+UI reads and AWS behavior remain single-attempt. The targeted access/API gate
+passes 27 tests. This correction is not itself a successful functional result.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.

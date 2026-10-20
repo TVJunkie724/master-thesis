@@ -80,3 +80,53 @@ def test_reader_alias_fails_before_network(monkeypatch):
     with pytest.raises(ValueError, match='L3 JSON'):
         fetch_visualization('aws', None, bundle)
     get.assert_not_called()
+
+
+def azure_output():
+    return {'azure_component_visualization_output': {
+        'access_url': 'https://l5-app.azurewebsites.net/api/visualization/v1',
+        'reader_function_name': 'l5-app',
+        'internal_evidence': {'content_revision': 'graphical-l5.v1'}}}
+
+
+@pytest.mark.parametrize('first', ['timeout', 503])
+def test_azure_initial_readiness_retries_only_transient_failures(monkeypatch, first):
+    import requests
+    first = requests.ReadTimeout() if first == 'timeout' else response(first)
+    get = Mock(side_effect=[first, response(401), response(200)])
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.deployment_access.visualization.time.sleep', Mock())
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    assert fetch_visualization('azure', None, azure_output(), verify_auth=True) == HTML
+    assert get.call_count == 3
+
+
+def test_azure_readiness_timeout_is_bounded(monkeypatch):
+    import requests
+    get = Mock(side_effect=requests.ReadTimeout())
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    pause = Mock()
+    monkeypatch.setattr('src.deployment_access.visualization.time.sleep', pause)
+    with pytest.raises(requests.ReadTimeout):
+        fetch_visualization('azure', None, azure_output(), verify_auth=True)
+    assert get.call_count == 3 and pause.call_count == 2
+
+
+def test_azure_ui_read_does_not_retry(monkeypatch):
+    import requests
+    get = Mock(side_effect=requests.ReadTimeout())
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    with pytest.raises(requests.ReadTimeout):
+        fetch_visualization('azure', None, azure_output())
+    assert get.call_count == 1
+
+
+@pytest.mark.parametrize('responses', [[200], [401, 403]])
+def test_azure_security_failure_is_not_retried(monkeypatch, responses):
+    get = Mock(side_effect=[response(status) for status in responses])
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    with pytest.raises(RuntimeError):
+        fetch_visualization('azure', None, azure_output(), verify_auth=True)
+    assert get.call_count == len(responses)

@@ -5,6 +5,7 @@ Empty panels prove reachability only, never simulator/data correctness.
 """
 from html.parser import HTMLParser
 import re
+import time
 from urllib.parse import urlsplit
 
 import requests
@@ -59,7 +60,25 @@ def _endpoint(provider_name, bundle):
     return endpoint
 
 
+class _L5NotReady(RuntimeError):
+    """Transient platform response, never an authorization/content failure."""
+
+
 def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
+    # Azure Flex may cold-start after package publication. Only initial readiness
+    # gets three attempts; ordinary UI reads remain one bounded request sequence.
+    attempts = 3 if provider_name == "azure" and verify_auth else 1
+    for attempt in range(attempts):
+        try:
+            return _fetch_visualization_once(provider_name, provider, outputs,
+                                             verify_auth=verify_auth)
+        except (requests.Timeout, requests.ConnectionError, _L5NotReady):
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(3)
+
+
+def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=False):
     if provider_name not in {"aws", "azure"}:
         raise ValueError("L5 provider is unsupported")
     bundle = outputs.get(f"{provider_name}_component_visualization_output")
@@ -68,6 +87,8 @@ def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
     endpoint = _endpoint(provider_name, bundle)
     if verify_auth:
         with requests.get(endpoint, timeout=30, allow_redirects=False, stream=True) as response:
+            if response.status_code in (502, 503, 504):
+                raise _L5NotReady("L5 authentication surface is not ready")
             if response.status_code not in (401, 403):
                 raise RuntimeError("L5 must reject unauthenticated access")
     if provider_name == "aws":
@@ -79,6 +100,8 @@ def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
         from src.providers.azure.layers.layer_5_raw_history import _reader_key
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
     with requests.get(endpoint, headers=headers, timeout=30, allow_redirects=False, stream=True) as response:
+        if response.status_code in (502, 503, 504):
+            raise _L5NotReady("L5 HTML surface is not ready")
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
             raise RuntimeError(f"L5 HTML unavailable (HTTP {response.status_code})")
         body = bytearray()
