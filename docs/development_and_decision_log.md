@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-10"
-version: "2.12"
+lastUpdated: "2026-10-20"
+version: "2.13"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -1624,3 +1624,23 @@ created. Live execution needs local credential refresh, not another approval.
 RQ1 records these migration/admission failures; RQ2 gains no new live equivalence
 claim; RQ3 gains no new live latency or cost observation. The execution plan
 contains the precise continuation and the distinction from historical passes.
+
+### 2026-10-20 — Preserve scale-to-zero and distinguish diagnostic success
+
+The composed Azure profile retains zero always-ready workers. Intermittent L5
+responses do not justify silently replacing the serverless baseline with paid
+warm capacity, extending ordinary read timeouts, or rewriting application layers.
+Secret-free transport-phase logging and routing L5 logs to the existing workspace
+are the only adopted production changes from this diagnostic slice. A temporary
+on-demand ceiling of two did not reliably help and was removed with the failed
+deployment, not adopted in Terraform.
+
+Minimal HTTP functions reproduced failures without thesis application logic,
+including with a native host client. These observations narrow investigation but
+do not prove the underlying platform/network cause. A successful request pair
+is explicitly distinct from the failed cross-client comparison and the still
+open composed Azure simulator/command/L4/L5 chain. All four deployments in this
+slice have completed Destroy and independent scoped absence checks. RQ1 retains
+the failed lifecycle and cleanup timings; RQ2 receives no new composed-equivalence
+claim; RQ3 receives no unsupported cold-start or billed-cost attribution. The
+execution plan and application closeout results retain the detailed outcomes.
