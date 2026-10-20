@@ -1428,6 +1428,9 @@ locals {
     local.azure_six_layer_hot_enabled ? {
       raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
     } : {},
+    local.azure_six_layer_l5_enabled ? {
+      visualization = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id
+    } : {},
   )
 }
 
