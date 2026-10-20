@@ -292,8 +292,14 @@ bounded SDK fallback is retained as cleanup, not a successful Terraform Destroy.
 The narrow correction supplies a schema-valid digest-shaped value only during
 destroy when the variable is absent; it never publishes/pulls an image and is
 not deployment or functional evidence. Existing image references and unrelated
-profiles are preserved. Cleanup regression tests pass (25); live cleanup and
-independent zero inventory remain required before the next attempt.
+profiles are preserved. Cleanup regression tests pass (25), with 84 adjacent
+Terraform/image/runtime tests also passing. Live retries additionally exposed
+`ResourceGroupBeingDeleted` conflicts and a fallback reference that did not
+match the ACR variable format after the registry disappeared. The latter is
+corrected in `921303eb`; the conflicts were allowed to finish, not suppressed.
+The final ordinary Destroy succeeded with empty Terraform state and complete
+cleanup. Independent resource-group, resource and scoped role-assignment
+inventories are all zero. Failed cleanup attempts remain part of the evidence.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
