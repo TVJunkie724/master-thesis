@@ -109,3 +109,35 @@ These are delayed account totals, not final run-attributed charges or a comparis
 of provider prices. GCP's current total could not be reconciled in this check;
 the console did not load a usable billing report. No older amount is substituted
 as current.
+
+## Renewed application checkpoint — 2026-10-20
+
+The later AWS observation and its failed attempts are recorded in the
+[current execution record](../../plans/2026-08-26_thesis_poc_execution_plan.md).
+It independently exercised the real downloaded simulator and exact
+command/L3/Event→L4/L5 path: deployment 292.615 s, correlated command 9.639 s,
+combined functional verification 15.298 s, and 110 resource creation
+completions. Existing UI actions reported infrastructure 12/12 and three
+passed telemetry phases without skips. The unchanged returned L5 HTML was
+rendered, but the separate browser popup still was not independently observed.
+
+On October 20, ordinary Destroy reconciled the now-absent AWS IoT Command and
+persisted an empty Terraform state. Its successful 32.293 s retry followed a
+29.518 s authentication failure; both remain in the lifecycle history.
+Independent inventory found zero in all 24 checked categories, including the
+simulator identity and inactive commands. The actual UI reports `DESTROYED`
+and complete cleanup. This closes the newer AWS application's cleanup finding;
+it does not rewrite the older October 9 cleanup observations above or claim a
+global account inventory.
+
+Four renewed composed Azure attempts failed and were fully torn down, with
+empty Terraform state and independent zero run-owned resources/role assignments.
+The bounded fixes addressed principal selection, function-key response shape,
+the actual IoT Hub/device identity and transient L5 readiness retries. The final
+attempt still timed out at L5 after three bounded HTTP attempts. Registered
+functions and a running host do not establish an operational graphical reader.
+The narrow successful L5 fixture has one always-ready HTTP instance whereas
+the ordinary deployment remains scale-to-zero. This difference is a hypothesis,
+not a proven cause or an approved baseline change. Azure's composed simulator
+and L4/L5 chain remains unqualified; separate Core and narrow-layer passes do
+not fill that gap. No complete cross-provider UI E2E claim is made.
