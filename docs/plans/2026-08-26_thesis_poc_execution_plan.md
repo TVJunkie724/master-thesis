@@ -363,6 +363,10 @@ replacement. Pinning the same TLS floor prevents that known drift without
 weakening transport security. The original failed operation and rejected retry
 plan are retained separately; no same-state retry was executed.
 The combined offline Terraform/runtime/access/API gate passes 502 tests.
+The fourth attempt was destroyed successfully (109 recorded deletion
+completions); independent resource-group, resource and scoped role inventories
+are all zero. Its timing/image/diagnostic evidence is retained, and the temporary
+auxiliary AWS credential mount used by the shared Terraform root was removed.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
