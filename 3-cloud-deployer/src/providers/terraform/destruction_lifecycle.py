@@ -118,7 +118,7 @@ class DestructionLifecycleMixin:
         if azure_six_layer_container_deployment(values) and not values.get(key):
             registry = (self._terraform_outputs or {}).get(
                 "azure_six_layer_acr_login_server"
-            ) or "cleanup.invalid"
+            ) or "unpublished.azurecr.io"
             self._merge_tfvars(
                 {key: f"{registry}/storage-mover@sha256:" + "0" * 64}
             )

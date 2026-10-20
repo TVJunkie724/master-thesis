@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 import json
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -80,7 +81,11 @@ def test_destroy_supplies_azure_schema_image_without_publication(tmp_path, regis
     strategy._prepare_destroy_image_inputs()
 
     assert strategy._read_tfvars()["azure_six_layer_storage_mover_image"] == (
-        f"{registry or 'cleanup.invalid'}/storage-mover@sha256:" + "0" * 64
+        f"{registry or 'unpublished.azurecr.io'}/storage-mover@sha256:" + "0" * 64
+    )
+    assert re.fullmatch(
+        r"[a-z0-9]+\.azurecr\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}",
+        strategy._read_tfvars()["azure_six_layer_storage_mover_image"],
     )
     strategy._publish_azure_six_layer_images.assert_not_called()
 
