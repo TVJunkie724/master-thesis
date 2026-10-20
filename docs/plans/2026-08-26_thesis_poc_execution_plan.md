@@ -418,6 +418,10 @@ replacement. Pinning the same TLS floor prevents that known drift without
 weakening transport security. The original failed operation and rejected retry
 plan are retained separately; no same-state retry was executed.
 The combined offline Terraform/runtime/access/API gate passes 502 tests.
+The subsequent complete safe Deployer suite (`tests/`, excluding `tests/e2e`)
+passes 2,235 tests with one intentional skip and the existing no-network MQTT
+TLS deprecation warning (115.62 s). This is regression evidence, not an additional
+live cloud result.
 The fourth attempt was destroyed successfully (109 recorded deletion
 completions); independent resource-group, resource and scoped role inventories
 are all zero. Its timing/image/diagnostic evidence is retained, and the temporary
