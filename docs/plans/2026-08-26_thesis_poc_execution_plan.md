@@ -301,6 +301,20 @@ The final ordinary Destroy succeeded with empty Terraform state and complete
 cleanup. Independent resource-group, resource and scoped role-assignment
 inventories are all zero. Failed cleanup attempts remain part of the evidence.
 
+The second UI-led Azure attempt successfully applied Terraform, including the
+corrected human-reader assignment. Its ACR build took 37.056 s after 0.445 s in
+the queue. SDK postapply then failed before DTDL/model upload. A focused live
+reproduction found that function `listkeys` returned a flat dictionary containing
+the existing function-scoped default key, whereas the client only read a
+`properties` envelope and attempted an unnecessary additional key creation
+(HTTP 400). The lean correction accepts both response shapes and reuses a
+function-scoped existing key for L3 and L5, never a host/master key. It no longer
+creates credentials; initial lookup retries are bounded and permission errors
+remain terminal. The targeted runtime/access/API gate passes 71 tests. Live key
+lookup works, but a data read during concurrent teardown is not functional
+evidence. This attempt remains failed; cleanup and a fresh composed observation
+are still required.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.

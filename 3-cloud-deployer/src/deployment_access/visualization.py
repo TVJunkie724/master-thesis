@@ -77,7 +77,7 @@ def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
         headers = dict(signed.headers)
     else:
         from src.providers.azure.layers.layer_5_raw_history import _reader_key
-        headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", create_missing=verify_auth)}
+        headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
     with requests.get(endpoint, headers=headers, timeout=30, allow_redirects=False, stream=True) as response:
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
             raise RuntimeError(f"L5 HTML unavailable (HTTP {response.status_code})")

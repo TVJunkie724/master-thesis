@@ -390,32 +390,58 @@ def test_azure_raw_history_reuses_existing_function_key(monkeypatch):
     put.assert_not_called()
 
 
-def test_azure_raw_history_creates_one_function_scoped_key(monkeypatch):
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_azure_raw_history_reuses_default_without_creating_a_key(monkeypatch, wrapped):
     provider = _azure_raw_history_provider()
+    keys = {"default": "existing-function-key"}
     monkeypatch.setattr(
         layer_5_raw_history.requests,
         "post",
         lambda *_args, **_kwargs: SimpleNamespace(
             status_code=200,
-            json=lambda: {"properties": {}},
+            json=lambda: {"properties": keys} if wrapped else keys,
         ),
     )
-    put = MagicMock(return_value=SimpleNamespace(status_code=201))
+    put = MagicMock()
     monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
-    monkeypatch.setattr(
-        layer_5_raw_history.secrets,
-        "token_urlsafe",
-        lambda _length: "generated-evaluation-key",
-    )
 
     value = layer_5_raw_history._reader_key(provider, "history-reader")
 
-    assert value == "generated-evaluation-key"
-    assert "/functions/six-layer-raw-history-reader/keys/" in (put.call_args.args[0])
-    assert put.call_args.kwargs["json"] == {
-        "name": layer_5_raw_history.KEY_NAME,
-        "value": "generated-evaluation-key",
-    }
+    assert value == "existing-function-key"
+    put.assert_not_called()
+
+
+@pytest.mark.parametrize("wait_for_ready,attempts", [(True, 3), (False, 1)])
+def test_azure_raw_history_missing_key_fails_closed_without_creation(
+    monkeypatch, wait_for_ready, attempts
+):
+    post = MagicMock(return_value=SimpleNamespace(status_code=200, json=lambda: {}))
+    put, sleep = MagicMock(), MagicMock()
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", sleep)
+    with pytest.raises(RuntimeError, match="access key is not ready"):
+        layer_5_raw_history._reader_key(
+            _azure_raw_history_provider(), "reader", wait_for_ready=wait_for_ready
+        )
+    assert post.call_count == attempts
+    assert sleep.call_count == attempts - 1
+    put.assert_not_called()
+
+
+def test_azure_raw_history_retries_registration_but_not_permission_errors(monkeypatch):
+    post = MagicMock(side_effect=[
+        SimpleNamespace(status_code=404),
+        SimpleNamespace(status_code=200, json=lambda: {"default": "ready-key"}),
+    ])
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", MagicMock())
+    assert layer_5_raw_history._reader_key(_azure_raw_history_provider(), "reader") == "ready-key"
+    post.reset_mock(side_effect=True)
+    post.return_value = SimpleNamespace(status_code=403)
+    with pytest.raises(RuntimeError, match="HTTP 403"):
+        layer_5_raw_history._reader_key(_azure_raw_history_provider(), "reader")
+    post.assert_called_once()
 
 
 def test_azure_raw_history_probe_is_authenticated_and_bounded(monkeypatch):

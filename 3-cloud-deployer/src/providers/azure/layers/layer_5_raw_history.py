@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-import secrets
+import time
 from typing import TYPE_CHECKING
 
 import requests
@@ -44,37 +44,39 @@ def _require_status(response, allowed: tuple[int, ...], operation: str) -> None:
 
 
 def _reader_key(provider: "AzureProvider", function_app_name: str,
-                function_name: str = FUNCTION_NAME, *, create_missing: bool = True) -> str:
-    """Create once or reuse the single evaluation-scoped Function key."""
+                function_name: str = FUNCTION_NAME, *, wait_for_ready: bool = True) -> str:
+    """Reuse a function-scoped key without minting another credential.
+
+    Azure returns either a flat dictionary or an ARM properties envelope.
+    Initial deployment permits three lookups with a 30-second request timeout
+    and 3-second pauses; UI reads perform one lookup. Never use a host/master key.
+    """
 
     headers = {
         "Authorization": f"Bearer {_management_token(provider)}",
         "Content-Type": "application/json",
     }
-    response = requests.post(
-        _function_url(provider, function_app_name, "listkeys", function_name)
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Function key lookup")
-    properties = response.json().get("properties", {})
-    existing = properties.get(KEY_NAME) if isinstance(properties, dict) else None
-    if isinstance(existing, str) and existing:
-        return existing
-    if not create_missing:
-        raise RuntimeError("Azure Function access key has not been provisioned")
-
-    value = secrets.token_urlsafe(32)
-    response = requests.put(
-        _function_url(provider, function_app_name, f"keys/{KEY_NAME}", function_name)
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        json={"name": KEY_NAME, "value": value},
-        timeout=30,
-    )
-    _require_status(response, (200, 201), "Azure Function key creation")
-    return value
+    attempts = 3 if wait_for_ready else 1
+    for attempt in range(attempts):
+        response = requests.post(
+            _function_url(provider, function_app_name, "listkeys", function_name)
+            + f"?api-version={APP_SERVICE_API_VERSION}",
+            headers=headers,
+            timeout=30,
+        )
+        if response.status_code == 200:
+            payload = response.json()
+            keys = payload.get("properties", payload) if isinstance(payload, dict) else {}
+            if isinstance(keys, dict):
+                for name in (KEY_NAME, "default"):
+                    value = keys.get(name)
+                    if isinstance(value, str) and value:
+                        return value
+        elif response.status_code not in (404, 409, 429, 502, 503, 504):
+            _require_status(response, (200,), "Azure Function key lookup")
+        if attempt + 1 < attempts:
+            time.sleep(3)
+    raise RuntimeError("Azure function-scoped access key is not ready")
 
 
 def verify_raw_history_reader(
