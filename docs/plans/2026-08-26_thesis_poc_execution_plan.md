@@ -274,6 +274,31 @@ authentication mount was removed again. Both attempts and the final inventory
 are retained privately. This closes the renewed AWS cleanup finding, not the
 remaining Azure/GCP/directed application campaign or detached SSE limitation.
 
+#### Renewed provider-local GCP Core observation — 2026-10-20
+
+The existing bounded Core runner passed the renewed GCP-local observation on
+source revision `f5173e7b`: ten real MQTT messages were read back exactly through
+the deployed L1–L3/Event path. Deployment took 726.180 s, verification 17.429 s,
+observed delivery/readback 17.237 s, and ordinary Terraform Destroy 541.682 s.
+The complete observation, including preparation/builds and cleanup, took
+1,796.543 s; 236 Terraform resource lifecycle timing records are retained.
+Independent inventory found zero active residuals across all checked categories,
+but one log bucket remains `DELETE_REQUESTED`. Strict-zero cleanup therefore
+remains unqualified; the original report correctly retains `green=false`.
+
+Two earlier supervisor attempts stopped at plan admission, before allowance
+reservation or cloud mutation (stale in-memory plan-count lookup and a read-only
+atomic ledger replacement boundary). Their failures are retained separately.
+The corrected supervisor compares the fresh native plan with the reviewed
+resource-type counts and supports the existing atomic ledger writer. It does
+not modify the application or relax functional/cleanup assertions.
+
+This is RQ1 lifecycle/measurement and RQ2 Core functional evidence, with one RQ3
+delivery observation, not a statistical latency claim or billed cost. It is not
+a Management/UI-led full deployment, command-return test, storage-transition
+test, or GCP L4/L5 qualification. Directed repetitions and the composed Azure
+application observation remain separate and unfinished.
+
 #### Renewed Azure application attempt — 2026-10-20
 
 The actual UI started the Azure-only composed deployment after native plan
