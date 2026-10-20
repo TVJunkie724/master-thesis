@@ -342,8 +342,15 @@ pass, including exact pool scope, unknown state and permission failure handling.
 A supplementary read-only check, bound to the original plan's project and run
 prefix, confirmed zero active pools and one additional `DELETED` pool marker.
 The original report is preserved; no deploy or message replay was needed.
-Strict-zero cleanup remains unqualified for this run. The other three renewed
-directions are not yet qualified here.
+Strict-zero cleanup remains unqualified for this run.
+
+Azure→GCP passed on `38730a79`: ten exact values, 836.227 s main Apply,
+41.691 s verification (37.039 s delivery/readback), 468.661 s Destroy and
+1,649.577 s total time. All 149 creations and 149 deletions retain timing
+records. Independent inventory found zero active residuals, with one inactive
+Logging bucket and one `DELETED` workload-identity pool; strict-zero cleanup
+is therefore not claimed. No application correction or cloud retry was needed.
+The two GCP-source directions are not yet qualified here.
 
 #### Renewed Azure application attempt — 2026-10-20
 
