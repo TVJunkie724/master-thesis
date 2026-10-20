@@ -299,6 +299,26 @@ a Management/UI-led full deployment, command-return test, storage-transition
 test, or GCP L4/L5 qualification. Directed repetitions and the composed Azure
 application observation remain separate and unfinished.
 
+#### Renewed directed Core observations — 2026-10-20
+
+The renewed AWS→Azure Core observation passed on `f5173e7b`: all ten distinct
+test values were read back correctly after crossing the deployed provider
+boundary. Terraform recorded 161 creation and 161 deletion completions.
+Deployment took 422.390 s, verification 148.443 s, and ordinary Destroy
+956.601 s; total supervised time was 1,767.472 s. Observed delivery/readback
+was 148.176 s. The reader made 20 polls without transport timeouts; the ten
+per-message persistence measurements are retained, rather than attributing all
+waiting to an HTTP cold start.
+
+Independent AWS, Azure and Entra inventories found zero active residuals.
+One newly deleted AWS IoT Command remains an inactive pending-deletion marker,
+so this report retains `green=false` despite successful verification and
+Destroy. This marker belongs to the new directed run, not the previously closed
+AWS application cleanup. A later inventory must qualify strict-zero cleanup;
+the original observation is immutable. This is Core telemetry evidence only:
+no directed command-return, L4/L5, storage-transition or complete UI pass is
+inferred. The other five renewed directions are not yet qualified here.
+
 #### Renewed Azure application attempt — 2026-10-20
 
 The actual UI started the Azure-only composed deployment after native plan
