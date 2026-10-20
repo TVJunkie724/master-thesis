@@ -366,8 +366,9 @@ pass. This changes only evidence collection, not the deployed application.
 The cursor diagnostic retained counts, not a fresh complete payload/quality
 verification. The attempted complete corrected read then found the streams
 already removed by ordinary Destroy. Therefore the original failed attempt
-is retained and is not relabelled as a full functional pass; a bounded renewed
-observation is still required. The final GCP→Azure direction is also unfinished.
+is retained and is not relabelled as a full functional pass; the bounded renewed
+observation below supplies that verification. The final GCP→Azure direction
+is still unfinished.
 
 That failed attempt (`1a9457bf`) was fully torn down: Kubernetes removal took
 76.005 s and ordinary Destroy 568.447 s; independent inventory reports zero
@@ -376,6 +377,18 @@ active resources and one inactive `DELETED` federation pool. Main Apply was
 resource timing records retained. The original sequence stopped on the failed
 assertion as designed. Only after this cleanup and the reader regression gate
 was a new bounded observation admitted under a fresh run namespace.
+
+The GCP→AWS retry passed on `674a05ad`: ten exact hot-storage values and ten
+received plus ten processed stream records, with unchanged payload/quality
+assertions. Main Apply took 470.102 s, Kubernetes Apply 85.690 s, verification
+29.650 s and delivery/readback 18.460 s. The bounded event-stream read took
+0.713 s; the ten persistence samples span 14.719–15.827 s. Kubernetes removal
+took 76.797 s and ordinary Destroy 537.452 s; total supervised time was
+1,510.136 s, with all 179 creation and 179 deletion completions retained.
+Independent inventory found zero active residuals and one inactive `DELETED`
+federation pool. Functional verification and Destroy passed, but strict-zero
+cleanup is not asserted. Both attempts remain part of the cost and operational
+history; the successful retry does not erase the failed reader observation.
 
 #### Renewed Azure application attempt — 2026-10-20
 
