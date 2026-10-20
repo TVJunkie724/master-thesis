@@ -369,6 +369,14 @@ already removed by ordinary Destroy. Therefore the original failed attempt
 is retained and is not relabelled as a full functional pass; a bounded renewed
 observation is still required. The final GCP→Azure direction is also unfinished.
 
+That failed attempt (`1a9457bf`) was fully torn down: Kubernetes removal took
+76.005 s and ordinary Destroy 568.447 s; independent inventory reports zero
+active resources and one inactive `DELETED` federation pool. Main Apply was
+483.673 s and Kubernetes Apply 106.015 s; total time was 1,568.380 s, with 358
+resource timing records retained. The original sequence stopped on the failed
+assertion as designed. Only after this cleanup and the reader regression gate
+was a new bounded observation admitted under a fresh run namespace.
+
 #### Renewed Azure application attempt — 2026-10-20
 
 The actual UI started the Azure-only composed deployment after native plan
