@@ -273,6 +273,8 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   name                = "${local.azure_six_layer_name}-six-iot-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
+  # Match Azure's observed TLS floor so a retry does not replace the Hub.
+  min_tls_version     = "1.2"
 
   sku {
     name     = local.azure_six_layer_iot_sku

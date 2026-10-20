@@ -41,6 +41,12 @@ def test_azure_resource_selections_are_specification_owned():
     assert 'sku = "Standard"' not in grafana
 
 
+def test_six_layer_iot_hub_pins_observed_tls_floor_for_retries():
+    source = _normalized_source("azure_six_layer.tf")
+    hub = source.split('resource "azurerm_iothub" "azure_azure_iot_hub" {', 1)[1].split('resource "', 1)[0]
+    assert 'min_tls_version = "1.2"' in hub
+
+
 def test_azure_blob_and_timer_runtime_settings_use_specification_targets():
     storage = _normalized_source("azure_storage.tf")
     expected = (

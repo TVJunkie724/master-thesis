@@ -350,6 +350,19 @@ three times, with 30-second request timeouts and 3-second pauses. Authorization,
 unexpected public access and invalid-content failures are not retried; ordinary
 UI reads and AWS behavior remain single-attempt. The targeted access/API gate
 passes 27 tests. This correction is not itself a successful functional result.
+Three bounded live readiness attempts still timed out. ARM reports both L3 and
+L5 registered, Running and Normal, with matching hostnames. The previous narrow
+Azure L5 fixture has one always-ready HTTP instance, whereas normal composed L5
+explicitly has none. This is a configuration difference to investigate, not
+proof that warming fixes the composed path. The normal baseline is unchanged
+pending the user's decision; no composed Azure functional success is claimed.
+
+A read-only retry plan was rejected before mutation because Azure reported the
+IoT Hub TLS floor as `1.2` while the omitted configuration value planned a Hub
+replacement. Pinning the same TLS floor prevents that known drift without
+weakening transport security. The original failed operation and rejected retry
+plan are retained separately; no same-state retry was executed.
+The combined offline Terraform/runtime/access/API gate passes 502 tests.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
