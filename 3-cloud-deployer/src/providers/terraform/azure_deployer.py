@@ -53,14 +53,28 @@ def upload_dtdl_models(context: "DeploymentContext", project_path: Path) -> None
 
 
 def register_azure_iot_devices(
-    context: "DeploymentContext", project_path: Path
+    context: "DeploymentContext", project_path: Path, terraform_outputs: dict | None = None
 ) -> None:
     """Register IoT devices via Azure IoT Hub SDK."""
     logger.info("  Registering Azure IoT devices...")
     from src.providers.azure.layers.layer_1_iot import register_iot_devices
 
     provider = _require_azure_provider(context)
-    register_iot_devices(provider, context.config, str(project_path))
+    if _is_active_phase8_profile(context):
+        ingestion = (terraform_outputs or {}).get("azure_component_ingestion_output")
+        if not isinstance(ingestion, dict) or not all(
+            isinstance(ingestion.get(key), str) and ingestion[key]
+            for key in ("iot_hub_name", "hostname")
+        ):
+            raise RuntimeError("Azure ingestion output is required for device registration")
+        register_iot_devices(
+            provider, context.config, str(project_path),
+            hub_name=ingestion["iot_hub_name"],
+            hub_hostname=ingestion["hostname"],
+            canonical_device_ids=True,
+        )
+    else:
+        register_iot_devices(provider, context.config, str(project_path))
     logger.info("  Azure IoT devices registered")
 
 

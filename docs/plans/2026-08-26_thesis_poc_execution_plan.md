@@ -320,6 +320,17 @@ success for this failed attempt. The expanded Terraform/runtime/access/API gate
 passes 490 tests, including the native Terraform tests with their required
 repository mount. A fresh composed observation is still required.
 
+A subsequent SDK-boundary inspection found another concrete Azure mismatch:
+postapply device registration still derived the historical Hub name and prefixed
+device IDs, while the graph-selected Terraform Hub has its own suffix and the
+canonical event/device contract uses the configured ID. The bounded correction
+passes the existing ingestion output into SDK registration, requires its actual
+Hub name/hostname and preserves canonical IDs for the active profile. Historical
+defaults remain unchanged. Five focused tests cover missing-output rejection,
+actual binding, existing/new devices and legacy behavior; the adjacent runtime
+gate also passes (55 tests total). This is not yet a renewed live pass; an
+already-running process is not restarted mid-apply to adopt the change.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.

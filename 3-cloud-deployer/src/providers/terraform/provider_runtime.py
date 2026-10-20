@@ -151,7 +151,7 @@ def run_post_deployment(
     if providers_config["layer_4_provider"] == "azure":
         upload_dtdl_models(context, project_path)
     if providers_config["layer_1_provider"] == "azure":
-        register_azure_iot_devices(context, project_path)
+        register_azure_iot_devices(context, project_path, terraform_outputs)
     if providers_config["layer_5_provider"] == "azure":
         configure_azure_visualization(context, terraform_outputs)
 
