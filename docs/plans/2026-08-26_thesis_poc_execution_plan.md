@@ -326,8 +326,24 @@ delivery/readback 28.269 s, and Destroy 232.055 s; total time was 881.984 s.
 All 155 creations and 155 deletions have resource timing records. Independent
 inventory reports zero across all 24 categories, including inactive commands
 and directional trust objects: this observation is strictly green. No additional
-application correction was needed. The remaining four renewed directions are
-not yet qualified here.
+application correction was needed.
+
+AWS→GCP passed on `19a54ae2` with ten exact values, 559.767 s main Apply,
+61.303 s verification (61.000 s delivery/readback), 447.716 s Destroy and
+1,502.229 s total supervised time. All 151 creation and 151 deletion completions
+have timing records. The original 37-category inventory found zero active
+residuals and two inactive markers (AWS IoT Command and GCP Logging bucket).
+
+A plan-to-inventory cross-check then identified an omitted independent check
+for the run-owned GCP workload-identity pool in the AWS→GCP direction. The
+already implemented reverse-direction check now lives in the shared inventory
+and is reused by both directions; 50 targeted runner/runtime/directed tests
+pass, including exact pool scope, unknown state and permission failure handling.
+A supplementary read-only check, bound to the original plan's project and run
+prefix, confirmed zero active pools and one additional `DELETED` pool marker.
+The original report is preserved; no deploy or message replay was needed.
+Strict-zero cleanup remains unqualified for this run. The other three renewed
+directions are not yet qualified here.
 
 #### Renewed Azure application attempt — 2026-10-20
 

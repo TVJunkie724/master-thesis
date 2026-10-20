@@ -50,6 +50,20 @@ def inventory(values, prefix):
         oidc_count += any(tag.get("Key") == "DigitalTwin" and tag.get("Value") == prefix
                           for tag in data.get("Tags", []))
     result["aws:oidc_providers"] = oidc_count
+    # Both directions create this run-owned pool for the AWS-to-GCP route.
+    pool = prefix[:16] + "-aws-bridge"
+    url = ("https://iam.googleapis.com/v1/projects/" + values["gcp_project_id"]
+           + "/locations/global/workloadIdentityPools/" + pool)
+    response = gcp.client(values).get(url, timeout=45)
+    if response.status_code == 404:
+        result["gcp:workload_identity_pools"] = 0
+    elif response.status_code == 200:
+        deleted = response.json().get("state") == "DELETED"
+        result["gcp:workload_identity_pools"] = 0 if deleted else 1
+        if deleted:
+            result["pending_deletion:gcp:workload_identity_pools"] = 1
+    else:
+        raise RuntimeError("CORE_GCP_POOL_INVENTORY_HTTP_" + str(response.status_code))
     return result
 
 
