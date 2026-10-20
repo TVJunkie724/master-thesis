@@ -130,3 +130,17 @@ def test_azure_security_failure_is_not_retried(monkeypatch, responses):
     with pytest.raises(RuntimeError):
         fetch_visualization('azure', None, azure_output(), verify_auth=True)
     assert get.call_count == len(responses)
+
+
+def test_readiness_diagnostics_identify_stage_without_secret_text(monkeypatch, caplog):
+    import requests
+    get = Mock(side_effect=[response(401), requests.ReadTimeout('secret-key-in-exception')])
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='secret-key'))
+    # One request sequence is sufficient to verify logging, without retrying.
+    from src.deployment_access.visualization import _fetch_visualization_once
+    with caplog.at_level('INFO'), pytest.raises(requests.ReadTimeout):
+        _fetch_visualization_once('azure', None, azure_output(), verify_auth=True)
+    assert 'phase=unauthenticated' in caplog.text and 'http=401' in caplog.text
+    assert 'phase=authenticated' in caplog.text and 'error_type=ReadTimeout' in caplog.text
+    assert 'secret-key' not in caplog.text and 'azurewebsites.net' not in caplog.text

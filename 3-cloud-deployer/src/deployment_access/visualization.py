@@ -4,6 +4,7 @@ No caller-supplied URL, credentials in links, redirects, or general proxy.
 Empty panels prove reachability only, never simulator/data correctness.
 """
 from html.parser import HTMLParser
+import logging
 import re
 import time
 from urllib.parse import urlsplit
@@ -13,6 +14,21 @@ from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
 MAX_HTML_BYTES = 1024 * 1024
+logger = logging.getLogger(__name__)
+
+
+def _get(endpoint, *, stage, **kwargs):
+    """Record only phase/status/timing, never URLs, headers or exception text."""
+    started = time.monotonic()
+    try:
+        response = requests.get(endpoint, **kwargs)
+    except (requests.Timeout, requests.ConnectionError) as exc:
+        logger.warning("L5 request phase=%s seconds=%.3f error_type=%s",
+                       stage, time.monotonic() - started, type(exc).__name__)
+        raise
+    logger.info("L5 request phase=%s seconds=%.3f http=%s",
+                stage, time.monotonic() - started, response.status_code)
+    return response
 
 
 class _Panels(HTMLParser):
@@ -86,7 +102,7 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
         raise ValueError("Graphical L5 output is required; L3 JSON is not L5")
     endpoint = _endpoint(provider_name, bundle)
     if verify_auth:
-        with requests.get(endpoint, timeout=30, allow_redirects=False, stream=True) as response:
+        with _get(endpoint, stage="unauthenticated", timeout=30, allow_redirects=False, stream=True) as response:
             if response.status_code in (502, 503, 504):
                 raise _L5NotReady("L5 authentication surface is not ready")
             if response.status_code not in (401, 403):
@@ -99,7 +115,7 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     else:
         from src.providers.azure.layers.layer_5_raw_history import _reader_key
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
-    with requests.get(endpoint, headers=headers, timeout=30, allow_redirects=False, stream=True) as response:
+    with _get(endpoint, stage="authenticated", headers=headers, timeout=30, allow_redirects=False, stream=True) as response:
         if response.status_code in (502, 503, 504):
             raise _L5NotReady("L5 HTML surface is not ready")
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
