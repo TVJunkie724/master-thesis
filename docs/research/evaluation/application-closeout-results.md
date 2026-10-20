@@ -142,6 +142,23 @@ not a proven cause or an approved baseline change. Azure's composed simulator
 and L4/L5 chain remains unqualified; separate Core and narrow-layer passes do
 not fill that gap. No complete cross-provider UI E2E claim is made.
 
+A fifth composed Azure attempt also failed L5 readiness with scale-to-zero
+unchanged (932.330 s). Supplementary requests alternated between valid empty
+HTML and generic HTTP 503/timeouts, including on unauthenticated requests.
+Changing only the on-demand ceiling from one to two did not produce reliable
+availability and was not adopted. Neither intermittent empty HTML nor a
+registered/Running host qualifies the simulator/data/command chain. Added
+transport-phase logging and L5 routing to the existing diagnostic workspace
+improve diagnosis, not the functional outcome.
+
+Its ordinary Destroy completed in 945.057 s; all 109 recorded creation and
+109 deletion completions remain available as per-resource timing observations.
+Terraform state is empty and independent resource-group/resource/scoped-role
+counts are zero. The UI started deployment but the supplementary SSE consumer
+owned completion; the stale browser required refresh. This boundary is retained
+instead of reporting an uninterrupted UI E2E pass. The following minimal HTTP
+host comparison is diagnostic-only; it cannot fill the composed Azure gap.
+
 ### October 20 billing checkpoint
 
 After the renewed Core deployments were destroyed, read-only month-to-date

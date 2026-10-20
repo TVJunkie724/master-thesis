@@ -495,8 +495,9 @@ Three bounded live readiness attempts still timed out. ARM reports both L3 and
 L5 registered, Running and Normal, with matching hostnames. The previous narrow
 Azure L5 fixture has one always-ready HTTP instance, whereas normal composed L5
 explicitly has none. This is a configuration difference to investigate, not
-proof that warming fixes the composed path. The normal baseline is unchanged
-pending the user's decision; no composed Azure functional success is claimed.
+proof that warming fixes the composed path. The normal baseline remains
+scale-to-zero by the subsequent scope decision; no composed Azure functional
+success is claimed.
 
 A read-only retry plan was rejected before mutation because Azure reported the
 IoT Hub TLS floor as `1.2` while the omitted configuration value planned a Hub
@@ -512,6 +513,35 @@ The fourth attempt was destroyed successfully (109 recorded deletion
 completions); independent resource-group, resource and scoped role inventories
 are all zero. Its timing/image/diagnostic evidence is retained, and the temporary
 auxiliary AWS credential mount used by the shared Terraform root was removed.
+
+The fifth composed Azure attempt retained zero always-ready workers and failed
+L5 readiness after **932.330 s**, with 109 creation-completion observations.
+Phase-specific, secret-free transport logging distinguishes the first accepted
+negative-auth check from the subsequent authenticated timeout. Supplementary
+reads then returned valid empty L5 HTML intermittently (43.258, 15.889 and
+10.029 s), but also generic Azure HTTP 503 responses after approximately 60 s;
+unauthenticated requests were affected too. A separate authenticated L3 query
+returned HTTP 200 in 4.720 s. These observations do not prove the root cause or
+an operational full simulator/command/L4/L5 path.
+
+A bounded diagnostic changed only L5's on-demand ceiling from one to two,
+keeping zero always-ready workers. It did not reliably improve availability
+and was **not adopted** as the production configuration. A sequence overlapping
+that change is excluded from before/after comparison. Missing L5 host-log
+routing was added to the existing diagnostic workspace; no workspace or warm
+capacity was added. The access/API/diagnostic gate passes 33 tests and Terraform
+validation succeeds. Local SDK import timing (0.191 s) does not justify a
+speculative package rewrite or establish cloud cold-start performance.
+
+Ordinary Destroy succeeded in **945.057 s**, with 109 deletion-completion
+observations, empty Terraform state and complete persisted cleanup. Independent
+resource-group/resource/scoped-role inventory is zero. The temporary diagnostic
+ceiling and log attachment were removed with their resources. Original credentials
+were unchanged; the auxiliary credential mount and its temporary copy were
+removed. The UI initiated this attempt, but supplementary SSE capture owned its
+completion; the original browser view required refresh. This is not an
+uninterrupted UI lifecycle pass. A separate minimal authenticated HTTP host
+comparison is the next bounded diagnostic, not a substitute for application E2E.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
