@@ -1,6 +1,7 @@
 # Core telemetry results
 
-Status: consolidated offline on 2026-10-04; **9/9 functional passes**.
+Historical checkpoint: consolidated offline on 2026-10-04;
+**9/9 functional passes**. Renewed observations are recorded separately below.
 Scope: L1–L3 plus Event Layer, ten real ingress messages per successful run and
 ten expected values at authenticated destination hot-storage readback.
 This is not nine complete-profile E2E passes.
@@ -114,3 +115,62 @@ contracts under their conditions, not product-level service equivalence.
 RQ3 requires separating modeled monthly allocations, account billing and the
 cost of failed attempts. Successful cuts alone cannot isolate the Event Layer's
 causal cost effect. Missing data stay missing rather than triggering broad reruns.
+
+## Renewed Core observations — 2026-10-20
+
+The following observations use the existing bounded research runner, not the
+complete Management/UI lifecycle. All successful rows assert ten distinct real
+ingress messages and exact authenticated hot-storage values. L4/L5 and command
+return are disabled for this cut. The historical nine-case matrix above remains
+unchanged; these observations are not nine newly completed full-profile tests.
+Seconds below have the same phase boundaries as the historical table.
+
+| Source → destination | Runtime/source revision | Main Apply | Kubernetes Apply | Verification | Delivery/readback | Terraform Destroy | Total supervised | Resource timing records |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| GCP → GCP | `f5173e7b` | 726.180 | 125.860 | 17.429 | 17.237 | 541.682 | 1796.543 | 236 |
+| AWS → Azure | `f5173e7b` | 422.390 | n/a | 148.443 | 148.176 | 956.601 | 1767.472 | 322 |
+| Azure → AWS | `af17dcf7` | 412.080 | n/a | 32.236 | 28.269 | 232.055 | 881.984 | 310 |
+| AWS → GCP | `19a54ae2` | 559.767 | n/a | 61.303 | 61.000 | 447.716 | 1502.229 | 302 |
+| Azure → GCP | `38730a79` | 836.227 | n/a | 41.691 | 37.039 | 468.661 | 1649.577 | 298 |
+| GCP → AWS (retry) | `674a05ad` | 470.102 | 85.690 | 29.650 | 18.460 | 537.452 | 1510.136 | 358 |
+| GCP → Azure | `f4b24b43` | 550.196 | 95.824 | 185.447 | 176.252 | 967.514 | 2126.159 | 366 |
+
+Total supervised time additionally includes initialization, foundation/image
+publication, readiness, Kubernetes removal where applicable and final inventory.
+Resource timing records count creation and deletion completions, not distinct
+services. Revision differences include documentation-only commits and the
+explicit inventory/reader corrections described in the
+[execution record](../../plans/2026-08-26_thesis_poc_execution_plan.md).
+
+The first GCP→AWS attempt is retained as failed: its stream reader stopped on
+an empty Kinesis page although the ten exact hot-storage values had arrived.
+The corrected reader follows bounded shard cursors; the fresh retry additionally
+verified ten received and ten processed records with unchanged value/quality
+assertions. No application architecture change was required. This retry does
+not erase the first attempt's 1,568.380 s lifecycle or its resource/cost history.
+Two GCP-local supervisor failures occurred before reservation or cloud mutation
+and remain separate from the successful local observation.
+
+Every completed row has successful Destroy and zero active run-owned residuals.
+Only Azure→AWS was strict-zero at its original check. Other rows retain inactive
+provider Logging, IoT Command and/or deleted federation-pool markers. A shared
+independent inventory correction added the previously omitted AWS→GCP pool;
+its original report is preserved and a supplementary scoped check found that
+pool already deleted. Inactive-marker follow-ups must not rewrite observations
+or require new functional deployments. All seven renewed Core cases passed
+functionally and were destroyed. GCP→Azure used 22 readback polls without
+transport timeouts; its final inventory found only a deleted federation-pool
+marker, not an active resource or Entra object.
+
+A terminal read-only follow-up rechecked all eight deployed attempt namespaces,
+including the failed first GCP→AWS attempt, using current credentials and
+original-plan account/project/region scope. All eight checks completed without
+inventory errors and found zero active residuals. The same inactive markers
+remain; Azure→AWS alone is strict-zero. The follow-ups are separate records,
+not replacements for the original observations or a global account inventory.
+
+These measurements support RQ1 lifecycle/recovery and RQ2 scoped functional
+comparability. Delivery/readback includes readiness, network and polling effects;
+it is not isolated Event Layer latency. RQ3 still requires separating estimates,
+account billing and actual run attribution. No performance ranking, causal cost
+saving or complete cross-provider UI qualification follows from these rows.

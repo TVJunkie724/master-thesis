@@ -367,8 +367,8 @@ The cursor diagnostic retained counts, not a fresh complete payload/quality
 verification. The attempted complete corrected read then found the streams
 already removed by ordinary Destroy. Therefore the original failed attempt
 is retained and is not relabelled as a full functional pass; the bounded renewed
-observation below supplies that verification. The final GCP→Azure direction
-is still unfinished.
+observation below supplies that verification. GCP→Azure subsequently passed
+as recorded below.
 
 That failed attempt (`1a9457bf`) was fully torn down: Kubernetes removal took
 76.005 s and ordinary Destroy 568.447 s; independent inventory reports zero
@@ -389,6 +389,31 @@ Independent inventory found zero active residuals and one inactive `DELETED`
 federation pool. Functional verification and Destroy passed, but strict-zero
 cleanup is not asserted. Both attempts remain part of the cost and operational
 history; the successful retry does not erase the failed reader observation.
+
+The final GCP→Azure observation passed on `f4b24b43`: ten exact values,
+550.196 s main Apply, 95.824 s Kubernetes Apply, 185.447 s verification and
+176.252 s delivery/readback. Its 22 readback polls had no transport timeouts;
+172.910 s was spent waiting for the complete result. Kubernetes removal took
+77.180 s and ordinary Destroy 967.514 s; total supervised time was 2,126.159 s.
+All 183 creation and 183 deletion completions retain timing records.
+Independent inventory found zero active resources, no Entra applications or
+service principals, and one inactive `DELETED` GCP federation pool. Strict-zero
+cleanup is not claimed while that marker remains.
+
+This completes the seven renewed Core functional observations (GCP local and
+six directed edges), with successful Destroy in each case. It does not complete
+the Azure composed application observation below or turn research-runner results
+into seven Management/UI-led full-profile passes. The historical AWS/Azure-local
+Core observations retain their own dates and conditions.
+
+The final read-only follow-up rechecked all eight deployed attempt namespaces
+(seven successful observations plus the failed first GCP→AWS attempt), bound
+to each original plan's scope. All inventories completed without errors and
+found zero active residuals; only the documented inactive markers remain.
+The consolidated measurements are in
+[Core telemetry results](../research/evaluation/core-telemetry-results.md), and
+the dated account-billing check is in
+[application closeout results](../research/evaluation/application-closeout-results.md).
 
 #### Renewed Azure application attempt — 2026-10-20
 

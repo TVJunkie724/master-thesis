@@ -141,3 +141,21 @@ the ordinary deployment remains scale-to-zero. This difference is a hypothesis,
 not a proven cause or an approved baseline change. Azure's composed simulator
 and L4/L5 chain remains unqualified; separate Core and narrow-layer passes do
 not fill that gap. No complete cross-provider UI E2E claim is made.
+
+### October 20 billing checkpoint
+
+After the renewed Core deployments were destroyed, read-only month-to-date
+queries returned **0.255320347 USD** AWS account UnblendedCost (estimated) and
+**5.79715950530254 EUR** Azure subscription ActualCost/PreTaxCost. The GCP project
+had no discoverable standard BigQuery billing export. Its associated billing
+account was matched against Cloud Billing metadata, then checked in the existing
+console session: the selected October 1–20 period displayed **0.81 EUR** cost,
+**0.28 EUR** savings and **0.53 EUR** total cost. These GCP values are rounded
+account-level display values, not project/run-attributed export rows or forecast.
+
+All three amounts can lag actual usage and include other account activity.
+They do not prove that this day's experiments are already fully billed, replace
+an execution allowance ledger, or measure the incremental cost of any scenario.
+Native currencies are retained without a synthetic combined total. Original API
+responses and the separate GCP console observation remain private; no export,
+new permission or billing configuration was enabled.
