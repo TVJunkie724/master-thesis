@@ -121,7 +121,7 @@ def stream_evidence(values):
         for shard in kinesis.list_shards(StreamName=name)["Shards"]:
             iterator = kinesis.get_shard_iterator(StreamName=name, ShardId=shard["ShardId"],
                                                  ShardIteratorType="TRIM_HORIZON")["ShardIterator"]
-            for _ in range(5):
+            for attempt in range(20):
                 page = kinesis.get_records(ShardIterator=iterator, Limit=100)
                 for record in page["Records"]:
                     event = json.loads(record["Data"])
@@ -132,9 +132,15 @@ def stream_evidence(values):
                         if kind == "processed":
                             assert event["payload"]["quality"] == "accepted"
                         found.add(correlation)
-                if not page["Records"]:
+                # Empty pages are valid before retained records. Advance the
+                # returned cursor instead of treating an empty page as EOF.
+                iterator = page.get("NextShardIterator")
+                if found == expected or not iterator:
                     break
-                iterator = page["NextShardIterator"]
+                if attempt < 19:
+                    time.sleep(1)
+            if found == expected:
+                break
         counts[kind] = len(found)
     return counts
 
@@ -198,9 +204,17 @@ def readback(values, outputs, now, sent_at):
         points = payload.get("points", [])
         if body.get("statusCode") == 200 and len(points) == 10:
             assert sorted(float(p["value"]) for p in points) == list(range(10))
+            stream_started = time.monotonic()
             streams = stream_evidence(values)
-            assert streams == {"received": 10, "processed": 10}
+            stream_seconds = round(time.monotonic() - stream_started, 3)
+            if streams != {"received": 10, "processed": 10}:
+                error = RuntimeError("CORE_EVENT_STREAM_READBACK_INCOMPLETE")
+                error.safe_metrics = {"event_stream_received_records": streams["received"],
+                                      "event_stream_processed_records": streams["processed"],
+                                      "event_stream_readback_seconds": stream_seconds}
+                raise error
             return {"sent": 10, "read_back": 10, "event_streams": streams,
+                    "event_stream_readback_seconds": stream_seconds,
                     "message_persistence_latency_ms": [round((datetime.fromisoformat(p["stored_at"].replace("Z", "+00:00")) -
                         datetime.fromisoformat(p["event_time"].replace("Z", "+00:00"))).total_seconds() * 1000, 3) for p in points],
                     "delivery_seconds": time.monotonic() - sent_at}

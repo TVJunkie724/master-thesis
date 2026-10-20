@@ -96,7 +96,9 @@ def safe_failure_metrics(error):
                "mqtt_connect_attempts", "mqtt_connect_wait_seconds",
                "azure_source_function_readiness_attempts", "azure_outbox_metric_http_status",
                "azure_outbox_incoming", "azure_outbox_incoming_points",
-               "azure_outbox_outgoing", "azure_outbox_outgoing_points"}
+               "azure_outbox_outgoing", "azure_outbox_outgoing_points",
+               "event_stream_received_records", "event_stream_processed_records",
+               "event_stream_readback_seconds"}
     metrics = getattr(error, "safe_metrics", {})
     if not isinstance(metrics, dict):
         return {}

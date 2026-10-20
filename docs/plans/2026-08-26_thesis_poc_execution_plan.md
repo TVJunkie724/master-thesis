@@ -350,7 +350,24 @@ Azure→GCP passed on `38730a79`: ten exact values, 836.227 s main Apply,
 records. Independent inventory found zero active residuals, with one inactive
 Logging bucket and one `DELETED` workload-identity pool; strict-zero cleanup
 is therefore not claimed. No application correction or cloud retry was needed.
-The two GCP-source directions are not yet qualified here.
+The first renewed GCP→AWS attempt reached ten exact AWS hot-storage values,
+then failed the additional Kinesis received/processed-stream assertion after
+19.693 s of verification. Its reader treated the first empty `GetRecords` page
+as the end of the stream. A read-only cursor diagnostic subsequently found ten
+correlated records in each stream, after four and one empty pages respectively.
+AWS explicitly documents that empty pages can precede retained records and
+that consumers must continue using `NextShardIterator` ([API reference](https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html)).
+
+The bounded research reader now advances that cursor, waits one second between
+reads and stops after at most 20 reads per shard. Exact value and processed
+quality assertions are unchanged; missing records still fail with safe count
+and timing diagnostics. All 56 targeted runner/runtime/directed-reader tests
+pass. This changes only evidence collection, not the deployed application.
+The cursor diagnostic retained counts, not a fresh complete payload/quality
+verification. The attempted complete corrected read then found the streams
+already removed by ordinary Destroy. Therefore the original failed attempt
+is retained and is not relabelled as a full functional pass; a bounded renewed
+observation is still required. The final GCP→Azure direction is also unfinished.
 
 #### Renewed Azure application attempt — 2026-10-20
 
