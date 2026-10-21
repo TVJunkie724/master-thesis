@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-20"
-version: "2.3"
+lastUpdated: "2026-10-21"
+version: "2.4"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -551,8 +551,18 @@ without-bundle variant did not reach its HTTP probes because the function key
 was not ready. All three diagnostic deployments were destroyed with empty state
 and independently absent resource groups. Neither a speculative application
 rewrite nor a blanket timeout/warm-worker change is justified by these results.
-The composed Azure E2E remains open. The next proposed discriminator is a
-separately approved regional comparison, not an implicit baseline change.
+The separately approved North Europe comparison was completed on October 21
+without changing the application baseline. It used identical package contents,
+zero always-ready instances and the same three clients. Only two of six
+authenticated requests returned the exact expected response; the other four
+timed out at approximately 30 s. Unauthenticated access correctly returned 401.
+Apply took 190.707 s and Destroy 113.998 s, with eight creation and eight deletion
+timing observations, empty Terraform state and independently absent resource
+group. The temporary key copy was removed. This diagnostic failed; a region
+change is not a demonstrated fix. The composed Azure E2E remains open, and no
+additional full deployment or permanent region change followed this experiment.
+The next diagnostic question is hosting versus network-path behavior, not an
+unproven application rewrite or warm-instance baseline substitution.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded

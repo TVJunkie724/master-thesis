@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-20"
-version: "2.13"
+lastUpdated: "2026-10-21"
+version: "2.14"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -1644,3 +1644,19 @@ slice have completed Destroy and independent scoped absence checks. RQ1 retains
 the failed lifecycle and cleanup timings; RQ2 receives no new composed-equivalence
 claim; RQ3 receives no unsupported cold-start or billed-cost attribution. The
 execution plan and application closeout results retain the detailed outcomes.
+
+### 2026-10-21 — Regional HTTP diagnostic does not justify a baseline change
+
+The approved North Europe minimal-host comparison retained identical package
+contents and zero always-ready capacity. Four of six authenticated requests
+timed out across Docker and host-native clients; two returned the exact expected
+body, and anonymous access was correctly rejected. The aggregate failed. Neither
+a regional migration nor warm capacity is adopted on this evidence. The shared
+network path and hosting behavior remain unresolved diagnostic alternatives;
+the failure does not justify rewriting the thesis application.
+
+Ordinary Destroy, empty Terraform state and independent resource-group absence
+all passed. Per-resource and request timings remain retained with the failed
+result. The composed Azure E2E remains explicitly open. This preserves RQ1's
+operational evidence without inflating RQ2 functional coverage or interpreting
+request timeouts as measured cold-start performance for RQ3.

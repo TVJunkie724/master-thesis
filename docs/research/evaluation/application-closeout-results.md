@@ -183,8 +183,8 @@ or blaming only Docker/one HTTP library. They do not distinguish an Azure
 platform issue from all possible network-path effects, prove actual per-request
 cold/warm state, or qualify the missing composed simulator/command/L4/L5 chain.
 No production warm worker, scaling-ceiling change, package rewrite or longer
-ordinary-read timeout was adopted. A different-region diagnostic requires a
-separate scope decision; the existing evaluation baseline remains unchanged.
+ordinary-read timeout was adopted. The subsequently approved regional comparison
+is recorded below; the existing evaluation baseline remains unchanged.
 
 ### October 20 billing checkpoint
 
@@ -203,3 +203,34 @@ an execution allowance ledger, or measure the incremental cost of any scenario.
 Native currencies are retained without a synthetic combined total. Original API
 responses and the separate GCP console observation remain private; no export,
 new permission or billing configuration was enabled.
+
+### North Europe host comparison — 2026-10-21
+
+The separately approved diagnostic changed the region and unique resource names,
+not the application baseline. The three package files were verified identical
+in content to the West Europe client-comparison package. Python 3.12 Flex,
+2,048 MB, maximum one on-demand instance, zero always-ready instances and the
+existing extension bundle were retained. No Twin application was deployed.
+
+| Client / check | First request | Second request |
+|---|---|---|
+| Docker `requests` | HTTP 200, exact body, 1.108 s | ReadTimeout, 30.264 s |
+| Host `curl --http1.1` | Timeout, 30.014 s | HTTP 200, exact body, 0.454 s |
+| Docker `urllib` | Timeout, 30.247 s | Timeout, 30.377 s |
+| Negative authentication | HTTP 401, 0.510 s | Not repeated |
+
+**Diagnostic result: failed.** The aggregate requires all six authenticated
+responses to be HTTP 200 with the exact expected body, plus rejected anonymous
+access. Successful individual requests do not satisfy that gate. No cloud
+cold/warm state was measured. A single regional observation cannot establish a
+platform root cause; the common network path remains an unexcluded factor.
+North Europe is not a demonstrated fix and was not adopted as the new baseline.
+
+Apply completed in **190.707 s** and ordinary Destroy in **113.998 s**. Eight
+creation and eight deletion completion timings are retained privately alongside
+source revision, package/plan hashes and per-request results. Terraform state
+contains zero managed entries; an independent ARM lookup returned resource-group
+HTTP 404. The temporary function-key copy was removed. No diagnostic resources
+remain. These observations support RQ1's operational failure/cleanup record,
+not a new RQ2 composed-functionality pass or an RQ3 cold-start/billed-cost claim.
+The complete Azure UI/simulator/command/L4/L5 evaluation remains open.
