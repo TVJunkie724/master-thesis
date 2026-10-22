@@ -296,3 +296,39 @@ is explicitly part of the observed Destroy duration, not an unassisted Terraform
 cleanup pass. Final managed state is zero and an independent ARM resource-group
 lookup returns 404. Temporary function-key copies were removed. Source/package/
 plan hashes, individual timings and correlated raw telemetry remain private.
+
+### Composed Azure retry after the HTTP diagnostic — 2026-10-22
+
+The sixth composed attempt ran revision `0a2676a4`, including the initial L5
+timeout correction. A fresh bounded plan contained 111 create-only managed
+entries and seven Function Apps with zero always-ready instances. Candidate
+materialization and account preparation used normal Management API contracts;
+the real Flutter UI validated the required contracts, completed distributed
+validation and initiated deployment. This is not an entirely UI-only setup
+or import qualification. An unnecessary empty legacy hierarchy entered during
+test setup was rejected by distributed validation and removed before deployment;
+the active profile requires no manually supplied hierarchy or scene.
+
+**Application result: failed.** Terraform infrastructure applied, with 110
+creation-completion observations. The deployment failed in SDK postapply after
+**887.430 s**, before simulator verification. The last persisted boundary was
+the start of SDK-owned operations approximately 239 s earlier; no individual
+SDK phase was captured. Neither a specific L5 timeout nor a Management idle
+timeout is established. The Management deployment stream has no read timeout.
+The diagnostic HTTP-host pass therefore still does not qualify the composed
+application path.
+
+Ordinary Destroy succeeded in **988.226 s**, with 110 deletion-completion
+observations and empty persisted state. Independent ARM inventories found zero
+run-owned resource groups, resources and scoped role assignments. Both failed
+deployment and successful teardown retain their timestamps and 220 resource
+timing observations; failure is not overwritten by a later retry.
+
+Commits `a8e242f6` and `6c7ca0ca` add secret-free SDK phase/duration diagnostics
+and persist the failed phase, exception class and optional HTTP status through
+the ordinary deployment stream. Exception text, credentials and URLs are not
+exposed. These changes do not alter retries, timeouts or function semantics.
+The focused runtime/lifecycle/access/API gate passes 120 tests. The diagnostic
+instrumentation was not loaded in the sixth attempt; it is used by the next
+separately recorded attempt. RQ1 gains the lifecycle failure/cleanup record;
+RQ2 gains no new composed pass, and RQ3 gains no cold-start or billed-cost claim.
