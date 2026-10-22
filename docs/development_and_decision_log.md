@@ -1687,3 +1687,27 @@ That diagnostic-only residual and its successful removal are retained alongside
 the eleven managed resource creation/deletion timings; the result is not labeled
 an unassisted Terraform cleanup pass. No diagnostic resources or temporary
 function-key copies remain.
+
+### 2026-10-22 — Keep deployment readiness separate from a valid functional observation
+
+The seventh composed Azure attempt passed ordinary UI deployment and SDK
+L3/Twin-seed/IoT/L5 readiness with scale-to-zero unchanged. A preceding failed
+attempt motivated bounded, secret-free phase diagnostics (`a8e242f6`,
+`6c7ca0ca`); these diagnostics do not themselves alter runtime behavior.
+
+The external verifier's missing Python import path caused its safety handler
+to start Destroy before a manual test retry. The retry's command deadline
+therefore coincided with resource removal and is excluded from functional
+evaluation. A quiet persisted log view was not proof of an idle cleanup.
+Future research launches precheck dependencies before deployment and require
+the actual `deployed` lifecycle state throughout verification. No database
+state reset, success backfill, warmer baseline or speculative application
+rewrite is used to recover an invalid measurement.
+
+Both attempts finished ordinary Destroy, empty state and independent zero
+run-owned resource-group/resource/role inventories. RQ1 retains deployment,
+test-steering failure and cleanup timing; RQ2 still requires a fresh composed
+Azure data-path observation. RQ3 receives no command latency, cold-start or
+billed-cost attribution from a test concurrent with teardown. The execution
+record and application closeout results retain the successful and excluded
+boundaries separately; research questions and PoC scope remain unchanged.

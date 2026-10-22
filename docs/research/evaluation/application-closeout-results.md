@@ -332,3 +332,54 @@ The focused runtime/lifecycle/access/API gate passes 120 tests. The diagnostic
 instrumentation was not loaded in the sixth attempt; it is used by the next
 separately recorded attempt. RQ1 gains the lifecycle failure/cleanup record;
 RQ2 gains no new composed pass, and RQ3 gains no cold-start or billed-cost claim.
+
+The seventh composed attempt ran revision `6c7ca0ca` through the normal UI
+validation and deployment path. **Deployment and SDK readiness passed in
+674.338 s**, with 110 creation-completion observations and zero always-ready
+capacity. SDK phase durations, included in that total, were 9.629 s for L3
+read access, 5.859 s for the Twin seed, 1.680 s for IoT registration and
+69.212 s for visualization readiness. The ACR build succeeded after 0.421 s
+queue time and 30.055 s build time; its immutable digest/context hash and
+timestamps are retained privately. This is a deployment/readiness pass, not a
+complete simulator/command/L3/L4/L5 pass or proof of per-request cold/warm state.
+
+The external functional runner initially failed before its first cloud test
+because its Docker Python path omitted the Deployer `src` directory. Its
+failure handler had already started ordinary Destroy when an operator retried
+the runner. Although the retry observed registered functions and the expected
+control rule, its later command receipt deadline overlapped actual resource
+deletion. **That functional observation is excluded**: the command timeout is
+not evidence of an application failure, nor are its partial checks promoted to
+a composed pass. Empty persisted cleanup logs before browser reconnection did
+not mean that cloud deletion had not begun. The actual lifecycle state and
+operation timestamps are authoritative. No lifecycle state was reset or success
+record fabricated to recover this test.
+
+The corrected research invocation uses `/repo` as Docker working directory and
+`/repo:/repo/3-cloud-deployer:/repo/3-cloud-deployer/src` as `PYTHONPATH`.
+Its dependency-only check passed without mounting credentials or making cloud
+requests. The research launcher now checks for `deployed` before verification
+and stops/excludes the verifier if the lifecycle changes during the test. These
+are evaluation-start corrections, not new product features or relaxed data gates.
+A fresh, non-overlapping functional observation is still required.
+
+Ordinary Destroy succeeded in **981.157 s**, with 110 deletion-completion
+observations and empty persisted Terraform state. Independent ARM resource-group,
+resource and scoped-role inventories are all zero. The actual UI required a
+reconnection to show the externally initiated Destroy; this is not labeled an
+uninterrupted UI-only lifecycle. Deployment/teardown retain 220 resource timing
+observations, and the invalid functional report is preserved with a separate
+qualification record. Original credentials are unchanged; the temporary
+auxiliary credential copy and local override have been removed. RQ1 receives
+the successful deployment, test-steering failure and cleanup measurements; RQ2
+still lacks the composed Azure data-path pass, and RQ3 receives no latency or
+billed-cost conclusion from the excluded command test.
+
+The safe Deployer collection passed 2,181 tests but initially skipped 63
+template-package cases because the disposable test container lacked their
+required `/app/upload/template` mount. Re-running exactly those 63 cases with
+the read-only template mount passed 62 and retained one intentional legacy
+skip. The combined, deduplicated gate is **2,243 passed, one skipped**, not a
+single invocation with that summary. No E2E directory or cloud credentials were
+supplied to these offline tests. The existing MQTT TLS deprecation and a
+read-only pytest-cache warning are retained with the reports.

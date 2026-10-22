@@ -592,6 +592,21 @@ resource-group lookup returns 404. The temporary function-key copy was removed.
 The extended Destroy time includes this supplementary cleanup, not only managed
 resource deletion. Detailed host/client evidence remains private.
 
+Two subsequent composed attempts are recorded in the
+[application closeout results](../research/evaluation/application-closeout-results.md#composed-azure-retry-after-the-http-diagnostic--2026-10-22).
+The sixth failed during unidentified SDK postapply (887.430 s); its Destroy
+completed in 988.226 s. The seventh passed normal UI deployment and all four
+SDK readiness phases in 674.338 s, retaining zero always-ready capacity.
+Its external functional runner failed at startup, then an operator retry
+overlapped the already-started Destroy. That simulator/command observation is
+excluded, not a valid application failure or success. The corrected research
+invocation passes a credential-free dependency check and watches lifecycle
+state during verification. The seventh Destroy completed in 981.157 s; both
+attempts have empty state and independent zero RG/resource/scoped-role counts.
+The remaining closeout item is one fresh, non-overlapping Azure
+UI/simulator/command/L3/Event-to-L4/L5 observation. No architecture rewrite or
+additional warm capacity is required by the evidence captured here.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.
