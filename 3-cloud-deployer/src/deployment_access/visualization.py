@@ -4,7 +4,6 @@ No caller-supplied URL, credentials in links, redirects, or general proxy.
 Empty panels prove reachability only, never simulator/data correctness.
 """
 from html.parser import HTMLParser
-import logging
 import re
 import time
 from urllib.parse import urlsplit
@@ -12,9 +11,9 @@ from urllib.parse import urlsplit
 import requests
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
+from src.logger import logger
 
 MAX_HTML_BYTES = 1024 * 1024
-logger = logging.getLogger(__name__)
 
 
 def _get(endpoint, *, stage, **kwargs):
@@ -79,6 +78,11 @@ def _endpoint(provider_name, bundle):
 class _L5NotReady(RuntimeError):
     """Transient platform response, never an authorization/content failure."""
 
+    def __init__(self, message, *, status_code, request_phase):
+        super().__init__(message)
+        self.status_code = status_code
+        self.request_phase = request_phase
+
 
 def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
     # Azure Flex may cold-start after package publication. Only initial readiness
@@ -107,7 +111,9 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     if verify_auth:
         with _get(endpoint, stage="unauthenticated", timeout=request_timeout, allow_redirects=False, stream=True) as response:
             if response.status_code in (502, 503, 504):
-                raise _L5NotReady("L5 authentication surface is not ready")
+                raise _L5NotReady("L5 authentication surface is not ready",
+                                  status_code=response.status_code,
+                                  request_phase="unauthenticated")
             if response.status_code not in (401, 403):
                 raise RuntimeError("L5 must reject unauthenticated access")
     if provider_name == "aws":
@@ -120,7 +126,9 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
     with _get(endpoint, stage="authenticated", headers=headers, timeout=request_timeout, allow_redirects=False, stream=True) as response:
         if response.status_code in (502, 503, 504):
-            raise _L5NotReady("L5 HTML surface is not ready")
+            raise _L5NotReady("L5 HTML surface is not ready",
+                              status_code=response.status_code,
+                              request_phase="authenticated")
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
             raise RuntimeError(f"L5 HTML unavailable (HTTP {response.status_code})")
         body = bytearray()

@@ -162,3 +162,18 @@ def test_readiness_diagnostics_identify_stage_without_secret_text(monkeypatch, c
     assert 'phase=unauthenticated' in caplog.text and 'http=401' in caplog.text
     assert 'phase=authenticated' in caplog.text and 'error_type=ReadTimeout' in caplog.text
     assert 'secret-key' not in caplog.text and 'azurewebsites.net' not in caplog.text
+
+
+@pytest.mark.parametrize('status', [502, 503, 504])
+@pytest.mark.parametrize('stage', ['unauthenticated', 'authenticated'])
+def test_transient_response_retains_exact_status_and_stage(monkeypatch, caplog, status, stage):
+    from src.deployment_access.visualization import _fetch_visualization_once, _L5NotReady
+    responses = [response(status)] if stage == 'unauthenticated' else [response(401), response(status)]
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', Mock(side_effect=responses))
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='must-not-leak'))
+    with caplog.at_level('INFO'), pytest.raises(_L5NotReady) as failure:
+        _fetch_visualization_once('azure', None, azure_output(), verify_auth=True)
+    assert failure.value.status_code == status
+    assert failure.value.request_phase == stage
+    assert f'phase={stage}' in caplog.text and f'http={status}' in caplog.text
+    assert 'must-not-leak' not in caplog.text and 'azurewebsites.net' not in caplog.text
