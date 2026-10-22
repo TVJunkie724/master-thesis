@@ -1,4 +1,4 @@
-# Fixed L3/L5 research cut; no IoT, Event, Twin service or container image.
+# Fixed L3/L5 research cut; scale to zero, no IoT/Event/Twin or container image.
 terraform {
   required_providers {
     azurerm = { source = "hashicorp/azurerm", version = "~> 4.0" }
@@ -85,10 +85,6 @@ resource "azurerm_function_app_flex_consumption" "reader" {
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   webdeploy_publish_basic_authentication_enabled = false
-  always_ready {
-    name           = "http"
-    instance_count = 1
-  }
   identity { type = "SystemAssigned" }
   site_config { minimum_tls_version = "1.2" }
   app_settings = {
@@ -144,10 +140,6 @@ resource "azurerm_function_app_flex_consumption" "visualization" {
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   webdeploy_publish_basic_authentication_enabled = false
-  always_ready {
-    name           = "http"
-    instance_count = 1
-  }
   site_config { minimum_tls_version = "1.2" }
   app_settings = {
     SIX_LAYER_VISUALIZATION_ENABLED = "true"

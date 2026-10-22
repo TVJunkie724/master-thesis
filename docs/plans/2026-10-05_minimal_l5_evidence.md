@@ -110,3 +110,25 @@ account, reported **0.47 EUR net** (0.71 before 0.24 savings) for October 1–5.
 The latter is billing-account scope, not a verified project filter. These lagged
 totals include other attempts and cannot establish incremental L5 cost or be
 summed across currencies.
+
+## Subsequent diagnostic preparation — 2026-10-23
+
+The historical Azure pass above used one always-ready HTTP instance in each
+Function App. It is not proof of the normal profile's scale-to-zero behavior.
+For a fresh L3/L5 diagnostic, the existing Azure fixture now omits both warm
+instances; its create-only plan gate also checks the one-instance on-demand
+ceiling and rejects unknown/warm capacity. Existing historical reports remain
+unchanged. No IoT, Event, Twin service, image or dashboard platform is added.
+
+The runner retains each HTTP status, client duration or exception class and
+recognizes only the fixed `L5 data unavailable` body. Arbitrary bodies, keys,
+URLs and exception text are not copied to diagnostic summaries. Azure's
+authenticated requests permit 180 s within the existing 30-minute functional
+deadline. This does not change the deployed handler's ten-second L3 timeout.
+Anonymous rejection, exact SVG points and timestamps remain mandatory.
+Direct raw/hourly L3 comparisons occur only after the L5 observation, including
+ordinary failures; they cannot turn a failed L5 request into a pass. Terraform
+cleanup now also checks managed entries nested in package modules before the
+independent scoped ARM absence check. This preparation is not a new live pass
+or a full application E2E result; execution needs its own reviewed saved plan
+and sufficient authorized external allowance.

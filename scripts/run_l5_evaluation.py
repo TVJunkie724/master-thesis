@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import time
 import uuid
+from urllib.parse import urlencode
 
 from scripts.prepare_core_runtime import ROOT
 from scripts.run_core_evaluation import Terraform, reserve, save, terraform_resource_timings, utc_now
@@ -56,7 +57,20 @@ def review(plan, provider):
     if ({x['address'] for x in managed} != allowed or len(managed) != len(allowed)
             or any(x['change']['actions'] != ['create'] for x in managed)):
         raise RuntimeError('L5_PLAN_SCOPE_REJECTED')
+    if provider == 'azure':
+        for item in managed:
+            if item['address'].startswith('azurerm_function_app_flex_consumption.'):
+                after = item['change'].get('after', {})
+                unknown = item['change'].get('after_unknown', {})
+                if (after.get('always_ready') or after.get('maximum_instance_count') != 1
+                        or unknown.get('always_ready')):
+                    raise RuntimeError('L5_CAPACITY_SCOPE_REJECTED')
     return len(managed)
+
+
+def state_empty(module):
+    return (not any(item.get('mode') == 'managed' for item in module.get('resources', []))
+            and all(state_empty(child) for child in module.get('child_modules', [])))
 
 
 def fixture(now=None):
@@ -144,6 +158,9 @@ class Experiment:
                        'source_revision': self.manifest['source_revision'], 'started_at': utc_now(),
                        'runner_source_revision': os.getenv('L5_SOURCE_REVISION', self.manifest['source_revision']),
                        'plan_sha256': self.manifest['plan_sha256'], 'package_sha256': self.manifest['package_sha256']}
+        self.report['http_observations'] = []
+        if self.provider == 'azure':
+            self.report['always_ready_instances'] = 0
         if self.provider == 'aws':
             import boto3
             from botocore.config import Config
@@ -189,8 +206,54 @@ class Experiment:
 
     def fetch(self, url, authenticated=True, app=None):
         import requests
-        response = requests.get(url, headers=self.auth_headers(url, app) if authenticated else {}, timeout=40)
-        return response
+        # Observe L5 before direct reader diagnostics; do not pre-warm L3 as a repair.
+        headers = self.auth_headers(url, app) if authenticated else {}
+        observation = {'surface': app, 'authenticated': authenticated}
+        started = time.monotonic()
+        try:
+            response = requests.get(url, headers=headers,
+                                    timeout=180 if self.provider == 'azure' and authenticated else 40,
+                                    allow_redirects=False)
+            observation['http_status'] = response.status_code
+            if app == 'visualization' and response.status_code in (502, 503, 504):
+                observation['response_origin'] = ('l5-data-unavailable'
+                    if len(response.content) < 128 and response.content.strip() == b'L5 data unavailable'
+                    else 'unclassified')
+            return response
+        except Exception as exc:
+            observation['error_type'] = type(exc).__name__
+            raise
+        finally:
+            observation['seconds'] = round(time.monotonic() - started, 3)
+            self.report['http_observations'].append(observation)
+            save(self.root / 'http-observations.json', self.report['http_observations'])
+
+    def diagnose_reader(self):
+        """Post-observation comparison, never a substitute for a successful L5 read."""
+        observations = []
+        self.report['reader_diagnostics'] = observations
+        for bucket in ('0', '3600'):
+            result = {'bucket_seconds': int(bucket), 'passed': False}
+            observations.append(result)
+            try:
+                query = {'device_id': DEVICE, 'metric': METRIC, 'bucket_seconds': bucket,
+                         'from': self.points[0]['time'],
+                         'to': (datetime.fromisoformat(self.points[-1]['time'].replace('Z', '+00:00'))
+                                + timedelta(hours=1)).isoformat().replace('+00:00', 'Z'), 'limit': '100'}
+                response = self.fetch(self.outputs['reader_url'] + '?' + urlencode(query), app='reader')
+                result['http_status'] = response.status_code
+                response.raise_for_status()
+                data = response.json()
+                time_key, value_key = ('stored_at', 'value') if bucket == '0' else ('bucket_start', 'avg')
+                actual = [(p[time_key], p[value_key]) for p in data['points']]
+                result['passed'] = (data['schema_version'] == 'raw-history-query.v1'
+                    and data['device_id'] == DEVICE and data['metric'] == METRIC
+                    and data['truncated'] is False and data.get('next_cursor') is None
+                    and actual == [(p['time'], p['value']) for p in self.points])
+            except Exception as exc:
+                result['error_type'] = type(exc).__name__
+            finally:
+                save(self.root / 'reader-diagnostics.json', observations)
 
     def seed(self):
         self.points = fixture()
@@ -232,32 +295,43 @@ class Experiment:
             self.phase('deploy', lambda: self.tf.run('apply', '-input=false', '-no-color', 'reviewed.tfplan'))
             self.outputs = self.tf.outputs()
             self.phase('fixture_seed', self.seed)
-            started = time.monotonic()
-            # Registration/identity propagation is bounded, not a reason for repeated Apply.
-            last_status = None
-            for attempt in range(31):
-                response = self.fetch(self.outputs['visualization_url'], app='visualization')
-                last_status = response.status_code
-                if response.status_code == 200:
-                    verify_html(response.text, self.points)
-                    break
-                if response.status_code not in (404, 503):
-                    raise RuntimeError('L5_AUTHENTICATED_READ_FAILED')
-                time.sleep(10)
+            try:
+                self.verify_surface()
+            except Exception:
+                if self.provider == 'azure':
+                    self.phase('reader_diagnostic', self.diagnose_reader)
+                raise
             else:
-                self.report['last_http_status'] = last_status
-                raise RuntimeError('L5_READINESS_DEADLINE')
-            self.report['verify_seconds'] = round(time.monotonic() - started, 3)
-            self.report['readback_poll_attempts'] = attempt + 1
-            body = response.content
-            atomic_write_private_bytes(self.root / 'cloud-response.html', body)
-            self.report['cloud_html_sha256'] = hashlib.sha256(body).hexdigest()
-            negative = {name: self.fetch(self.outputs[name + '_url'], authenticated=False).status_code for name in ('reader', 'visualization')}
-            if any(status not in (401, 403) for status in negative.values()):
-                raise RuntimeError('L5_UNAUTHENTICATED_ACCESS_NOT_REJECTED')
-            self.report.update(functional_pass=True, authentication_negative_statuses=negative,
-                               panel_count=2, raw_point_count=3, hourly_point_count=3,
-                               exact_values_and_timestamps_pass=True, cloud_generated_html=True)
+                if self.provider == 'azure':
+                    self.phase('reader_diagnostic', self.diagnose_reader)
+
+    def verify_surface(self):
+        started = time.monotonic()
+        # Registration/identity propagation is bounded, not a reason for repeated Apply.
+        last_status = None
+        for attempt in range(31):
+            response = self.fetch(self.outputs['visualization_url'], app='visualization')
+            last_status = response.status_code
+            if response.status_code == 200:
+                verify_html(response.text, self.points)
+                break
+            if response.status_code not in (404, 503):
+                raise RuntimeError('L5_AUTHENTICATED_READ_FAILED')
+            time.sleep(10)
+        else:
+            self.report['last_http_status'] = last_status
+            raise RuntimeError('L5_READINESS_DEADLINE')
+        self.report['verify_seconds'] = round(time.monotonic() - started, 3)
+        self.report['readback_poll_attempts'] = attempt + 1
+        body = response.content
+        atomic_write_private_bytes(self.root / 'cloud-response.html', body)
+        self.report['cloud_html_sha256'] = hashlib.sha256(body).hexdigest()
+        negative = {name: self.fetch(self.outputs[name + '_url'], authenticated=False, app=name).status_code for name in ('reader', 'visualization')}
+        if any(status not in (401, 403) for status in negative.values()):
+            raise RuntimeError('L5_UNAUTHENTICATED_ACCESS_NOT_REJECTED')
+        self.report.update(functional_pass=True, authentication_negative_statuses=negative,
+                           panel_count=2, raw_point_count=3, hourly_point_count=3,
+                           exact_values_and_timestamps_pass=True, cloud_generated_html=True)
 
     def cleanup(self):
         state = self.tf.folder / 'terraform.tfstate'
@@ -266,7 +340,7 @@ class Experiment:
         with deadline(1800):
             self.phase('destroy', lambda: self.tf.run('destroy', '-input=false', '-auto-approve', '-no-color'))
             result = json.loads(self.tf.run('show', '-json').read_text())
-        return not result.get('values', {}).get('root_module', {}).get('resources')
+        return state_empty(result.get('values', {}).get('root_module', {}))
 
     def inventory(self):
         counts = {}

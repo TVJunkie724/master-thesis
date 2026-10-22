@@ -1736,3 +1736,18 @@ RQ3 gains no fabricated latency, cold-start or billed-cost attribution. A
 separately reviewed L3/L5 diagnostic cut is preferable to repeatedly rebuilding
 the whole Twin without distinguishing the failing boundary. No further paid
 run was initiated in this slice.
+
+### 2026-10-23 — Isolate L3/L5 without changing the application baseline
+
+The next Azure diagnostic reuses the existing two-Function/serverless-Cosmos
+research fixture, removing its historical always-ready capacity rather than
+reintroducing warm workers into the normal profile. A strict plan capacity
+gate, private per-request observations and post-L5 direct raw/hourly comparisons
+separate transport failure, the fixed L5 data-error response and independent
+reader behavior. Neither successful direct queries nor seeded fixtures qualify
+the outstanding composed simulator/command/L4/L5 path. The application runtime,
+upstream timeout and architecture remain unchanged until a cause is observed.
+Cleanup checks nested package-module state as well as independent ARM absence.
+This is bounded diagnostic preparation, not a new live result or spending
+authorization. RQ1 gains test steering and cleanup safeguards; RQ2/RQ3 receive
+no new functional, cold-start or billed-cost claim from offline preparation.

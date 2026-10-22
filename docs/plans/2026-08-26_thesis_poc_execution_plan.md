@@ -621,6 +621,21 @@ The full safe Deployer gate passes 2,254 tests with one intentional skip after
 refreshing the canonical source pins. The composed Azure E2E remains open;
 isolate L3-to-L5 with the new diagnostics before another full live attempt.
 
+**Diagnostic preparation — 2026-10-23:** reuse the existing fixed L3/L5 research
+cut rather than rebuilding the complete Twin. The Azure fixture now has zero
+always-ready instances, matching the normal profile's capacity policy; the
+historical October 5 fixture had one always-ready instance per app and its pass
+is not relabeled. Plan admission rejects warm, unknown or increased capacity.
+Per-request status, duration and a fixed response-origin classification are
+retained privately. Direct raw/hourly reader comparisons follow L5 observation,
+never pre-warm it or substitute for a graphical pass. Azure authenticated reads
+allow 180 s inside the unchanged 30-minute functional deadline; the application
+handler's separate ten-second upstream bound is unchanged pending evidence.
+Destroy retains its separate 30-minute reserve, recursive managed-state check
+and independent resource-group absence check. Preparation is not live evidence;
+the exact saved plan and external allowance must clear before execution.
+The focused runner/renderer/L4 regression group passes 72 offline tests.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.
