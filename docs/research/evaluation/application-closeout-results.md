@@ -383,3 +383,66 @@ skip. The combined, deduplicated gate is **2,243 passed, one skipped**, not a
 single invocation with that summary. No E2E directory or cloud credentials were
 supplied to these offline tests. The existing MQTT TLS deprecation and a
 read-only pytest-cache warning are retained with the reports.
+
+### Fresh bounded Azure application observation — 2026-10-22
+
+The eighth attempt ran revision `3acbadfe`, following the corrected,
+credential-free verifier dependency check. A fresh Azure-local Small candidate
+and namespace passed normal UI contract/distributed validation and the reviewed
+111-entry create-only plan (seven Functions, zero always-ready instances).
+The UI started ordinary deployment. No source/identity change or warm worker
+was introduced into this live attempt.
+
+**Deployment result: failed in L5 readiness after 819.385 s.** All 110 resource
+creation-completion observations were retained. SDK L3 read access, Twin seeding
+and IoT registration passed in 9.771, 5.323 and 3.436 s respectively. The final
+authenticated L5 HTML request raised `_L5NotReady`; that code path identifies
+HTTP 502, 503 or 504, not a client read-timeout exception. Visualization readiness
+took 191.887 s. The exact HTTP status and response body were not retained, so
+the failure cannot be attributed conclusively to Azure hosting/routing.
+The unchanged L5 handler also returns its own HTTP 503 if its L3/data read fails;
+that internal HTTP read has a separate ten-second timeout. This is an unexcluded
+alternative, not a demonstrated cause of the observed response. Initial host
+warnings and unmatched/lagging host logs do not establish a published-function
+failure or cold start.
+
+The real simulator verifier correctly did not start because deployment never
+reached `deployed`. There is no command, Event-to-L4, exact graphical-data or
+full UI E2E pass for this attempt, and no test ran concurrently with Destroy.
+The pre-reviewed simulator check used the existing Core command allowance of
+300 s within its overall bounded verification window; that allowance was not
+exercised. No timeout/retry rule was extended after this failure.
+
+The ACR image build succeeded after 0.267 s queue time and 36.709 s build time;
+immutable image/context identities remain private. Ordinary Destroy succeeded
+in **1,009.468 s**, with 110 deletion-completion observations and empty Terraform
+state. Independent resource-group, resource and scoped-role inventories are
+all zero. Deployment/teardown retain 220 resource timing observations. The
+temporary auxiliary credential copy and local environment override are removed;
+original credentials and unrelated files are unchanged.
+
+Later offline corrections retain exact transient HTTP status/request phase
+(`811df59d`) and recognize only L5's fixed public error body, with other bodies
+remaining unclassified (`b9940558`). The cloud handler logs exception class and
+optional upstream HTTP code without URLs, keys, response bodies or exception
+text. These diagnostics preserve existing responses, authentication/data gates,
+three initial attempts and request timeouts; they are not a live fix claim.
+Canonical package digests and generated copies were refreshed in `63bc9fe0`,
+including demo fixtures, without changing architecture semantics. Existing
+immutable experiment graphs were not rewritten.
+
+The focused diagnostic/runtime/API gate passes 130 tests. The first full safe
+gate retained one stale package-source-pin failure (2,253 passed, one failed,
+one intentional skip); the canonical digest refresh corrected it without
+weakening the package gate. The subsequent full safe Deployer suite passes
+**2,254 tests with one intentional skip** and the existing no-network MQTT TLS
+deprecation warning. Ten canonical-contract tests, twelve relevant Flutter
+contract/demo tests, contract synchronization and the Flutter architecture
+gate also pass. Raw failed and successful reports are retained separately.
+
+RQ1 gains a correctly bounded failed deployment and successful cleanup;
+RQ2 still lacks the composed Azure data-path observation. RQ3 gains neither
+command latency nor cold-start/billed-cost attribution from this attempt.
+The next diagnostic should isolate the existing L3-to-L5 path and classify the
+503 origin before another complete Twin deployment; it requires a separately
+reviewed live plan. No additional paid run was started here.

@@ -607,6 +607,20 @@ The remaining closeout item is one fresh, non-overlapping Azure
 UI/simulator/command/L3/Event-to-L4/L5 observation. No architecture rewrite or
 additional warm capacity is required by the evidence captured here.
 
+The next fresh attempt (`3acbadfe`) passed infrastructure creation and SDK
+L3/Twin-seed/IoT checks but failed authenticated L5 readiness in 819.385 s.
+Its final `_L5NotReady` identifies a transient HTTP 502/503/504 response; the
+exact status and whether it came from hosting or L5's own failed L3 read were
+not retained. No simulator/command test started. Ordinary Destroy completed
+in 1,009.468 s, with empty state and independent zero run-owned inventories.
+The [closeout record](../research/evaluation/application-closeout-results.md#fresh-bounded-azure-application-observation--2026-10-22)
+retains phase/image/resource timings and this limitation. Narrow, offline-tested
+diagnostics now retain exact HTTP phase/status and distinguish the fixed L5
+data-error body; no retry, timeout or warm-worker change was adopted.
+The full safe Deployer gate passes 2,254 tests with one intentional skip after
+refreshing the canonical source pins. The composed Azure E2E remains open;
+isolate L3-to-L5 with the new diagnostics before another full live attempt.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.

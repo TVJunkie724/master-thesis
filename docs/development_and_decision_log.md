@@ -1711,3 +1711,28 @@ Azure data-path observation. RQ3 receives no command latency, cold-start or
 billed-cost attribution from a test concurrent with teardown. The execution
 record and application closeout results retain the successful and excluded
 boundaries separately; research questions and PoC scope remain unchanged.
+
+### 2026-10-22 — Do not attribute an unclassified L5 5xx to client timeout
+
+The fresh composed Azure attempt correctly stopped before simulator verification
+when authenticated L5 readiness failed. Its final `_L5NotReady` denotes HTTP
+502/503/504, whereas a client read timeout is a different exception. Exact HTTP
+status/body were not retained. Since the existing L5 handler itself converts
+L3/data-read failures to HTTP 503, an Azure hosting explanation is not established.
+The handler's separate ten-second L3 read bound is an unexcluded alternative,
+not a proven cause. No broader timeout, retry or warm-capacity change follows
+from this ambiguous observation.
+
+The lean correction preserves exact HTTP status/phase, classifies only the fixed
+public L5 data-error body and logs only the upstream exception class/status.
+It does not expose credential values, arbitrary error bodies or exception text.
+The required canonical source-digest refresh preserves package admission rather
+than bypassing a stale-pin failure. The final safe gate passes 2,254 tests with
+one intentional skip; contracts and affected demo fixtures are synchronized.
+
+Ordinary Destroy and independent scoped inventory are clean. RQ1 retains this
+failed lifecycle and its cleanup; RQ2's composed Azure gap stays explicit.
+RQ3 gains no fabricated latency, cold-start or billed-cost attribution. A
+separately reviewed L3/L5 diagnostic cut is preferable to repeatedly rebuilding
+the whole Twin without distinguishing the failing boundary. No further paid
+run was initiated in this slice.
