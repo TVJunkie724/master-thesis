@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,6 +29,7 @@ from src.providers.terraform.cross_cloud_identity import (
     ensure_aws_outbound_identity,
 )
 from src.providers.terraform.cross_cloud_routes import cross_cloud_route_tfvars
+from src.logger import logger as runtime_logger
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
@@ -124,6 +126,27 @@ def prepare_shared_identity_capabilities(
     }
 
 
+def _azure_post_step(phase, action, *args):
+    """Identify the Azure SDK phase without logging credentials or error text."""
+    started = time.monotonic()
+    runtime_logger.info("Azure postapply phase=%s state=started", phase)
+    try:
+        result = action(*args)
+    except Exception as exc:
+        status = getattr(exc, "status_code", None)
+        runtime_logger.error(
+            "Azure postapply phase=%s state=failed seconds=%.3f error_type=%s http=%s",
+            phase, time.monotonic() - started, type(exc).__name__,
+            status if type(status) is int else None,
+        )
+        raise
+    runtime_logger.info(
+        "Azure postapply phase=%s state=complete seconds=%.3f",
+        phase, time.monotonic() - started,
+    )
+    return result
+
+
 def run_post_deployment(
     context: "DeploymentContext",
     project_path: Path,
@@ -144,16 +167,19 @@ def run_post_deployment(
         if storage_provider == "aws":
             verify_aws_storage_read_access(context, terraform_outputs)
         elif storage_provider == "azure":
-            verify_azure_storage_read_access(context, terraform_outputs)
+            _azure_post_step("storage-read", verify_azure_storage_read_access,
+                             context, terraform_outputs)
         elif storage_provider != "gcp":
             raise ValueError("Missing or invalid L3 hot-storage provider")
 
     if providers_config["layer_4_provider"] == "azure":
-        upload_dtdl_models(context, project_path)
+        _azure_post_step("twin-seed", upload_dtdl_models, context, project_path)
     if providers_config["layer_1_provider"] == "azure":
-        register_azure_iot_devices(context, project_path, terraform_outputs)
+        _azure_post_step("iot-devices", register_azure_iot_devices,
+                         context, project_path, terraform_outputs)
     if providers_config["layer_5_provider"] == "azure":
-        configure_azure_visualization(context, terraform_outputs)
+        _azure_post_step("visualization", configure_azure_visualization,
+                         context, terraform_outputs)
 
     if providers_config["layer_4_provider"] == "aws":
         create_twinmaker_entities(context, project_path, terraform_outputs)

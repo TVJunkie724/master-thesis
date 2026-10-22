@@ -10,6 +10,7 @@ from src.providers.aws.layers import layer_5_grafana as aws_layer_5_grafana
 from src.providers.azure.layers import layer_4_adt, layer_5_grafana, layer_5_raw_history
 from src.providers.terraform import aws_deployer, azure_deployer
 from src.providers.terraform.runtime_outcome import ProviderRuntimeError, RuntimeRun
+from src.providers.terraform import provider_runtime
 
 
 class ConflictError(Exception):
@@ -21,6 +22,43 @@ class ResourceNotFoundError(Exception):
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+
+
+def test_azure_postapply_logs_ordered_phases_without_changing_outcome(monkeypatch, caplog):
+    called = []
+    for name in ("verify_azure_storage_read_access", "upload_dtdl_models",
+                 "register_azure_iot_devices", "configure_azure_visualization"):
+        monkeypatch.setattr(provider_runtime, name,
+                            lambda *args, name=name: called.append(name))
+    evidence = object()
+    monkeypatch.setattr(provider_runtime, "collect_deployment_access_runtime_evidence",
+                        lambda *args: evidence)
+    context = SimpleNamespace(resolved_deployment_graph=SimpleNamespace(
+        profile_ref={"id": "six-layer-eventing"}))
+    config = {key: "azure" for key in ("layer_1_provider", "layer_3_hot_provider",
+                                      "layer_4_provider", "layer_5_provider")}
+    with caplog.at_level("INFO"):
+        assert provider_runtime.run_post_deployment(context, Path("."), config, {}) is evidence
+    assert called == ["verify_azure_storage_read_access", "upload_dtdl_models",
+                      "register_azure_iot_devices", "configure_azure_visualization"]
+    for phase in ("storage-read", "twin-seed", "iot-devices", "visualization"):
+        assert f"phase={phase} state=started" in caplog.text
+        assert f"phase={phase} state=complete" in caplog.text
+
+
+def test_azure_postapply_failure_retains_exception_but_never_logs_secret_text(caplog):
+    class Denied(Exception):
+        status_code = 403
+    failure = Denied("client_secret=must-not-leak https://private.azurewebsites.net")
+    def action():
+        raise failure
+    with caplog.at_level("INFO"), pytest.raises(Denied) as caught:
+        provider_runtime._azure_post_step("twin-seed", action)
+    assert caught.value is failure
+    assert "phase=twin-seed state=failed" in caplog.text
+    assert "error_type=Denied http=403" in caplog.text
+    assert "must-not-leak" not in caplog.text
+    assert "azurewebsites.net" not in caplog.text
 
 
 def _aws_context(
