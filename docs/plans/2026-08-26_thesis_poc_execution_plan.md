@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-21"
-version: "2.4"
+lastUpdated: "2026-10-22"
+version: "2.5"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -561,8 +561,36 @@ timing observations, empty Terraform state and independently absent resource
 group. The temporary key copy was removed. This diagnostic failed; a region
 change is not a demonstrated fix. The composed Azure E2E remains open, and no
 additional full deployment or permanent region change followed this experiment.
-The next diagnostic question is hosting versus network-path behavior, not an
-unproven application rewrite or warm-instance baseline substitution.
+The October 22 long-timeout diagnostic below identifies a prematurely short
+client cutoff while retaining the historical 503 cause as unresolved.
+
+The approved long-timeout diagnostic observed one West Europe minimal HTTP
+function for ten minutes after package publication, with zero always-ready
+capacity and at most 180 s per request (the final request was capped by the
+remaining observation window). All six sequential, uniquely correlated requests
+passed. Client durations were 1.198, 36.240, 10.562, 0.814, 0.437 and 0.613 s;
+anonymous access correctly returned 401. Application Insights correlates all six
+to successful handler invocations on the same role instance. The 36 s client's
+DNS/connect/TLS completed within 0.224 s; the handler trace appears approximately
+36 s after client start, and its server request duration was only 9.406 ms.
+This establishes that the former 30 s client timeout can reject a valid response
+and places this observed delay before handler execution. It does not identify
+the exact Azure-internal routing/scheduling component, establish a cold start,
+or explain the historical 503 responses, which did not recur in this sample.
+
+Commit `f84a043c` increases only initial Azure L5 readiness HTTP timeouts to
+180 s per request, retaining the existing three-attempt bound and strict
+authentication/content checks. Ordinary UI requests and AWS remain at 30 s.
+The focused access/API suite passes 29 tests. This minimal-host pass and offline
+correction do not close the composed Azure UI/simulator/command/L4/L5 E2E gap.
+Apply took 203.120 s and Destroy 521.916 s, with eleven creation and eleven
+deletion completion timings. During Destroy, independent inventory found one
+additional Insights action group, created outside the Terraform graph in this
+fresh diagnostic resource group. Its exact scoped deletion returned HTTP 200;
+the ongoing Terraform Destroy then completed. State is empty and independent
+resource-group lookup returns 404. The temporary function-key copy was removed.
+The extended Destroy time includes this supplementary cleanup, not only managed
+resource deletion. Detailed host/client evidence remains private.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded

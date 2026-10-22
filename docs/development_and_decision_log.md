@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-21"
-version: "2.14"
+lastUpdated: "2026-10-22"
+version: "2.15"
 ---
 
 # Twin2MultiCloud development and decision log
@@ -1660,3 +1660,30 @@ all passed. Per-resource and request timings remain retained with the failed
 result. The composed Azure E2E remains explicitly open. This preserves RQ1's
 operational evidence without inflating RQ2 functional coverage or interpreting
 request timeouts as measured cold-start performance for RQ3.
+
+### 2026-10-22 — Permit observed initial Azure latency without weakening correctness
+
+One ten-minute minimal-host observation, with zero always-ready instances,
+passed all six correlated HTTP requests. A valid host-native response took
+approximately 36 s although DNS/connect/TLS took under 0.224 s and its server
+request lasted only 9.406 ms. All six AppTraces handler records use the same role
+instance. The former 30 s client cutoff is therefore demonstrably too short for
+some valid responses; the observed delay precedes application handler execution.
+This does not identify the internal Azure component or prove cold-start behavior.
+Historical HTTP 503 failures were not reproduced and remain unexplained.
+
+Only initial Azure L5 readiness now allows 180 s per HTTP request, retaining
+three bounded attempts and strict authentication/content checks (`f84a043c`).
+Ordinary UI/AWS behavior and zero always-ready capacity are retained. Twenty-nine
+focused access/API tests pass. RQ1 gains a correlated operational diagnosis and
+bounded correction; RQ2 still lacks the composed Azure functional pass; RQ3 gains
+individual latency observations rather than a statistical/cold-start or billed
+cost attribution. The application closeout results retain the method and limits.
+
+Cleanup completed with empty Terraform state and independently absent resource
+group. Destroy's 521.916 s includes a supplementary exact deletion of the sole
+provider-created Insights action group left outside the Terraform graph.
+That diagnostic-only residual and its successful removal are retained alongside
+the eleven managed resource creation/deletion timings; the result is not labeled
+an unassisted Terraform cleanup pass. No diagnostic resources or temporary
+function-key copies remain.

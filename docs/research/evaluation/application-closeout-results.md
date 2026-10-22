@@ -234,3 +234,65 @@ HTTP 404. The temporary function-key copy was removed. No diagnostic resources
 remain. These observations support RQ1's operational failure/cleanup record,
 not a new RQ2 composed-functionality pass or an RQ3 cold-start/billed-cost claim.
 The complete Azure UI/simulator/command/L4/L5 evaluation remains open.
+
+### Long-timeout host diagnostic — 2026-10-22
+
+The approved diagnostic retained West Europe Python 3.12 Flex, 2,048 MB,
+maximum one on-demand instance and zero always-ready instances. The tiny
+HTTP function added a per-request identifier in its log and response header.
+Temporary workspace-backed Application Insights and FunctionAppLogs enabled
+client/server correlation. These diagnostic resources were confined to the
+run's resource group. Their instrumentation differs from the earlier minimal
+fixtures, so this is not a controlled timeout-only performance comparison.
+
+The ten-minute observation window started after package publication. Requests
+were sequential at approximately 0, 90, 180, 300, 420 and 540 s, alternating
+Docker `requests` and host-native HTTP/1.1 `curl`. Request timeouts were at most
+180 s and capped by the remaining window (179 s for the fifth, 59 s for the
+sixth). Each response required HTTP 200, the exact fixed body and the matching
+identifier. Anonymous access separately had to return 401/403.
+
+| Probe | Client | Observed client duration (s) | Correlated server request duration (ms) |
+|---|---|---:|---:|
+| 1 | Docker `requests` | 1.198 | 69.7833 |
+| 2 | Host `curl` | 36.240 | 9.4059 |
+| 3 | Docker `requests` | 10.562 | 7.2240 |
+| 4 | Host `curl` | 0.814 | 4.9870 |
+| 5 | Docker `requests` | 0.437 | 4.5664 |
+| 6 | Host `curl` | 0.613 | 4.8520 |
+
+**Minimal diagnostic result: passed, six of six**, with correlated successful
+handler traces and server requests for all six on the same AppTraces role
+instance. Anonymous access returned 401 in 5.358 s. The slow host-native request
+completed DNS in 0.039 s, TCP by 0.131 s, TLS by 0.224 s and received its first
+response byte at 35.786 s. The handler trace occurred approximately 36 s after
+client start; this cross-clock interval is approximate, not a precise distributed
+latency decomposition. The handler's server request lasted only 9.406 ms.
+
+The direct finding is that a 30 s client cutoff can discard a valid response.
+This sample locates the large observed delay before handler execution, but does
+not identify the internal Azure routing/scheduling component. No worker-start
+timeout, gRPC failure or application exception was found in the captured logs.
+The early pre-publication empty-host warning does not establish a failing
+published function. Historical HTTP 503 responses did not recur; their cause
+remains unresolved. Neither measured per-request cold/warm state nor a blanket
+claim that Flex normally requires five to ten minutes follows from this test.
+
+The adopted change (`f84a043c`) allows 180 s per HTTP request only during
+initial Azure L5 readiness. Its existing three attempts, rejected anonymous
+access, exact HTML contract and size bound remain. Ordinary UI reads and AWS
+keep 30 s requests. The focused access/API gate passes 29 tests, including
+acceptance of a modeled valid response beyond the former cutoff and continued
+failure on exhausted attempts/security errors. A full Azure application run
+has not yet exercised this correction; the simulator/command/L4/L5 gap remains.
+
+Apply took **203.120 s**. Terraform Destroy completed in **521.916 s**, retaining
+eleven creation and eleven deletion completion timings. Its final resource-group
+step waited on one additional Insights action group outside the eleven-entry
+Terraform graph. Independent inventory resolved that sole remaining child in
+the fresh diagnostic group; an exact scoped DELETE returned HTTP 200. The
+already-running Terraform Destroy then completed. This supplementary cleanup
+is explicitly part of the observed Destroy duration, not an unassisted Terraform
+cleanup pass. Final managed state is zero and an independent ARM resource-group
+lookup returns 404. Temporary function-key copies were removed. Source/package/
+plan hashes, individual timings and correlated raw telemetry remain private.
