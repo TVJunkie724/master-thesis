@@ -1678,7 +1678,7 @@
     }
   ],
   "currency": "USD",
-  "digest": "sha256:60542c22414f8d15c2ba5455c9b9248a32c45a336ad0d91ee22340a6651b0187",
+  "digest": "sha256:8d169dcca781eff0deeeffb06154579849901c2207d22a8e5bd9ff02128bc61f",
   "fixed_dimensions": {
     "azure_mover_max_device_partitions_per_task": 1000,
     "l4_inspection_sessions_per_month": 12,
@@ -1695,7 +1695,7 @@
   },
   "optimization_context": {
     "component_catalog_ref": {
-      "digest": "sha256:69099c2ea652ac5a4c551a03f02ce82d1b7399d7f7938097b666ca490d9b198c",
+      "digest": "sha256:d1ef9bdbc2889c16abd7117134d72731a3b5c581e25c97290302b600695b2045",
       "id": "six-layer-eventing-component-catalog",
       "version": "1"
     },
