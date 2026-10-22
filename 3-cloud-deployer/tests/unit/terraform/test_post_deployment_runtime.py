@@ -55,10 +55,24 @@ def test_azure_postapply_failure_retains_exception_but_never_logs_secret_text(ca
     with caplog.at_level("INFO"), pytest.raises(Denied) as caught:
         provider_runtime._azure_post_step("twin-seed", action)
     assert caught.value is failure
+    assert failure._azure_postapply_phase == "twin-seed"
     assert "phase=twin-seed state=failed" in caplog.text
     assert "error_type=Denied http=403" in caplog.text
     assert "must-not-leak" not in caplog.text
     assert "azurewebsites.net" not in caplog.text
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("Reader returned HTTP 503; client_secret=must-not-leak", 503),
+    ("client_secret=must-not-leak", None),
+])
+def test_azure_postapply_extracts_only_known_http_status(message, expected, caplog):
+    failure = RuntimeError(message)
+    with caplog.at_level("INFO"), pytest.raises(RuntimeError):
+        provider_runtime._azure_post_step(
+            "storage-read", lambda: (_ for _ in ()).throw(failure))
+    assert failure._azure_postapply_http_status == expected
+    assert "must-not-leak" not in caplog.text
 
 
 def _aws_context(

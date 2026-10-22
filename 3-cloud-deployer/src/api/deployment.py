@@ -325,6 +325,15 @@ async def deploy_stream(
                         scope_closed = True
                 if not isinstance(e, Exception):
                     raise
+                phase = getattr(e, "_azure_postapply_phase", None)
+                if phase in ("storage-read", "twin-seed", "iot-devices", "visualization"):
+                    http = getattr(e, "_azure_postapply_http_status", None)
+                    http = http if type(http) is int else None
+                    yield DeploymentStreamEvent.log(
+                        DeploymentOperation.deploy,
+                        f"Azure postapply failed phase={phase} error_type={type(e).__name__} http={http}",
+                        operation_id=stream_context.operation_id,
+                    ).to_sse()
                 detail = client_error_payload(e, operation_context)
                 yield DeploymentStreamEvent.failure(
                     DeploymentOperation.deploy,

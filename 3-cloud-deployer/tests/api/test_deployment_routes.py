@@ -484,6 +484,31 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
     assert "/tmp/twin2multicloud-deployer-workspaces" not in body
 
 
+def test_deploy_stream_identifies_sdk_failure_without_exposing_error_text():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+    async def failing(*args, **kwargs):
+        failure = RuntimeError("client_secret=must-not-leak")
+        failure._azure_postapply_phase = "storage-read"
+        failure._azure_postapply_http_status = 403
+        yield "Running SDK-owned post-deployment operations"
+        raise failure
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="azure"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=failing),
+    ):
+        response = asyncio.run(deployment.deploy_stream(
+            OPERATION_TOKEN, provider="azure", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+    assert "Azure postapply failed phase=storage-read error_type=RuntimeError" in body
+    assert "http=403" in body
+    assert '"error_code":"DEPLOYMENT_ERROR"' in body
+    assert "must-not-leak" not in body
+
+
 def test_deploy_stream_redacts_secret_logs_and_outputs():
     context = MagicMock(name="deployment_context")
     MagicMock(name="terraform_strategy")

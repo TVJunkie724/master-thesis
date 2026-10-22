@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -133,7 +134,12 @@ def _azure_post_step(phase, action, *args):
     try:
         result = action(*args)
     except Exception as exc:
+        exc._azure_postapply_phase = phase
         status = getattr(exc, "status_code", None)
+        if type(status) is not int:
+            matched = re.search(r"returned HTTP ([1-5][0-9]{2})\b", str(exc))
+            status = int(matched[1]) if matched else None
+        exc._azure_postapply_http_status = status if type(status) is int else None
         runtime_logger.error(
             "Azure postapply phase=%s state=failed seconds=%.3f error_type=%s http=%s",
             phase, time.monotonic() - started, type(exc).__name__,
