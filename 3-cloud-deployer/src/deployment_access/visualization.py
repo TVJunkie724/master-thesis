@@ -78,10 +78,11 @@ def _endpoint(provider_name, bundle):
 class _L5NotReady(RuntimeError):
     """Transient platform response, never an authorization/content failure."""
 
-    def __init__(self, message, *, status_code, request_phase):
+    def __init__(self, message, *, status_code, request_phase, response_origin="unclassified"):
         super().__init__(message)
         self.status_code = status_code
         self.request_phase = request_phase
+        self.response_origin = response_origin
 
 
 def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
@@ -126,9 +127,19 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
     with _get(endpoint, stage="authenticated", headers=headers, timeout=request_timeout, allow_redirects=False, stream=True) as response:
         if response.status_code in (502, 503, 504):
+            # Recognize only our fixed public error body; never log arbitrary
+            # provider responses, credentials, headers or exception messages.
+            sample = bytearray()
+            for chunk in response.iter_content(chunk_size=128):
+                sample.extend(chunk[:128 - len(sample)])
+                if len(sample) == 128:
+                    break
+            origin = "l5-data-unavailable" if len(sample) < 128 and sample.strip() == b"L5 data unavailable" else "unclassified"
+            logger.warning("L5 response unavailable phase=authenticated http=%s origin=%s",
+                           response.status_code, origin)
             raise _L5NotReady("L5 HTML surface is not ready",
                               status_code=response.status_code,
-                              request_phase="authenticated")
+                              request_phase="authenticated", response_origin=origin)
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
             raise RuntimeError(f"L5 HTML unavailable (HTTP {response.status_code})")
         body = bytearray()

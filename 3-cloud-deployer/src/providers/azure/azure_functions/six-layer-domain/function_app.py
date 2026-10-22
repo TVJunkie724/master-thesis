@@ -80,7 +80,10 @@ if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
             body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
                                       allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
             return func.HttpResponse(body, status_code=200, headers=VISUALIZATION_HEADERS)
-        except Exception:
+        except Exception as exc:
+            status = getattr(exc, "code", None)
+            logging.warning("L5 data unavailable error_type=%s upstream_http=%s",
+                            type(exc).__name__, status if type(status) is int else None)
             return func.HttpResponse("L5 data unavailable", status_code=503, headers=VISUALIZATION_HEADERS)
 DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 REMOTE_TELEMETRY_ENABLED = (

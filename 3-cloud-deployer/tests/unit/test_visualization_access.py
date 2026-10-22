@@ -177,3 +177,19 @@ def test_transient_response_retains_exact_status_and_stage(monkeypatch, caplog, 
     assert failure.value.request_phase == stage
     assert f'phase={stage}' in caplog.text and f'http={status}' in caplog.text
     assert 'must-not-leak' not in caplog.text and 'azurewebsites.net' not in caplog.text
+
+
+@pytest.mark.parametrize('body, origin', [
+    (b'L5 data unavailable', 'l5-data-unavailable'),
+    (b'client_secret=must-not-leak', 'unclassified'),
+    (b'L5 data unavailable' + b'x' * 200, 'unclassified'),
+])
+def test_azure_503_origin_uses_only_the_fixed_public_body(monkeypatch, caplog, body, origin):
+    from src.deployment_access.visualization import _fetch_visualization_once, _L5NotReady
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', Mock(side_effect=[response(401), response(503, body)]))
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    with caplog.at_level('INFO'), pytest.raises(_L5NotReady) as failure:
+        _fetch_visualization_once('azure', None, azure_output(), verify_auth=True)
+    assert failure.value.response_origin == origin
+    assert f'origin={origin}' in caplog.text
+    assert 'must-not-leak' not in caplog.text

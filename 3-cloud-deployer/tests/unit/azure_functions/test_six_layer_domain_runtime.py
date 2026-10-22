@@ -55,6 +55,34 @@ def _load_runtime(module_name: str):
 runtime = _load_runtime("azure_six_layer_domain")
 
 
+@pytest.mark.parametrize("kind, expected_http", [("http", 403), ("timeout", None)])
+def test_l5_data_failure_logs_only_class_and_upstream_status(monkeypatch, caplog, kind, expected_http):
+    import importlib
+    from urllib.error import HTTPError
+    monkeypatch.setitem(sys.modules, "phase8_eventing",
+                        importlib.import_module("src.runtime.six_layer_eventing"))
+    for key, value in {
+        "SIX_LAYER_VISUALIZATION_ENABLED": "true",
+        "L3_READER_URL": "https://private.example/api/raw-history/v1",
+        "L3_READER_KEY": "must-not-leak",
+        "L5_DEVICE_ID": "sensor", "L5_METRIC": "temperature",
+    }.items():
+        monkeypatch.setenv(key, value)
+    selected = _load_runtime("azure_l5_failure_diagnostics")
+    failure = (HTTPError("https://private.example", 403, "must-not-leak", {}, None)
+               if kind == "http" else TimeoutError("must-not-leak"))
+    monkeypatch.setattr(selected, "urlopen", Mock(side_effect=failure))
+    handler = next(f.get_user_function() for f in selected.app.get_functions()
+                   if f.get_function_name() == "six-layer-visualization")
+    with caplog.at_level("WARNING"):
+        result = handler(Mock())
+    assert result.status_code == 503
+    assert result.get_body() == b"L5 data unavailable"
+    assert f"error_type={type(failure).__name__}" in caplog.text
+    assert f"upstream_http={expected_http}" in caplog.text
+    assert "must-not-leak" not in caplog.text and "private.example" not in caplog.text
+
+
 def test_event_hub_batch_annotations_are_worker_compatible(monkeypatch):
     # The deployed worker rejects PEP-585 list[T] during indexing even though
     # FunctionApp.get_functions() accepts it. Azure's binding expects typing.List.
