@@ -70,6 +70,7 @@ def test_authenticated_read_is_bounded_and_disallows_redirects(monkeypatch):
     assert 'Authorization' in get.call_args.kwargs['headers']
     assert all(call.kwargs['allow_redirects'] is False and call.kwargs['stream'] is True
                for call in get.call_args_list)
+    assert all(call.kwargs['timeout'] == 30 for call in get.call_args_list)
 
 
 def test_reader_alias_fails_before_network(monkeypatch):
@@ -110,6 +111,22 @@ def test_azure_readiness_timeout_is_bounded(monkeypatch):
     with pytest.raises(requests.ReadTimeout):
         fetch_visualization('azure', None, azure_output(), verify_auth=True)
     assert get.call_count == 3 and pause.call_count == 2
+    assert all(call.kwargs['timeout'] == 180 for call in get.call_args_list)
+
+
+def test_azure_initial_readiness_allows_slow_valid_response(monkeypatch):
+    import requests
+    def delayed_response(*args, **kwargs):
+        # The observed valid response took 36 s. Model the former cutoff without
+        # sleeping or turning the offline test into another live deployment.
+        if kwargs['timeout'] < 36:
+            raise requests.ReadTimeout()
+        return response(200 if 'headers' in kwargs else 401)
+    get = Mock(side_effect=delayed_response)
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    assert fetch_visualization('azure', None, azure_output(), verify_auth=True) == HTML
+    assert get.call_count == 2
 
 
 def test_azure_ui_read_does_not_retry(monkeypatch):
@@ -120,6 +137,7 @@ def test_azure_ui_read_does_not_retry(monkeypatch):
     with pytest.raises(requests.ReadTimeout):
         fetch_visualization('azure', None, azure_output())
     assert get.call_count == 1
+    assert get.call_args.kwargs['timeout'] == 30
 
 
 @pytest.mark.parametrize('responses', [[200], [401, 403]])

@@ -101,8 +101,11 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     if not isinstance(bundle, dict) or bundle.get("internal_evidence", {}).get("content_revision") != "graphical-l5.v1":
         raise ValueError("Graphical L5 output is required; L3 JSON is not L5")
     endpoint = _endpoint(provider_name, bundle)
+    # A live zero-always-ready Flex probe returned valid content after 36 s,
+    # before entering its millisecond-scale handler. Allow that initial delay.
+    request_timeout = 180 if provider_name == "azure" and verify_auth else 30
     if verify_auth:
-        with _get(endpoint, stage="unauthenticated", timeout=30, allow_redirects=False, stream=True) as response:
+        with _get(endpoint, stage="unauthenticated", timeout=request_timeout, allow_redirects=False, stream=True) as response:
             if response.status_code in (502, 503, 504):
                 raise _L5NotReady("L5 authentication surface is not ready")
             if response.status_code not in (401, 403):
@@ -115,7 +118,7 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     else:
         from src.providers.azure.layers.layer_5_raw_history import _reader_key
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
-    with _get(endpoint, stage="authenticated", headers=headers, timeout=30, allow_redirects=False, stream=True) as response:
+    with _get(endpoint, stage="authenticated", headers=headers, timeout=request_timeout, allow_redirects=False, stream=True) as response:
         if response.status_code in (502, 503, 504):
             raise _L5NotReady("L5 HTML surface is not ready")
         if response.status_code != 200 or response.headers.get("Content-Type", "").split(";")[0] != "text/html":
