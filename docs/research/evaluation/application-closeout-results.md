@@ -530,3 +530,64 @@ to a live pass.
 RQ1 gains a reproduced client failure and a bounded correction; RQ2's composed
 Azure gap remains explicit. RQ3 receives no cold-start attribution or inferred
 billed-cost result from these individual observations.
+
+### Ordinary Azure application with bounded L5 reader fix — 2026-10-23
+
+Runtime source: `c8835c36`, including fix `9c9cc74e`. A fresh supervised
+Azure-local candidate used the current canonical source pins; the disabled
+batch-matrix execution gate was not changed. Normal Duplicate retained the
+source experiment's cloud resource name while changing its display name.
+The saved plan, verifier and inventory were aligned to that actual cloud scope;
+independent pre-deploy resource-group/resource/role counts were all zero.
+All fifteen required Azure resource providers were already registered.
+
+**Result: failed before composed functional verification.** The normal Flutter
+configuration validation and UI Deploy admitted the reviewed 111-entry plan.
+There were no always-ready instances. The generated domain Function ZIP matched
+the fixed source byte-for-byte; this checks the packaged artifact, not a direct
+download of the running cloud worker. Reopening the local web preview restored
+the same operation rather than starting another deployment.
+
+Deployment ran **896.535648 s** before failing the unchanged initial L5 gate.
+L3 reader readiness, Twin initialization and IoT device registration completed
+in **9.606 s**, **4.153 s** and **1.582 s** respectively. These are postapply
+readiness observations, not simulator-data verification. Anonymous L5 requests
+were denied with HTTP 401. All three authenticated requests returned HTTP 503,
+after **60.256 s**, **60.369 s** and **60.322 s**; L5 postapply failed after
+**250.208 s**. Each response origin remained `unclassified`, not the fixed
+`L5 data unavailable` application body. Existing host diagnostics recorded
+worker initialization but no concrete L5 exception explaining those responses.
+Neither entry into the fixed handler nor a platform root cause is established.
+
+The packaged `host.json` contains no explicit `functionTimeout`. Microsoft's
+[hosting documentation](https://learn.microsoft.com/en-us/azure/azure-functions/functions-scale#function-app-timeout-duration)
+separately documents Flex's default thirty-minute execution timeout,
+230-second HTTP response limit and non-configurable sixty-second worker-start
+timeout. The observed timing is consistent with the latter but does not prove
+it; merely raising the client's already-180-second timeout is not an evidenced
+fix. No timeout, authentication, graphical-content or data gate was weakened.
+
+The downloaded-simulator/command/exact-L3/Event-to-L4/exact-L5 verifier was
+correctly not admitted after deployment failed. No fixture message was sent,
+no functional test overlapped Destroy, and no missing latency is recorded as
+zero. ACR image/context digests and build timestamps are retained privately;
+the actual build execution took **30.990457 s**, excluding queue/publication.
+Ordinary Management Destroy was started immediately by the cleanup guard.
+It succeeded in **978.274303 s**, retaining **110 creation and 110 destruction
+completion timings**. Authoritative cleanup evidence reports empty Terraform
+state and empty provider inventory, with zero residuals. A separate post-terminal
+ARM query found zero run resource groups, resources and exact-scope/descendant
+role assignments. Inherited ancestor roles were excluded, not modified.
+The real UI visibly reports `DESTROYED` and cleanup `COMPLETE`, while correctly
+retaining `NO EVIDENCE` for telemetry. The new Twin history contains exactly
+one Deploy and one Destroy. No failed deployment was relabeled successful.
+The temporary local auxiliary AWS-provider authority file was removed; it
+enabled shared-root initialization, not AWS resources. The opt-in Management
+admission flag and Deployer override were restored to their ordinary settings.
+
+RQ1 retains another bounded provisioning/readiness failure, not a successful
+deployment. RQ2's composed Azure gap remains open. RQ3 gains build/lifecycle
+observations, not message latency, cold-start attribution or measured billed
+cost. The earlier diagnostic comparison remains separately qualified. A further
+full-stack retry should not substitute for identifying this newly unclassified
+L5 response boundary.

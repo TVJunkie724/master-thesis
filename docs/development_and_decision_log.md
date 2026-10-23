@@ -1777,3 +1777,23 @@ The correction and canonical source-pin cascade are committed in `9c9cc74e`;
 empty managed state and independently zero exact-scope ARM inventories close
 the diagnostic. Inherited subscription/ancestor roles are explicitly excluded
 from run-owned residual counts, never deleted to manufacture a zero result.
+
+### 2026-10-23 — Preserve the failed normal Azure retry and complete cleanup
+
+The ordinary UI-led application run includes the bounded L5 reader fix, current
+canonical pins and no always-ready workers. Initial L3/Twin/IoT readiness passed,
+but all three authenticated L5 requests returned unclassified HTTP 503 at about
+sixty seconds. The fixed application data-error response was not observed; the
+existing host logs do not establish the exact exception or a platform root
+cause. The simulator/command/L3/L4/L5 verifier was correctly not admitted.
+Do not weaken its gates or infer a cold-start cause from timing alone.
+
+The failed deployment (896.535648 s), ACR build (30.990457 s execution), ordinary
+successful Destroy (978.274303 s) and 110 creation/110 deletion timings are
+retained separately. Empty Terraform/provider inventories and independent zero
+ARM group/resource/exact-scope role counts close cleanup. The actual UI shows
+DESTROYED/COMPLETE without inventing telemetry evidence. One Deploy and one
+Destroy remain in this Twin's history. Temporary local authority/configuration
+overrides are removed; original credentials and unrelated user files remain
+unchanged. RQ1 gains the failed readiness/cleanup observation; RQ2's composed
+Azure gap stays open, with no fabricated RQ3 message latency or billed cost.

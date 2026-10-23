@@ -655,6 +655,20 @@ state and independent exact-scope ARM resource-group/resource/role counts are
 all zero. The supplemental inventory excludes three inherited ancestor-scope
 roles without modifying them. No live diagnostic resources remain.
 
+**Normal application retry with the fix — 2026-10-23:** the fresh Azure-local
+candidate at `c8835c36` packaged `9c9cc74e` correctly and ran the normal UI-led
+111-entry plan without always-ready instances. Initial L3/Twin/IoT readiness
+passed, but three authenticated L5 requests returned unclassified HTTP 503
+after approximately sixty seconds, not the application's fixed data-error body.
+The composed verifier was not started; Azure full application E2E remains open.
+Deployment failed after 896.535648 s; immediate ordinary Destroy succeeded in
+978.274303 s. Empty managed state, provider inventory and a separate exact-scope
+ARM null inventory are confirmed; the UI shows cleanup COMPLETE. The
+[application record](../research/evaluation/application-closeout-results.md#ordinary-azure-application-with-bounded-l5-reader-fix--2026-10-23)
+retains timings and diagnostic limits. Identify the unclassified L5 hosting/
+request boundary before another full-stack retry; do not manufacture a pass by
+relaxing authentication/content gates or adding warm capacity.
+
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded
 restoration plan retained in `cb519309` in this document.
