@@ -1751,3 +1751,29 @@ Cleanup checks nested package-module state as well as independent ARM absence.
 This is bounded diagnostic preparation, not a new live result or spending
 authorization. RQ1 gains test steering and cleanup safeguards; RQ2/RQ3 receive
 no new functional, cold-start or billed-cost claim from offline preparation.
+
+### 2026-10-23 — Correct L5's own reader policy, not cloud capacity
+
+The isolated diagnostic identified fixed L5 data-error responses with matching
+live URL/key configuration. Actual reader data was valid, but a direct raw read
+took 25.659 s. The unchanged L5 code separately reproduced an hourly reader
+`TimeoutError` after its ten-second bound. A controlled host-client comparison
+needed both a longer request and one transient retry to obtain both exact
+panels. This is a demonstrated failure mechanism, not an assertion that every
+historical 503 had the same underlying Azure cause.
+
+The offline correction stays inside the existing Azure consumer: 60 s per
+reader attempt, one retry for timeouts/502/503/504 and shared remaining-budget
+checks. Authentication, content and size failures remain closed. No warm worker,
+new service, dependency, generic retry framework or research-question change is
+introduced. The original cloud baseline remains failed; paused-driver follow-up
+and local-client comparisons are explicitly qualified, not promoted to E2E.
+The evaluation driver also replaces 31 Azure polls with three so its direct
+reader diagnosis can execute within the existing functional deadline. The
+application closeout record retains measurements and limits; a fresh normal
+cloud observation remains necessary for RQ2.
+The correction and canonical source-pin cascade are committed in `9c9cc74e`;
+2,267 safe Deployer tests pass with one intentional skip. Ordinary Destroy,
+empty managed state and independently zero exact-scope ARM inventories close
+the diagnostic. Inherited subscription/ancestor roles are explicitly excluded
+from run-owned residual counts, never deleted to manufacture a zero result.

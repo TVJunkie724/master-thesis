@@ -132,3 +132,11 @@ cleanup now also checks managed entries nested in package modules before the
 independent scoped ARM absence check. This preparation is not a new live pass
 or a full application E2E result; execution needs its own reviewed saved plan
 and sufficient authorized external allowance.
+
+The subsequent [October 23 diagnostic](../research/evaluation/application-closeout-results.md#isolated-zero-always-ready-l3l5-diagnosis--2026-10-23)
+retains a failed cloud L5 baseline, direct reader timing/failure observations
+and a separately qualified host-client comparison. It motivates a bounded
+Azure reader-policy correction, not warm capacity or a new historical pass.
+Azure research polling now stops after three attempts rather than 31, leaving
+time for direct reader diagnosis. These changes do not retroactively alter
+the October 5 result or qualify composed simulator-to-L5 delivery.

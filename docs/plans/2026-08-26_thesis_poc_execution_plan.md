@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-22"
+lastUpdated: "2026-10-23"
 version: "2.5"
 ---
 
@@ -635,6 +635,25 @@ Destroy retains its separate 30-minute reserve, recursive managed-state check
 and independent resource-group absence check. Preparation is not live evidence;
 the exact saved plan and external allowance must clear before execution.
 The focused runner/renderer/L4 regression group passes 72 offline tests.
+
+**Diagnostic finding — 2026-10-23:** the isolated zero-always-ready cut
+reproduced nine fixed L5 data-error responses. Direct L3 data can be correct
+yet take longer than the handler's ten-second bound; the unchanged handler
+reproduced an actual reader `TimeoutError` in a host-side client. A controlled
+60-second/one-retry comparison returned both exact data panels, but is not a
+cloud L5 or composed E2E pass. The narrow offline Azure correction retains
+authentication/data gates, uses a shared reader budget and does not add warm
+capacity. The research runner now stops Azure polling after three attempts so
+reader diagnostics fit its deadline. The qualified observation and steering
+deviation are retained in the
+[closeout results](../research/evaluation/application-closeout-results.md#isolated-zero-always-ready-l3l5-diagnosis--2026-10-23).
+A fresh ordinary Azure application run must still validate the deployed fix;
+no success is backfilled into the failed baseline.
+The offline fix is committed as `9c9cc74e`; the safe Deployer gate passes 2,267
+tests with one intentional skip. Destroy completed in 684.716 s; empty managed
+state and independent exact-scope ARM resource-group/resource/role counts are
+all zero. The supplemental inventory excludes three inherited ancestor-scope
+roles without modifying them. No live diagnostic resources remain.
 
 Date: 2026-10-18. Commit: `cc3427b4`. Branch:
 `codex/phase-8-deployer-graph-resolver`. Approved plan: the preceding bounded

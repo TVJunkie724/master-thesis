@@ -446,3 +446,87 @@ command latency nor cold-start/billed-cost attribution from this attempt.
 The next diagnostic should isolate the existing L3-to-L5 path and classify the
 503 origin before another complete Twin deployment; it requires a separately
 reviewed live plan. No additional paid run was started here.
+
+### Isolated zero-always-ready L3/L5 diagnosis — 2026-10-23
+
+Runtime and saved-plan source: `c762f890`. The fixed research cut created only
+the reviewed twenty managed entries: two Flex Apps/plans, serverless Cosmos,
+private package storage, scoped data roles and packaging entries. Neither
+always-ready workers nor IoT/Event/L4 resources or a processor image were added.
+This is a seeded-data diagnostic, not a new composed application/UI attempt.
+
+**The original L5 observation failed.** Nine completed authenticated requests
+returned HTTP 503 with the fixed `L5 data unavailable` body. This identifies the
+L5 application's data-read/render failure path, not a generic hosting error
+page. The graphical and anonymous-access acceptance checks did not pass. The
+exact exception inside that cloud handler was not captured. No
+Application Insights resource was configured in this historical research cut;
+available host diagnostics did not supply that exception. Configured and current
+reader keys matched, and the live L5 URL matched the reader output.
+
+The researcher closed this failing phase and paused its driver before direct
+reader tests, avoiding redundant polling. The in-flight and subsequent L5
+observations are excluded from the baseline. SIGINT/SIGCONT then routed the
+driver directly into its guaranteed cleanup path; its raw `KeyboardInterrupt`
+is an operator steering event, not the application's error. No verification ran
+during Destroy and no lifecycle state was reset. The research runner now limits
+Azure L5 polling to three attempts (`ec0ac7cf`), leaving room for reader follow-up
+inside its existing deadline; that correction is offline-only in this record.
+
+Direct raw readback passed with exact fixture data after **25.659 s**. The first
+hourly read returned HTTP 503 after **60.370 s**, with its body unclassified;
+a repeated production-range hourly query returned three points in **0.609 s**.
+Direct Cosmos queries found three hourly records with integer counts and passed
+the unchanged normalizer. These checks do not independently qualify the reader's
+managed identity or establish a generic Azure platform root cause.
+
+The **unchanged L5 code**, invoked from the host-side research client against
+the actual reader, reproduced a concrete failure: raw HTTP 200 in **0.683 s**,
+then hourly `TimeoutError` after **10.228 s**, producing L5 HTTP 503 after
+**10.918 s**. This demonstrates the internal ten-second failure mechanism in a
+separate client context; it is not a recovered trace of every cloud 503.
+A separately qualified cloud-L5 read after the reader tests still returned
+the fixed HTTP 503 in **13.104 s**. Reader pre-access is therefore not adopted
+as a substitute for fixing the request policy.
+
+A controlled host-client comparison allowed 60 s per reader attempt, at most
+one transient retry, and a shared 150 s comparison deadline. It returned two
+exact SVG panels in **72.167 s**: raw HTTP 200 after **10.456 s**, hourly timeout
+after **61.271 s**, then hourly HTTP 200 after a retry in **0.433 s**. All six
+values/timestamps matched the stored fixture. The HTML was rendered locally by
+the production renderer; this is **not** a pass of the deployed cloud L5 handler
+or the simulator/command/UI E2E. No cloud code was replaced during this test.
+
+The subsequent narrow offline correction uses that bounded reader policy in
+Azure L5. Only timeouts and HTTP 502/503/504 receive one retry; authentication,
+other transport failures, invalid data and size limits remain fail-closed.
+Remaining budget is checked before and after reads across both queries. Socket
+timeouts do not themselves impose a hard DNS/end-to-end wall-clock limit; the
+supervised run deadline remains separate. Azure's documented
+[230-second HTTP response limit](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger#limits)
+is also distinct. No worker, capacity, dependency or architecture change is made.
+Canonical source pins and generated copies are refreshed in `9c9cc74e` without
+rewriting old experiment graphs. A fresh normal Azure application observation
+is still needed.
+
+Deployment took **443.136 s**. Ordinary Terraform Destroy completed in
+**684.716 s**, retaining twenty creation and twenty deletion completion timings.
+The total **2,226.096 s** includes researcher steering and diagnostic comparisons;
+it is not application message latency or an uninterrupted E2E duration. Final
+managed state is empty. Independent ARM checks found zero run resource groups,
+resources and role assignments. The first supplemental role query included three
+inherited ancestor-scope assignments; exact run-scope/descendant filtering
+corrected that inventory classification. Both reports remain private and no
+inherited role was changed or deleted. No diagnostic cloud resources remain.
+
+The final safe Deployer gate passes **2,267 tests, one intentional skip** with
+the existing MQTT TLS deprecation warning. The research runner/renderer/L4 gate
+passes 73 tests; contract synchronization and thirteen contract tests pass.
+Forty-two affected Flutter model/demo tests, its architecture gate and Ruff
+also pass. Generated JSON changes are digest-only, with the architecture profile
+unchanged. None of these offline checks promotes the failed cloud L5 baseline
+to a live pass.
+
+RQ1 gains a reproduced client failure and a bounded correction; RQ2's composed
+Azure gap remains explicit. RQ3 receives no cold-start attribution or inferred
+billed-cost result from these individual observations.
