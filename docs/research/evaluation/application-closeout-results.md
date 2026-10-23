@@ -677,3 +677,35 @@ billing; no message-latency or functional-equivalence result is inferred.
 Commit `259e70b5` introduces the separately bounded 600-second initial readiness
 experiment; 2,273 safe Deployer tests pass with one intentional skip. Its live
 outcome must be recorded separately, not attributed retroactively to this run.
+
+### Ten-minute L5 admission window and key comparison — 2026-10-24
+
+The next ordinary UI deployment, source `c81f77d7`, retained the same packages,
+topology and zero always-ready workers. L3 access, Twin seeding and device
+registration passed, but L5 exhausted its **600.203 s** initial-readiness window.
+Six authenticated calls returned unclassified HTTP 503 at approximately sixty
+seconds; the last request was stopped by the remaining deadline. Extending
+the initial window alone did not produce a successful deployment.
+
+A read-only A/B/A comparison in the same failed deployment returned valid
+HTML with the existing function key (37.504 s), HTTP 503 with the host default
+key (60.312 s), then valid HTML with the original function key (0.805 s).
+Later L5 invocation records show successful handler durations of approximately
+6.943 s and 0.500 s. This does not support broadening access credentials.
+These are diagnostic observations, not simulator/command/full-E2E evidence;
+the application remained failed. The internal platform origin of the 503 is
+not established. Built-in detector aggregates did not provide request-level
+coverage sufficient to establish a root cause.
+
+Deployment lasted **1,217.133323 s**. Ordinary Destroy completed in
+**1,017.259635 s**, with no supplemental cloud deletion. All 111 deletions and
+222 creation/deletion timings were retained, followed by independent zero
+groups, resources and run-scoped role assignments. No billed-cost or message
+latency result is inferred. RQ1 gains the failed admission and complete cleanup
+record; RQ2 remains unproven for the composed Azure application.
+
+Commits `fdd8eef9` and `549bd170` define the next controlled configuration test:
+L5's on-demand maximum changes from one to two; memory, zero always-ready,
+packages, authentication and functional assertions remain unchanged. This is
+a capacity hypothesis, not a confirmed repair. The safe Deployer suite passes
+2,273 tests with one intentional skip before live execution.
