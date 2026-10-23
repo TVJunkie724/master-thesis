@@ -94,18 +94,19 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization"
   https_only                                     = true
   webdeploy_publish_basic_authentication_enabled = false
   site_config {
-    minimum_tls_version     = "1.2"
-    scm_minimum_tls_version = "1.2"
+    minimum_tls_version                    = "1.2"
+    scm_minimum_tls_version                = "1.2"
+    application_insights_connection_string = azurerm_application_insights.azure_command_diagnostics[0].connection_string
   }
   # No always-ready worker and no Cosmos identity: L5 reads through L3 only.
-  app_settings = {
+  app_settings = merge({
     SIX_LAYER_VISUALIZATION_ENABLED = "true"
     L3_READER_URL                   = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
     L3_READER_KEY                   = data.azurerm_function_app_host_keys.azure_six_layer_visualization_reader[0].default_function_key
     L5_DEVICE_ID                    = local.six_layer_visualization_device
     L5_METRIC                       = local.six_layer_visualization_metric
     L5_ALLOW_EMPTY                  = "true"
-  }
+  }, local.azure_l5_diagnostic_settings)
   tags = local.azure_six_layer_tags
   lifecycle {
     precondition {

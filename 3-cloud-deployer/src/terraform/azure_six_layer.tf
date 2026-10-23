@@ -245,18 +245,23 @@ resource "azurerm_log_analytics_workspace" "azure_azure_log_analytics_shared_wor
   tags                = local.azure_six_layer_tags
 }
 
-# One bounded command experiment needs execution traces, not another dashboard.
-# Telemetry-only Core and full-profile deployments keep their existing graph.
+# Reuse one capped trace resource for command experiments and L3/L5 diagnosis.
+# No dashboard or always-ready capacity is introduced.
 locals {
   azure_command_diagnostics_enabled = local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0
+  azure_runtime_diagnostics_enabled = local.azure_command_diagnostics_enabled || local.azure_six_layer_l5_enabled
   azure_command_diagnostic_settings = local.azure_command_diagnostics_enabled ? {
     APPLICATIONINSIGHTS_CONNECTION_STRING                                            = azurerm_application_insights.azure_command_diagnostics[0].connection_string
     AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
   } : {}
+  azure_l5_diagnostic_settings = local.azure_six_layer_l5_enabled ? {
+    AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
+    AzureFunctionsJobHost__logging__logLevel__default                                = "Information"
+  } : {}
 }
 
 resource "azurerm_application_insights" "azure_command_diagnostics" {
-  count                = local.azure_command_diagnostics_enabled ? 1 : 0
+  count                = local.azure_runtime_diagnostics_enabled ? 1 : 0
   name                 = "${local.azure_six_layer_name}-command-traces-${local.deployment_suffix}"
   location             = azurerm_resource_group.main[0].location
   resource_group_name  = azurerm_resource_group.main[0].name
@@ -274,7 +279,7 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
   # Match Azure's observed TLS floor so a retry does not replace the Hub.
-  min_tls_version     = "1.2"
+  min_tls_version = "1.2"
 
   sku {
     name     = local.azure_six_layer_iot_sku
@@ -1270,11 +1275,12 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   }
 
   site_config {
-    minimum_tls_version     = "1.2"
-    scm_minimum_tls_version = "1.2"
+    minimum_tls_version                    = "1.2"
+    scm_minimum_tls_version                = "1.2"
+    application_insights_connection_string = local.azure_six_layer_l5_enabled ? azurerm_application_insights.azure_command_diagnostics[0].connection_string : null
   }
 
-  app_settings = {
+  app_settings = merge({
     ARCHITECTURE_PROFILE          = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                 = local.deployment_suffix
     SIX_LAYER_RAW_HISTORY_ENABLED = "true"
@@ -1282,7 +1288,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
     SIX_LAYER_COSMOS_DATABASE     = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
     SIX_LAYER_COSMOS_CONTAINER    = azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
     SIX_LAYER_CURSOR_HMAC_KEY     = random_password.azure_six_layer_raw_history_cursor_hmac[0].result
-  }
+  }, local.azure_l5_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 

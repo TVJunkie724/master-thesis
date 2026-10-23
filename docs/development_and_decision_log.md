@@ -1818,3 +1818,24 @@ Destroy remain in this Twin's history. Temporary local authority/configuration
 overrides are removed; original credentials and unrelated user files remain
 unchanged. RQ1 gains the failed readiness/cleanup observation; RQ2's composed
 Azure gap stays open, with no fabricated RQ3 message latency or billed cost.
+
+### 2026-10-23 — Trace the remaining composed L3/L5 boundary
+
+The instrumented two-app cut returned exact L5 data three times in France
+Central (69.434, 117.495 and 117.501 s). A separate West Europe L5 host reading
+the same France Central L3 returned exact data twice (68.9 and 123.027 s).
+Neither result proves the seven-app, provider-local composed flow. The bounded
+capacity comparison expired before producing a capacity-two observation, so
+no capacity increase is adopted. Operator steering and that incomplete
+comparison remain qualified in the private diagnostic record.
+
+Full Azure L5 deployments now reuse one capped Application Insights component
+and the existing shared Log Analytics workspace for L3/L5 request/handler
+traces. The existing Core command diagnostic remains unchanged. Connection
+strings use the provider-owned site configuration, not duplicate app settings.
+The added trace resource has a 0.1-GB daily ingestion cap, no dashboard, and
+does not introduce always-ready workers. This is focused diagnosis of the
+unclassified HTTP 503 boundary, not a functional pass or a root-cause claim.
+Safe Deployer verification: 2,269 passed, one intentional skip; the reviewed
+full plan contains 112 creates, no updates/deletes, seven zero-always-ready
+Function Apps, and no AWS/GCP resources.
