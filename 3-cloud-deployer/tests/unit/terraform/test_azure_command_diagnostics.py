@@ -42,6 +42,9 @@ def test_l5_host_logs_reuse_existing_workspace_without_warm_workers():
     visualization = (TF / "six_layer_visualization.tf").read_text()
     assert 'always_ready {' not in visualization
     assert 'azurerm_log_analytics_workspace"' not in visualization
+    visual_app = visualization.split('resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization" {', 1)[1].split('\nmodule ', 1)[0]
+    assert "maximum_instance_count = 2" in " ".join(visual_app.split())
+    assert "instance_memory_in_mb = 2048" in " ".join(visual_app.split())
 
 
 def test_l3_l5_trace_wiring_preserves_provider_owned_app_insights_setting():

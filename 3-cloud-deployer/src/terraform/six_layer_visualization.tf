@@ -89,7 +89,9 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization"
   storage_access_key                             = azurerm_storage_account.main[0].primary_access_key
   runtime_name                                   = "python"
   runtime_version                                = "3.12"
-  maximum_instance_count                         = 1
+  # Bounded on-demand headroom; no always-ready worker. Test the capacity
+  # boundary after intermittent unclassified 503s with a one-instance limit.
+  maximum_instance_count                         = 2
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   webdeploy_publish_basic_authentication_enabled = false

@@ -1862,3 +1862,24 @@ invalid HTML and unsupported endpoints still fail closed; ordinary UI reads
 and AWS behavior are unchanged. This is a controlled test of delayed initial
 availability, not a claim that extending a timeout fixes the unclassified 503.
 No warm worker, capacity increase or new resource is introduced.
+
+### 2026-10-24 — Test bounded L5 on-demand headroom, not broader credentials
+
+The next normal Azure deployment exhausted the 600-second initial-readiness
+window: six authenticated calls returned unclassified HTTP 503 after roughly
+60 seconds, followed by a final request bounded by the remaining deadline.
+The same deployed L5 subsequently returned valid HTML with its existing
+function-scoped key (37.504 s), returned 503 with the host default key (60.312 s),
+then returned valid HTML with the original function key (0.805 s). These are
+diagnostic reads, not a successful application deployment or full E2E result.
+They do not support broadening credentials or attributing every failure to the
+L5-to-L3 handler. Missing invocation records alone do not prove non-entry.
+
+The next controlled change raises only Azure L5's on-demand maximum from one
+to two instances. Memory remains 2048 MB, always-ready remains absent, and
+runtime packages, access checks and functional assertions are unchanged.
+Microsoft warns that an overly low HTTP scale limit can cause latency and
+rejected requests ([scaling guidance](https://learn.microsoft.com/en-us/azure/azure-functions/event-driven-scaling)).
+This is an explicitly unconfirmed capacity hypothesis, not a platform-root-cause
+claim. Retain the failed baseline; require a fresh ordinary deployment, exact
+simulator/command/L3/L4/L5 assertions, UI verification and independent cleanup.
