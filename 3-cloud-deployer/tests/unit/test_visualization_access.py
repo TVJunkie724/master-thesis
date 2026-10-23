@@ -110,8 +110,60 @@ def test_azure_readiness_timeout_is_bounded(monkeypatch):
     monkeypatch.setattr('src.deployment_access.visualization.time.sleep', pause)
     with pytest.raises(requests.ReadTimeout):
         fetch_visualization('azure', None, azure_output(), verify_auth=True)
-    assert get.call_count == 3 and pause.call_count == 2
+    assert get.call_count == 21 and pause.call_count == 20
     assert all(call.kwargs['timeout'] == 180 for call in get.call_args_list)
+
+
+def test_azure_initial_readiness_shares_one_budget_across_attempts(monkeypatch):
+    import requests
+    now = [0.0]
+    def timeout(*args, **kwargs):
+        now[0] += kwargs['timeout']
+        raise requests.ReadTimeout()
+    monkeypatch.setattr('src.deployment_access.visualization.time.monotonic', lambda: now[0])
+    monkeypatch.setattr('src.deployment_access.visualization.time.sleep', lambda seconds: now.__setitem__(0, now[0] + seconds))
+    get = Mock(side_effect=timeout)
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    with pytest.raises(requests.ReadTimeout):
+        fetch_visualization('azure', None, azure_output(), verify_auth=True)
+    assert now[0] == 600
+    assert [call.kwargs['timeout'] for call in get.call_args_list] == [180, 180, 180]
+
+
+def test_fast_azure_503s_do_not_exhaust_readiness_before_time_window(monkeypatch):
+    import requests
+    now = [0.0]
+    get = Mock(return_value=response(503))
+    monkeypatch.setattr('src.deployment_access.visualization.time.monotonic', lambda: now[0])
+    monkeypatch.setattr('src.deployment_access.visualization.time.sleep', lambda seconds: now.__setitem__(0, now[0] + seconds))
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    with pytest.raises(requests.ReadTimeout):
+        fetch_visualization('azure', None, azure_output(), verify_auth=True)
+    assert now[0] == 600 and get.call_count == 20
+
+
+def test_azure_readiness_can_recover_after_three_platform_errors(monkeypatch):
+    get = Mock(side_effect=[response(503), response(503), response(503), response(401), response(200)])
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.deployment_access.visualization.time.sleep', Mock())
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    assert fetch_visualization('azure', None, azure_output(), verify_auth=True) == HTML
+    assert get.call_count == 5
+
+
+def test_azure_readiness_rechecks_budget_between_auth_and_data(monkeypatch):
+    import requests
+    now = [0.0]
+    def late_auth(*args, **kwargs):
+        now[0] = 600.0
+        return response(401)
+    get = Mock(side_effect=late_auth)
+    monkeypatch.setattr('src.deployment_access.visualization.time.monotonic', lambda: now[0])
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    with pytest.raises(requests.ReadTimeout):
+        fetch_visualization('azure', None, azure_output(), verify_auth=True)
+    assert get.call_count == 1
 
 
 def test_azure_initial_readiness_allows_slow_valid_response(monkeypatch):

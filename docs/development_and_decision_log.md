@@ -1839,3 +1839,26 @@ unclassified HTTP 503 boundary, not a functional pass or a root-cause claim.
 Safe Deployer verification: 2,269 passed, one intentional skip; the reviewed
 full plan contains 112 creates, no updates/deletes, seven zero-always-ready
 Function Apps, and no AWS/GCP resources.
+
+### 2026-10-23 — Bound initial Azure L5 readiness by time, not three responses
+
+The instrumented full topology reproduced initial L5 HTTP 503 responses after
+about sixty seconds despite a 180-second client allowance. Two authenticated
+requests and one anonymous retry failed; two anonymous requests correctly
+returned 401. The three-attempt readiness sequence stopped after 191.226 s.
+Available L5 traces show registration/host initialization across three role
+instances, but no matching invocation record at collection time. This does not
+prove a crash, quota exhaustion or a specific platform cause; ingestion delay
+also limits negative conclusions. The coarse built-in detector responses
+covered an earlier window and are not evidence of a healthy workload.
+
+Only initial deployment readiness now shares a 600-second monotonic budget
+across transient retries, with 30-second spacing and at most 21 attempts.
+Each HTTP request is capped by both its existing allowance and the remaining
+budget. The budget is rechecked between authentication and data access and
+before accepting the result. Immediate transient responses therefore cannot
+consume the whole retry policy in a few seconds. Authentication failures,
+invalid HTML and unsupported endpoints still fail closed; ordinary UI reads
+and AWS behavior are unchanged. This is a controlled test of delayed initial
+availability, not a claim that extending a timeout fixes the unclassified 503.
+No warm worker, capacity increase or new resource is introduced.

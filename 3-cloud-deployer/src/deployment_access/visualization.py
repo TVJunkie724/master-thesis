@@ -86,20 +86,25 @@ class _L5NotReady(RuntimeError):
 
 
 def fetch_visualization(provider_name, provider, outputs, *, verify_auth=False):
-    # Azure Flex may cold-start after package publication. Only initial readiness
-    # gets three attempts; ordinary UI reads remain one bounded request sequence.
-    attempts = 3 if provider_name == "azure" and verify_auth else 1
+    # Only deployment readiness may wait through initial Azure host admission.
+    # Ordinary UI reads remain one request sequence, without hidden retries.
+    initial_azure = provider_name == "azure" and verify_auth
+    attempts = 21 if initial_azure else 1
+    readiness_deadline = time.monotonic() + 600 if initial_azure else None
     for attempt in range(attempts):
         try:
             return _fetch_visualization_once(provider_name, provider, outputs,
-                                             verify_auth=verify_auth)
+                                             verify_auth=verify_auth,
+                                             readiness_deadline=readiness_deadline)
         except (requests.Timeout, requests.ConnectionError, _L5NotReady):
-            if attempt + 1 == attempts:
+            remaining = readiness_deadline - time.monotonic() if readiness_deadline is not None else 0
+            if attempt + 1 == attempts or remaining <= 0:
                 raise
-            time.sleep(3)
+            time.sleep(min(30, remaining))
 
 
-def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=False):
+def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=False,
+                             readiness_deadline=None):
     if provider_name not in {"aws", "azure"}:
         raise ValueError("L5 provider is unsupported")
     bundle = outputs.get(f"{provider_name}_component_visualization_output")
@@ -110,9 +115,16 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     # before entering its millisecond-scale handler. Allow that initial delay.
     # A normal Azure snapshot uses the same scale-to-zero handler as readiness.
     # Its bounded L3 reads can exceed 30 s; do not abort a valid snapshot early.
-    request_timeout = 180 if provider_name == "azure" else 30
+    def request_timeout():
+        timeout = 180 if provider_name == "azure" else 30
+        if readiness_deadline is not None:
+            remaining = readiness_deadline - time.monotonic()
+            if remaining <= 0:
+                raise requests.ReadTimeout("L5 initial readiness deadline exceeded")
+            timeout = min(timeout, remaining)
+        return timeout
     if verify_auth:
-        with _get(endpoint, stage="unauthenticated", timeout=request_timeout, allow_redirects=False, stream=True) as response:
+        with _get(endpoint, stage="unauthenticated", timeout=request_timeout(), allow_redirects=False, stream=True) as response:
             if response.status_code in (502, 503, 504):
                 raise _L5NotReady("L5 authentication surface is not ready",
                                   status_code=response.status_code,
@@ -127,7 +139,7 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     else:
         from src.providers.azure.layers.layer_5_raw_history import _reader_key
         headers = {"x-functions-key": _reader_key(provider, bundle["reader_function_name"], "six-layer-visualization", wait_for_ready=verify_auth)}
-    with _get(endpoint, stage="authenticated", headers=headers, timeout=request_timeout, allow_redirects=False, stream=True) as response:
+    with _get(endpoint, stage="authenticated", headers=headers, timeout=request_timeout(), allow_redirects=False, stream=True) as response:
         if response.status_code in (502, 503, 504):
             # Recognize only our fixed public error body; never log arbitrary
             # provider responses, credentials, headers or exception messages.
@@ -149,4 +161,5 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
             body.extend(chunk)
             if len(body) > MAX_HTML_BYTES:
                 raise ValueError("L5 response size is invalid")
+    request_timeout()  # Do not admit a response that completed after readiness expired.
     return validate_visualization_html(bytes(body))
