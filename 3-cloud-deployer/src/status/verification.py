@@ -227,7 +227,7 @@ def verify_infrastructure(
             ),
             _sdk_check(
                 sdk.get("visualization", {}),
-                name="Visualization workspace",
+                name="Visualization resource",
                 layer="L5",
             ),
         ]

@@ -1883,3 +1883,24 @@ rejected requests ([scaling guidance](https://learn.microsoft.com/en-us/azure/az
 This is an explicitly unconfirmed capacity hypothesis, not a platform-root-cause
 claim. Retain the failed baseline; require a fresh ordinary deployment, exact
 simulator/command/L3/L4/L5 assertions, UI verification and independent cleanup.
+
+### 2026-10-24 — Repair the ordinary Azure UI verification adapters
+
+The capacity-two full deployment passed initial L5 readiness and the downloaded
+simulator/command/exact-L3/L4/L5 assertions. Additional ordinary UI testing then
+exposed two separate adapter defects. The Cosmos verification probe used an
+account key although the Six-layer account disables local authentication;
+a read-only live reproduction confirmed that rejection. The infrastructure
+status adapter still called legacy Azure naming and Grafana probes rather than
+the deployed Six-layer output contract. Do not reinterpret these as a failed
+cloud data path, or label the entire UI flow green.
+
+The narrow correction keeps key authentication disabled. Terraform adds only
+Cosmos native Data Reader for the existing deployment principal on the current
+test account; the verification probe uses Entra authentication and retains its
+exact source-sequence match. Cleanup owns that role. Azure Six-layer status
+reads actual registered IoT devices, seeded ADT models/twins, and the L5 Function
+registration from deployed outputs. It does not fetch Grafana, modify data or
+claim functional success from mere resource presence. Legacy profile behavior
+and other providers are not changed. A fresh ordinary full run and UI checks
+must validate these corrections; no repeated cloud-runtime rebuild is needed.

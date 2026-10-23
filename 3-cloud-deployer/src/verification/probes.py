@@ -152,25 +152,15 @@ def _check_azure_hot_storage_trace(
     try:
         from azure.cosmos import CosmosClient
         from azure.identity import ClientSecretCredential
-        from azure.mgmt.cosmosdb import CosmosDBManagementClient
 
         credential = ClientSecretCredential(
             tenant_id=azure_credentials.get("azure_tenant_id"),
             client_id=azure_credentials.get("azure_client_id"),
             client_secret=azure_credentials.get("azure_client_secret"),
         )
-        management = CosmosDBManagementClient(
-            credential,
-            azure_credentials.get("azure_subscription_id"),
-        )
-        keys = management.database_accounts.list_keys(
-            bundle["resource_group_name"],
-            bundle["account_name"],
-        )
-        account_key = keys.primary_master_key
-        if not isinstance(account_key, str) or not account_key:
-            raise ValueError("Cosmos account key unavailable")
-        client = CosmosClient(bundle["endpoint"], credential=account_key)
+        # Six-layer Cosmos explicitly disables local/key authentication.
+        # Terraform grants this deployment principal account-scoped Data Reader.
+        client = CosmosClient(bundle["endpoint"], credential=credential)
         container = client.get_database_client(
             bundle["database_name"]
         ).get_container_client(bundle["container_name"])

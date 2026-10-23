@@ -40,8 +40,13 @@ def _probe(
         return _component("not_configured", provider_name or "")
     try:
         provider = _initialize_provider(context, provider_name)
-        method: Callable = getattr(provider, method_name)
-        details = method(context)
+        graph = getattr(context, "resolved_deployment_graph", None)
+        if provider_name == "azure" and graph is not None and graph.profile_ref.get("id") == "six-layer-eventing":
+            from src.status.azure_six_layer import probe
+            details = probe(context, provider, method_name)
+        else:
+            method: Callable = getattr(provider, method_name)
+            details = method(context)
         if details:
             return _component("deployed", provider_name, details=details)
         return _component("not_deployed", provider_name)

@@ -404,6 +404,10 @@ resource "azurerm_cosmosdb_sql_role_assignment" "azure_azure_cosmos_db_nosql_raw
         principal_id = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].identity[0].principal_id
         role_id      = "00000000-0000-0000-0000-000000000001"
       }
+      verification_reader = {
+        principal_id = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id
+        role_id      = "00000000-0000-0000-0000-000000000001"
+      }
     } : {},
   ) : {}
 

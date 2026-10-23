@@ -56,3 +56,13 @@ def test_l3_l5_trace_wiring_preserves_provider_owned_app_insights_setting():
         assert "}, local.azure_l5_diagnostic_settings)" in block
         assert "APPLICATIONINSIGHTS_CONNECTION_STRING" not in block
     assert "local.azure_six_layer_l5_enabled ? azurerm_application_insights" in reader
+
+
+def test_verification_reader_is_entra_read_only_and_account_scoped():
+    source = (TF / "azure_six_layer.tf").read_text()
+    normalized = " ".join(source.split())
+    assert "local_authentication_disabled = true" in normalized
+    role = normalized.split("verification_reader = {", 1)[1].split("}", 1)[0]
+    assert "principal_id = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id" in role
+    assert 'role_id = "00000000-0000-0000-0000-000000000001"' in role
+    assert "scope = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id" in normalized
