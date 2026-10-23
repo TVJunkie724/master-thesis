@@ -10893,7 +10893,7 @@
       "repository_source_path": "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain",
       "platform_handler": "handler.azure.six-layer-domain-v1",
       "digest_policy": "sha256.canonical-source.v1",
-      "source_digest": "sha256:60c3b2c063147e9e47d66ac143ba660a4242a667ac3ea9c67f7daa5819798413",
+      "source_digest": "sha256:0d2a2b8c6385f586ffbec727ee6525108dd01b1afcf76d64acf68e2446b78353",
       "included_paths": [
         "core.py",
         "function_app.py",
@@ -11167,5 +11167,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:d1ef9bdbc2889c16abd7117134d72731a3b5c581e25c97290302b600695b2045"
+  "content_digest": "sha256:5423a78e24d0d70a89be9a00e3ba98bb5cb2cd01f3a1d5fd16061f5da2e1dcc8"
 }

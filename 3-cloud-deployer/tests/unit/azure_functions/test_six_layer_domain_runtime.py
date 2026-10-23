@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import nullcontext
 import json
 from pathlib import Path
 import sys
 from typing import List, get_type_hints
+from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
 from unittest.mock import Mock
 
 import azure.functions as func
@@ -81,6 +84,94 @@ def test_l5_data_failure_logs_only_class_and_upstream_status(monkeypatch, caplog
     assert f"error_type={type(failure).__name__}" in caplog.text
     assert f"upstream_http={expected_http}" in caplog.text
     assert "must-not-leak" not in caplog.text and "private.example" not in caplog.text
+
+
+def _l5_reader_test(monkeypatch, *, queries=1):
+    import importlib
+    monkeypatch.setitem(sys.modules, "phase8_eventing",
+                        importlib.import_module("src.runtime.six_layer_eventing"))
+    for key, value in {"SIX_LAYER_VISUALIZATION_ENABLED": "true",
+                       "L3_READER_URL": "https://private.example/reader",
+                       "L3_READER_KEY": "must-not-leak",
+                       "L5_DEVICE_ID": "sensor", "L5_METRIC": "temperature"}.items():
+        monkeypatch.setenv(key, value)
+    selected = _load_runtime("azure_l5_reader_bounds")
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(selected, "time", SimpleNamespace(
+        monotonic=lambda: clock.now,
+        sleep=lambda seconds: setattr(clock, "now", clock.now + seconds)))
+    def page(fetch, *_args, **_kwargs):
+        for bucket in range(queries):
+            fetch({"bucket_seconds": str(bucket * 3600)})
+        return "<!doctype html>"
+    monkeypatch.setattr(selected, "visualization_page", page)
+    handler = next(f.get_user_function() for f in selected.app.get_functions()
+                   if f.get_function_name() == "six-layer-visualization")
+    return selected, handler, clock
+
+
+def test_l5_accepts_valid_reader_beyond_former_ten_seconds(monkeypatch):
+    selected, handler, clock = _l5_reader_test(monkeypatch, queries=2)
+    timeouts = []
+    def read(_request, timeout):
+        timeouts.append(timeout)
+        clock.now += 35
+        return nullcontext(SimpleNamespace(read=lambda _size: b"{}"))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 200
+    assert timeouts == [60, 60] and clock.now == 70
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 503, "must-not-leak", {}, None),
+                                     TimeoutError("must-not-leak"), URLError(TimeoutError("must-not-leak"))])
+def test_l5_retries_transient_reader_failure_once(monkeypatch, failure):
+    selected, handler, clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=[failure, nullcontext(SimpleNamespace(read=lambda _size: b"{}"))])
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 200
+    assert read.call_count == 2 and clock.now == 1
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 401, "must-not-leak", {}, None),
+                                     HTTPError("private", 403, "must-not-leak", {}, None),
+                                     HTTPError("private", 401, TimeoutError("must-not-leak"), {}, None),
+                                     URLError("certificate verification failure")])
+def test_l5_does_not_retry_auth_or_non_timeout_transport_failure(monkeypatch, failure):
+    selected, handler, clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=failure)
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503
+    assert read.call_count == 1 and clock.now == 0
+
+
+@pytest.mark.parametrize("payload", [b"not-json", b"x" * (1024 * 1024 + 1)])
+def test_l5_keeps_json_and_size_failures_closed_without_retry(monkeypatch, payload):
+    selected, handler, _clock = _l5_reader_test(monkeypatch)
+    read = Mock(return_value=nullcontext(SimpleNamespace(read=lambda _size: payload)))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503 and read.call_count == 1
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 503, "must-not-leak", {}, None),
+                                     TimeoutError("must-not-leak")])
+def test_l5_exhausted_transient_attempts_still_fail(monkeypatch, failure):
+    selected, handler, _clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=failure)
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503 and read.call_count == 2
+
+
+def test_l5_shares_reader_budget_and_rejects_late_success(monkeypatch):
+    selected, handler, clock = _l5_reader_test(monkeypatch, queries=2)
+    timeouts = []
+    def read(_request, timeout):
+        timeouts.append(timeout)
+        # Model overhead outside the socket timeout, such as DNS resolution.
+        clock.now += 120 if len(timeouts) == 1 else 31
+        return nullcontext(SimpleNamespace(read=lambda _size: b"{}"))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503
+    assert timeouts == [60, 30] and clock.now == 151
 
 
 def test_event_hub_batch_annotations_are_worker_compatible(monkeypatch):

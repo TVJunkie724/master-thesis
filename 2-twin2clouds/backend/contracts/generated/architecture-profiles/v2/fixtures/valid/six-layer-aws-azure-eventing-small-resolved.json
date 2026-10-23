@@ -308,7 +308,7 @@
       "service_id": "azure.visualization.v2"
     }
   ],
-  "content_digest": "sha256:24f3dee72f24ead970bd9fb4b310219a11101e26c7c287cd9e53067f3e5b4c1c",
+  "content_digest": "sha256:ac2219b11b17098bd949f8d04d6d0e0ad7e0cfadc829703455296f73d6905fa6",
   "cost_summary": {
     "component_totals": [
       {
@@ -413,7 +413,7 @@
   },
   "deployment_specification_ref": {
     "calculation_run_id": "d6934ac4-76eb-5ad6-8dae-9a599e3c34e4",
-    "digest": "sha256:8d169dcca781eff0deeeffb06154579849901c2207d22a8e5bd9ff02128bc61f",
+    "digest": "sha256:585b3ce27981940aa68d035f08013c42468d2f8bb2c91e06d745024118d495c2",
     "schema_version": "resolved-deployment-specification.v2"
   },
   "extension_bindings": [
@@ -485,7 +485,7 @@
       "capability.visualization"
     ],
     "status": "complete",
-    "validation_digest": "sha256:13663c5975dded7baeb4308210353e5de844b081f5a92ee32cba806333d0b907",
+    "validation_digest": "sha256:05782de064cb2fa83b62e912572bbdadbe81ac8243840f2847f0e2a60dbc0f15",
     "validator_version": "2"
   },
   "optimization_bundle_ref": {

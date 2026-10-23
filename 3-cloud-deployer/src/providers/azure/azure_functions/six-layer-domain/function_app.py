@@ -69,14 +69,33 @@ if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
     def visualization(req: func.HttpRequest) -> func.HttpResponse:
         """Separate L5 app consumes the HTTP-only L3 reader with an app key."""
         try:
+            reader_deadline = time.monotonic() + 150
             def fetch(query):
                 request = Request(os.environ["L3_READER_URL"] + "?" + urlencode(query),
                                   headers={"x-functions-key": os.environ["L3_READER_KEY"]})
-                with urlopen(request, timeout=10) as response:
-                    data = response.read(1024 * 1024 + 1)
-                if len(data) > 1024 * 1024:
-                    raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
-                return json.loads(data)
+                for attempt in range(2):
+                    remaining = reader_deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("VISUALIZATION_READER_DEADLINE")
+                    try:
+                        with urlopen(request, timeout=min(60, remaining)) as response:
+                            data = response.read(1024 * 1024 + 1)
+                        if len(data) > 1024 * 1024:
+                            raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
+                        if time.monotonic() > reader_deadline:
+                            raise TimeoutError("VISUALIZATION_READER_DEADLINE")
+                        return json.loads(data)
+                    except (HTTPError, URLError, TimeoutError) as exc:
+                        transient = (isinstance(exc, HTTPError) and exc.code in (502, 503, 504)
+                                     or isinstance(exc, TimeoutError)
+                                     or isinstance(exc, URLError) and not isinstance(exc, HTTPError)
+                                     and isinstance(exc.reason, TimeoutError))
+                        if not transient or attempt == 1 or reader_deadline - time.monotonic() <= 1:
+                            raise
+                        status = getattr(exc, "code", None)
+                        logging.warning("L5 reader retry error_type=%s upstream_http=%s",
+                                        type(exc).__name__, status if type(status) is int else None)
+                        time.sleep(1)
             body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
                                       allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
             return func.HttpResponse(body, status_code=200, headers=VISUALIZATION_HEADERS)
