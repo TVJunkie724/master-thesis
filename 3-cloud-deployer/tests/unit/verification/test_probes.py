@@ -10,20 +10,18 @@ from src.verification import probes
 
 @pytest.mark.parametrize("sequence,success", [("VERIFY-TARGET", True), ("VERIFY-OTHER", False)])
 def test_azure_storage_probe_uses_entra_and_keeps_exact_correlation(monkeypatch, sequence, success):
-    import azure.cosmos
-    import azure.identity
-    import azure.mgmt.cosmosdb
+    import sys
 
     credential = object()
-    monkeypatch.setattr(azure.identity, "ClientSecretCredential", Mock(return_value=credential))
+    monkeypatch.setitem(sys.modules, "azure.identity", SimpleNamespace(ClientSecretCredential=Mock(return_value=credential)))
     master_keys = Mock(side_effect=AssertionError("Account keys must not be used"))
-    monkeypatch.setattr(azure.mgmt.cosmosdb, "CosmosDBManagementClient", master_keys)
+    monkeypatch.setitem(sys.modules, "azure.mgmt.cosmosdb", SimpleNamespace(CosmosDBManagementClient=master_keys))
     container = Mock()
     container.query_items.return_value = [{"payload": {"source_sequence": sequence}}]
     client = Mock()
     client.get_database_client.return_value.get_container_client.return_value = container
     factory = Mock(return_value=client)
-    monkeypatch.setattr(azure.cosmos, "CosmosClient", factory)
+    monkeypatch.setitem(sys.modules, "azure.cosmos", SimpleNamespace(CosmosClient=factory))
     bundle = {"endpoint": "https://test.documents.azure.com", "database_name": "history", "container_name": "telemetry"}
     result = probes._check_azure_hot_storage_trace(
         "device-1", "VERIFY-TARGET", {"azure_component_hot_storage_output": bundle}, {}, .002, .001
