@@ -619,3 +619,33 @@ This is **qualified cleanup with supplemental group deletion**, not an
 unassisted Terraform cleanup pass. The failed result and later successful
 cleanup evidence are retained separately. RQ1 gains a provisioning/cleanup
 failure record; RQ2 gains no functional pass and RQ3 no measured billed cost.
+
+### Instrumented L3/L5 observations and qualified cleanup — 2026-10-23
+
+The next fixed-cut deployment completed in **512.160 s**, using the same
+runtime revision `695342f6` and zero always-ready workers. Three authenticated
+France Central L5 requests returned the exact three stored raw/rollup points
+and both graphs in **69.434, 117.495 and 117.501 s**. Request traces show short
+L3 handler durations but substantially longer end-to-end waits; they do not
+identify an internal Azure scheduler/network cause. This also demonstrates
+why the former ordinary app's 30/60-second transport limits were insufficient;
+the access correction is `f8ff944d`.
+
+A separately reviewed seven-entry extension created a West Europe L5 host
+against the same France Central L3. Its first two exact-data responses took
+**68.9 and 123.027 s**. This is explicitly cross-region diagnostic evidence,
+not the full West Europe topology. The capacity-two comparison hit its fixed
+deadline before producing observations. No capacity change is adopted.
+The main diagnostic driver was deliberately interrupted to enter cleanup;
+its aggregate remains incomplete/failed and its final negative-authentication
+checks were not completed. These successful individual requests do not change
+the composed E2E status.
+
+Destroy took **1,100.509 s**. The exact automatic `Application Insights Smart
+Detection` action group required supplemental deletion after all workload
+resources had disappeared. Empty Terraform state and independent zero groups,
+resources and run-scoped roles were then verified. This is qualified cleanup,
+not an unassisted Terraform pass. RQ1 retains lifecycle/per-resource timings;
+RQ2 gains only qualified L3/L5 observations; no billed-cost or cold-start claim
+is inferred for RQ3. Commit `86a3d555` adds capped L3/L5 traces to the full
+application without changing its data/authentication gates or warm capacity.
