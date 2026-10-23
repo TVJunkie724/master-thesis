@@ -1904,3 +1904,13 @@ registration from deployed outputs. It does not fetch Grafana, modify data or
 claim functional success from mere resource presence. Legacy profile behavior
 and other providers are not changed. A fresh ordinary full run and UI checks
 must validate these corrections; no repeated cloud-runtime rebuild is needed.
+
+The retained capacity-two run completed ordinary Destroy and an independent
+zero inventory (resource groups, resources, resource-scoped role assignments).
+Its full functional path passed, but its UI E2E result remains failed because
+of the two adapter defects above; L5 rendering through the UI was not confirmed.
+The cleanup operation has a terminal success record and elapsed-time evidence;
+per-resource Destroy timings were not retained for this attempt. Do not infer
+those missing timings from the independent inventory or creation timings.
+After correcting test-fixture isolation and native mock principal UUIDs, the
+complete safe Deployer suite passed: 2,282 tests, one intentional skip.
