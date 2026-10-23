@@ -1914,3 +1914,25 @@ per-resource Destroy timings were not retained for this attempt. Do not infer
 those missing timings from the independent inventory or creation timings.
 After correcting test-fixture isolation and native mock principal UUIDs, the
 complete safe Deployer suite passed: 2,282 tests, one intentional skip.
+
+### 2026-10-24 — Close Azure functional application and ordinary UI verification
+
+A second fresh capacity-two/zero-always-ready deployment passed the complete
+downloaded-simulator, correlated command, exact raw/hourly L3, L4 projection
+and L5 chart assertions. Its first authenticated L5 response took 7.294 s.
+The ordinary UI initially caught an unsupported `DigitalTwinsClient` context
+manager in the new read-only status adapter. Commit `1dce3e06` fixes only that
+local call and constrains the regression mock to the installed SDK interface;
+cloud resources and runtime packages were unchanged. Rechecking the same
+deployment gave 12/12 UI infrastructure checks and three persisted telemetry
+phase passes, with no fail or skip. The full safe suite remained 2,282 passed,
+one intentional skip.
+
+Normal UI Destroy succeeded, with 224 creation/deletion timing observations
+and independent zero experiment groups/resources/scoped roles. The genuine
+L5 HTML was also rendered offline; the embedded browser's separate popup and
+download-file handoff are explicitly qualified, not silently counted as visual
+browser proof. See `docs/research/evaluation/application-closeout-results.md`
+for timings, failed precursor observations and the unchanged RQ1–RQ3 scope.
+This closes the representative Azure functional/UI-verification observation,
+not every remaining scenario or a multi-browser compatibility claim.

@@ -709,3 +709,84 @@ L5's on-demand maximum changes from one to two; memory, zero always-ready,
 packages, authentication and functional assertions remain unchanged. This is
 a capacity hypothesis, not a confirmed repair. The safe Deployer suite passes
 2,273 tests with one intentional skip before live execution.
+
+### Azure capacity-two application and UI verification — 2026-10-24
+
+Two fresh ordinary deployments with L5 maximum on-demand capacity two and
+zero always-ready instances passed initial L5 readiness and the complete
+downloaded-simulator/command/L3/L4/L5 assertions. These observations support
+the bounded configuration for this PoC; they do not identify an internal Azure
+scheduler or network root cause, or establish an availability distribution.
+Neither broader keys nor permanently warm workers were needed.
+
+The first observation (source `3a3996ec`) deployed in **598.105177 s** and
+passed the functional path, but failed the additional UI checks. The UI's
+Cosmos probe used account keys despite disabled local authentication, while
+the infrastructure adapter used legacy names/Grafana assumptions. Ordinary
+Destroy completed in **998.382357 s**, followed by independent zero groups,
+resources and scoped roles. Its 111 creation timings are retained; per-resource
+Destroy timings are missing and are not reconstructed from the zero inventory.
+The overall UI E2E result of that first observation remains failed.
+
+The second deployment (source `77137746`) used the corrected Six-layer output
+bindings and Entra-authenticated Cosmos verification. Its sole extra cloud
+binding is native Cosmos Data Reader for the existing deployment principal,
+scoped to this experiment's account and owned by Destroy. Key authentication
+remains disabled. The 113-entry reviewed plan produced **112 recorded creation
+timings**; planned entries include local timing/binding resources and are not
+counts of independently billed services. Actual ARM configuration confirmed
+L5 maximum two, 2048 MB and zero always-ready instances.
+
+| Observation | Seconds |
+|---|---:|
+| Ordinary application deployment | 586.534171 |
+| Postapply L3 read readiness | 8.865 |
+| Twin seeding | 4.304 |
+| IoT registration | 1.692 |
+| Initial L5 authenticated response (first attempt) | 7.294 |
+| Full initial L5 verification including anonymous rejection | 10.960 |
+| Downloaded simulator / command phase | 68.442777 |
+| Correlated command roundtrip | 67.541726 |
+| Exact L3 raw and hourly checks | 8.494447 |
+| Exact L4 projection check | 0.618557 |
+| Exact authenticated L5 charts check | 8.272860 |
+
+The actual downloaded simulator source matched the repository and sent three
+unique MQTT samples, values **40, 42, 44**. The value-42 sample received the
+correlated command. Exact raw values/timestamps, hourly count and average,
+L4 value/source sequence/update time, and both L5 chart values/timestamps
+passed. No direct storage seed, direct L4 write or substitute publisher was
+used. These sequential observations are not comparable latency populations.
+
+The ordinary UI then exposed one additional read-only adapter defect:
+`DigitalTwinsClient` in the installed SDK is not a context manager. Commit
+`1dce3e06` removed that unsupported wrapper and constrained its regression
+mock to the actual SDK methods. Only the local Deployer was restarted; no
+cloud resource or data-path package changed. The subsequent ordinary UI
+infrastructure check passed **12/12**, and its separately traced telemetry
+verification persisted **3 pass / 0 fail / 0 skip**, elapsed **4.80 s**:
+message delivery, exact L3 correlation (3.6 s), and L4 projection (0.7 s).
+The complete safe Deployer suite passed **2,282 tests, one intentional skip**.
+
+The UI simulator action displayed download success; the independently
+downloaded normal application package was the one executed above. The UI L5
+action completed without an application error, but the embedded browser did
+not expose its separate blob popup. An unchanged, authenticated live L5 HTML
+response was therefore rendered offline and visually checked: three raw
+points and hourly mean **42**. This proves the returned graphical content,
+not cross-browser popup behavior or an independently located browser download
+file. This is the same qualification used for the representative AWS run.
+
+RQ1 gains the normal application lifecycle, per-resource creation observations
+and explicit local-adapter correction; RQ2 gains a composed Azure functional
+observation plus ordinary UI infrastructure and telemetry evidence. RQ3 gains
+the real event/command path and bounded execution record, not an inferred
+bill, performance comparison or claimed Azure-internal diagnosis. Provider
+billing remains pending. Normal UI Destroy was started immediately after the
+checks and completed successfully in **1,014.608650 s**, with all **112 deletion
+timings** retained. Together with creation this yields **224 per-resource
+timing observations**. No supplemental cloud deletion was required.
+Independent account reads confirmed **zero experiment resource groups,
+resources and scoped role assignments**. The UI displayed `DESTROYED`,
+cleanup `COMPLETE`, and the historical telemetry `PASS` separately; retained
+provider registrations are shared prerequisites, not remaining Twin workloads.
