@@ -30,6 +30,15 @@ maintained in `docs/research/architecture_evolution.md`.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
 
+**Instrumented L5 diagnosis (2026-10-23):** distinguish pre-handler admission,
+handler failure and L3 dependency failure with a bounded, disposable L3/L5 cut
+before another complete Azure application attempt. Temporary execution
+telemetry is research instrumentation, not a new product observability feature.
+The first instrumented attempt failed in ARM provisioning before any Function
+App existed and required supplemental exact-scope group cleanup. Final state
+and independent inventory are empty. Do not attribute that transport failure
+to historical L5 responses or label it a successful L5 diagnosis.
+
 **Frontend alignment (2026-10-10):** reuse the existing resolved graph and
 currency evidence in optimizer and lifecycle views, including independent
 Eventing. Remove the native path's misleading legacy allocation/cost comparison.

@@ -591,3 +591,29 @@ observations, not message latency, cold-start attribution or measured billed
 cost. The earlier diagnostic comparison remains separately qualified. A further
 full-stack retry should not substitute for identifying this newly unclassified
 L5 response boundary.
+
+### Instrumented L3/L5 diagnostic: provisioning interruption — 2026-10-23
+
+The next diagnostic retained runtime revision `695342f6` and the existing
+L3/L5 package, with no always-ready instances. Its reviewed 22-entry plan added
+only a temporary Application Insights component and capped Log Analytics
+workspace to the fixed twenty-entry research cut. It was intended to distinguish
+host/request admission from the L5 handler and its L3 dependency, not repeat the
+complete Twin deployment.
+
+Provisioning failed after **334.535 s**: Storage Account and service-plan
+requests reported a nil HTTP response/possible connection reset. No Function
+App was created, so no L5 or capacity-comparison observation was obtained.
+A separate read-only ARM sample returned one SSL transport failure and three
+successful requests. This does not establish the cause of the earlier cloud
+L5 HTTP 503 responses. No production timeout, capacity or package was changed.
+
+The immediate Terraform Destroy attempt lasted **753.688 s** and did not
+complete; Cosmos deletion returned HTTP 412. An exact, run-owned resource-group
+DELETE was accepted, and Azure subsequently removed its children and group.
+A later ordinary Terraform reconciliation and independent ARM checks confirmed
+empty managed state and zero groups, resources and scoped role assignments.
+This is **qualified cleanup with supplemental group deletion**, not an
+unassisted Terraform cleanup pass. The failed result and later successful
+cleanup evidence are retained separately. RQ1 gains a provisioning/cleanup
+failure record; RQ2 gains no functional pass and RQ3 no measured billed cost.
