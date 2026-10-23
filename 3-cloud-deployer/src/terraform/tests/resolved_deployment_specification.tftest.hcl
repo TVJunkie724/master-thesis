@@ -233,7 +233,7 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
     condition = (
       length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 1 &&
       azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].instance_memory_in_mb == 2048 &&
-      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].maximum_instance_count == 1 &&
+      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].maximum_instance_count == 2 &&
       length(azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].always_ready) == 0 &&
       length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
     )
