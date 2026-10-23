@@ -29,13 +29,13 @@ def probe(context, provider, method_name):
 
         bundle = outputs["azure_component_twin_state_output"]
         expected = _merge_v2_seed(context.config.hierarchy or {}, context.config)
-        with DigitalTwinsClient(bundle["endpoint"], provider.credential) as client:
-            for model in expected["models"]:
-                client.get_model(model["@id"])
-            for twin in expected["twins"]:
-                actual = client.get_digital_twin(twin["$dtId"])
-                if actual.get("$dtId") != twin["$dtId"]:
-                    raise RuntimeError("Azure twin identity was not confirmed")
+        client = DigitalTwinsClient(bundle["endpoint"], provider.credential)
+        for model in expected["models"]:
+            client.get_model(model["@id"])
+        for twin in expected["twins"]:
+            actual = client.get_digital_twin(twin["$dtId"])
+            if actual.get("$dtId") != twin["$dtId"]:
+                raise RuntimeError("Azure twin identity was not confirmed")
         return {"models": len(expected["models"]), "twins": len(expected["twins"])}
 
     if method_name == "info_l5":

@@ -48,12 +48,9 @@ def test_adt_status_reads_seeded_models_and_twins(monkeypatch):
 
     ctx = context()
     monkeypatch.setattr(azure_six_layer, "load_terraform_outputs", lambda *_: {"azure_component_twin_state_output": {"endpoint": "https://actual.digitaltwins.azure.net"}})
-    client = Mock()
+    client = Mock(spec=["get_model", "get_digital_twin"])
     client.get_digital_twin.side_effect = lambda name: {"$dtId": name}
-    manager = Mock()
-    manager.__enter__ = Mock(return_value=client)
-    manager.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr(azure.digitaltwins.core, "DigitalTwinsClient", Mock(return_value=manager))
+    monkeypatch.setattr(azure.digitaltwins.core, "DigitalTwinsClient", Mock(return_value=client))
     assert azure_six_layer.probe(ctx, SimpleNamespace(credential=object()), "info_l4") == {"models": 1, "twins": 2}
     expected = six_layer_seed(ctx.config)
     assert [c.args[0] for c in client.get_digital_twin.call_args_list] == [x["$dtId"] for x in expected["twins"]]
