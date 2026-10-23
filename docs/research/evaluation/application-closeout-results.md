@@ -649,3 +649,31 @@ not an unassisted Terraform pass. RQ1 retains lifecycle/per-resource timings;
 RQ2 gains only qualified L3/L5 observations; no billed-cost or cold-start claim
 is inferred for RQ3. Commit `86a3d555` adds capped L3/L5 traces to the full
 application without changing its data/authentication gates or warm capacity.
+
+### Instrumented full Azure retry — 2026-10-23
+
+Runtime source `86a3d555` was exercised through the ordinary UI validation and
+Deploy action, with the same full West Europe topology and no always-ready
+workers. The 112-entry reviewed plan produced 111 recorded creation timings.
+L3 access (9.215 s), Twin seeding (4.037 s) and IoT registration (1.886 s)
+passed. Initial L5 readiness failed after **191.226 s**: two authenticated
+requests and one anonymous retry returned HTTP 503 at approximately sixty
+seconds; two other anonymous requests correctly returned 401. The client
+allowance was 180 s, so these HTTP responses were not local client timeouts.
+
+Collected L5 traces contained initialization/route registration on three role
+instances but no matching invocation at collection time. This does not prove
+a crash or a particular Azure platform defect. Log-ingestion delay limits
+negative conclusions, and built-in detector responses for an earlier coarse
+window were excluded from availability conclusions. The simulator and exact
+command/L3/L4/L5 assertions were not admitted; this remains a failed full E2E.
+
+Deployment lasted **801.287771 s**. Ordinary Destroy lasted **871.780626 s**,
+with 111 deletion timings, complete recorded cleanup and an independent zero
+group/resource/run-scoped-role inventory. No supplemental deletion was needed
+for this full application run. Build/image identity and 222 per-resource
+creation/deletion timings are retained privately. Costs remain pending provider
+billing; no message-latency or functional-equivalence result is inferred.
+Commit `259e70b5` introduces the separately bounded 600-second initial readiness
+experiment; 2,273 safe Deployer tests pass with one intentional skip. Its live
+outcome must be recorded separately, not attributed retroactively to this run.
