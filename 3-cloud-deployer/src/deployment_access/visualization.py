@@ -108,7 +108,9 @@ def _fetch_visualization_once(provider_name, provider, outputs, *, verify_auth=F
     endpoint = _endpoint(provider_name, bundle)
     # A live zero-always-ready Flex probe returned valid content after 36 s,
     # before entering its millisecond-scale handler. Allow that initial delay.
-    request_timeout = 180 if provider_name == "azure" and verify_auth else 30
+    # A normal Azure snapshot uses the same scale-to-zero handler as readiness.
+    # Its bounded L3 reads can exceed 30 s; do not abort a valid snapshot early.
+    request_timeout = 180 if provider_name == "azure" else 30
     if verify_auth:
         with _get(endpoint, stage="unauthenticated", timeout=request_timeout, allow_redirects=False, stream=True) as response:
             if response.status_code in (502, 503, 504):

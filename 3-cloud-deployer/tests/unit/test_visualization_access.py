@@ -137,7 +137,23 @@ def test_azure_ui_read_does_not_retry(monkeypatch):
     with pytest.raises(requests.ReadTimeout):
         fetch_visualization('azure', None, azure_output())
     assert get.call_count == 1
-    assert get.call_args.kwargs['timeout'] == 30
+    assert get.call_args.kwargs['timeout'] == 180
+
+
+def test_azure_ui_read_accepts_observed_slow_exact_snapshot(monkeypatch):
+    import requests
+
+    def delayed_response(*args, **kwargs):
+        # A live cloud-generated snapshot with exact data took 117.495 s.
+        if kwargs['timeout'] < 118:
+            raise requests.ReadTimeout()
+        return response(200)
+
+    get = Mock(side_effect=delayed_response)
+    monkeypatch.setattr('src.deployment_access.visualization.requests.get', get)
+    monkeypatch.setattr('src.providers.azure.layers.layer_5_raw_history._reader_key', Mock(return_value='test-key'))
+    assert fetch_visualization('azure', None, azure_output()) == HTML
+    assert get.call_count == 1
 
 
 @pytest.mark.parametrize('responses', [[200], [401, 403]])

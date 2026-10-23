@@ -595,7 +595,9 @@ L5 response boundary.
 ### Instrumented L3/L5 diagnostic: provisioning interruption — 2026-10-23
 
 The next diagnostic retained runtime revision `695342f6` and the existing
-L3/L5 package, with no always-ready instances. Its reviewed 22-entry plan added
+L3/L5 package, with no always-ready instances. It used France Central from the
+local diagnostic configuration, not the ordinary application's West Europe
+binding; it is not a region-identical repetition. Its reviewed 22-entry plan added
 only a temporary Application Insights component and capped Log Analytics
 workspace to the fixed twenty-entry research cut. It was intended to distinguish
 host/request admission from the L5 handler and its L3 dependency, not repeat the

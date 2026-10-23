@@ -20,6 +20,7 @@ async def test_visualization_fixed_route_and_one_shot_header():
     def handler(request):
         assert request.url.path == '/projects/twin/visualization'
         assert request.headers['X-Operation-Package'] == 'one-shot'
+        assert request.extensions['timeout']['read'] == 240.0
         return httpx.Response(200, content=b'<html>chart</html>', headers={'Content-Type': 'text/html'})
     assert await _client_with_handler(handler).get_visualization('twin', 'one-shot') == b'<html>chart</html>'
 

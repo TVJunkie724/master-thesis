@@ -207,6 +207,11 @@ authenticates against the fixed deployed endpoint; cloud keys never enter
 Flutter. Each click fetches fresh data; there is no polling, chart editor or
 additional provider sign-in. Web uses a reserved isolated tab and a temporary
 Blob URL; Desktop opens a temporary HTML file with best-effort delayed cleanup.
+The one-shot L5 read has nested receive allowances: Azure cloud read 180 s,
+Management-to-Deployer 240 s and Flutter-to-Management 300 s, leaving room for
+key lookup and operation-package staging. AWS retains its 30 s cloud read.
+These transport limits are not a latency guarantee or a cold-start claim;
+authentication, payload-size, graphical-data and stale-response checks remain.
 Neither implementation keeps HTML in BLoC state. Duplicate and stale requests
 (Twin change or Destroy) cannot open a new snapshot. Flutter does not administer
 these surfaces. One-time values are transient

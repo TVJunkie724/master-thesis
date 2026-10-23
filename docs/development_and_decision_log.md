@@ -2,7 +2,7 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-22"
+lastUpdated: "2026-10-23"
 version: "2.15"
 ---
 
@@ -29,6 +29,18 @@ maintained in `docs/research/architecture_evolution.md`.
 5. Git history is the archive for superseded implementation plans.
 
 ## D-28 — Fixed Core evaluation before access-layer evaluation
+
+**Normal L5 receive-budget correction (2026-10-23):** three authenticated,
+cloud-generated snapshots in the instrumented France Central cut matched all
+six stored fixture values/timestamps after 69.434, 117.495 and 117.501 s.
+The ordinary access path still cut off at 30 s in Deployer and 60 s in both
+Management and Flutter. Align this existing one-shot path to the already
+bounded Azure readiness read: 180 s at Deployer, 240 s at Management and
+300 s at Flutter. Retain AWS's 30 s cloud read, no automatic UI retry, existing
+owner/endpoint/size/data checks and stale-response handling. This is a transport
+bug correction, not a screen redesign or an explanation of the earlier
+unclassified West Europe HTTP 503 responses. A composed application pass must
+still be observed separately.
 
 **Instrumented L5 diagnosis (2026-10-23):** distinguish pre-handler admission,
 handler failure and L3 dependency failure with a bounded, disposable L3/L5 cut

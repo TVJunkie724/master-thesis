@@ -200,7 +200,9 @@ class DeployerClient(ExternalServiceClient):
             "GET", f"/projects/{project_name}/visualization",
             max_bytes=1024 * 1024,
             size_error_detail="Deployer returned an invalid L5 response size.",
-            headers={"X-Operation-Package": operation_token}, timeout=60.0,
+            # Azure L5 may spend 180 s in its authenticated cloud read, plus
+            # bounded function-key lookup. Keep the outer request longer.
+            headers={"X-Operation-Package": operation_token}, timeout=240.0,
         )
         if response.headers.get("content-type", "").split(";")[0] != "text/html" or not response.content:
             raise ValueError("Deployer returned an invalid L5 response")

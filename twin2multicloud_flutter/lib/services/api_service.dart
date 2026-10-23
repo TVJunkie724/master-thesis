@@ -997,7 +997,8 @@ class ApiService implements ManagementApi {
       '/twins/$id/deployment-access/visualization',
       options: Options(
         responseType: ResponseType.bytes,
-        receiveTimeout: const Duration(seconds: 60),
+        // Management stages the operation package before its bounded L5 read.
+        receiveTimeout: const Duration(seconds: 300),
       ),
     );
     final bytes = response.data;

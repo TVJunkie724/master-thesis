@@ -14,6 +14,7 @@ void main() {
         expect(request.method, 'GET');
         expect(request.path, '/twins/twin-1/deployment-access/visualization');
         expect(request.queryParameters, isEmpty);
+        expect(request.receiveTimeout, const Duration(seconds: 300));
         return ResponseBody.fromString(
           '<html>chart</html>',
           200,
