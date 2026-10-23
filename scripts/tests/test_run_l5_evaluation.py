@@ -114,6 +114,19 @@ def test_diagnostic_is_after_l5_and_not_a_pre_warm(tmp_path):
     assert not exp.report.get('functional_pass')
 
 
+def test_azure_transient_failures_leave_time_for_reader_followup(tmp_path, monkeypatch):
+    from scripts import run_l5_evaluation as runner
+    exp = experiment(tmp_path)
+    exp.outputs = {'visualization_url': 'visualization'}
+    exp.fetch = Mock(return_value=Mock(status_code=503))
+    monkeypatch.setattr(runner.time, 'sleep', Mock())
+    with pytest.raises(RuntimeError, match='L5_READINESS_DEADLINE'):
+        exp.verify_surface()
+    assert exp.fetch.call_count == 3
+    assert exp.report['last_http_status'] == 503
+    assert not exp.report.get('functional_pass')
+
+
 @pytest.mark.parametrize('provider', ['aws', 'azure'])
 def test_extra_resource_rejected(provider):
     with pytest.raises(RuntimeError):

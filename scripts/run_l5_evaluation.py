@@ -309,7 +309,9 @@ class Experiment:
         started = time.monotonic()
         # Registration/identity propagation is bounded, not a reason for repeated Apply.
         last_status = None
-        for attempt in range(31):
+        # Initial Azure requests may consume most of their 180 s allowance.
+        # Leave room for the direct reader comparison inside the shared deadline.
+        for attempt in range(3 if self.provider == 'azure' else 31):
             response = self.fetch(self.outputs['visualization_url'], app='visualization')
             last_status = response.status_code
             if response.status_code == 200:
