@@ -32,26 +32,23 @@ def test_diagnostics_reuse_capped_workspace_for_commands_or_l5():
     assert "APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.azure_command_diagnostics[0].connection_string" in " ".join(source.split())
 
 
-def test_l5_host_logs_reuse_existing_workspace_without_warm_workers():
+def test_managed_l5_has_no_function_host_or_extra_log_workspace():
     source = (TF / "azure_six_layer.tf").read_text()
     targets = source.split("azure_six_layer_diagnostic_targets = merge(", 1)[1].split("\n  )", 1)[0]
-    assert "local.azure_six_layer_l5_enabled ? {" in targets
-    assert "visualization = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id" in targets
+    assert "azure_six_layer_visualization" not in targets
     diagnostic = source.split('resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {', 1)[1].split("\n}", 1)[0]
     assert "azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id" in diagnostic
     visualization = (TF / "six_layer_visualization.tf").read_text()
     assert 'always_ready {' not in visualization
     assert 'azurerm_log_analytics_workspace"' not in visualization
-    visual_app = visualization.split('resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization" {', 1)[1].split('\nmodule ', 1)[0]
-    assert "maximum_instance_count = 2" in " ".join(visual_app.split())
-    assert "instance_memory_in_mb = 2048" in " ".join(visual_app.split())
+    assert 'resource "azurerm_dashboard_grafana"' in visualization
+    assert 'resource "azurerm_function_app_flex_consumption"' not in visualization
 
 
 def test_l3_l5_trace_wiring_preserves_provider_owned_app_insights_setting():
     source = (TF / "azure_six_layer.tf").read_text()
     reader = source.split('resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw_history_reader" {', 1)[1].split('\ndata ', 1)[0]
-    visual = (TF / "six_layer_visualization.tf").read_text().split('resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization" {', 1)[1].split('\nmodule ', 1)[0]
-    for block in (reader, visual):
+    for block in (reader,):
         assert "application_insights_connection_string" in block
         assert "}, local.azure_l5_diagnostic_settings)" in block
         assert "APPLICATIONINSIGHTS_CONNECTION_STRING" not in block

@@ -813,8 +813,18 @@ def configure_aws_visualization(
     """Verify active-profile L5 or configure the historical Grafana path."""
     _require_aws_provider(context)
     if _is_active_phase8_profile(context):
-        from src.deployment_access.visualization import fetch_visualization
-        fetch_visualization("aws", _require_aws_provider(context), terraform_outputs, verify_auth=True)
+        from src.providers.aws.layers.layer_5_grafana import configure_six_layer_grafana
+        bundle = terraform_outputs.get("aws_component_visualization_output") or {}
+        reader = terraform_outputs.get("aws_component_storage_read_access_output") or {}
+        if not bundle.get("workspace_id") or not reader.get("access_url"):
+            raise ValueError("Managed Grafana output and L3 reader are required")
+        device_id, metric = _default_v2_dashboard_series(context.config)
+        configure_six_layer_grafana(
+            _require_aws_provider(context), workspace_id=bundle.get("workspace_id", ""),
+            grafana_url=bundle.get("workspace_url", ""), reader_url=reader.get("access_url", ""),
+            reader_function_name=reader.get("reader_function_name", ""),
+            device_id=device_id, metric=metric, architecture_profile=_active_phase8_profile(context),
+        )
         return
 
     import requests

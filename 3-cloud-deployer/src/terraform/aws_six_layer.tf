@@ -1477,7 +1477,7 @@ resource "aws_lambda_function_url" "aws_aws_lambda_raw_history_reader" {
 
 locals {
   aws_six_layer_layer_access_enabled = (
-    local.aws_six_layer_l4_enabled &&
+    (local.aws_six_layer_l4_enabled || local.aws_six_layer_l5_enabled) &&
     var.platform_user_email != ""
   )
 }
@@ -1552,7 +1552,7 @@ locals {
 
 resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access" {
   provider         = aws.sso
-  count            = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count            = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn     = local.aws_six_layer_sso_instance_arn
   name             = substr("${local.aws_six_layer_name}-TwinViewer", 0, 32)
   description      = "Read-only TwinMaker access for the thesis PoC"
@@ -1563,7 +1563,7 @@ resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access
 
 resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access" {
   provider           = aws.sso
-  count              = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count              = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn       = local.aws_six_layer_sso_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn
   inline_policy = jsonencode({
@@ -1582,7 +1582,7 @@ resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access
 
 resource "aws_ssoadmin_account_assignment" "aws_aws_iam_identity_center_layer_access" {
   provider           = aws.sso
-  count              = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count              = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn       = local.aws_six_layer_sso_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn
   principal_id       = local.aws_six_layer_layer_user_id
@@ -1670,19 +1670,20 @@ output "aws_component_storage_read_access_output" {
 }
 
 output "aws_component_visualization_output" {
-  description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
+  description = "Managed Grafana dashboard; browser sign-in and exact data remain separate evidence"
   # The image-foundation target stage has not created L5 yet.
   value = local.aws_six_layer_l5_enabled ? try({
-    access_url           = aws_lambda_function_url.aws_six_layer_visualization[0].function_url
-    reader_function_name = aws_lambda_function.aws_six_layer_visualization[0].function_name
-    principal_label      = data.aws_caller_identity.current[0].arn
-    access_role          = "AWS IAM signed read-only visualization"
+    access_url      = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}/d/t2mc-raw-rollups"
+    workspace_id    = aws_grafana_workspace.aws_six_layer[0].id
+    workspace_url   = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}"
+    principal_label = var.platform_user_email
+    access_role     = "Grafana Viewer"
     internal_evidence = {
-      resource_ref        = aws_lambda_function.aws_six_layer_visualization[0].arn
-      access_binding_refs = [aws_lambda_function_url.aws_six_layer_visualization[0].function_url]
-      artifact_refs       = [local.aws_six_layer_runtime_package]
-      content_revision    = "graphical-l5.v1"
-      data_probe_revision = "graphical-l5-readiness.v1"
+      resource_ref        = aws_grafana_workspace.aws_six_layer[0].arn
+      access_binding_refs = [aws_grafana_role_association.aws_six_layer_viewer[0].id]
+      artifact_refs       = ["t2mc-raw-rollups", "t2mc-aws-hot-reader"]
+      content_revision    = "managed-grafana-l5.v1"
+      data_probe_revision = "managed-grafana-readiness.v1"
     }
   }, null) : null
 }

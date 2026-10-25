@@ -220,8 +220,8 @@ def _wait_for_exact_plugin(
     grafana_url: str,
     grafana_token: str,
     *,
-    attempts: int = 12,
-    delay_seconds: float = 5,
+    attempts: int = 40,
+    delay_seconds: float = 15,
 ) -> None:
     headers = _headers(grafana_token)
     last_detail = "no response"
@@ -635,7 +635,7 @@ def _v2_dashboard(
         "timezone": "browser",
         "schemaVersion": 41,
         "version": 0,
-        "refresh": "30s",
+        "refresh": "",
         "time": {"from": "now-6h", "to": "now"},
         "panels": [
             {
@@ -757,8 +757,8 @@ def _probe_v2_surface(
         (3600, now - timedelta(days=30)),
     ):
         response = requests.get(
-            hot_reader_url,
-            headers={"x-functions-key": function_key},
+            f"{grafana_url}/api/datasources/proxy/uid/{SIX_LAYER_DATASOURCE_UID}/",
+            headers=_headers(grafana_token),
             params={
                 "device_id": device_id,
                 "metric": metric,
@@ -775,14 +775,8 @@ def _probe_v2_surface(
                 "Azure raw-history query probe returned an invalid contract"
             )
     headers = _headers(grafana_token)
-    response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}/health",
-        headers=headers,
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Grafana datasource health probe")
-    if response.json().get("status") != "OK":
-        raise RuntimeError("Azure Grafana datasource health probe was not OK")
+    # JSON API is a frontend datasource. Its actual proxy request above, not
+    # the optional backend /health endpoint, verifies the stored function key.
     response = requests.get(
         f"{grafana_url}/api/dashboards/uid/{SIX_LAYER_DASHBOARD_UID}",
         headers=headers,

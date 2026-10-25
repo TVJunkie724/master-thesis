@@ -776,7 +776,6 @@ resource "azurerm_service_plan" "azure_six_layer_flex" {
     local.azure_six_layer_l2_enabled ? "extension" : "",
     local.azure_six_layer_l2_enabled ? "action" : "",
     local.azure_six_layer_hot_enabled ? "reader" : "",
-    local.azure_six_layer_l5_enabled ? "visualization" : "",
     local.azure_event_enabled ? "eventing" : "",
   ]))
   name                = "${local.azure_six_layer_name}-flex-${each.key}"
@@ -1438,9 +1437,6 @@ locals {
     local.azure_six_layer_hot_enabled ? {
       raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
     } : {},
-    local.azure_six_layer_l5_enabled ? {
-      visualization = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id
-    } : {},
   )
 }
 
@@ -1540,20 +1536,21 @@ output "azure_component_storage_read_access_output" {
 }
 
 output "azure_component_visualization_output" {
-  description = "Independent authenticated L5 HTML consumer; data verification is a separate stage"
+  description = "Managed Grafana dashboard; browser sign-in and exact data remain separate evidence"
   # The image-foundation target stage has not created L5 yet.
   value = local.azure_six_layer_l5_enabled ? try({
-    access_url           = "https://${azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].default_hostname}/api/visualization/v1"
-    reader_function_name = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].name
-    principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
-    access_role          = "Function key resolved server-side by deployment principal"
+    access_url      = "${azurerm_dashboard_grafana.azure_six_layer[0].endpoint}/d/t2mc-raw-rollups"
+    workspace_name  = azurerm_dashboard_grafana.azure_six_layer[0].name
+    workspace_url   = azurerm_dashboard_grafana.azure_six_layer[0].endpoint
+    principal_label = var.azure_layer_access_principal_label
+    access_role     = "Grafana Viewer"
     internal_evidence = {
-      resource_ref        = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id
-      access_binding_refs = [azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id]
-      artifact_refs       = [local.azure_six_layer_runtime_package]
-      content_revision    = "graphical-l5.v1"
-      data_probe_revision = "graphical-l5-readiness.v1"
+      resource_ref        = azurerm_dashboard_grafana.azure_six_layer[0].id
+      access_binding_refs = [azurerm_role_assignment.azure_six_layer_grafana_viewer[0].id]
+      artifact_refs       = ["t2mc-raw-rollups", "t2mc-azure-hot-reader"]
+      content_revision    = "managed-grafana-l5.v1"
+      data_probe_revision = "managed-grafana-readiness.v1"
     }
   }, null) : null
-  depends_on = [module.azure_six_layer_visualization_package]
+  depends_on = [azurerm_role_assignment.azure_six_layer_grafana_deployer]
 }

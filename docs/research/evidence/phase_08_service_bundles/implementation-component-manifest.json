@@ -3,7 +3,7 @@
   "schema_version": "1.0.0",
   "package_id": "phase-08-complete-service-bundles@1",
   "artifact_id": "implementation-component-manifest",
-  "bundle_digest": "sha256:f8e8b19febe3e049f445a3455d1e2cb632d1def4c49a6f37d8495b900e48b414",
+  "bundle_digest": "sha256:119aa17f01a8eacac69fc774b2be5c54b5cef4518602d4d08919281dd1231a52",
   "route_digest": "sha256:b396600c19084e66f1614cf8f5ab444bf9d5a8f9b4dc4114ca64b567c56257c1",
   "profile_targets": [
     "six-layer-eventing@1"
@@ -129,6 +129,49 @@
       ],
       "artifact_refs": [
         "apache-bifromq-linux-amd64"
+      ]
+    },
+    {
+      "component_id": "aws.amazon-managed-grafana-12",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "aws_grafana_workspace",
+        "aws_grafana_role_association",
+        "aws_iam_role",
+        "aws_iam_role_policy"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::aws.amazon-managed-grafana-12",
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
+        "3-cloud-deployer/src/providers/aws/layers/layer_5_grafana.py"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {
@@ -770,51 +813,6 @@
       "implementation_file_targets": [
         "3-cloud-deployer/src/terraform/aws_six_layer.tf",
         "3-cloud-deployer/src/runtime_packages/aws/aws_lambda_raw_history_reader"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "requests",
-        "gib_seconds"
-      ]
-    },
-    {
-      "component_id": "aws.lambda-visualization",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "aws_lambda_function",
-        "aws_lambda_function_url",
-        "aws_iam_role",
-        "aws_iam_role_policy"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::aws.lambda-visualization",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
-        "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/handler.py",
-        "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py"
       ],
       "formula_refs": [
         "capacity-matrix.json#formula_contract",
@@ -1662,50 +1660,6 @@
       ]
     },
     {
-      "component_id": "azure.functions-flex-visualization",
-      "provider": "azure",
-      "region": "westeurope",
-      "responsibilities": [
-        "l5_visualization"
-      ],
-      "profile_refs": [
-        "six-layer-eventing@1"
-      ],
-      "terraform_resource_types": [
-        "azurerm_function_app_flex_consumption",
-        "azurerm_service_plan",
-        "azurerm_storage_container"
-      ],
-      "post_terraform_operations": [],
-      "runtime_state": "decision_frozen_not_implemented",
-      "pricing_owner_id": "cost::azure.functions-flex-visualization",
-      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
-      "input_contracts": [
-        "raw_history_query.v1"
-      ],
-      "output_contracts": [
-        "deployment-access.v1"
-      ],
-      "runtime_package": "managed_provider_api",
-      "network_ports": [
-        443
-      ],
-      "implementation_file_targets": [
-        "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
-        "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain/function_app.py",
-        "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py"
-      ],
-      "formula_refs": [
-        "capacity-matrix.json#formula_contract",
-        "pricing-ownership-matrix.json"
-      ],
-      "capacity_dimensions": [
-        "resource_count",
-        "requests",
-        "execution_seconds"
-      ]
-    },
-    {
       "component_id": "azure.iot-hub",
       "provider": "azure",
       "region": "westeurope",
@@ -1825,6 +1779,47 @@
         "resource_count",
         "workflow_executions",
         "workflow_transitions"
+      ]
+    },
+    {
+      "component_id": "azure.managed-grafana-12-standard",
+      "provider": "azure",
+      "region": "westeurope",
+      "responsibilities": [
+        "l5_visualization"
+      ],
+      "profile_refs": [
+        "six-layer-eventing@1"
+      ],
+      "terraform_resource_types": [
+        "azurerm_dashboard_grafana",
+        "azurerm_role_assignment"
+      ],
+      "post_terraform_operations": [],
+      "runtime_state": "decision_frozen_not_implemented",
+      "pricing_owner_id": "cost::azure.managed-grafana-12-standard",
+      "test_owner": "phase_08_service_bundles_and_future_phase_08_9",
+      "input_contracts": [
+        "raw_history_query.v1"
+      ],
+      "output_contracts": [
+        "deployment-access.v1"
+      ],
+      "runtime_package": "managed_provider_api",
+      "network_ports": [],
+      "implementation_file_targets": [
+        "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
+        "3-cloud-deployer/src/providers/azure/layers/layer_5_grafana.py"
+      ],
+      "formula_refs": [
+        "capacity-matrix.json#formula_contract",
+        "pricing-ownership-matrix.json"
+      ],
+      "capacity_dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ]
     },
     {

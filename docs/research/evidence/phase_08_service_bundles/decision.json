@@ -14,8 +14,8 @@
     "activated_or_deployed_before_refreeze": false
   },
   "scope_revision": {
-    "date": "2026-10-08",
-    "reason": "retain L3 reader ownership; add provider-local AWS Lambda and Azure Flex graphical L5 consumers and owner-scoped fixed HTML access; integrated live evidence remains separate from implementation admission",
+    "date": "2026-10-25",
+    "reason": "restore AWS and Azure managed Grafana with independent L3 readers, provider sign-in and explicit workspace/seat costs; prior SVG evidence is not Grafana proof",
     "cloud_execution_authorized": false,
     "historical_reviews_do_not_verify_current_graphical_l5": true
   },
@@ -34,9 +34,9 @@
     "docs/research/evidence/phase_08_service_bundles/boundary-route-matrix.json": "sha256:e89b43bb77ddaafeaa54463420b2c6292e2c29fd288b67a122884d7e8ca4ba86",
     "docs/research/evidence/phase_08_service_bundles/capacity-matrix.json": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
     "docs/research/evidence/phase_08_service_bundles/common-functional-contract.json": "sha256:90147e4b992de47533ebe4b91a9634201a1cbd503b957d79631256b4f65c6019",
-    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:85ae8c0a02290a8b27382172cf5ce6ad7a30c698ca5c9653f943efc67bf7f353",
-    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:23b863a6ac784b97c32ca7279961551aa3e96c8dd84e511848639879865e8438",
-    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:d991c3635456589917ee7bcd692a211bbec51bb12c6c824ca14629686235dbfb",
+    "docs/research/evidence/phase_08_service_bundles/complete-provider-bundles.json": "sha256:5d55b22cc6d1c1f84bdaee2673126b21c953184d53d4d0933a141a8957c69571",
+    "docs/research/evidence/phase_08_service_bundles/implementation-component-manifest.json": "sha256:c925c8c97a83a2e44320fb008670408b3fb435e5a4d1af2dac0e05344fa0fe01",
+    "docs/research/evidence/phase_08_service_bundles/pricing-ownership-matrix.json": "sha256:07a81ec82d65fbc2dc412d5ad9891fc12b5a8fc564d6d3a6f829187e31cdccab",
     "docs/research/evidence/phase_08_service_bundles/source-ledger.json": "sha256:f62f5b78545f752a0254b5fedbde9ce852ccaa8148ef86b85588f2e3462b9163",
     "docs/research/evidence/phase_08_service_bundles/workload-scenarios.json": "sha256:b7fba186a5dea6517fcacf8b68827d15a687d4ae5d725d822b84ae61550d6e6a"
   },
@@ -44,7 +44,7 @@
     "docs/research/evidence/phase_08_eventing/decision.json": "sha256:3f74c8325b85581f119cb7f66acd3d2187c1d6ef96f2d442863c08d3f05dabc7",
     "docs/research/evidence/phase_08_eventing/source-ledger.json": "sha256:c64311e931f32213b366a2bdbe0d85da59972a94b666b39bb60ae5e2c0c7b0ee"
   },
-  "package_digest": "sha256:b0b28d5abb4c6d63944a535ba5164dd9bb7707c2591871100eb2ee9875bf5a90",
+  "package_digest": "sha256:a4c749010605eb7c0139c36e2e7f412cedde19d14711c044e33dfbef5008b7b6",
   "reviews": [
     {
       "review_id": "six-layer-architecture",

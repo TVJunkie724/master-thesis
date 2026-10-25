@@ -1,6 +1,16 @@
 # Minimal L5 visualization — pre-implementation review
 
-Current decision (2026-10-05): the user approved a minimal AWS/Azure
+Current restoration (2026-10-25): AWS and Azure return to managed Grafana,
+reusing the existing provider provisioning and Raw/Hourly dashboard code.
+The normal Terraform path, access read model and cost catalog have been
+updated; live verification is pending. AWS retains an IAM-protected L3 reader;
+Azure retains its function-scoped reader credential in the datasource secret.
+The UI opens the provider dashboard with the existing operator identity.
+GCP L4/L5 remain excluded, and the research questions remain unchanged.
+Previous HTML/SVG passes prove only that historical implementation, not Grafana.
+See [the bounded restoration plan](../../plans/2026-10-25_restore_managed_grafana.md).
+
+Historical decision (2026-10-05): the user approved a minimal AWS/Azure
 server-rendered graphical consumer instead of this Managed Grafana proposal.
 The approved fixed L3→L5 experiment, claim boundaries and results are recorded
 in [the minimal L5 evidence plan](../../plans/2026-10-05_minimal_l5_evidence.md).

@@ -83,8 +83,8 @@ def build() -> dict[str, Any]:
             "activated_or_deployed_before_refreeze": False,
         },
         "scope_revision": {
-            "date": "2026-10-08",
-            "reason": "retain L3 reader ownership; add provider-local AWS Lambda and Azure Flex graphical L5 consumers and owner-scoped fixed HTML access; integrated live evidence remains separate from implementation admission",
+            "date": "2026-10-25",
+            "reason": "restore AWS and Azure managed Grafana with independent L3 readers, provider sign-in and explicit workspace/seat costs; prior SVG evidence is not Grafana proof",
             "cloud_execution_authorized": False,
             "historical_reviews_do_not_verify_current_graphical_l5": True,
         },

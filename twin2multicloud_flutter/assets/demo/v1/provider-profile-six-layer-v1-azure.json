@@ -257,7 +257,7 @@
         "capability.visualization"
       ],
       "service_model_refs": [
-        "service-model.azure.azure.functions-flex-visualization",
+        "service-model.azure.azure.managed-grafana-12-standard",
         "service-model.azure.azure.monitor",
         "service-model.azure.azure.log-analytics-shared-workspace"
       ],
@@ -268,7 +268,7 @@
         "region.azure.westeurope"
       ],
       "deployment_specification_component_ids": [
-        "azure.functions-flex-visualization",
+        "azure.managed-grafana-12-standard",
         "azure.monitor",
         "azure.log-analytics-shared-workspace"
       ],
@@ -569,5 +569,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:18383ac476c623def5f25d2adbc48d0831e95d2c274a80ab7b34db974436dd3f"
+  "content_digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
 }

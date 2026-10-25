@@ -105,19 +105,19 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
         "principal_key": "principal_label",
         "required_keys": {
             "access_url",
-            "reader_function_name",
+            "workspace_id",
             "principal_label",
             "access_role",
         },
-        "service_id": "aws_l5_visualization",
-        "display_name": "AWS L5 Visualization",
-        "auth_mode": "aws_sigv4",
+        "service_id": "aws_managed_grafana",
+        "display_name": "Amazon Managed Grafana",
+        "auth_mode": "aws_identity_center",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "svg-charts", "no-data-state"],
+        "capabilities": ["recent-raw", "hourly-rollups", "grafana-dashboard", "no-data-state"],
         "limitations": [
-            "read-only-html",
+            "viewer-access",
             "bounded-queries",
-            "application-authenticated-snapshot",
+            "provider-sign-in-required",
         ],
     },
     ("l5", "azure"): {
@@ -126,19 +126,19 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
         "principal_key": "principal_label",
         "required_keys": {
             "access_url",
-            "reader_function_name",
+            "workspace_name",
             "principal_label",
             "access_role",
         },
-        "service_id": "azure_l5_visualization",
-        "display_name": "Azure L5 Visualization",
-        "auth_mode": "azure_function_key",
+        "service_id": "azure_managed_grafana",
+        "display_name": "Azure Managed Grafana",
+        "auth_mode": "azure_entra",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "svg-charts", "no-data-state"],
+        "capabilities": ["recent-raw", "hourly-rollups", "grafana-dashboard", "no-data-state"],
         "limitations": [
-            "read-only-html",
+            "viewer-access",
             "bounded-queries",
-            "application-authenticated-snapshot",
+            "provider-sign-in-required",
         ],
     },
     ("l5", "gcp"): {
@@ -303,7 +303,9 @@ def _surface(
             "access_binding": "ready",
             "content": "ready" if runtime_ready else "pending",
             "data_probe": (
-                "ready" if runtime_ready and output_evidence.data_probe_revision != "graphical-l5-readiness.v1"
+                "ready" if runtime_ready and output_evidence.data_probe_revision not in {
+                    "graphical-l5-readiness.v1", "managed-grafana-readiness.v1"
+                }
                 else "pending"
             ),
             "browser_sign_in": "unverified",

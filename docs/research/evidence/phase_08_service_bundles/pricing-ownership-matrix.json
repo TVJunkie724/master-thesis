@@ -22,6 +22,20 @@
       "deduplication_key": "apache.bifromq-4.0.0-incubating-on-gke-standard"
     },
     {
+      "cost_owner_id": "cost::aws.amazon-managed-grafana-12",
+      "component_id": "aws.amazon-managed-grafana-12",
+      "provider": "aws",
+      "region": "eu-central-1",
+      "pricing_catalog_key": "aws.amazon-managed-grafana-12",
+      "dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "deduplication_key": "aws.amazon-managed-grafana-12"
+    },
+    {
       "cost_owner_id": "cost::aws.cloudwatch",
       "component_id": "aws.cloudwatch",
       "provider": "aws",
@@ -231,19 +245,6 @@
         "gib_seconds"
       ],
       "deduplication_key": "aws.lambda-raw-history-reader"
-    },
-    {
-      "cost_owner_id": "cost::aws.lambda-visualization",
-      "component_id": "aws.lambda-visualization",
-      "provider": "aws",
-      "region": "eu-central-1",
-      "pricing_catalog_key": "aws.lambda-visualization",
-      "dimensions": [
-        "resource_count",
-        "requests",
-        "gib_seconds"
-      ],
-      "deduplication_key": "aws.lambda-visualization"
     },
     {
       "cost_owner_id": "cost::aws.s3-event-failure-store",
@@ -513,19 +514,6 @@
       "deduplication_key": "azure.functions-flex-raw-history-reader"
     },
     {
-      "cost_owner_id": "cost::azure.functions-flex-visualization",
-      "component_id": "azure.functions-flex-visualization",
-      "provider": "azure",
-      "region": "westeurope",
-      "pricing_catalog_key": "azure.functions-flex-visualization",
-      "dimensions": [
-        "resource_count",
-        "requests",
-        "execution_seconds"
-      ],
-      "deduplication_key": "azure.functions-flex-visualization"
-    },
-    {
       "cost_owner_id": "cost::azure.iot-hub",
       "component_id": "azure.iot-hub",
       "provider": "azure",
@@ -563,6 +551,20 @@
         "workflow_transitions"
       ],
       "deduplication_key": "azure.logic-apps-consumption"
+    },
+    {
+      "cost_owner_id": "cost::azure.managed-grafana-12-standard",
+      "component_id": "azure.managed-grafana-12-standard",
+      "provider": "azure",
+      "region": "westeurope",
+      "pricing_catalog_key": "azure.managed-grafana-12-standard",
+      "dimensions": [
+        "resource_count",
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
+      ],
+      "deduplication_key": "azure.managed-grafana-12-standard"
     },
     {
       "cost_owner_id": "cost::azure.monitor",

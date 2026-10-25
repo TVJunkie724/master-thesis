@@ -94,7 +94,7 @@ void main() {
 
     expect(find.text('Model contract complete'), findsOneWidget);
     expect(find.text('six-layer-eventing@1'), findsOneWidget);
-    expect(find.text('145.69038186 USD / month'), findsOneWidget);
+    expect(find.text('222.63726986 USD / month'), findsOneWidget);
     expect(find.byType(LogicalResolvedFlow), findsOneWidget);
     expect(find.byTooltip('Zoom in resolved architecture'), findsOneWidget);
     expect(find.text('azure.archive-storage.v2'), findsOneWidget);

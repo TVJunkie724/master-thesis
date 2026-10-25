@@ -124,6 +124,9 @@ SOURCE_RATE_KEYS = {
 }
 
 UNITS = {
+    "workspace_count": "count",
+    "editor_seats": "seats/month",
+    "viewer_seats": "seats/month",
     "resource_count": "count",
     "stored_gib_month": "GiB-month",
     "read_requests": "requests/month",
@@ -536,10 +539,6 @@ def _azure_component(
                 )
             )
         return variants
-    elif component_id == "azure.functions-flex-visualization":
-        # Normal L5 uses a 2-GiB on-demand Flex instance, no warm capacity.
-        meters = [_meter("requests", pricing["functions"]["requestPrice"]),
-                  _meter("execution_seconds", _decimal(pricing["functions"]["durationPrice"]) * Decimal("2"))]
     elif component_id.startswith("azure.functions-flex"):
         meters = _azure_function_meters(pricing)
     elif component_id == "azure.logic-apps-consumption":
@@ -594,7 +593,9 @@ def _azure_component(
             _meter(
                 "workspace_count",
                 _decimal(pricing["azureManagedGrafana"]["hourlyPrice"])
-                * Decimal("730"),
+                # The retained retail rate is per Standard node unit. X1
+                # consumes two units; do not price it as one hourly workspace.
+                * Decimal("2") * Decimal("730"),
             ),
             _meter("editor_seats", pricing["azureManagedGrafana"]["userPrice"]),
             _meter("viewer_seats", pricing["azureManagedGrafana"]["userPrice"]),

@@ -1,6 +1,6 @@
 """Read-only Azure status against the deployed Six-layer output contract.
 
-No legacy naming guesses, Grafana lookup, data mutation or data-flow claim.
+No legacy naming guesses, data mutation or data-flow claim.
 """
 from src.runtime_outputs import load_terraform_outputs
 
@@ -40,6 +40,13 @@ def probe(context, provider, method_name):
 
     if method_name == "info_l5":
         bundle = outputs["azure_component_visualization_output"]
+        if "workspace_name" in bundle:
+            workspace = provider.clients["dashboard"].grafana.get(
+                provider.naming.resource_group(), bundle["workspace_name"]
+            )
+            if workspace.properties.provisioning_state != "Succeeded":
+                raise RuntimeError("Azure Grafana workspace is not ready")
+            return {"workspace_ready": True}
         name = bundle["reader_function_name"]
         app = provider.clients["web"].web_apps.get(provider.naming.resource_group(), name)
         if app.name != name or app.state != "Running":

@@ -49,6 +49,10 @@ SURFACE_MATRIX = {
     ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 EVIDENCE_PROFILES = (("six-layer-eventing", "1"),)
+MANAGED_GRAFANA_MATRIX = {
+    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
+    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
+}
 
 
 def _files(root: Path) -> list[Path]:
@@ -108,7 +112,7 @@ def validate_surface(surface: dict[str, Any]) -> None:
         surface.get("auth", {}).get("mode"),
         surface.get("auth", {}).get("credential_action"),
     )
-    if expected != actual:
+    if expected != actual and MANAGED_GRAFANA_MATRIX.get(identity) != actual:
         raise ValueError(
             "Surface provider/service/auth mismatch: "
             f"identity={identity!r}, expected={expected!r}, actual={actual!r}"

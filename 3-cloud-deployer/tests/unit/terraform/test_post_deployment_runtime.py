@@ -151,10 +151,12 @@ def test_reader_lifecycle_remains_l3_owned(provider):
     terraform = (TERRAFORM_ROOT / f"{provider}_six_layer.tf").read_text("utf-8")
     assert f'output "{provider}_component_storage_read_access_output"' in terraform
     if provider in {"aws", "azure"}:
-        assert 'content_revision    = "graphical-l5.v1"' in terraform
+        assert 'content_revision    = "managed-grafana-l5.v1"' in terraform
         visualization = (TERRAFORM_ROOT / "six_layer_visualization.tf").read_text("utf-8")
         assert f"local.{provider}_six_layer_l5_enabled ? 1 : 0" in visualization
-        assert 'L5_ALLOW_EMPTY' in visualization
+        assert 'resource "aws_grafana_workspace"' in visualization
+        assert 'resource "azurerm_dashboard_grafana"' in visualization
+        assert 'L5_ALLOW_EMPTY' not in visualization
         assert 'aws_dynamodb_table' not in visualization
         assert 'azurerm_cosmosdb' not in visualization
     else:
@@ -170,7 +172,7 @@ def test_raw_history_verification_cannot_complete_graphical_l5(provider):
         ),
     )
     module = aws_deployer if provider == "aws" else azure_deployer
-    with pytest.raises(ValueError, match="Graphical L5 output is required"):
+    with pytest.raises(ValueError, match="Managed Grafana output and L3 reader are required"):
         getattr(module, f"configure_{provider}_visualization")(context, {})
 
 
@@ -690,11 +692,10 @@ def test_azure_six_layer_dashboard_has_bounded_raw_and_rollup_queries():
         dashboard["panels"][1]["targets"][0],
         dashboard["panels"][2]["targets"][0],
     ]
-    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
-        "0",
-        "3600",
-    ]
+    assert [dict(target["params"])["bucket_seconds"] for target in targets] == ["0", "3600"]
     assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert dashboard["refresh"] == ""
+    assert dashboard["time"]["from"] == "now-6h"
     assert (
         "No data is a valid initial state"
         in dashboard["panels"][0]["options"]["content"]
@@ -712,14 +713,14 @@ def test_azure_six_layer_dashboard_reports_resolved_profile():
     assert "six-layer-eventing@1" in dashboard["description"]
 
 
-def test_azure_six_layer_surface_probe_executes_reader_health_and_dashboard(
+def test_azure_six_layer_surface_probe_executes_grafana_proxy_and_dashboard(
     monkeypatch,
 ):
     calls = []
 
     def get(url, **kwargs):
         calls.append((url, kwargs))
-        if url == "https://reader.example/api/raw-history/v1":
+        if "/api/datasources/proxy/uid/" in url:
             return SimpleNamespace(
                 status_code=200,
                 json=lambda: {"schema_version": "raw-history-query.v1"},
@@ -739,16 +740,16 @@ def test_azure_six_layer_surface_probe_executes_reader_health_and_dashboard(
         metric="temperature",
     )
 
-    reader_calls = [call for call in calls if call[0].startswith("https://reader")]
+    reader_calls = [call for call in calls if "/api/datasources/proxy/uid/" in call[0]]
     assert [call[1]["params"]["bucket_seconds"] for call in reader_calls] == [
         "0",
         "3600",
     ]
     assert all(
-        call[1]["headers"] == {"x-functions-key": "function-secret"}
+        call[1]["headers"]["Authorization"] == "Bearer short-lived-token"
         for call in reader_calls
     )
-    assert calls[-2][0].endswith("/api/datasources/uid/t2mc-azure-hot-reader/health")
+    assert all("x-functions-key" not in call[1]["headers"] for call in reader_calls)
     assert calls[-1][0].endswith("/api/dashboards/uid/t2mc-raw-rollups")
 
 
@@ -765,11 +766,10 @@ def test_aws_six_layer_dashboard_has_bounded_raw_and_rollup_queries():
         dashboard["panels"][1]["targets"][0],
         dashboard["panels"][2]["targets"][0],
     ]
-    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
-        "0",
-        "3600",
-    ]
-    assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert "bucket_seconds=0&limit=1000" in targets[0]["url"]
+    assert "bucket_seconds=3600&limit=1000" in targets[1]["url"]
+    assert all(target["parser"] == "backend" for target in targets)
+    assert dashboard["refresh"] == ""
     assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
 
 
@@ -806,7 +806,7 @@ def test_aws_six_layer_surface_probe_rejects_non_ok_datasource_health(monkeypatc
         )
 
 
-def test_aws_six_layer_datasource_keeps_reader_key_only_in_secure_data(monkeypatch):
+def test_aws_six_layer_datasource_uses_workspace_role_without_static_keys(monkeypatch):
     not_found = SimpleNamespace(status_code=404)
     created = SimpleNamespace(status_code=201)
     create = MagicMock(return_value=created)
@@ -821,16 +821,16 @@ def test_aws_six_layer_datasource_keeps_reader_key_only_in_secure_data(monkeypat
         grafana_url="https://grafana.example",
         token="short-lived-token",
         reader_url="https://reader.example/",
-        reader_key="reader-secret",
+        region="eu-central-1",
     )
 
     payload = create.call_args.kwargs["json"]
-    assert payload["jsonData"]["httpHeaderName1"] == "X-Twin-Reader-Key"
-    assert payload["secureJsonData"] == {"httpHeaderValue1": "reader-secret"}
-    assert "reader-secret" not in str(payload["jsonData"])
+    assert payload["jsonData"]["aws"] == {"authType": "default", "region": "eu-central-1", "service": "lambda"}
+    assert payload["jsonData"]["allowedHosts"] == ["https://reader.example"]
+    assert "secureJsonData" not in payload
 
 
-def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypatch):
+def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(monkeypatch):
     provider = SimpleNamespace()
     deleted = MagicMock()
     monkeypatch.setattr(aws_layer_5_grafana, "_install_reader_key", MagicMock())
@@ -846,7 +846,7 @@ def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypat
     )
     monkeypatch.setattr(
         aws_layer_5_grafana,
-        "_delete_provisioning_service_account",
+        "_revoke_provisioning_tokens",
         deleted,
     )
 

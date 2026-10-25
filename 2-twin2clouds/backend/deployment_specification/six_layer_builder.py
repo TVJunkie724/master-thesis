@@ -452,6 +452,11 @@ def _dimension_value(
             )
         return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
+        # One automation editor plus the bounded PoC human viewer. Service
+        # accounts are billable on AWS; they are not free hidden support.
+        "workspace_count": 1,
+        "editor_seats": 1,
+        "viewer_seats": 1,
         "stored_gib_month": storage_gib,
         "read_requests": (
             messages + dashboard_point_reads
@@ -520,16 +525,11 @@ def _dimension_value(
         "gib_seconds": (
             str(event_delivery["aws_gib_seconds"])
             if component_id == "aws.lambda-event-worker"
-            # L5 model assumption: 2 seconds at 512 MiB per HTML request.
-            else str(request_count)
-            if component_id == "aws.lambda-visualization"
             else str(Decimal(request_count) * Decimal("0.125"))
         ),
         "execution_seconds": (
             int(event_delivery["azure_execution_seconds"])
             if component_id == "azure.functions-flex-event-worker"
-            else request_count * 2
-            if component_id == "azure.functions-flex-visualization"
             else request_count
         ),
         "vcpu_seconds": (

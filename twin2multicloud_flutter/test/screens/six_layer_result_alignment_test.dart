@@ -52,7 +52,7 @@ void main() {
       expect(find.byType(CheapestPathVisualization), findsNothing);
       expect(find.byType(LayerCostCard), findsNothing);
       expect(find.text('Independent Event Layer'), findsOneWidget);
-      expect(find.text('145.69038186 $currency / month'), findsOneWidget);
+      expect(find.text('222.63726986 $currency / month'), findsOneWidget);
       expect(find.textContaining('not a cloud bill'), findsOneWidget);
       expect(find.text('Functionally complete'), findsNothing);
       expect(tester.takeException(), isNull);

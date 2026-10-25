@@ -1118,12 +1118,12 @@
         "component.visualization"
       ],
       "decision_implementation_ids": [
-        "aws.lambda-visualization",
+        "aws.amazon-managed-grafana-12",
         "aws.cloudwatch"
       ],
       "service_id": "aws.visualization.v2",
       "service_ids": [
-        "aws.lambda-visualization",
+        "aws.amazon-managed-grafana-12",
         "aws.cloudwatch"
       ],
       "component_kind": "visualization_service",
@@ -1133,11 +1133,10 @@
       },
       "terraform_binding": {
         "resource_addresses": [
-          "aws_lambda_function.aws_six_layer_visualization",
-          "aws_lambda_function_url.aws_six_layer_visualization",
-          "aws_iam_role.aws_six_layer_visualization",
-          "aws_iam_role_policy.aws_six_layer_visualization",
-          "aws_cloudwatch_log_group.aws_six_layer_visualization"
+          "aws_grafana_workspace.aws_six_layer",
+          "aws_grafana_role_association.aws_six_layer_viewer",
+          "aws_iam_role.aws_six_layer_grafana",
+          "aws_iam_role_policy.aws_six_layer_grafana"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -1198,7 +1197,7 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "aws.lambda-visualization",
+          "component_id": "aws.amazon-managed-grafana-12",
           "slot_id": "l5_visualization"
         },
         {
@@ -2347,13 +2346,13 @@
         "component.visualization"
       ],
       "decision_implementation_ids": [
-        "azure.functions-flex-visualization",
+        "azure.managed-grafana-12-standard",
         "azure.monitor",
         "azure.log-analytics-shared-workspace"
       ],
       "service_id": "azure.visualization.v2",
       "service_ids": [
-        "azure.functions-flex-visualization",
+        "azure.managed-grafana-12-standard",
         "azure.monitor",
         "azure.log-analytics-shared-workspace"
       ],
@@ -2364,13 +2363,11 @@
       },
       "terraform_binding": {
         "resource_addresses": [
-          "azurerm_function_app_flex_consumption.azure_six_layer_visualization",
-          "azurerm_service_plan.azure_six_layer_flex",
-          "azurerm_storage_container.azure_six_layer_function_package"
+          "azurerm_dashboard_grafana.azure_six_layer",
+          "azurerm_role_assignment.azure_six_layer_grafana_deployer",
+          "azurerm_role_assignment.azure_six_layer_grafana_viewer"
         ],
-        "module_addresses": [
-          "module.azure_six_layer_visualization_package"
-        ],
+        "module_addresses": [],
         "allowed_input_variable_ids": [],
         "input_bindings": [],
         "outputs": [
@@ -2429,7 +2426,7 @@
       "deployment_specification_bindings": [
         {
           "specification_schema_version": "resolved-deployment-specification.v2",
-          "component_id": "azure.functions-flex-visualization",
+          "component_id": "azure.managed-grafana-12-standard",
           "slot_id": "l5_visualization"
         },
         {
@@ -11167,5 +11164,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:5423a78e24d0d70a89be9a00e3ba98bb5cb2cd01f3a1d5fd16061f5da2e1dcc8"
+  "content_digest": "sha256:efd829467b247635fc99633a464be6234f59c27ebfa7c066b42177dd44d1a639"
 }

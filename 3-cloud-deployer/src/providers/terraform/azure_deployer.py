@@ -122,8 +122,18 @@ def configure_azure_visualization(
     """Verify active-profile L5 or configure the historical Grafana path."""
     provider = _require_azure_provider(context)
     if _is_active_phase8_profile(context):
-        from src.deployment_access.visualization import fetch_visualization
-        fetch_visualization("azure", provider, terraform_outputs, verify_auth=True)
+        from src.providers.azure.layers.layer_5_grafana import configure_six_layer_grafana
+        bundle = terraform_outputs.get("azure_component_visualization_output") or {}
+        reader = terraform_outputs.get("azure_component_storage_read_access_output") or {}
+        if not bundle.get("workspace_name") or not reader.get("access_url"):
+            raise ValueError("Managed Grafana output and L3 reader are required")
+        device_id, metric = _default_v2_dashboard_series(context.config)
+        configure_six_layer_grafana(
+            provider, workspace_name=bundle.get("workspace_name", ""),
+            grafana_url=bundle.get("workspace_url", ""), hot_reader_url=reader.get("access_url", ""),
+            function_app_name=reader.get("reader_function_name", ""),
+            device_id=device_id, metric=metric, architecture_profile=_active_phase8_profile(context),
+        )
         return
     logger.info("  Configuring Azure Grafana...")
     from src.providers.azure.layers.layer_5_grafana import configure_grafana_datasource

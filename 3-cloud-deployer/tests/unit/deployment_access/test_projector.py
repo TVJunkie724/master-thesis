@@ -27,7 +27,7 @@ def test_graphical_readiness_does_not_claim_simulator_data_proof():
     context = _context("aws", "aws")
     outputs = _outputs()
     internal = outputs["aws_component_visualization_output"]["internal_evidence"]
-    internal.update(content_revision="graphical-l5.v1", data_probe_revision="graphical-l5-readiness.v1")
+    internal.update(content_revision="managed-grafana-l5.v1", data_probe_revision="managed-grafana-readiness.v1")
     context.deployment_access_runtime_evidence = collect_deployment_access_runtime_evidence(context, outputs)
     result = project_deployment_access_evidence(context, outputs)
     l5 = next(item for item in result["surfaces"] if item["layer"] == "l5")
@@ -89,7 +89,8 @@ def _outputs() -> dict:
             ),
         },
         "aws_component_visualization_output": {
-            "access_url": "https://reader.lambda-url.eu-central-1.on.aws/",
+            "access_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups",
+            "workspace_id": "g-example",
             "reader_function_name": "factory-six-layer-raw-history-reader",
             "principal_label": "arn:aws:iam::123456789012:user/researcher",
             "access_role": "AWS IAM signed read-only invocation",
@@ -116,7 +117,8 @@ def _outputs() -> dict:
             ),
         },
         "azure_component_visualization_output": {
-            "access_url": "https://reader.azurewebsites.net/api/raw-history/v1",
+            "access_url": "https://example.grafana.azure.com/d/t2mc-raw-rollups",
+            "workspace_name": "example",
             "reader_function_name": "reader",
             "principal_label": "00000000-0000-4000-8000-000000000002",
             "access_role": "Function key resolved by the deployment principal",

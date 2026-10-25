@@ -57,7 +57,7 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
     error_message = "Core must not start recurring storage work and must bound builds/jobs without retained build objects."
   }
   assert {
-    condition = length(aws_lambda_function.aws_six_layer_visualization) == 0 && length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 0
+    condition = length(aws_grafana_workspace.aws_six_layer) == 0 && length(azurerm_dashboard_grafana.azure_six_layer) == 0
     error_message = "Core-only plans must never create L5 visualization consumers."
   }
   assert {
@@ -313,8 +313,11 @@ def write_core_mock_plans(terraform_dir: Path, project_path: Path) -> int:
                     f"    {key} = {json.dumps(value)}"
                     for key, value in negative.items()
                 )
+                expected_failures = "terraform_data.evaluation_scope_guard"
+                if label == "core_cannot_include_l5":
+                    expected_failures += ", aws_grafana_workspace.aws_six_layer"
                 runs.append(
-                    f'run "{label}" {{\n command = plan\n{overrides}\n variables {{\n{negative_block}\n }}\n expect_failures = [terraform_data.evaluation_scope_guard]\n}}'
+                    f'run "{label}" {{\n command = plan\n{overrides}\n variables {{\n{negative_block}\n }}\n expect_failures = [{expected_failures}]\n}}'
                 )
         if name == "core-small-aws-to-gcp":
             missing_return = dict(

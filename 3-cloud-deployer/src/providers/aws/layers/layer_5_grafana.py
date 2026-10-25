@@ -25,6 +25,7 @@ import hashlib
 import logging
 import secrets
 import time
+from urllib.parse import quote, urlsplit
 from typing import TYPE_CHECKING, Dict, Any, Optional
 
 import requests
@@ -36,8 +37,8 @@ if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
-JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
-JSON_DATASOURCE_PLUGIN_VERSION = "1.4.0"
+JSON_DATASOURCE_PLUGIN_ID = "yesoreyeram-infinity-datasource"
+JSON_DATASOURCE_PLUGIN_VERSION = "4.1.3"
 SIX_LAYER_DATASOURCE_UID = "t2mc-aws-hot-reader"
 SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
 SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
@@ -112,6 +113,18 @@ def _delete_provisioning_service_account(
     )
 
 
+def _revoke_provisioning_tokens(provider, workspace_id, service_account_id):
+    """Keep one billable identity per workspace; revoke all short-lived tokens."""
+    client = provider.clients["grafana"]
+    for token in client.list_workspace_service_account_tokens(
+        workspaceId=workspace_id, serviceAccountId=service_account_id, maxResults=100
+    ).get("serviceAccountTokens", []):
+        client.delete_workspace_service_account_token(
+            workspaceId=workspace_id, serviceAccountId=service_account_id,
+            tokenId=token["id"],
+        )
+
+
 def _wait_for_exact_plugin(
     grafana_url: str,
     token: str,
@@ -122,7 +135,7 @@ def _wait_for_exact_plugin(
     last_detail = "not queried"
     for attempt in range(attempts):
         response = requests.get(
-            f"{grafana_url}/api/plugins/{JSON_DATASOURCE_PLUGIN_ID}",
+            f"{grafana_url}/api/plugins/{JSON_DATASOURCE_PLUGIN_ID}/settings",
             headers=_headers(token),
             timeout=30,
         )
@@ -173,7 +186,7 @@ def _install_reader_key(
 
 
 def _upsert_v2_datasource(
-    *, grafana_url: str, token: str, reader_url: str, reader_key: str
+    *, grafana_url: str, token: str, reader_url: str, region: str
 ) -> None:
     config = {
         "uid": SIX_LAYER_DATASOURCE_UID,
@@ -183,8 +196,11 @@ def _upsert_v2_datasource(
         "access": "proxy",
         "basicAuth": False,
         "isDefault": False,
-        "jsonData": {"httpMethod": "GET", "httpHeaderName1": "X-Twin-Reader-Key"},
-        "secureJsonData": {"httpHeaderValue1": reader_key},
+        "jsonData": {
+            "auth_method": "aws",
+            "aws": {"authType": "default", "region": region, "service": "lambda"},
+            "allowedHosts": [f"https://{urlsplit(reader_url).hostname}"],
+        },
     }
     response = requests.get(
         f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}",
@@ -222,29 +238,14 @@ def _history_target(device_id: str, metric: str, bucket_seconds: int) -> dict[st
             "type": JSON_DATASOURCE_PLUGIN_ID,
             "uid": SIX_LAYER_DATASOURCE_UID,
         },
-        "method": "GET",
-        "urlPath": "",
-        "params": [
-            ["device_id", device_id],
-            ["metric", metric],
-            ["from", "$__isoFrom()"],
-            ["to", "$__isoTo()"],
-            ["bucket_seconds", str(bucket_seconds)],
-            ["limit", "1000"],
-        ],
-        "fields": [
-            {
-                "jsonPath": f"$.points[*].{timestamp_field}",
-                "name": "Time",
-                "type": "time",
-                "language": "jsonpath",
-            },
-            {
-                "jsonPath": f"$.points[*].{value_field}",
-                "name": metric,
-                "type": "number",
-                "language": "jsonpath",
-            },
+        "type": "json", "source": "url", "parser": "backend",
+        "format": "timeseries", "root_selector": "points",
+        "url": (f"?device_id={quote(device_id, safe='')}&metric={quote(metric, safe='')}"
+                "&from=${__from:date:iso}&to=${__to:date:iso}"
+                f"&bucket_seconds={bucket_seconds}&limit=1000"),
+        "columns": [
+            {"selector": timestamp_field, "text": "Time", "type": "timestamp"},
+            {"selector": value_field, "text": metric, "type": "number"},
         ],
     }
 
@@ -266,8 +267,8 @@ def _v2_dashboard(
         "timezone": "browser",
         "schemaVersion": 41,
         "version": 0,
-        "refresh": "30s",
-        "time": {"from": "now-30d", "to": "now"},
+        "refresh": "",
+        "time": {"from": "now-6h", "to": "now"},
         "panels": [
             {
                 "id": 1,
@@ -415,8 +416,6 @@ def configure_six_layer_grafana(
         )
     ):
         raise ValueError("AWS Phase 8 Grafana inputs must be non-empty")
-    reader_key = secrets.token_urlsafe(32)
-    _install_reader_key(provider, reader_function_name, reader_key)
     service_account_id, token = _provisioning_service_account(provider, workspace_id)
     try:
         _ensure_exact_plugin(grafana_url, token)
@@ -424,7 +423,7 @@ def configure_six_layer_grafana(
             grafana_url=grafana_url,
             token=token,
             reader_url=reader_url,
-            reader_key=reader_key,
+            region=provider.clients["lambda"].meta.region_name,
         )
         _upsert_v2_dashboard(
             grafana_url=grafana_url,
@@ -433,16 +432,26 @@ def configure_six_layer_grafana(
             metric=metric,
             architecture_profile=architecture_profile,
         )
-        _probe_v2_surface(
-            grafana_url=grafana_url,
-            token=token,
-            reader_url=reader_url,
-            reader_key=reader_key,
-            device_id=device_id,
-            metric=metric,
-        )
+        # Exercise the Grafana backend, not a direct reader request signed by
+        # the deployment administrator. Empty frames are valid before telemetry.
+        now = datetime.now(timezone.utc)
+        for bucket in (0, 3600):
+            target = _history_target(device_id, metric, bucket)
+            target["url"] = target["url"].replace("${__from:date:iso}", quote(
+                (now - timedelta(hours=6)).isoformat(), safe=""
+            )).replace("${__to:date:iso}", quote(now.isoformat(), safe=""))
+            response = requests.post(
+                f"{grafana_url}/api/ds/query", headers=_headers(token),
+                json={"from": str(int((now-timedelta(hours=6)).timestamp()*1000)),
+                      "to": str(int(now.timestamp()*1000)), "queries": [target]},
+                timeout=180,
+            )
+            _require_status(response, (200,), "AWS Grafana backend query")
+            result = response.json().get("results", {}).get("A", {})
+            if result.get("error") or result.get("status", 200) != 200 or "frames" not in result:
+                raise RuntimeError("AWS Grafana backend query did not return data frames")
     finally:
-        _delete_provisioning_service_account(provider, workspace_id, service_account_id)
+        _revoke_provisioning_tokens(provider, workspace_id, service_account_id)
     logger.info("✓ AWS %s Grafana surface is ready", architecture_profile)
 
 

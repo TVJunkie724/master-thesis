@@ -367,7 +367,7 @@ def test_real_single_cloud_optimizer_prices_complete_profile(provider):
     assert readers[0]["logical_component_id"] == "component.hot-storage"
     assert result.cost_evaluation.component_totals["component.visualization"] > 0
     visualizations = [item for item in result.deployment_specification["component_selections"]
-                      if item["implementation_component_id"].endswith("-visualization")]
+                      if "managed-grafana" in item["implementation_component_id"]]
     assert len(visualizations) == 1
     assert visualizations[0]["logical_component_id"] == "component.visualization"
     assert (

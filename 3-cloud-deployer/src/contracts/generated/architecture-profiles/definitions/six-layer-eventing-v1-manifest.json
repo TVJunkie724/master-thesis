@@ -11,13 +11,13 @@
       "provider": "aws",
       "id": "provider-profile.aws.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:a9d70802a8ca424a7140831278edcfde921390f8deea970ccd39872c51e14191"
+      "digest": "sha256:1f67809a1f04e750f883fe70a89951b880767744e856bcae7fca87953829f1a5"
     },
     {
       "provider": "azure",
       "id": "provider-profile.azure.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:18383ac476c623def5f25d2adbc48d0831e95d2c274a80ab7b34db974436dd3f"
+      "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
     },
     {
       "provider": "gcp",
@@ -29,7 +29,7 @@
   "catalog_ref": {
     "id": "six-layer-eventing-component-catalog",
     "version": "1",
-    "digest": "sha256:5423a78e24d0d70a89be9a00e3ba98bb5cb2cd01f3a1d5fd16061f5da2e1dcc8"
+    "digest": "sha256:efd829467b247635fc99633a464be6234f59c27ebfa7c066b42177dd44d1a639"
   },
   "eventing_decision_ref": {
     "id": "phase-08-eventing-decision",
@@ -69,5 +69,5 @@
     "gcp-to-aws",
     "gcp-to-azure"
   ],
-  "content_digest": "sha256:ae4e5cb65d96bad2c33aebe2b7846da327b7095f9f10cfabc6e9cc9bf92d5ef9"
+  "content_digest": "sha256:c2ca2daf954cf05c05d63859c04d9e478366df7d21cb14b8d0c77301d5556cf9"
 }

@@ -2,13 +2,29 @@
 title: "Twin2MultiCloud Development and Decision Log"
 description: "Durable rationale for the research PoC architecture and implementation boundaries."
 tags: [thesis, decisions, methodology, architecture]
-lastUpdated: "2026-10-23"
-version: "2.15"
+lastUpdated: "2026-10-25"
+version: "2.16"
 ---
 
 # Twin2MultiCloud development and decision log
 
 Status: active durable rationale
+
+## 2026-10-25 — Restore the original L5 service family
+
+AWS and Azure use managed Grafana again; the normal Six-layer path must not
+substitute custom HTML/SVG hosting. Reuse one bounded Raw/Hourly dashboard,
+existing provider sign-in and the existing UI access card. L3 still owns the
+reader; L4 remains AWS TwinMaker/Azure Digital Twins. GCP L4/L5 remain excluded.
+No additional product UI, monitoring platform or cross-cloud reader protocol.
+
+RQ1 requires reproducible workspace/datasource/dashboard provisioning and
+cleanup. RQ2 requires exact simulator values in actual Grafana panels, not
+merely a JSON/HTML response. RQ3 includes workspace and active-user/license
+charges: Azure Standard X1 is two node units; an AWS automation service account
+is a billable identity and must be reused across retries. Historical SVG
+evidence and the Five-layer baseline remain immutable and separately qualified;
+the restored implementation is not live-proven until its affected tests pass.
 
 This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves

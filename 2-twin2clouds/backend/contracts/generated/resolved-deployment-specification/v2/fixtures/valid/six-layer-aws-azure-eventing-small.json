@@ -330,38 +330,50 @@
       "value_type": "integer"
     },
     {
-      "binding_id": "binding.azure.azure.functions-flex-visualization.resource_count",
+      "binding_id": "binding.azure.azure.managed-grafana-12-standard.resource_count",
       "compatibility_version": "1",
       "destination_input_id": "input.capacity.resource_count",
-      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "destination_selection_id": "selection.azure.azure.managed-grafana-12-standard",
       "resolution_stage": "preplan",
       "sensitivity": "internal",
       "source_kind": "deployment_dimension",
-      "source_ref": "dimension.azure.azure.functions-flex-visualization.resource_count",
+      "source_ref": "dimension.azure.azure.managed-grafana-12-standard.resource_count",
       "validator_id": "validator.non-negative-integer.v1",
       "value_type": "integer"
     },
     {
-      "binding_id": "binding.azure.azure.functions-flex-visualization.requests",
+      "binding_id": "binding.azure.azure.managed-grafana-12-standard.workspace_count",
       "compatibility_version": "1",
-      "destination_input_id": "input.usage.requests",
-      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "destination_input_id": "input.usage.workspace_count",
+      "destination_selection_id": "selection.azure.azure.managed-grafana-12-standard",
       "resolution_stage": "preplan",
       "sensitivity": "internal",
       "source_kind": "deployment_dimension",
-      "source_ref": "dimension.azure.azure.functions-flex-visualization.requests",
+      "source_ref": "dimension.azure.azure.managed-grafana-12-standard.workspace_count",
       "validator_id": "validator.non-negative-integer.v1",
       "value_type": "integer"
     },
     {
-      "binding_id": "binding.azure.azure.functions-flex-visualization.execution_seconds",
+      "binding_id": "binding.azure.azure.managed-grafana-12-standard.editor_seats",
       "compatibility_version": "1",
-      "destination_input_id": "input.usage.execution_seconds",
-      "destination_selection_id": "selection.azure.azure.functions-flex-visualization",
+      "destination_input_id": "input.usage.editor_seats",
+      "destination_selection_id": "selection.azure.azure.managed-grafana-12-standard",
       "resolution_stage": "preplan",
       "sensitivity": "internal",
       "source_kind": "deployment_dimension",
-      "source_ref": "dimension.azure.azure.functions-flex-visualization.execution_seconds",
+      "source_ref": "dimension.azure.azure.managed-grafana-12-standard.editor_seats",
+      "validator_id": "validator.non-negative-integer.v1",
+      "value_type": "integer"
+    },
+    {
+      "binding_id": "binding.azure.azure.managed-grafana-12-standard.viewer_seats",
+      "compatibility_version": "1",
+      "destination_input_id": "input.usage.viewer_seats",
+      "destination_selection_id": "selection.azure.azure.managed-grafana-12-standard",
+      "resolution_stage": "preplan",
+      "sensitivity": "internal",
+      "source_kind": "deployment_dimension",
+      "source_ref": "dimension.azure.azure.managed-grafana-12-standard.viewer_seats",
       "validator_id": "validator.non-negative-integer.v1",
       "value_type": "integer"
     },
@@ -1165,7 +1177,7 @@
       "dimensions": [
         {
           "classification": "capacity",
-          "dimension_id": "dimension.azure.azure.functions-flex-visualization.resource_count",
+          "dimension_id": "dimension.azure.azure.managed-grafana-12-standard.resource_count",
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
           "unit": "count",
@@ -1173,28 +1185,36 @@
         },
         {
           "classification": "usage",
-          "dimension_id": "dimension.azure.azure.functions-flex-visualization.requests",
+          "dimension_id": "dimension.azure.azure.managed-grafana-12-standard.workspace_count",
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "unit": "requests/month",
-          "value": 360
+          "unit": "count",
+          "value": 1
         },
         {
           "classification": "usage",
-          "dimension_id": "dimension.azure.azure.functions-flex-visualization.execution_seconds",
+          "dimension_id": "dimension.azure.azure.managed-grafana-12-standard.editor_seats",
           "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
           "formula_reference": "formula.phase-08-complete-service-bundles",
-          "unit": "seconds/month",
-          "value": 720
+          "unit": "seats/month",
+          "value": 1
+        },
+        {
+          "classification": "usage",
+          "dimension_id": "dimension.azure.azure.managed-grafana-12-standard.viewer_seats",
+          "evidence_reference": "sha256:a9a16d8c635b2b9dcd2badab9b6b71beb02535050e5f0baf5ee3201d096b4b8d",
+          "formula_reference": "formula.phase-08-complete-service-bundles",
+          "unit": "seats/month",
+          "value": 1
         }
       ],
       "implementation_component_digest": "sha256:be3fffe7ad2ffcf00427aa4c90b65dea554329d2344310f18f77dc35e830c8e5",
-      "implementation_component_id": "azure.functions-flex-visualization",
+      "implementation_component_id": "azure.managed-grafana-12-standard",
       "logical_component_id": "component.visualization",
       "provider": "azure",
       "region": "westeurope",
       "required": true,
-      "selection_id": "selection.azure.azure.functions-flex-visualization"
+      "selection_id": "selection.azure.azure.managed-grafana-12-standard"
     },
     {
       "architecture_assignment_id": "assignment.eventing",
@@ -1678,7 +1698,7 @@
     }
   ],
   "currency": "USD",
-  "digest": "sha256:585b3ce27981940aa68d035f08013c42468d2f8bb2c91e06d745024118d495c2",
+  "digest": "sha256:9f0782397ea958775d97784723f01e795cd6f837cb7a8eb258b352e9291bbcee",
   "fixed_dimensions": {
     "azure_mover_max_device_partitions_per_task": 1000,
     "l4_inspection_sessions_per_month": 12,
@@ -1695,7 +1715,7 @@
   },
   "optimization_context": {
     "component_catalog_ref": {
-      "digest": "sha256:5423a78e24d0d70a89be9a00e3ba98bb5cb2cd01f3a1d5fd16061f5da2e1dcc8",
+      "digest": "sha256:efd829467b247635fc99633a464be6234f59c27ebfa7c066b42177dd44d1a639",
       "id": "six-layer-eventing-component-catalog",
       "version": "1"
     },
@@ -1711,11 +1731,11 @@
     },
     "pricing_evidence_refs": [
       {
-        "digest": "sha256:dcfcd05eed995fe49bf649f737d16dc3c378dbe6ab83d9794bf16cdc267e01a7",
+        "digest": "sha256:17ca3be17ad125546bfc95e8d756ab4faa086efc97a2749ffbd7de6c88fd3e03",
         "provider": "aws"
       },
       {
-        "digest": "sha256:3f55b240a7adc76e45c6d342a3dbecfced3b9b9e750eb32bfc2d97fe0e6cc774",
+        "digest": "sha256:648d1c134cb5e33ad82ced929998130fd8a7b9ffc6d757e9f12ffc3d24dabe85",
         "provider": "azure"
       }
     ],

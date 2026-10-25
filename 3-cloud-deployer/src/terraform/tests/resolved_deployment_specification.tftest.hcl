@@ -130,13 +130,13 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
   }
   assert {
     condition = (
-      length(aws_lambda_function.aws_six_layer_visualization) == 1 &&
-      aws_lambda_function.aws_six_layer_visualization[0].handler == "handler.visualization" &&
-      aws_lambda_function.aws_six_layer_visualization[0].memory_size == 512 &&
-      aws_lambda_function_url.aws_six_layer_visualization[0].authorization_type == "AWS_IAM" &&
+      length(aws_grafana_workspace.aws_six_layer) == 1 &&
+      aws_grafana_workspace.aws_six_layer[0].grafana_version == "12.4" &&
+      contains(aws_grafana_workspace.aws_six_layer[0].authentication_providers, "AWS_SSO") &&
+      aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].authorization_type == "AWS_IAM" &&
       length(aws_lambda_function.aws_aws_lambda_raw_history_reader) == 1
     )
-    error_message = "Normal AWS L5 must be a separate authenticated graphical consumer, retaining the L3 reader."
+    error_message = "Normal AWS L5 must be Managed Grafana with Identity Center and the independent IAM-protected L3 reader."
   }
 }
 
@@ -231,13 +231,12 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
   }
   assert {
     condition = (
-      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization) == 1 &&
-      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].instance_memory_in_mb == 2048 &&
-      azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].maximum_instance_count == 2 &&
-      length(azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].always_ready) == 0 &&
+      length(azurerm_dashboard_grafana.azure_six_layer) == 1 &&
+      azurerm_dashboard_grafana.azure_six_layer[0].sku == "Standard" &&
+      azurerm_dashboard_grafana.azure_six_layer[0].grafana_major_version == "12" &&
       length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
     )
-    error_message = "Normal Azure L5 must be a separate scale-to-zero graphical consumer, retaining the L3 reader."
+    error_message = "Normal Azure L5 must be Managed Grafana, retaining the independent L3 reader."
   }
 
   assert {

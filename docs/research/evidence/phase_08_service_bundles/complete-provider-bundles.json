@@ -38,7 +38,7 @@
           "aws.iot-twinmaker-standard"
         ],
         "l5_visualization": [
-          "aws.lambda-visualization"
+          "aws.amazon-managed-grafana-12"
         ]
       },
       "support_components": [
@@ -93,7 +93,7 @@
           "azure.digital-twins"
         ],
         "l5_visualization": [
-          "azure.functions-flex-visualization"
+          "azure.managed-grafana-12-standard"
         ]
       },
       "support_components": [

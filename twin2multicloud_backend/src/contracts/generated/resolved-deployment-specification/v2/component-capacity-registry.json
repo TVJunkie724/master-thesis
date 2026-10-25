@@ -47,7 +47,7 @@
           "aws.iot-twinmaker-standard"
         ],
         "l5_visualization": [
-          "aws.lambda-visualization"
+          "aws.amazon-managed-grafana-12"
         ]
       },
       "support_components": [
@@ -102,7 +102,7 @@
           "azure.digital-twins"
         ],
         "l5_visualization": [
-          "azure.functions-flex-visualization"
+          "azure.managed-grafana-12-standard"
         ]
       },
       "support_components": [
@@ -1444,7 +1444,7 @@
       "deduplication_key": "gcp.workflows"
     },
     {
-      "component_id": "aws.lambda-visualization",
+      "component_id": "aws.amazon-managed-grafana-12",
       "component_digest": "sha256:f0b426d31666ae71fbeaf8d45e18ba19baae352271a133dca5e4eca7b34074c4",
       "provider": "aws",
       "responsibilities": [
@@ -1452,15 +1452,16 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests",
-        "gib_seconds"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
-      "pricing_owner_id": "cost::aws.lambda-visualization",
-      "pricing_catalog_key": "aws.lambda-visualization",
-      "deduplication_key": "aws.lambda-visualization"
+      "pricing_owner_id": "cost::aws.amazon-managed-grafana-12",
+      "pricing_catalog_key": "aws.amazon-managed-grafana-12",
+      "deduplication_key": "aws.amazon-managed-grafana-12"
     },
     {
-      "component_id": "azure.functions-flex-visualization",
+      "component_id": "azure.managed-grafana-12-standard",
       "component_digest": "sha256:be3fffe7ad2ffcf00427aa4c90b65dea554329d2344310f18f77dc35e830c8e5",
       "provider": "azure",
       "responsibilities": [
@@ -1468,12 +1469,13 @@
       ],
       "capacity_dimensions": [
         "resource_count",
-        "requests",
-        "execution_seconds"
+        "workspace_count",
+        "editor_seats",
+        "viewer_seats"
       ],
-      "pricing_owner_id": "cost::azure.functions-flex-visualization",
-      "pricing_catalog_key": "azure.functions-flex-visualization",
-      "deduplication_key": "azure.functions-flex-visualization"
+      "pricing_owner_id": "cost::azure.managed-grafana-12-standard",
+      "pricing_catalog_key": "azure.managed-grafana-12-standard",
+      "deduplication_key": "azure.managed-grafana-12-standard"
     }
   ],
   "route_owners": [
@@ -1790,5 +1792,5 @@
       "deduplication_key": "domain_event_cross_cloud::gcp->azure"
     }
   ],
-  "content_digest": "sha256:93c9e204a474920a9568d4d0251f198b22506f26e6472ff9e7b4075119ac3220"
+  "content_digest": "sha256:c22678d217f2fbdc1fa7fc647d15cbab79edd00ce8e0d8ff6a99d5493487d33a"
 }

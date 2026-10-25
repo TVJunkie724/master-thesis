@@ -29,7 +29,7 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "aws.s3-glacier-deep-archive": ["aws_s3_bucket_lifecycle_configuration"],
     "aws.iot-twinmaker-standard": ["awscc_iottwinmaker_workspace"],
     "aws.lambda-raw-history-reader": ["aws_lambda_function", "aws_lambda_function_url"],
-    "aws.lambda-visualization": ["aws_lambda_function", "aws_lambda_function_url", "aws_iam_role", "aws_iam_role_policy"],
+    "aws.amazon-managed-grafana-12": ["aws_grafana_workspace", "aws_grafana_role_association", "aws_iam_role", "aws_iam_role_policy"],
     "aws.eventbridge-scheduler": ["aws_scheduler_schedule"],
     "aws.ecs-fargate-storage-mover": ["aws_ecs_cluster", "aws_ecs_task_definition"],
     "aws.ecr-if-container-selected": [
@@ -77,7 +77,7 @@ TERRAFORM_TYPES: dict[str, list[str]] = {
     "azure.functions-flex-raw-history-reader": [
         "azurerm_function_app_flex_consumption"
     ],
-    "azure.functions-flex-visualization": ["azurerm_function_app_flex_consumption", "azurerm_service_plan", "azurerm_storage_container"],
+    "azure.managed-grafana-12-standard": ["azurerm_dashboard_grafana", "azurerm_role_assignment"],
     "azure.container-apps-scheduled-storage-job": [
         "azurerm_container_app_environment",
         "azurerm_container_app_job",
@@ -275,6 +275,7 @@ def dimensions(component_id: str) -> list[str]:
         ),
         (("lambda",), ("requests", "gib_seconds")),
         (("function",), ("requests", "execution_seconds")),
+        (("grafana",), ("workspace_count", "editor_seats", "viewer_seats")),
         (("cloud-run",), ("requests", "vcpu_seconds", "memory_gib_seconds")),
         (("gke",), ("node_count", "node_hours")),
         (("event-hubs",), ("throughput_unit_hours", "capacity_unit_hours")),
@@ -346,15 +347,13 @@ def network_ports(component_id: str) -> list[int]:
 
 def file_targets(provider: str, component_id: str) -> list[str]:
     exact = {
-        "aws.lambda-visualization": [
+        "aws.amazon-managed-grafana-12": [
             "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
-            "3-cloud-deployer/src/providers/aws/lambda_functions/six-layer-domain/handler.py",
-            "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py",
+            "3-cloud-deployer/src/providers/aws/layers/layer_5_grafana.py",
         ],
-        "azure.functions-flex-visualization": [
+        "azure.managed-grafana-12-standard": [
             "3-cloud-deployer/src/terraform/six_layer_visualization.tf",
-            "3-cloud-deployer/src/providers/azure/azure_functions/six-layer-domain/function_app.py",
-            "3-cloud-deployer/src/runtime/six_layer_eventing/visualization.py",
+            "3-cloud-deployer/src/providers/azure/layers/layer_5_grafana.py",
         ],
         "aws.ecr-if-container-selected": [
             "3-cloud-deployer/src/terraform/aws_six_layer.tf",

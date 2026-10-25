@@ -427,12 +427,16 @@ void _validateSurfaceCombination(
           auth.mode == DeploymentAccessAuthMode.gcpIap &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.aws) =>
-      serviceId == 'aws_l5_visualization' &&
-          auth.mode == DeploymentAccessAuthMode.awsSigv4 &&
+      ((serviceId == 'aws_l5_visualization' &&
+                  auth.mode == DeploymentAccessAuthMode.awsSigv4) ||
+              (serviceId == 'aws_managed_grafana' &&
+                  auth.mode == DeploymentAccessAuthMode.awsIdentityCenter)) &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.azure) =>
-      serviceId == 'azure_l5_visualization' &&
-          auth.mode == DeploymentAccessAuthMode.azureFunctionKey &&
+      ((serviceId == 'azure_l5_visualization' &&
+                  auth.mode == DeploymentAccessAuthMode.azureFunctionKey) ||
+              (serviceId == 'azure_managed_grafana' &&
+                  auth.mode == DeploymentAccessAuthMode.azureEntra)) &&
           auth.credentialAction == DeploymentAccessCredentialAction.none,
     (DeploymentLayer.l5, CloudProvider.gcp) =>
       serviceId == 'gcp_raw_history_reader' &&

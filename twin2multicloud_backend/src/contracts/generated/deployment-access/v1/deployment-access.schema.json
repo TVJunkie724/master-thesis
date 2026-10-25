@@ -79,6 +79,8 @@
             "gcp_twin_explorer",
             "aws_l5_visualization",
             "azure_l5_visualization",
+            "aws_managed_grafana",
+            "azure_managed_grafana",
             "gcp_raw_history_reader"
           ]
         },

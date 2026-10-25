@@ -1,131 +1,90 @@
-# L5 consumes authenticated L3 HTTP only. It owns neither storage nor models.
-# Core-only evaluation sets layer_5_provider to none and creates none of these.
-locals {
-  six_layer_visualization_device = try(var.iot_devices[0].id, "poc-device-001")
-  six_layer_visualization_metric = try(var.iot_devices[0].properties[0].name, "temperature")
-}
+# Managed Grafana restores the original L5 service family. L3 owns its reader;
+# L5 owns only the workspace, invocation permission and dashboard provisioning.
+# Core-only evaluation creates none of these resources.
 
-resource "aws_iam_role" "aws_six_layer_visualization" {
+resource "aws_iam_role" "aws_six_layer_grafana" {
   count = local.aws_six_layer_l5_enabled ? 1 : 0
-  name  = "${local.aws_six_layer_name}-six-visualization"
+  name  = "${local.aws_six_layer_name}-six-grafana"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { Service = "lambda.amazonaws.com" }, Action = "sts:AssumeRole" }]
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow", Principal = { Service = "grafana.amazonaws.com" }, Action = "sts:AssumeRole"
+      Condition = { StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current[0].account_id } }
+    }]
   })
   tags = local.aws_six_layer_tags
 }
 
-resource "aws_cloudwatch_log_group" "aws_six_layer_visualization" {
-  count             = local.aws_six_layer_l5_enabled ? 1 : 0
-  name              = "/aws/lambda/${local.aws_six_layer_name}-six-visualization"
-  retention_in_days = 1
-  tags              = local.aws_six_layer_tags
-}
-
-resource "aws_iam_role_policy" "aws_six_layer_visualization" {
+resource "aws_iam_role_policy" "aws_six_layer_grafana" {
   count = local.aws_six_layer_l5_enabled ? 1 : 0
-  role  = aws_iam_role.aws_six_layer_visualization[0].id
-  name  = "invoke-reader-and-write-logs"
+  role  = aws_iam_role.aws_six_layer_grafana[0].id
+  name  = "invoke-l3-reader"
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      { Effect = "Allow", Action = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"], Resource = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn },
-      { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.aws_six_layer_visualization[0].arn}:*" },
-    ]
+    Statement = [{
+      Effect   = "Allow", Action = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
+      Resource = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+    }]
   })
 }
 
-resource "aws_lambda_function" "aws_six_layer_visualization" {
-  count                          = local.aws_six_layer_l5_enabled ? 1 : 0
-  function_name                  = "${local.aws_six_layer_name}-six-visualization"
-  role                           = aws_iam_role.aws_six_layer_visualization[0].arn
-  filename                       = local.aws_six_layer_runtime_package
-  source_code_hash               = filebase64sha256(local.aws_six_layer_runtime_package)
-  handler                        = "handler.visualization"
-  runtime                        = local.python_runtime_aws
-  timeout                        = 30
-  memory_size                    = 512
-  reserved_concurrent_executions = 2
-  environment {
-    variables = {
-      L3_READER_URL  = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
-      L5_DEVICE_ID   = local.six_layer_visualization_device
-      L5_METRIC      = local.six_layer_visualization_metric
-      L5_ALLOW_EMPTY = "true"
-    }
-  }
-  tags       = local.aws_six_layer_tags
-  depends_on = [aws_iam_role_policy.aws_six_layer_visualization]
+resource "aws_grafana_workspace" "aws_six_layer" {
+  count                    = local.aws_six_layer_l5_enabled ? 1 : 0
+  name                     = "${local.aws_six_layer_name}-six-grafana"
+  account_access_type      = "CURRENT_ACCOUNT"
+  authentication_providers = ["AWS_SSO"]
+  permission_type          = "CUSTOMER_MANAGED"
+  role_arn                 = aws_iam_role.aws_six_layer_grafana[0].arn
+  grafana_version          = "12.4"
+  configuration            = jsonencode({ plugins = { pluginAdminEnabled = true } })
+  tags                     = local.aws_six_layer_tags
+  depends_on               = [aws_iam_role_policy.aws_six_layer_grafana]
   lifecycle {
     precondition {
-      condition     = var.layer_3_hot_provider == "aws"
-      error_message = "L5 supports only provider-local L3 read access."
+      condition     = var.layer_3_hot_provider == "aws" && local.aws_six_layer_layer_access_enabled
+      error_message = "Grafana requires provider-local L3 and the selected Identity Center user."
     }
   }
 }
 
-resource "aws_lambda_function_url" "aws_six_layer_visualization" {
-  count              = local.aws_six_layer_l5_enabled ? 1 : 0
-  function_name      = aws_lambda_function.aws_six_layer_visualization[0].function_name
-  authorization_type = "AWS_IAM"
+resource "aws_grafana_role_association" "aws_six_layer_viewer" {
+  count        = local.aws_six_layer_l5_enabled ? 1 : 0
+  role         = "VIEWER"
+  user_ids     = [local.aws_six_layer_layer_user_id]
+  workspace_id = aws_grafana_workspace.aws_six_layer[0].id
 }
 
-data "azurerm_function_app_host_keys" "azure_six_layer_visualization_reader" {
-  count               = local.azure_six_layer_l5_enabled ? 1 : 0
-  name                = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
-  resource_group_name = azurerm_resource_group.main[0].name
-  depends_on          = [module.azure_six_layer_reader_package]
-}
-
-resource "azurerm_function_app_flex_consumption" "azure_six_layer_visualization" {
-  count                                          = local.azure_six_layer_l5_enabled ? 1 : 0
-  name                                           = "${local.azure_six_layer_name}-six-visual-${local.deployment_suffix}"
-  resource_group_name                            = azurerm_resource_group.main[0].name
-  location                                       = azurerm_resource_group.main[0].location
-  service_plan_id                                = azurerm_service_plan.azure_six_layer_flex["visualization"].id
-  storage_container_type                         = "blobContainer"
-  storage_container_endpoint                     = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["visualization"].name}"
-  storage_authentication_type                    = "StorageAccountConnectionString"
-  storage_access_key                             = azurerm_storage_account.main[0].primary_access_key
-  runtime_name                                   = "python"
-  runtime_version                                = "3.12"
-  # Bounded on-demand headroom; no always-ready worker. Test the capacity
-  # boundary after intermittent unclassified 503s with a one-instance limit.
-  maximum_instance_count                         = 2
-  instance_memory_in_mb                          = 2048
-  https_only                                     = true
-  webdeploy_publish_basic_authentication_enabled = false
-  site_config {
-    minimum_tls_version                    = "1.2"
-    scm_minimum_tls_version                = "1.2"
-    application_insights_connection_string = azurerm_application_insights.azure_command_diagnostics[0].connection_string
-  }
-  # No always-ready worker and no Cosmos identity: L5 reads through L3 only.
-  app_settings = merge({
-    SIX_LAYER_VISUALIZATION_ENABLED = "true"
-    L3_READER_URL                   = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
-    L3_READER_KEY                   = data.azurerm_function_app_host_keys.azure_six_layer_visualization_reader[0].default_function_key
-    L5_DEVICE_ID                    = local.six_layer_visualization_device
-    L5_METRIC                       = local.six_layer_visualization_metric
-    L5_ALLOW_EMPTY                  = "true"
-  }, local.azure_l5_diagnostic_settings)
+resource "azurerm_dashboard_grafana" "azure_six_layer" {
+  count                         = local.azure_six_layer_l5_enabled ? 1 : 0
+  name                          = "${local.azure_six_layer_name}-grafana-${local.deployment_suffix}"
+  resource_group_name           = azurerm_resource_group.main[0].name
+  location                      = azurerm_resource_group.main[0].location
+  sku                           = "Standard"
+  grafana_major_version         = "12"
+  public_network_access_enabled = true
+  zone_redundancy_enabled       = false
+  identity { type = "SystemAssigned" }
   tags = local.azure_six_layer_tags
   lifecycle {
     precondition {
-      condition     = var.layer_3_hot_provider == "azure"
-      error_message = "L5 supports only provider-local L3 read access."
+      condition     = var.layer_3_hot_provider == "azure" && var.azure_layer_access_principal_object_id != ""
+      error_message = "Grafana requires provider-local L3 and an existing Entra viewer."
     }
   }
 }
 
-module "azure_six_layer_visualization_package" {
-  source                    = "./modules/azure_flex_package"
-  count                     = local.azure_six_layer_l5_enabled ? 1 : 0
-  app_id                    = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].id
-  app_name                  = azurerm_function_app_flex_consumption.azure_six_layer_visualization[0].name
-  resource_group_name       = azurerm_resource_group.main[0].name
-  package_path              = local.azure_six_layer_runtime_package
-  storage_account_name      = azurerm_storage_account.main[0].name
-  storage_container_name    = azurerm_storage_container.azure_six_layer_function_package["visualization"].name
-  storage_connection_string = azurerm_storage_account.main[0].primary_connection_string
+resource "azurerm_role_assignment" "azure_six_layer_grafana_deployer" {
+  count                            = local.azure_six_layer_l5_enabled ? 1 : 0
+  scope                            = azurerm_dashboard_grafana.azure_six_layer[0].id
+  role_definition_name             = "Grafana Admin"
+  principal_id                     = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "azure_six_layer_grafana_viewer" {
+  count                = local.azure_six_layer_l5_enabled ? 1 : 0
+  scope                = azurerm_dashboard_grafana.azure_six_layer[0].id
+  role_definition_name = "Grafana Viewer"
+  principal_id         = var.azure_layer_access_principal_object_id
+  principal_type       = "User"
 }

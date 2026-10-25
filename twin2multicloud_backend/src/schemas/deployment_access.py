@@ -30,6 +30,10 @@ SURFACE_MATRIX = {
     ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset({("six-layer-eventing", "1")})
+MANAGED_GRAFANA_MATRIX = {
+    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
+    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
+}
 
 
 class _ClosedModel(BaseModel):
@@ -66,6 +70,8 @@ class DeploymentAccessSurface(_ClosedModel):
         "gcp_twin_explorer",
         "aws_l5_visualization",
         "azure_l5_visualization",
+        "aws_managed_grafana",
+        "azure_managed_grafana",
         "gcp_raw_history_reader",
     ]
     display_name: str = Field(min_length=1)
@@ -114,7 +120,7 @@ class DeploymentAccessSurface(_ClosedModel):
             self.auth.mode,
             self.auth.credential_action,
         )
-        if expected != actual:
+        if expected != actual and MANAGED_GRAFANA_MATRIX.get((self.layer, self.provider)) != actual:
             raise ValueError("provider/service/auth combination is not supported")
         if not self.capabilities:
             raise ValueError("capabilities must not be empty")

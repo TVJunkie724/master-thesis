@@ -37,6 +37,28 @@ class _MockExternalAuthLaunchHandle extends Mock
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final provider in [CloudProvider.aws, CloudProvider.azure]) {
+    testWidgets(
+      'Managed Grafana ${provider.name} opens exact dashboard, not HTML',
+      (tester) async {
+        final bloc = _MockTwinOverviewBloc();
+        final launcher = _MockExternalAuthLauncher();
+        final handle = _MockExternalAuthLaunchHandle();
+        final state = _loadedState(l5: provider, managedGrafana: true);
+        final l5 = state.layerAccess.snapshot!.surfaceFor(DeploymentLayer.l5)!;
+        when(() => launcher.reserve()).thenReturn(handle);
+        when(() => handle.navigate(l5.url)).thenAnswer((_) async => true);
+        await _pumpView(tester, bloc: bloc, state: state, launcher: launcher);
+        await tester.ensureVisible(find.byKey(const Key('open-layer-l5')));
+        await tester.tap(find.byKey(const Key('open-layer-l5')));
+        await tester.pump();
+        verify(() => handle.navigate(l5.url)).called(1);
+        verifyNever(() => bloc.add(TwinOverviewOpenVisualization(handle)));
+        expect(find.textContaining('HTML/SVG'), findsNothing);
+      },
+    );
+  }
+
   testWidgets('Open reserves a browser handle and navigates to the exact URL', (
     tester,
   ) async {
@@ -278,6 +300,7 @@ Future<void> _pumpView(
 
 TwinOverviewLoaded _loadedState({
   CloudProvider l5 = CloudProvider.aws,
+  bool managedGrafana = false,
   DeploymentOutputsSnapshot? deploymentOutputs,
   String twinState = 'deployed',
   bool canDestroy = true,
@@ -291,12 +314,27 @@ TwinOverviewLoaded _loadedState({
     canDestroy: canDestroy,
     canEdit: false,
     canDelete: false,
-    layerAccess: LayerAccessViewState.fromSnapshot(_snapshot(l5: l5)),
+    layerAccess: LayerAccessViewState.fromSnapshot(
+      _snapshot(l5: l5, managedGrafana: managedGrafana),
+    ),
     deploymentOutputs: deploymentOutputs,
   );
 }
 
-DeploymentAccessSnapshot _snapshot({required CloudProvider l5}) {
+DeploymentAccessSnapshot _snapshot({
+  required CloudProvider l5,
+  bool managedGrafana = false,
+}) {
+  final l5Surface = _surface(DeploymentLayer.l5, l5);
+  if (managedGrafana) {
+    l5Surface['service_id'] = '${l5.name}_managed_grafana';
+    l5Surface['display_name'] = '${l5.name} Managed Grafana';
+    l5Surface['url'] =
+        'https://${l5.name}.grafana.example.invalid/d/t2mc-raw-rollups';
+    (l5Surface['auth'] as Map)['mode'] = l5 == CloudProvider.aws
+        ? 'aws_identity_center'
+        : 'azure_entra';
+  }
   return DeploymentAccessSnapshot.fromJson({
     'schema_version': 'deployment-access.v1',
     'twin_id': 'twin-1',
@@ -304,10 +342,7 @@ DeploymentAccessSnapshot _snapshot({required CloudProvider l5}) {
     'generated_at': '2026-07-31T12:00:00Z',
     'availability': 'available',
     'reason_code': null,
-    'surfaces': [
-      _surface(DeploymentLayer.l4, CloudProvider.azure),
-      _surface(DeploymentLayer.l5, l5),
-    ],
+    'surfaces': [_surface(DeploymentLayer.l4, CloudProvider.azure), l5Surface],
   });
 }
 
@@ -323,6 +358,12 @@ Map<String, dynamic> _surface(DeploymentLayer layer, CloudProvider provider) {
       'aws_l5_visualization',
       'AWS Raw-history Reader',
       'aws_sigv4',
+      'none',
+    ),
+    (DeploymentLayer.l5, CloudProvider.azure) => (
+      'azure_l5_visualization',
+      'Azure Raw-history Reader',
+      'azure_function_key',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.gcp) => (
