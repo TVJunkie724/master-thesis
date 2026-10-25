@@ -54,6 +54,28 @@ keys fail closed, without creating credentials or falling back to host/master
 keys. The provider's detailed 400 response was not retained, so its internal
 validation cause is not inferred from the HTTP status alone.
 
+The second fresh AWS attempt establishes a different, concrete integration
+failure: managed Grafana 12.4 and Infinity 4.1.3 provision the datasource and
+dashboard, but the first backend query returns HTTP 400 with an unavailable
+AWS credential chain. Thus the intended workspace-role authentication is not
+live-proven and longer query timeouts are not a demonstrated fix. A local
+Grafana reproduction works only when the plugin receives the fixture AWS
+environment; this is corroborating diagnostic evidence, not proof of which
+internal Amazon-managed server setting is responsible. The bounded follow-up
+query returned HTTP 404 and does not replace the original deployment failure.
+Do not claim a general impossibility of role authentication or silently replace
+it with administrator credentials, an unauthenticated URL or another hosting
+model. A deployment-scoped, least-privilege reader identity is an explicit
+alternative requiring user approval of the changed authentication assumption.
+No such alternative has been implemented at this checkpoint.
+
+The failed AWS attempt also exposed an SDK IoT simulator identity not removed
+by Terraform. Cleanup now checks exact configured device names and exclusive
+certificate/policy ownership before detaching and deleting them; shared
+identities fail closed. Independent inventory remains the completion gate,
+including an explicit distinction between active resources and provider-owned
+inactive command deletion markers. Failed runs remain failed evaluation data.
+
 This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves
 the detailed implementation history; the active execution state is maintained

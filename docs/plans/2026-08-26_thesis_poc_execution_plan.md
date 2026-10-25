@@ -95,7 +95,21 @@ timings; missing destruction timings are not reconstructed. The corrected
 exclusive-identity cleanup and diagnostics pass the complete safe Deployer
 suite (2,281 passed, one intentional skip). A local Infinity credential-chain
 reproduction is diagnostic evidence only, not the proven managed-AWS cause.
-The next bounded AWS attempt remains pending. Completion requires normal Destroy and
+The second fresh AWS attempt also creates 109 Terraform objects and reaches
+the actual Grafana backend query. Its safe deployment diagnostic identifies
+HTTP 400, `credential-chain-unavailable`, with the intended default AWS SDK
+authentication. Independent inspection confirms the pinned Infinity 4.1.3
+plugin, datasource and dashboard exist; a follow-up query returns HTTP 404
+and is not a successful retry. No simulator or browser-data pass is claimed.
+The approved plan's authentication incompatibility stop condition applies;
+an alternative deployment-scoped reader identity is awaiting user decision.
+No additional paid attempt is admitted at this checkpoint.
+Normal Destroy then removes all 109 Terraform objects; 218 creation/destruction
+timings are retained. Independent inventory across 23 categories reports zero
+active residuals and one inactive IoT command deletion marker for this attempt.
+Unlike the first attempt, no supplementary simulator policy/certificate cleanup
+is required. The inactive marker still prevents a full null-inventory claim.
+Completion requires normal Destroy and
 independent zero inventory for each provider; API link correctness alone is not
 a complete Flutter-to-Grafana browser E2E.
 
