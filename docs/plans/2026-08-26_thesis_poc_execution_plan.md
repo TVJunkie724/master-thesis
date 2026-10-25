@@ -102,8 +102,11 @@ authentication. Independent inspection confirms the pinned Infinity 4.1.3
 plugin, datasource and dashboard exist; a follow-up query returns HTTP 404
 and is not a successful retry. No simulator or browser-data pass is claimed.
 The approved plan's authentication incompatibility stop condition applies;
-an alternative deployment-scoped reader identity is awaiting user decision.
-No additional paid attempt is admitted at this checkpoint.
+the user subsequently approved a deployment-scoped, least-privilege reader
+identity. Its Terraform/SDK implementation and local signed Grafana fixture
+checks replace the unavailable runtime credential-chain assumption. A fresh
+managed-cloud simulator/browser run remains required; no additional paid
+attempt is admitted until its resource and remaining-budget gates pass.
 Normal Destroy then removes all 109 Terraform objects; 218 creation/destruction
 timings are retained. Independent inventory across 23 categories reports zero
 active residuals and one inactive IoT command deletion marker for this attempt.

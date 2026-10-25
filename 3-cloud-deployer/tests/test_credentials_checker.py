@@ -128,6 +128,7 @@ class TestRequiredPermissions:
         assert "sso-directory" in layer_5
         assert "identitystore" in layer_5
         assert "grafana:CreateWorkspaceApiKey" in layer_5["grafana"]
+        assert {"iam:GetUser", "iam:CreateAccessKey", "iam:DeleteAccessKey", "iam:DeleteUser"} <= set(layer_5["iam"])
         assert "sso:GetSharedSsoConfiguration" in layer_5["sso"]
         assert "sso-directory:SearchUsers" in layer_5["sso-directory"]
         assert "identitystore:CreateUser" in layer_5["identitystore"]

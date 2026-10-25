@@ -152,6 +152,16 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
     )
     error_message = "Normal AWS L5 must be Managed Grafana with Identity Center and the independent IAM-protected L3 reader."
   }
+  assert {
+    condition = (
+      length(aws_iam_user.aws_six_layer_grafana_reader) == 1 &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].force_destroy &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].path == "/twin2multicloud/grafana/" &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].tags.Purpose == "grafana-l3-reader" &&
+      length(aws_iam_user_policy.aws_six_layer_grafana_reader) == 1
+    )
+    error_message = "Grafana reader identity must be dedicated, tagged and delete SDK keys on Destroy."
+  }
 }
 
 run "six_layer_single_cloud_azure_adds_independent_event_bundle" {

@@ -44,6 +44,7 @@ def inventory(values, prefix):
         ("stepfunctions", "list_state_machines", "stateMachines", "name", {}),
         ("s3", "list_buckets", "Buckets", "Name", {}),
         ("iam", "list_roles", "Roles", "RoleName", {}),
+        ("iam", "list_users", "Users", "UserName", {"PathPrefix": "/twin2multicloud/grafana/"}),
         ("iam", "list_policies", "Policies", "PolicyName", {"Scope": "Local"}),
     )
     for service, operation, key, field, kwargs in selections:

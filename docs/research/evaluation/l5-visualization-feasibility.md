@@ -10,6 +10,19 @@ GCP L4/L5 remain excluded, and the research questions remain unchanged.
 Previous HTML/SVG passes prove only that historical implementation, not Grafana.
 See [the bounded restoration plan](../../plans/2026-10-25_restore_managed_grafana.md).
 
+Current AWS authentication amendment (2026-10-25): the managed Infinity 4.1.3
+backend query failed with an unavailable default SDK credential chain. The user
+approved one deployment-owned, URL-only IAM reader identity instead of copying
+administrator credentials or exposing the reader. Its access key is generated
+in SDK memory, supplied through Grafana secureJsonData and revoked on failed
+postapply or user Destroy. It is a static credential for the deployment lifetime,
+not an expiring STS session; no rotation service is added to this PoC. Terraform
+owns the user/policy and deletes non-Terraform keys with that dedicated user.
+The secret is not a Terraform output/state value or a Flutter credential.
+This supersedes the runtime-role prerequisite for AWS below; the original failed
+role-authentication observation remains unchanged. Local signed fixture queries
+pass, but a fresh managed-cloud simulator/browser run is still required.
+
 Historical decision (2026-10-05): the user approved a minimal AWS/Azure
 server-rendered graphical consumer instead of this Managed Grafana proposal.
 The approved fixed L3→L5 experiment, claim boundaries and results are recorded

@@ -22,6 +22,34 @@ from scripts.run_core_evaluation import (
 from scripts import core_live_aws, core_live_azure, core_live_gcp
 
 
+@pytest.mark.parametrize("denied", [False, True])
+def test_aws_inventory_includes_scoped_grafana_reader_users(monkeypatch, denied):
+    class Client:
+        def can_paginate(self, operation):
+            return False
+
+        def __getattr__(self, operation):
+            def call(**kwargs):
+                if operation == "list_users":
+                    assert kwargs == {"PathPrefix": "/twin2multicloud/grafana/"}
+                    if denied:
+                        raise RuntimeError("inventory denied")
+                    return {"Users": [{"UserName": "test-grafana-reader-abcd"}, {"UserName": "other-grafana-reader-abcd"}]}
+                return {"Vpcs": []} if operation == "describe_vpcs" else {}
+            return call
+
+    class Session:
+        def client(self, *_args, **_kwargs):
+            return Client()
+
+    monkeypatch.setattr(core_live_aws, "session", lambda _: Session())
+    if denied:
+        with pytest.raises(RuntimeError, match="inventory denied"):
+            core_live_aws.inventory({}, "test")
+    else:
+        assert core_live_aws.inventory({}, "test")["iam:list_users"] == 1
+
+
 def test_allowance_is_cumulative_and_rejected_without_overwriting(tmp_path):
     path = tmp_path / "ledger.json"
     reserve(path, "aws", "one", 2, 1)

@@ -30,7 +30,7 @@ for that implementation only; do not relabel them as Grafana passes.
 In scope: one provider-local datasource and one existing Raw/Hourly dashboard
 per workspace; existing operator sign-in; existing UI access card; cost and
 graph corrections; bounded simulator evidence and cleanup. Out of scope:
-redesign, embedded Grafana, alerts, HA, new users/tenant consent, cross-cloud
+redesign, embedded Grafana, alerts, HA, new human users/tenant consent, cross-cloud
 L3-to-L5 authentication and repetition of unchanged Core permutations.
 
 ## 2. Visual layout (Desktop and Web unchanged)
@@ -105,12 +105,18 @@ represented as a completed cloud/data assertion.
 ## 10. Cross-service implementation and live prerequisites
 
 1. Reuse the existing Grafana Terraform/provider modules and dashboard builders.
-   Remove the normal Six-layer SVG hosting resources. AWS workspace IAM may
-   invoke only its L3 reader; keep AWS_IAM URL authentication. Use a verified
-   managed-compatible Infinity plugin with SDK role authentication, never
-   administrator/static keys or a public reader. If that combination is not
-   available, stop and report the concrete incompatibility rather than
-   substituting another hosting/authentication model.
+   Remove the normal Six-layer SVG hosting resources; keep AWS_IAM reader URL
+   authentication. The managed Infinity SDK credential-chain failure is live
+   evidence. On 2026-10-25 the user explicitly approved a scoped alternative:
+   Terraform owns one technical IAM user (no login profile) and its inline
+   policy, permitting only this reader's IAM-authenticated Function URL.
+   SDK postapply creates one access key in memory and stores it only through
+   Grafana secureJsonData, never Terraform state/outputs, logs or Flutter.
+   Retry replaces keys only on this tagged technical user; failed postapply
+   revokes the new key. Terraform force_destroy removes SDK keys with the user.
+   No administrator credentials, public reader, new human user or hosting change.
+   Verify key lifecycle/failure paths and exact URL-only policy offline, then
+   admit a fresh bounded live run only within the remaining authorized budget.
 2. Azure Standard X1, managed identity, workspace-scoped deployer Admin and
    existing human Viewer. Reuse the bounded function-key datasource secret and
    existing JSON API dashboard. No new Entra users or warm Function instances.

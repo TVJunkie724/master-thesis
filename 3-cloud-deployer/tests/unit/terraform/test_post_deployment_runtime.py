@@ -806,7 +806,7 @@ def test_aws_six_layer_surface_probe_rejects_non_ok_datasource_health(monkeypatc
         )
 
 
-def test_aws_six_layer_datasource_uses_workspace_role_without_static_keys(monkeypatch):
+def test_aws_six_layer_datasource_keeps_reader_keys_only_in_secure_json(monkeypatch):
     not_found = SimpleNamespace(status_code=404)
     created = SimpleNamespace(status_code=201)
     create = MagicMock(return_value=created)
@@ -822,12 +822,15 @@ def test_aws_six_layer_datasource_uses_workspace_role_without_static_keys(monkey
         token="short-lived-token",
         reader_url="https://reader.example/",
         region="eu-central-1",
+        reader_credentials={"AccessKeyId": "fixture-reader-key", "SecretAccessKey": "fixture-reader-secret"},
     )
 
     payload = create.call_args.kwargs["json"]
-    assert payload["jsonData"]["aws"] == {"authType": "default", "region": "eu-central-1", "service": "lambda"}
+    assert payload["jsonData"]["aws"] == {"authType": "keys", "region": "eu-central-1", "service": "lambda"}
     assert payload["jsonData"]["allowedHosts"] == ["https://reader.example"]
-    assert "secureJsonData" not in payload
+    assert payload["secureJsonData"] == {"awsAccessKey": "fixture-reader-key", "awsSecretKey": "fixture-reader-secret"}
+    assert "fixture-reader" not in str(payload["jsonData"])
+    assert "fixture-reader" not in payload["url"]
 
 
 def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(monkeypatch):
@@ -857,6 +860,7 @@ def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(m
             grafana_url="https://grafana.example",
             reader_url="https://reader.example/",
             reader_function_name="reader",
+            reader_user_name="reader-user",
             device_id="sensor-1",
             metric="temperature",
             architecture_profile="six-layer-eventing@1",

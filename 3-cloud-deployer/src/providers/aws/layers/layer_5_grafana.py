@@ -201,7 +201,8 @@ def _install_reader_key(
 
 
 def _upsert_v2_datasource(
-    *, grafana_url: str, token: str, reader_url: str, region: str
+    *, grafana_url: str, token: str, reader_url: str, region: str,
+    reader_credentials: dict[str, str],
 ) -> None:
     config = {
         "uid": SIX_LAYER_DATASOURCE_UID,
@@ -213,8 +214,12 @@ def _upsert_v2_datasource(
         "isDefault": False,
         "jsonData": {
             "auth_method": "aws",
-            "aws": {"authType": "default", "region": region, "service": "lambda"},
+            "aws": {"authType": "keys", "region": region, "service": "lambda"},
             "allowedHosts": [f"https://{urlsplit(reader_url).hostname}"],
+        },
+        "secureJsonData": {
+            "awsAccessKey": reader_credentials["AccessKeyId"],
+            "awsSecretKey": reader_credentials["SecretAccessKey"],
         },
     }
     response = requests.get(
@@ -406,6 +411,21 @@ def _probe_v2_surface(
     _require_status(response, (200,), "AWS Grafana dashboard probe")
 
 
+def _replace_reader_credentials(provider, user_name: str) -> dict[str, str]:
+    """Only rotate keys of the dedicated Terraform-owned, tagged reader user."""
+    iam = provider.clients["iam"]
+    user = iam.get_user(UserName=user_name)["User"]
+    tags = {item["Key"]: item["Value"] for item in user.get("Tags", [])}
+    if user.get("Path") != "/twin2multicloud/grafana/" or tags.get("Purpose") != "grafana-l3-reader":
+        raise ValueError("Grafana reader identity ownership is invalid")
+    keys = iam.list_access_keys(UserName=user_name)
+    if keys.get("IsTruncated"):
+        raise ValueError("Grafana reader key inventory is incomplete")
+    for key in keys.get("AccessKeyMetadata", []):
+        iam.delete_access_key(UserName=user_name, AccessKeyId=key["AccessKeyId"])
+    return iam.create_access_key(UserName=user_name)["AccessKey"]
+
+
 def configure_six_layer_grafana(
     provider: "AWSProvider",
     *,
@@ -413,6 +433,7 @@ def configure_six_layer_grafana(
     grafana_url: str,
     reader_url: str,
     reader_function_name: str,
+    reader_user_name: str,
     device_id: str,
     metric: str,
     architecture_profile: str,
@@ -425,6 +446,7 @@ def configure_six_layer_grafana(
             grafana_url,
             reader_url,
             reader_function_name,
+            reader_user_name,
             device_id,
             metric,
             architecture_profile,
@@ -433,14 +455,19 @@ def configure_six_layer_grafana(
         raise ValueError("AWS Phase 8 Grafana inputs must be non-empty")
     service_account_id, token = _provisioning_service_account(provider, workspace_id)
     stage = "plugin"
+    reader_credentials = None
+    ready = False
     try:
         _ensure_exact_plugin(grafana_url, token)
+        stage = "reader-identity"
+        reader_credentials = _replace_reader_credentials(provider, reader_user_name)
         stage = "datasource"
         _upsert_v2_datasource(
             grafana_url=grafana_url,
             token=token,
             reader_url=reader_url,
             region=provider.clients["lambda"].meta.region_name,
+            reader_credentials=reader_credentials,
         )
         stage = "dashboard"
         _upsert_v2_dashboard(
@@ -459,23 +486,39 @@ def configure_six_layer_grafana(
             target["url"] = target["url"].replace("${__from:date:iso}", quote(
                 (now - timedelta(hours=6)).isoformat(), safe=""
             )).replace("${__to:date:iso}", quote(now.isoformat(), safe=""))
-            response = requests.post(
-                f"{grafana_url}/api/ds/query", headers=_headers(token),
-                json={"from": str(int((now-timedelta(hours=6)).timestamp()*1000)),
-                      "to": str(int(now.timestamp()*1000)), "queries": [target]},
-                timeout=180,
-            )
+            # Newly issued IAM keys can take time to propagate. Retry only an
+            # authorization rejection, not malformed queries or missing data.
+            for attempt in range(6):
+                response = requests.post(
+                    f"{grafana_url}/api/ds/query", headers=_headers(token),
+                    json={"from": str(int((now-timedelta(hours=6)).timestamp()*1000)),
+                          "to": str(int(now.timestamp()*1000)), "queries": [target]},
+                    timeout=30,
+                )
+                pending_auth = response.status_code in (401, 403) or (
+                    response.status_code == 400 and _failure_kind(response) == "permission-denied"
+                )
+                if not pending_auth or attempt == 5:
+                    break
+                time.sleep(5)
             _require_status(response, (200,), "AWS Grafana backend query")
             result = response.json().get("results", {}).get("A", {})
             if result.get("error") or result.get("status", 200) != 200 or "frames" not in result:
                 error = RuntimeError("AWS Grafana backend query did not return data frames")
                 error._aws_grafana_cause = _failure_kind(response)
                 raise error
+        ready = True
     except Exception as error:
         error._aws_grafana_stage = stage
         raise
     finally:
-        _revoke_provisioning_tokens(provider, workspace_id, service_account_id)
+        try:
+            if reader_credentials and not ready:
+                provider.clients["iam"].delete_access_key(
+                    UserName=reader_user_name, AccessKeyId=reader_credentials["AccessKeyId"]
+                )
+        finally:
+            _revoke_provisioning_tokens(provider, workspace_id, service_account_id)
     logger.info("✓ AWS %s Grafana surface is ready", architecture_profile)
 
 

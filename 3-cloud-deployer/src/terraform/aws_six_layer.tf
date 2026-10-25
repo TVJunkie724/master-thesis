@@ -1673,11 +1673,12 @@ output "aws_component_visualization_output" {
   description = "Managed Grafana dashboard; browser sign-in and exact data remain separate evidence"
   # The image-foundation target stage has not created L5 yet.
   value = local.aws_six_layer_l5_enabled ? try({
-    access_url      = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}/d/t2mc-raw-rollups"
-    workspace_id    = aws_grafana_workspace.aws_six_layer[0].id
-    workspace_url   = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}"
-    principal_label = var.platform_user_email
-    access_role     = "Grafana Viewer"
+    access_url       = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}/d/t2mc-raw-rollups"
+    workspace_id     = aws_grafana_workspace.aws_six_layer[0].id
+    workspace_url    = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}"
+    reader_user_name = aws_iam_user.aws_six_layer_grafana_reader[0].name
+    principal_label  = var.platform_user_email
+    access_role      = "Grafana Viewer"
     internal_evidence = {
       resource_ref        = aws_grafana_workspace.aws_six_layer[0].arn
       access_binding_refs = [aws_grafana_role_association.aws_six_layer_viewer[0].id]

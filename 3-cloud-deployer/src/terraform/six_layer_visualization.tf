@@ -15,15 +15,29 @@ resource "aws_iam_role" "aws_six_layer_grafana" {
   tags = local.aws_six_layer_tags
 }
 
-resource "aws_iam_role_policy" "aws_six_layer_grafana" {
+resource "aws_iam_user" "aws_six_layer_grafana_reader" {
   count = local.aws_six_layer_l5_enabled ? 1 : 0
-  role  = aws_iam_role.aws_six_layer_grafana[0].id
+  name  = "${local.aws_six_layer_name}-grafana-reader-${local.deployment_suffix}"
+  path  = "/twin2multicloud/grafana/"
+  # Postapply creates the key in memory; do not retain its secret in TF state.
+  force_destroy = true
+  tags          = merge(local.aws_six_layer_tags, { Purpose = "grafana-l3-reader" })
+}
+
+resource "aws_iam_user_policy" "aws_six_layer_grafana_reader" {
+  count = local.aws_six_layer_l5_enabled ? 1 : 0
+  user  = aws_iam_user.aws_six_layer_grafana_reader[0].name
   name  = "invoke-l3-reader"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow", Action = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
-      Resource = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+      Effect    = "Allow", Action = "lambda:InvokeFunctionUrl"
+      Resource  = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+      Condition = { StringEquals = { "lambda:FunctionUrlAuthType" = "AWS_IAM" } }
+      }, {
+      Effect    = "Allow", Action = "lambda:InvokeFunction"
+      Resource  = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+      Condition = { Bool = { "lambda:InvokedViaFunctionUrl" = "true" } }
     }]
   })
 }
@@ -38,7 +52,7 @@ resource "aws_grafana_workspace" "aws_six_layer" {
   grafana_version          = "12.4"
   configuration            = jsonencode({ plugins = { pluginAdminEnabled = true } })
   tags                     = local.aws_six_layer_tags
-  depends_on               = [aws_iam_role_policy.aws_six_layer_grafana]
+  depends_on               = [aws_iam_user_policy.aws_six_layer_grafana_reader]
   lifecycle {
     precondition {
       condition     = var.layer_3_hot_provider == "aws" && local.aws_six_layer_layer_access_enabled
@@ -55,7 +69,7 @@ resource "aws_grafana_role_association" "aws_six_layer_viewer" {
 }
 
 resource "azurerm_dashboard_grafana" "azure_six_layer" {
-  count                         = local.azure_six_layer_l5_enabled ? 1 : 0
+  count = local.azure_six_layer_l5_enabled ? 1 : 0
   # Managed Grafana permits at most 23 characters, including the 4-hex suffix.
   name                          = "${substr(local.azure_six_layer_name, 0, 10)}-grafana-${local.deployment_suffix}"
   resource_group_name           = azurerm_resource_group.main[0].name

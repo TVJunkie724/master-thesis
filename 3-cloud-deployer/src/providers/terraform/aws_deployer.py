@@ -823,6 +823,7 @@ def configure_aws_visualization(
             _require_aws_provider(context), workspace_id=bundle.get("workspace_id", ""),
             grafana_url=bundle.get("workspace_url", ""), reader_url=reader.get("access_url", ""),
             reader_function_name=reader.get("reader_function_name", ""),
+            reader_user_name=bundle.get("reader_user_name", ""),
             device_id=device_id, metric=metric, architecture_profile=_active_phase8_profile(context),
         )
         return

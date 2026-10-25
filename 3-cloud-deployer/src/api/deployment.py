@@ -335,7 +335,7 @@ async def deploy_stream(
                         operation_id=stream_context.operation_id,
                     ).to_sse()
                 aws_stage = getattr(e, "_aws_grafana_stage", None)
-                if aws_stage in ("plugin", "datasource", "dashboard", "backend-query"):
+                if aws_stage in ("plugin", "reader-identity", "datasource", "dashboard", "backend-query"):
                     http = getattr(e, "_aws_grafana_http_status", None)
                     http = http if type(http) is int else None
                     cause = getattr(e, "_aws_grafana_cause", "upstream-failure")

@@ -211,6 +211,12 @@ REQUIRED_AWS_PERMISSIONS = {
         ],
     },
     "layer_5": {
+        "iam": [
+            "iam:CreateUser", "iam:GetUser", "iam:DeleteUser", "iam:TagUser",
+            "iam:ListUserTags", "iam:ListAccessKeys", "iam:CreateAccessKey",
+            "iam:DeleteAccessKey", "iam:PutUserPolicy", "iam:GetUserPolicy",
+            "iam:DeleteUserPolicy", "iam:ListUserPolicies", "iam:ListAttachedUserPolicies",
+        ],
         # Unique service: Grafana
         "grafana": [
             "grafana:CreateWorkspace",

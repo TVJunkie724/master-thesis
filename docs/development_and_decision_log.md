@@ -67,7 +67,26 @@ Do not claim a general impossibility of role authentication or silently replace
 it with administrator credentials, an unauthenticated URL or another hosting
 model. A deployment-scoped, least-privilege reader identity is an explicit
 alternative requiring user approval of the changed authentication assumption.
-No such alternative has been implemented at this checkpoint.
+The user subsequently approved that bounded alternative. Terraform owns a
+dedicated technical user without console login and an exact-reader policy:
+`InvokeFunctionUrl` requires `AWS_IAM`; `InvokeFunction` requires invocation
+through that URL. No storage, write or administrative actions are granted.
+SDK postapply generates the access key only in memory, sends it through Grafana
+secureJsonData, and revokes it if provisioning/data checks fail. A rerun replaces
+keys only on the dedicated tagged user. Terraform `force_destroy` removes the
+SDK key with that user, and independent inventory now checks reader users too.
+This static key lasts until revocation/Destroy; it is not an expiring token or a
+production rotation service. The key never enters Terraform state/outputs or
+Flutter. This changes the AWS runtime authentication assumption, not L3/L4
+responsibilities, Grafana hosting, RQs or the historical Five-layer reference.
+Local signed Raw/Hourly fixture queries pass without server-process AWS keys;
+these are not managed-cloud simulator/browser evidence.
+Verification for this slice: 2,293 safe deployer tests passed, one intentional
+skip; eight native Terraform test checks passed separately. The dedicated
+reader tests cover ownership rejection, key revocation on failed provisioning,
+bounded IAM propagation retries and the exact URL-only policy. The disposable
+local Grafana fixture was removed after verification. Managed AWS E2E remains
+open; no previous failed attempt is relabelled as passing.
 
 The failed AWS attempt also exposed an SDK IoT simulator identity not removed
 by Terraform. Cleanup now checks exact configured device names and exclusive
