@@ -160,10 +160,10 @@ Do not repeat six unchanged directed Core tests without a regression reason.
 
 ## 12. Definition of done / review
 
-- [ ] Catalog/cost/runtime consistently identify managed Grafana, not SVG.
+- [x] Catalog/cost/runtime consistently identify managed Grafana, not SVG.
 - [ ] AWS/Azure real dashboards provision automatically, no public L3 reader.
 - [ ] Existing UI opens the correct dashboard with provider sign-in.
-- [ ] Relevant offline suites and Web/macOS builds pass.
+- [x] Relevant offline suites and Web/macOS builds pass.
 - [ ] Each provider has exact simulator-data API and browser chart evidence.
 - [ ] Destroy plus independent scoped zero inventory, including Grafana,
       permissions and provisioning identities, recorded for each live attempt.

@@ -2,16 +2,17 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-23"
+lastUpdated: "2026-10-25"
 version: "2.5"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
 Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
-and minimal L5 observations passed. Regular L5 integration and one representative
-AWS application functional observation are complete; model/results chapters are
-updated. Renewed UI-inclusive verification was requested on 2026-10-17;
+and historical HTML/SVG L5 observations passed. On 2026-10-25 the user requested
+restoring managed Grafana for AWS/Azure; implementation and offline checks pass,
+but affected Grafana cloud/UI E2E remains pending. Earlier L5/application passes
+must not be relabeled as Grafana evidence. Renewed UI-inclusive verification was requested on 2026-10-17;
 the dated checkpoints below distinguish repaired local findings, renewed live
 observations and remaining campaign work.
 
@@ -35,6 +36,27 @@ and the
 [`live-evaluation-protocol.md`](../research/evaluation/live-evaluation-protocol.md).
 
 ## Current phase status
+
+### Managed Grafana restoration — 2026-10-25, live verification pending
+
+The normal AWS/Azure Terraform, SDK postapply, access contracts and cost catalog
+again select managed Grafana. Existing Raw/Hourly panels and UI external links
+are reused. L3 owns authenticated history; native L4 services are unchanged;
+GCP L4/L5 stay excluded. No RQ changes or product redesign.
+
+Offline checks: 2,274 Deployer tests passed and one skipped, plus eight separate
+native Terraform tests (including 26 mock plans); 470 Optimizer tests passed and
+five skipped; 717 Management tests and 833 Flutter tests passed. Flutter analyze,
+Web/macOS release builds and contract synchronization pass. Real local Grafana
+12.4.0 with Infinity 4.1.3/JSON API 1.4.0 verifies synthetic reader data and
+rendered panels; this is **not cloud simulator evidence**.
+
+Fresh AWS/Azure drafts use new graph/cost snapshots without modifying historical
+selected results. The reviewed Azure plan has 109 create-only Terraform objects,
+six on-demand Functions and one Standard managed-Grafana workspace. No Grafana
+cloud Apply or new live E2E has occurred at this checkpoint. Completion still
+requires exact simulator data, provider-authenticated charts reached from the
+UI, normal Destroy and independent zero inventory for each provider.
 
 ### Renewed application verification — 2026-10-17, incomplete
 
