@@ -53,12 +53,18 @@ rendered panels; this is **not cloud simulator evidence**.
 
 Fresh AWS/Azure drafts use new graph/cost snapshots without modifying historical
 selected results. The reviewed Azure plan has 109 create-only Terraform objects,
-six on-demand Functions and one Standard managed-Grafana workspace. Two live
-attempts identified and corrected an overlong Azure workspace name and a
-mistaken optional-plugin lookup for the already built-in JSON API datasource.
+six on-demand Functions and one Standard managed-Grafana workspace. Three live
+attempts identified an overlong Azure workspace name, a mistaken optional-plugin
+lookup for the already built-in JSON API datasource, and an unnecessary extra
+function-key creation that returned HTTP 400. The fixes bound the name, verify
+the installed plugin, and reuse the existing L3 function-scoped key.
 The loaded Azure plugin is 1.4.1; the earlier local 1.4.0 check remains synthetic
 historical evidence. The name regression passes 27 credential-free native mock
-runs; the affected runtime suite passes 55 tests. Full functional Grafana E2E
+runs; the affected runtime suite passes 56 tests. The complete safe Deployer
+suite after these corrections passes 2,276 tests with one intentional skip.
+The actual Azure production REST helpers also pass against local Grafana 12.4.0
+with JSON API 1.4.1 and an authenticated synthetic reader; that is not a cloud
+simulator or user-login observation. Full functional Grafana E2E
 is still pending; failed attempts are not counted as passes. Completion still
 requires exact simulator data, provider-authenticated charts reached from the
 UI, normal Destroy and independent zero inventory for each provider.
