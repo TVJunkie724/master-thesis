@@ -80,8 +80,10 @@ browser-rendered panels and their screenshot succeeded.
 
 The local Flutter Open click remains unverified because browser automation
 rejects localhost navigation; a human click was requested without bypassing that
-restriction. Azure final cleanup and the fresh AWS managed-Grafana application
-run remain pending at this checkpoint. Completion requires normal Destroy and
+restriction. Azure normal Destroy succeeds with 108 destructions; independent
+resource-group, resource and scoped-role inventories are all zero. The retained
+logs provide 216 resource creation/destruction timings. The fresh AWS
+managed-Grafana application run remains pending at this checkpoint. Completion requires normal Destroy and
 independent zero inventory for each provider; API link correctness alone is not
 a complete Flutter-to-Grafana browser E2E.
 
