@@ -969,7 +969,8 @@ def test_azure_six_layer_plugin_readiness_retries_role_propagation(monkeypatch):
     sleep.assert_called_once_with(0)
 
 
-def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
+@pytest.mark.parametrize("enveloped", [False, True])
+def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch, enveloped):
     credential = SimpleNamespace(
         get_token=lambda _scope: SimpleNamespace(token="management-token")
     )
@@ -980,7 +981,7 @@ def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
     )
     response = SimpleNamespace(
         status_code=200,
-        json=lambda: {"properties": {"twin2multicloud-grafana": "existing-key"}},
+        json=lambda: {"properties": {"default": "existing-key"}} if enveloped else {"default": "existing-key"},
     )
     lookup = MagicMock(return_value=response)
     update = MagicMock()
@@ -996,7 +997,7 @@ def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
     update.assert_not_called()
 
 
-def test_azure_six_layer_reader_key_is_created_without_exposing_it_in_outputs(
+def test_azure_six_layer_missing_reader_key_fails_without_creating_credentials(
     monkeypatch,
 ):
     credential = SimpleNamespace(
@@ -1011,28 +1012,17 @@ def test_azure_six_layer_reader_key_is_created_without_exposing_it_in_outputs(
         status_code=200,
         json=lambda: {"properties": {}},
     )
-    create_response = SimpleNamespace(status_code=200)
     monkeypatch.setattr(
         layer_5_grafana.requests,
         "post",
         MagicMock(return_value=lookup_response),
     )
-    create = MagicMock(return_value=create_response)
+    create = MagicMock()
     monkeypatch.setattr(layer_5_grafana.requests, "put", create)
-    monkeypatch.setattr(
-        layer_5_grafana.secrets,
-        "token_urlsafe",
-        lambda _length: "generated-function-key",
-    )
-
-    value = layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
-
-    assert value == "generated-function-key"
-    assert "/functions/six-layer-raw-history-reader/keys/" in create.call_args.args[0]
-    assert create.call_args.kwargs["json"] == {
-        "name": "twin2multicloud-grafana",
-        "value": "generated-function-key",
-    }
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", lambda _: None)
+    with pytest.raises(RuntimeError, match="function-scoped access key is not ready"):
+        layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
+    create.assert_not_called()
 
 
 def test_azure_twin_failures_are_aggregated_after_relationship_attempt(monkeypatch):

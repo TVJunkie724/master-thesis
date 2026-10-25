@@ -45,6 +45,15 @@ the authenticated exact-version and actual datasource-data checks. This is a
 provider integration correction, not a replacement visualization architecture.
 See [Microsoft's built-in datasource list](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity).
 
+The next attempt passed that plugin check and reached the redundant Grafana
+function-key creation, which returned HTTP 400. Rather than adding another
+credential lifecycle, Grafana now reuses the existing L3 function-scoped key
+through the same reader-key helper already exercised successfully by L3's live
+post-deployment probe. Flat and ARM-envelope key responses are covered; missing
+keys fail closed, without creating credentials or falling back to host/master
+keys. The provider's detailed 400 response was not retained, so its internal
+validation cause is not inferred from the HTTP status alone.
+
 This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves
 the detailed implementation history; the active execution state is maintained

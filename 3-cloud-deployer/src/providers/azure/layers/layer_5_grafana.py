@@ -22,7 +22,6 @@ Note:
 
 from datetime import datetime, timedelta, timezone
 import logging
-import secrets
 import time
 from typing import TYPE_CHECKING, Optional, Dict, Any
 
@@ -40,13 +39,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 MANAGEMENT_API_VERSION = "2025-08-01"
-APP_SERVICE_API_VERSION = "2025-05-01"
 JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
 JSON_DATASOURCE_PLUGIN_VERSION = "1.4.1"
 SIX_LAYER_DATASOURCE_UID = "t2mc-azure-hot-reader"
 SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
 SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
-SIX_LAYER_READER_FUNCTION_NAME = "six-layer-raw-history-reader"
 _TRANSIENT_GRAFANA_READINESS_CODES = frozenset({403, 404, 429, 502, 503, 504})
 
 
@@ -150,17 +147,6 @@ def _workspace_arm_url(provider: "AzureProvider", workspace_name: str) -> str:
     )
 
 
-def _function_arm_url(
-    provider: "AzureProvider", function_app_name: str, suffix: str
-) -> str:
-    return (
-        "https://management.azure.com/subscriptions/"
-        f"{provider.subscription_id}/resourceGroups/{provider.naming.resource_group()}"
-        f"/providers/Microsoft.Web/sites/{function_app_name}"
-        f"/functions/{SIX_LAYER_READER_FUNCTION_NAME}/{suffix}"
-    )
-
-
 def _require_status(response, allowed: tuple[int, ...], operation: str) -> None:
     if response.status_code not in allowed:
         raise RuntimeError(f"{operation} returned HTTP {response.status_code}")
@@ -239,40 +225,10 @@ def _wait_for_exact_plugin(
 def _ensure_reader_function_key(
     provider: "AzureProvider", function_app_name: str
 ) -> str:
-    """Create once or reuse one function-scoped key without logging it."""
+    """Reuse the already verified L3 function key; never create host/admin keys."""
+    from .layer_5_raw_history import _reader_key
 
-    token = _get_management_token(provider)
-    headers = _headers(token)
-    response = requests.post(
-        _function_arm_url(provider, function_app_name, "listkeys")
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Function key lookup")
-    properties = response.json().get("properties", {})
-    existing = (
-        properties.get("twin2multicloud-grafana")
-        if isinstance(properties, dict)
-        else None
-    )
-    if isinstance(existing, str) and existing:
-        return existing
-
-    value = secrets.token_urlsafe(32)
-    response = requests.put(
-        _function_arm_url(
-            provider,
-            function_app_name,
-            "keys/twin2multicloud-grafana",
-        )
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        json={"name": "twin2multicloud-grafana", "value": value},
-        timeout=30,
-    )
-    _require_status(response, (200, 201), "Azure Function key creation")
-    return value
+    return _reader_key(provider, function_app_name)
 
 
 # ==========================================
