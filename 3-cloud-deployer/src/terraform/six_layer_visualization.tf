@@ -56,7 +56,8 @@ resource "aws_grafana_role_association" "aws_six_layer_viewer" {
 
 resource "azurerm_dashboard_grafana" "azure_six_layer" {
   count                         = local.azure_six_layer_l5_enabled ? 1 : 0
-  name                          = "${local.azure_six_layer_name}-grafana-${local.deployment_suffix}"
+  # Managed Grafana permits at most 23 characters, including the 4-hex suffix.
+  name                          = "${substr(local.azure_six_layer_name, 0, 10)}-grafana-${local.deployment_suffix}"
   resource_group_name           = azurerm_resource_group.main[0].name
   location                      = azurerm_resource_group.main[0].location
   sku                           = "Standard"

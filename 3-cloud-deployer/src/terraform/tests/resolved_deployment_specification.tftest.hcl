@@ -6,13 +6,27 @@ mock_provider "aws" {
 }
 mock_provider "awscc" {}
 mock_provider "azuread" {}
-mock_provider "azurerm" {}
+mock_provider "azurerm" {
+  mock_data "azurerm_client_config" {
+    defaults = { object_id = "22222222-2222-2222-2222-222222222222" }
+  }
+}
 mock_provider "google" {}
 mock_provider "kubernetes" {}
 mock_provider "local" {}
 mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "tls" {}
+
+run "known_deployment_suffix_for_provider_name_validation" {
+  command = apply
+  plan_options { target = [random_id.deployment_suffix] }
+  variables { digital_twin_name = "drift-test" }
+  override_resource {
+    target = random_id.deployment_suffix
+    values = { hex = "abcd" }
+  }
+}
 
 run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
   command = plan
@@ -151,7 +165,7 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
   }
 
   variables {
-    digital_twin_name                      = "drift-test"
+    digital_twin_name                      = "abcdefghijklmnopqrstu"
     architecture_profile_id                = "six-layer-eventing"
     architecture_profile_version           = "1"
     event_layer_provider                   = "azure"
@@ -234,6 +248,8 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
       length(azurerm_dashboard_grafana.azure_six_layer) == 1 &&
       azurerm_dashboard_grafana.azure_six_layer[0].sku == "Standard" &&
       azurerm_dashboard_grafana.azure_six_layer[0].grafana_major_version == "12" &&
+      length(azurerm_dashboard_grafana.azure_six_layer[0].name) <= 23 &&
+      endswith(azurerm_dashboard_grafana.azure_six_layer[0].name, "-grafana-abcd") &&
       length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
     )
     error_message = "Normal Azure L5 must be Managed Grafana, retaining the independent L3 reader."

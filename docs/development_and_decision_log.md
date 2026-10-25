@@ -26,6 +26,16 @@ is a billable identity and must be reused across retries. Historical SVG
 evidence and the Five-layer baseline remain immutable and separately qualified;
 the restored implementation is not live-proven until its affected tests pass.
 
+The first live restoration attempt exposed Azure Managed Grafana's 23-character
+workspace-name limit after the image-foundation stage materialized the random
+suffix. Bound the existing name prefix while retaining that suffix; a native
+mock plan now tests the maximum accepted Twin name with a concrete suffix.
+Ordinary cleanup with the correction and an independent resource-group,
+resource and scoped-role inventory confirmed zero residual cloud resources.
+This failed attempt is not functional Grafana evidence. Its initial deployment
+log stream was not retained, so missing creation timings remain missing rather
+than being reconstructed as measurements.
+
 This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves
 the detailed implementation history; the active execution state is maintained
