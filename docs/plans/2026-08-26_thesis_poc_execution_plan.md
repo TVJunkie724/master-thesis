@@ -82,8 +82,20 @@ The local Flutter Open click remains unverified because browser automation
 rejects localhost navigation; a human click was requested without bypassing that
 restriction. Azure normal Destroy succeeds with 108 destructions; independent
 resource-group, resource and scoped-role inventories are all zero. The retained
-logs provide 216 resource creation/destruction timings. The fresh AWS
-managed-Grafana application run remains pending at this checkpoint. Completion requires normal Destroy and
+logs provide 216 resource creation/destruction timings. The first fresh AWS
+attempt created 109 Terraform objects but failed in Grafana postapply before
+the simulator ran. The original generic error did not identify the failing
+Grafana operation; subsequent code records an allowlisted stage/HTTP/cause
+without disclosing upstream bodies. Normal Destroy completed; independent
+inspection found an orphan SDK simulator policy/certificate, removed only
+after verifying exclusive run ownership. Active residual counts are zero;
+one inactive IoT command deletion marker remains, so final null inventory is
+not yet claimed. The retained stream has 109 creation and 95 destruction
+timings; missing destruction timings are not reconstructed. The corrected
+exclusive-identity cleanup and diagnostics pass the complete safe Deployer
+suite (2,281 passed, one intentional skip). A local Infinity credential-chain
+reproduction is diagnostic evidence only, not the proven managed-AWS cause.
+The next bounded AWS attempt remains pending. Completion requires normal Destroy and
 independent zero inventory for each provider; API link correctness alone is not
 a complete Flutter-to-Grafana browser E2E.
 
