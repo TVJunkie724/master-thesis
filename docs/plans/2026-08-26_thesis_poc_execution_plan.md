@@ -11,7 +11,7 @@ version: "2.5"
 Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
 and historical HTML/SVG L5 observations passed. On 2026-10-25 the user requested
 restoring managed Grafana for AWS/Azure; implementation and offline checks pass,
-but affected Grafana cloud/UI E2E remains pending. Earlier L5/application passes
+but affected Grafana cloud/UI E2E is not yet complete. Earlier L5/application passes
 must not be relabeled as Grafana evidence. Renewed UI-inclusive verification was requested on 2026-10-17;
 the dated checkpoints below distinguish repaired local findings, renewed live
 observations and remaining campaign work.
@@ -37,7 +37,7 @@ and the
 
 ## Current phase status
 
-### Managed Grafana restoration — 2026-10-25, live verification pending
+### Managed Grafana restoration — 2026-10-25, live verification in progress
 
 The normal AWS/Azure Terraform, SDK postapply, access contracts and cost catalog
 again select managed Grafana. Existing Raw/Hourly panels and UI external links
@@ -64,10 +64,26 @@ runs; the affected runtime suite passes 56 tests. The complete safe Deployer
 suite after these corrections passes 2,276 tests with one intentional skip.
 The actual Azure production REST helpers also pass against local Grafana 12.4.0
 with JSON API 1.4.1 and an authenticated synthetic reader; that is not a cloud
-simulator or user-login observation. Full functional Grafana E2E
-is still pending; failed attempts are not counted as passes. Completion still
-requires exact simulator data, provider-authenticated charts reached from the
-UI, normal Destroy and independent zero inventory for each provider.
+simulator or user-login observation. Failed attempts are not counted as passes.
+
+The fourth fresh Azure application deployment succeeds with 108 actual Terraform
+creations. The downloaded simulator, correlated command, exact raw/hourly L3
+values and timestamps, native ADT projection and authenticated Grafana queries
+all pass. Existing operator sign-in succeeds in the real Managed Grafana browser;
+both Raw and Hourly panels visibly contain those simulator data. The application
+infrastructure endpoint reports 12 healthy checks and its typed access endpoint
+returns the correct dashboard URL. The read model deliberately leaves its data
+probe pending: the empty postapply readiness check is not simulator evidence.
+The separate live assertions above must not be represented as a persisted UI
+verification. The optional server-side PNG export returned HTTP 500; real
+browser-rendered panels and their screenshot succeeded.
+
+The local Flutter Open click remains unverified because browser automation
+rejects localhost navigation; a human click was requested without bypassing that
+restriction. Azure final cleanup and the fresh AWS managed-Grafana application
+run remain pending at this checkpoint. Completion requires normal Destroy and
+independent zero inventory for each provider; API link correctness alone is not
+a complete Flutter-to-Grafana browser E2E.
 
 ### Renewed application verification — 2026-10-17, incomplete
 
