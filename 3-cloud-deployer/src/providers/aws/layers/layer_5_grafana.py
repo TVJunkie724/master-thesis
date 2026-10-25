@@ -47,7 +47,22 @@ _TRANSIENT_GRAFANA_READINESS_CODES = frozenset({403, 404, 429, 502, 503, 504})
 
 def _require_status(response, expected: tuple[int, ...], operation: str) -> None:
     if response.status_code not in expected:
-        raise RuntimeError(f"{operation} returned HTTP {response.status_code}")
+        error = RuntimeError(f"{operation} returned HTTP {response.status_code}")
+        error._aws_grafana_http_status = response.status_code
+        error._aws_grafana_cause = _failure_kind(response)
+        raise error
+
+
+def _failure_kind(response) -> str:
+    """Classify upstream failures without forwarding bodies or credentials."""
+    detail = str(getattr(response, "text", "")).lower()
+    if "no ec2 imds role found" in detail or "failed to refresh cached credentials" in detail:
+        return "credential-chain-unavailable"
+    if "accessdenied" in detail or "not authorized" in detail or "forbidden" in detail:
+        return "permission-denied"
+    if "unsupported protocol" in detail or "invalid url" in detail:
+        return "invalid-reader-url"
+    return "upstream-failure"
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -417,14 +432,17 @@ def configure_six_layer_grafana(
     ):
         raise ValueError("AWS Phase 8 Grafana inputs must be non-empty")
     service_account_id, token = _provisioning_service_account(provider, workspace_id)
+    stage = "plugin"
     try:
         _ensure_exact_plugin(grafana_url, token)
+        stage = "datasource"
         _upsert_v2_datasource(
             grafana_url=grafana_url,
             token=token,
             reader_url=reader_url,
             region=provider.clients["lambda"].meta.region_name,
         )
+        stage = "dashboard"
         _upsert_v2_dashboard(
             grafana_url=grafana_url,
             token=token,
@@ -434,6 +452,7 @@ def configure_six_layer_grafana(
         )
         # Exercise the Grafana backend, not a direct reader request signed by
         # the deployment administrator. Empty frames are valid before telemetry.
+        stage = "backend-query"
         now = datetime.now(timezone.utc)
         for bucket in (0, 3600):
             target = _history_target(device_id, metric, bucket)
@@ -449,7 +468,12 @@ def configure_six_layer_grafana(
             _require_status(response, (200,), "AWS Grafana backend query")
             result = response.json().get("results", {}).get("A", {})
             if result.get("error") or result.get("status", 200) != 200 or "frames" not in result:
-                raise RuntimeError("AWS Grafana backend query did not return data frames")
+                error = RuntimeError("AWS Grafana backend query did not return data frames")
+                error._aws_grafana_cause = _failure_kind(response)
+                raise error
+    except Exception as error:
+        error._aws_grafana_stage = stage
+        raise
     finally:
         _revoke_provisioning_tokens(provider, workspace_id, service_account_id)
     logger.info("✓ AWS %s Grafana surface is ready", architecture_profile)

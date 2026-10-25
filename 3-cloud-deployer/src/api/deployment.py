@@ -334,6 +334,20 @@ async def deploy_stream(
                         f"Azure postapply failed phase={phase} error_type={type(e).__name__} http={http}",
                         operation_id=stream_context.operation_id,
                     ).to_sse()
+                aws_stage = getattr(e, "_aws_grafana_stage", None)
+                if aws_stage in ("plugin", "datasource", "dashboard", "backend-query"):
+                    http = getattr(e, "_aws_grafana_http_status", None)
+                    http = http if type(http) is int else None
+                    cause = getattr(e, "_aws_grafana_cause", "upstream-failure")
+                    if cause not in ("credential-chain-unavailable", "permission-denied",
+                                     "invalid-reader-url", "upstream-failure"):
+                        cause = "upstream-failure"
+                    yield DeploymentStreamEvent.log(
+                        DeploymentOperation.deploy,
+                        f"AWS Grafana postapply failed stage={aws_stage} "
+                        f"error_type={type(e).__name__} http={http} cause={cause}",
+                        operation_id=stream_context.operation_id,
+                    ).to_sse()
                 detail = client_error_payload(e, operation_context)
                 yield DeploymentStreamEvent.failure(
                     DeploymentOperation.deploy,

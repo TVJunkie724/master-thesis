@@ -850,7 +850,7 @@ def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(m
         deleted,
     )
 
-    with pytest.raises(RuntimeError, match="plugin unavailable"):
+    with pytest.raises(RuntimeError, match="plugin unavailable") as failure:
         aws_layer_5_grafana.configure_six_layer_grafana(
             provider,
             workspace_id="g-1234567890",
@@ -863,6 +863,18 @@ def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(m
         )
 
     deleted.assert_called_once_with(provider, "g-1234567890", "service-account")
+    assert failure.value._aws_grafana_stage == "plugin"
+
+
+def test_aws_grafana_failure_classifies_credentials_without_forwarding_response():
+    response = SimpleNamespace(status_code=400, text=(
+        'failed to refresh cached credentials, no EC2 IMDS role found; token=must-not-leak'))
+    with pytest.raises(RuntimeError) as failure:
+        aws_layer_5_grafana._require_status(response, (200,), "AWS Grafana backend query")
+    assert failure.value._aws_grafana_http_status == 400
+    assert failure.value._aws_grafana_cause == "credential-chain-unavailable"
+    assert "must-not-leak" not in str(failure.value)
+    assert "must-not-leak" not in str(vars(failure.value))
 
 
 @pytest.mark.parametrize(

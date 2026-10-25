@@ -509,6 +509,34 @@ def test_deploy_stream_identifies_sdk_failure_without_exposing_error_text():
     assert "must-not-leak" not in body
 
 
+def test_aws_grafana_stream_reports_safe_stage_http_and_cause():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+
+    async def failing(*args, **kwargs):
+        failure = RuntimeError("client_secret=must-not-leak")
+        failure._aws_grafana_stage = "backend-query"
+        failure._aws_grafana_http_status = 400
+        failure._aws_grafana_cause = "credential-chain-unavailable"
+        yield "Running SDK-owned post-deployment operations"
+        raise failure
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=failing),
+    ):
+        response = asyncio.run(deployment.deploy_stream(
+            OPERATION_TOKEN, provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+    assert "stage=backend-query error_type=RuntimeError http=400" in body
+    assert "cause=credential-chain-unavailable" in body
+    assert "must-not-leak" not in body
+    assert '"error_code":"DEPLOYMENT_ERROR"' in body
+
+
 def test_deploy_stream_redacts_secret_logs_and_outputs():
     context = MagicMock(name="deployment_context")
     MagicMock(name="terraform_strategy")
