@@ -907,6 +907,26 @@ def test_active_profile_aws_l3_uses_bounded_raw_history_probe(monkeypatch, profi
     )
 
 
+def test_azure_builtin_json_plugin_does_not_require_optional_catalog(monkeypatch):
+    provider = SimpleNamespace(
+        credential=SimpleNamespace(get_token=lambda _scope: SimpleNamespace(token="test-token")),
+        subscription_id="11111111-1111-1111-1111-111111111111",
+        naming=SimpleNamespace(resource_group=lambda: "test-rg"),
+    )
+    lookup = MagicMock(return_value=SimpleNamespace(
+        status_code=200,
+        json=lambda: {"properties": {"grafanaMajorVersion": "12", "grafanaPlugins": {}}},
+    ))
+    post, patch = MagicMock(), MagicMock()
+    monkeypatch.setattr(layer_5_grafana.requests, "get", lookup)
+    monkeypatch.setattr(layer_5_grafana.requests, "post", post)
+    monkeypatch.setattr(layer_5_grafana.requests, "patch", patch)
+    layer_5_grafana._verify_managed_grafana_workspace(provider, "test-grafana")
+    lookup.assert_called_once()
+    post.assert_not_called()
+    patch.assert_not_called()
+
+
 def test_azure_six_layer_plugin_preflight_rejects_wrong_loaded_version(monkeypatch):
     response = SimpleNamespace(
         status_code=200,

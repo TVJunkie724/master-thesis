@@ -36,6 +36,15 @@ This failed attempt is not functional Grafana evidence. Its initial deployment
 log stream was not retained, so missing creation timings remain missing rather
 than being reconstructed as measurements.
 
+The following live attempt created Managed Grafana but failed its optional
+plugin-catalog preflight. Read-only inspection established that JSON API was
+already installed at version 1.4.1 and absent from the optional catalog.
+Microsoft documents JSON API as a built-in Standard datasource. Remove the
+unnecessary catalog/install path and pin the observed built-in version; retain
+the authenticated exact-version and actual datasource-data checks. This is a
+provider integration correction, not a replacement visualization architecture.
+See [Microsoft's built-in datasource list](https://learn.microsoft.com/en-us/azure/managed-grafana/how-to-data-source-plugins-managed-identity).
+
 This log records decisions that affect interpretation of the thesis PoC. It is
 not a product backlog and does not promise future functionality. Git preserves
 the detailed implementation history; the active execution state is maintained

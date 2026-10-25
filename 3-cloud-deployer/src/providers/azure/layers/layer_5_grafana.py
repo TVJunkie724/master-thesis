@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 MANAGEMENT_API_VERSION = "2025-08-01"
 APP_SERVICE_API_VERSION = "2025-05-01"
 JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
-JSON_DATASOURCE_PLUGIN_VERSION = "1.4.0"
+JSON_DATASOURCE_PLUGIN_VERSION = "1.4.1"
 SIX_LAYER_DATASOURCE_UID = "t2mc-azure-hot-reader"
 SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
 SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
@@ -166,28 +166,17 @@ def _require_status(response, allowed: tuple[int, ...], operation: str) -> None:
         raise RuntimeError(f"{operation} returned HTTP {response.status_code}")
 
 
-def _ensure_managed_grafana_plugin(
+def _verify_managed_grafana_workspace(
     provider: "AzureProvider", workspace_name: str
 ) -> None:
-    """Fail closed unless Azure offers and loads the frozen v2 plugin."""
+    """Check the workspace; JSON API is built in, not a catalog installation.
+
+    The authenticated plugin-settings probe below verifies the loaded version.
+    Azure's optional-plugin catalog does not include this built-in datasource.
+    """
 
     token = _get_management_token(provider)
     workspace_url = _workspace_arm_url(provider, workspace_name)
-    response = requests.post(
-        f"{workspace_url}/fetchAvailablePlugins?api-version={MANAGEMENT_API_VERSION}",
-        headers=_headers(token),
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Grafana plugin catalog preflight")
-    available = response.json().get("value", [])
-    if not any(
-        isinstance(item, dict) and item.get("pluginId") == JSON_DATASOURCE_PLUGIN_ID
-        for item in available
-    ):
-        raise RuntimeError(
-            f"Azure Managed Grafana does not offer {JSON_DATASOURCE_PLUGIN_ID}"
-        )
-
     response = requests.get(
         f"{workspace_url}?api-version={MANAGEMENT_API_VERSION}",
         headers=_headers(token),
@@ -197,23 +186,6 @@ def _ensure_managed_grafana_plugin(
     properties = response.json().get("properties", {})
     if str(properties.get("grafanaMajorVersion")) != "12":
         raise RuntimeError("Azure Managed Grafana workspace is not on major version 12")
-    installed = properties.get("grafanaPlugins", {})
-    if not isinstance(installed, dict) or JSON_DATASOURCE_PLUGIN_ID not in installed:
-        response = requests.patch(
-            f"{workspace_url}?api-version={MANAGEMENT_API_VERSION}",
-            headers=_headers(token),
-            json={
-                "properties": {
-                    "grafanaPlugins": {
-                        JSON_DATASOURCE_PLUGIN_ID: {
-                            "pluginId": JSON_DATASOURCE_PLUGIN_ID
-                        }
-                    }
-                }
-            },
-            timeout=30,
-        )
-        _require_status(response, (200, 202), "Azure Grafana plugin installation")
 
 
 def _wait_for_exact_plugin(
@@ -810,7 +782,7 @@ def configure_six_layer_grafana(
         )
     ):
         raise ValueError("Azure Phase 8 Grafana inputs must be non-empty")
-    _ensure_managed_grafana_plugin(provider, workspace_name)
+    _verify_managed_grafana_workspace(provider, workspace_name)
     grafana_token = _get_grafana_service_account_token(provider)
     if not grafana_token:
         raise RuntimeError("Azure Grafana service-account token was not created")

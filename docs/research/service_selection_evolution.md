@@ -91,7 +91,7 @@ Changes use the following classification:
 | L3 cool | Azure Storage | Blob Storage Cool | refined | Replaces a generic account label with the evaluated access tier |
 | L3 archive | Azure Storage | Blob Storage Archive | refined | Fixes archive semantics and minimum-duration cost |
 | L4 Twin | Azure Digital Twins | Azure Digital Twins | retained | Keeps the native semantic graph/twin service |
-| L5 visualization | Azure Grafana Service | Azure Managed Grafana 12 Standard X1 and JSON API 1.4.0 datasource, consuming the independent function-key-protected L3 reader | restored/refined | Preserves the original service family; includes two Standard node units and active-user cost; live chart verification pending |
+| L5 visualization | Azure Grafana Service | Azure Managed Grafana 12 Standard X1 and built-in JSON API 1.4.1 datasource, consuming the independent function-key-protected L3 reader | restored/refined | Preserves the original service family; includes two Standard node units and active-user cost; live chart verification pending |
 | Event Layer | Event Grid/provider-native triggers | Event Hubs, Service Bus Standard, Functions Flex event workers, Azure Monitor, and shared Log Analytics | replaced/added | Uses different services for retained streams, durable queues, workers, and operations rather than forcing one Event Grid abstraction |
 | Storage transitions | No dedicated scheduler in the broad mapping | Scheduled Azure Container Apps provider-local storage job | added | Provides a finite transition path without a permanent worker |
 | Data access | Azure API Management | Authenticated Azure Function endpoint for the bounded raw-history reader | removed/absorbed | Avoids an API-management product not required by the PoC read surface |
