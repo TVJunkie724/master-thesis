@@ -50,6 +50,8 @@ def _require_status(response, expected: tuple[int, ...], operation: str) -> None
         error = RuntimeError(f"{operation} returned HTTP {response.status_code}")
         error._aws_grafana_http_status = response.status_code
         error._aws_grafana_cause = _failure_kind(response)
+        if operation == "AWS Grafana backend query" and response.status_code == 404:
+            error._aws_grafana_cause = "datasource-or-plugin-unavailable"
         raise error
 
 
@@ -486,9 +488,10 @@ def configure_six_layer_grafana(
             target["url"] = target["url"].replace("${__from:date:iso}", quote(
                 (now - timedelta(hours=6)).isoformat(), safe=""
             )).replace("${__to:date:iso}", quote(now.isoformat(), safe=""))
-            # Newly issued IAM keys can take time to propagate. Retry only an
-            # authorization rejection, not malformed queries or missing data.
-            for attempt in range(6):
+            # IAM keys and freshly installed datasource/plugin query paths can
+            # take time to become usable. Grafana documents /api/ds/query 404
+            # as datasource/plugin unavailable, not a successful empty result.
+            for attempt in range(12):
                 response = requests.post(
                     f"{grafana_url}/api/ds/query", headers=_headers(token),
                     json={"from": str(int((now-timedelta(hours=6)).timestamp()*1000)),
@@ -498,8 +501,11 @@ def configure_six_layer_grafana(
                 pending_auth = response.status_code in (401, 403) or (
                     response.status_code == 400 and _failure_kind(response) == "permission-denied"
                 )
-                if not pending_auth or attempt == 5:
+                pending_query_path = response.status_code == 404
+                if not (pending_auth or pending_query_path) or attempt == 11:
                     break
+                logger.info("AWS Grafana backend query readiness retry %s/12: HTTP %s",
+                            attempt + 1, response.status_code)
                 time.sleep(5)
             _require_status(response, (200,), "AWS Grafana backend query")
             result = response.json().get("results", {}).get("A", {})

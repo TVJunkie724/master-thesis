@@ -96,6 +96,30 @@ catalog-to-Terraform declaration regression prevents this mismatch. Historical
 persisted optimizer runs are not rewritten; the retry uses a freshly calculated
 candidate. The safe Deployer suite passes 2,294 tests with one intentional skip.
 
+The third AWS attempt created 110 Terraform objects and failed at the first
+Grafana backend query with HTTP 404, before simulator verification. The API's
+[documented status semantics](https://grafana.com/docs/grafana/latest/developer-resources/api-reference/http-api/api-legacy/data_source/)
+identify an unavailable datasource or plugin query path. Follow-up reads found
+the exact plugin, datasource and dashboard (HTTP 200); the follow-up query
+returned HTTP 400/permission-denied after the failed postapply had already
+revoked its reader key. That later response is not evidence that the original
+request had an IAM permission failure. The original response body was not
+retained, so a specific internal cache/replication cause is not proven.
+
+The bounded readiness loop now retries query-path HTTP 404 as well as the
+existing IAM authorization propagation case: at most 12 requests, five seconds
+between retries, each request capped at 30 seconds. Invalid query HTTP 400
+remains immediately fatal unless explicitly classified as authorization;
+permanent 404 remains fatal and revokes the key. No empty-data readiness check
+counts as a simulator pass. This is an offline-tested correction, not a live
+pass for the third attempt. The managed workspace was sent to normal Destroy
+immediately; no extra workspace is implicitly authorized by the correction.
+Final verification: 2,297 safe Deployer tests passed, one intentional skip.
+Normal Destroy removed all 110 resources; independent inventory across 24
+categories found no active residuals, including reader users, but one inactive
+IoT command deletion marker remains. All 220 creation/destruction resource
+timings are retained. The full null-inventory gate therefore remains open.
+
 The failed AWS attempt also exposed an SDK IoT simulator identity not removed
 by Terraform. Cleanup now checks exact configured device names and exclusive
 certificate/policy ownership before detaching and deleting them; shared

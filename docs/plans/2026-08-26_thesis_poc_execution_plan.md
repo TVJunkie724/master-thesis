@@ -125,8 +125,18 @@ Grafana IAM role policy before Apply. The catalog now owns the reader user and
 its policy; current contract copies and fixture digests are synchronized.
 Verification: 2,294 safe Deployer tests passed with one intentional skip, eight
 separate native Terraform checks, 34 Optimizer architecture tests and 13
-Management architecture tests passed. A new managed AWS run is in progress;
-no functional or browser pass is claimed yet.
+Management architecture tests passed. The third managed AWS attempt creates
+110 resources, then fails its first Grafana backend query with HTTP 404 before
+the simulator starts. Follow-up plugin/datasource/dashboard reads are HTTP 200;
+the later permission-denied query occurs after automatic reader-key revocation
+and does not explain the original 404. The bounded query-readiness retry now
+also handles datasource/plugin unavailability (404); it is offline verified
+with 2,297 passing safe Deployer tests and one intentional skip, not live proven.
+Normal Destroy removes all 110 resources. Independent inventory reports zero
+active residuals across 24 categories and one inactive IoT deletion marker.
+220 per-resource creation/destruction timings are retained. No simulator,
+browser chart, Flutter Open-click or final null-inventory pass is claimed for
+this attempt. A fresh paid retry requires a remaining-budget admission.
 
 ### Renewed application verification — 2026-10-17, incomplete
 

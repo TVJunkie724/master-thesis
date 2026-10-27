@@ -59,7 +59,7 @@ def test_unowned_or_incomplete_identity_is_not_mutated(case):
     iam.create_access_key.assert_not_called()
 
 
-@pytest.mark.parametrize("failure_stage", [None, "datasource", "dashboard", "query", "second-query", "pending-auth", "denied"])
+@pytest.mark.parametrize("failure_stage", [None, "datasource", "dashboard", "query", "second-query", "pending-auth", "pending-query-path", "missing-query-path", "invalid-query", "denied"])
 def test_key_is_retained_only_after_both_grafana_queries_pass(monkeypatch, failure_stage):
     p = provider()
     revoke = MagicMock()
@@ -75,19 +75,29 @@ def test_key_is_retained_only_after_both_grafana_queries_pass(monkeypatch, failu
         query.side_effect = [query.return_value, RuntimeError("fixture failure")]
     if failure_stage == "pending-auth":
         query.side_effect = [SimpleNamespace(status_code=403), query.return_value, query.return_value]
+    if failure_stage == "pending-query-path":
+        query.side_effect = [SimpleNamespace(status_code=404), query.return_value, query.return_value]
+    if failure_stage == "missing-query-path":
+        query.return_value = SimpleNamespace(status_code=404, text="Datasource not found")
+    if failure_stage == "invalid-query":
+        query.return_value = SimpleNamespace(status_code=400, text="Invalid query")
     if failure_stage == "denied":
         query.return_value = SimpleNamespace(status_code=403, text="Forbidden")
     monkeypatch.setattr(g.time, "sleep", lambda _: None)
     monkeypatch.setattr(g.requests, "post", query)
     args = dict(workspace_id="g-fixture", grafana_url="https://grafana.example", reader_url="https://reader.example/", reader_function_name="reader", reader_user_name="reader-user", device_id="sensor-1", metric="temperature", architecture_profile="six-layer-eventing@1")
-    failed = failure_stage not in (None, "pending-auth")
+    failed = failure_stage not in (None, "pending-auth", "pending-query-path")
     if failed:
-        with pytest.raises(RuntimeError, match="HTTP 403" if failure_stage == "denied" else "fixture failure"):
+        expected_error = {"denied": "HTTP 403", "missing-query-path": "HTTP 404", "invalid-query": "HTTP 400"}.get(failure_stage, "fixture failure")
+        with pytest.raises(RuntimeError, match=expected_error) as caught:
             g.configure_six_layer_grafana(p, **args)
+        if failure_stage == "missing-query-path":
+            assert caught.value._aws_grafana_cause == "datasource-or-plugin-unavailable"
     else:
         g.configure_six_layer_grafana(p, **args)
-        assert query.call_count == (3 if failure_stage == "pending-auth" else 2)
-    if failure_stage == "denied": assert query.call_count == 6
+        assert query.call_count == (3 if failure_stage in ("pending-auth", "pending-query-path") else 2)
+    if failure_stage in ("denied", "missing-query-path"): assert query.call_count == 12
+    if failure_stage == "invalid-query": assert query.call_count == 1
     deleted = [c.kwargs["AccessKeyId"] for c in p.clients["iam"].delete_access_key.call_args_list]
     assert deleted == (["old-fixture", "new-fixture"] if failed else ["old-fixture"])
     revoke.assert_called_once_with(p, "g-fixture", "service-account")

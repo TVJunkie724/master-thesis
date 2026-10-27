@@ -339,7 +339,7 @@ async def deploy_stream(
                     http = getattr(e, "_aws_grafana_http_status", None)
                     http = http if type(http) is int else None
                     cause = getattr(e, "_aws_grafana_cause", "upstream-failure")
-                    if cause not in ("credential-chain-unavailable", "permission-denied",
+                    if cause not in ("credential-chain-unavailable", "permission-denied", "datasource-or-plugin-unavailable",
                                      "invalid-reader-url", "upstream-failure"):
                         cause = "upstream-failure"
                     yield DeploymentStreamEvent.log(
