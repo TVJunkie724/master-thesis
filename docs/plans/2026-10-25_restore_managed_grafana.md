@@ -159,8 +159,13 @@ projection. Assert Grafana datasource results match the same raw points and
 hourly mean, then open via the UI and visually verify actual Grafana panels.
 An API-only result or login page is not browser chart proof. If sign-in needs
 the human operator, request it without leaking tokens or keeping resources
-indefinitely. Functional deadline 45 minutes; trigger cleanup immediately on
-failure/completion, with a separate 30-minute cleanup allowance and escalation
+indefinitely. On 2026-10-27 the user approved retaining the same AWS workspace
+and automation account for bounded repair/rechecks rather than automatically
+destroying it at the first repairable failure and incurring another workspace
+license floor. Preserve failed-operation evidence and record any in-place
+repair separately; do not relabel a repaired observation as a clean first deploy.
+Functional deadline remains 45 minutes; trigger cleanup immediately on
+completion, unrecoverable failure or deadline, with a separate 30-minute cleanup allowance and escalation
 for residuals. Record any actual overrun; timers are not provider billing caps.
 Do not repeat six unchanged directed Core tests without a regression reason.
 
