@@ -201,20 +201,18 @@ Live verification, simulator and access actions remain limited to deployed Twins
 L4/L5 cards consume typed Management read models containing provider URL,
 authentication kind, assigned identity, readiness, limitation, and optional
 service-local one-time Viewer credential. Flutter opens provider-owned
-L4 surfaces. AWS/Azure L5 instead uses the existing Open action to request one
-bounded HTML/SVG snapshot through the owner-scoped Management API. Deployer
-authenticates against the fixed deployed endpoint; cloud keys never enter
-Flutter. Each click fetches fresh data; there is no polling, chart editor or
-additional provider sign-in. Web uses a reserved isolated tab and a temporary
-Blob URL; Desktop opens a temporary HTML file with best-effort delayed cleanup.
-The one-shot L5 read has nested receive allowances: Azure cloud read 180 s,
-Management-to-Deployer 240 s and Flutter-to-Management 300 s, leaving room for
-key lookup and operation-package staging. AWS retains its 30 s cloud read.
-These transport limits are not a latency guarantee or a cold-start claim;
-authentication, payload-size, graphical-data and stale-response checks remain.
-Neither implementation keeps HTML in BLoC state. Duplicate and stale requests
-(Twin change or Destroy) cannot open a new snapshot. Flutter does not administer
-these surfaces. One-time values are transient
+L4 surfaces and AWS/Azure Managed Grafana dashboards through the existing Open
+action and external navigation handle. Provider sign-in (AWS Identity Center
+or Azure Entra) is separate from the local application bearer. Grafana queries
+the authenticated provider-local L3 reader; cloud keys never enter Flutter.
+There is no embedded Grafana, chart editor or automatic dashboard refresh.
+GCP L4/L5 remain excluded from the live PoC.
+
+Historical HTML/SVG capabilities retain their explicit snapshot dispatch;
+they are not the normal managed-Grafana path and their past observations are
+not Grafana evidence. Infrastructure readiness, real data assertions, browser
+sign-in and the UI Open click remain separate verification claims. Flutter
+does not administer these surfaces. One-time values are transient
 and cleared after use, cancel, failure, Destroy, or Twin change.
 
 ## Portability

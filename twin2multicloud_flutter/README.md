@@ -28,7 +28,7 @@ Neither path contacts a cloud provider by default.
 5. Select named deployment CloudConnections required by the result.
 6. Run readiness, confirm bounded preparation, or follow repair guidance.
 7. Confirm Deploy, follow persisted progress/SSE replay and verify telemetry.
-8. Open provider-owned L4 access and an authenticated minimal L5 snapshot.
+8. Open provider-owned L4 access and AWS/Azure Managed Grafana dashboards.
 9. Confirm Destroy and inspect cleanup evidence.
 
 The **Twin experiments** inventory is intentionally a start-or-resume surface:
@@ -55,8 +55,10 @@ contracts remain Management-owned.
 Native results show the resolved graph including Eventing and the result's
 currency, not a reconstructed linear L1–L5 path. Estimates are model outputs,
 not cloud bills. Infrastructure inspection and one telemetry sample are not
-automatic command/L4/L5 proof. L5 opens one Raw/Hourly HTML/SVG snapshot through
-Management, without Grafana or polling; inspect its actual values separately.
+automatic command/L4/L5 proof. L5 opens the provisioned Raw/Hourly Managed
+Grafana dashboard with provider sign-in, without embedding or auto-refresh;
+inspect its actual values separately. Historical HTML/SVG snapshots remain
+distinguishable from this managed-Grafana path. GCP L4/L5 stay excluded.
 Cleanup shows the returned evidence, not an independent global account scan.
 Failed Destroy is labeled **Cleanup incomplete**, separately from a failed
 deployment. Stored telemetry results remain readable during/after cleanup without
