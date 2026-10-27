@@ -138,6 +138,20 @@ active residuals across 24 categories and one inactive IoT deletion marker.
 browser chart, Flutter Open-click or final null-inventory pass is claimed for
 this attempt. A fresh paid retry requires a remaining-budget admission.
 
+The fourth AWS attempt on 2026-10-27 successfully completes the normal
+Management deployment with 110 actual creations in 438.69 seconds (image
+publication phase: 41.31 seconds). No in-place production repair was needed.
+Its first verifier stopped before sending telemetry because the harness
+incorrectly expected a single config file; the downloaded package intentionally
+contains root and device-specific copies. The corrected harness uses the
+unchanged downloaded config loader and asserts source byte identity. Rechecking
+the same workspace passes the downloaded simulator, correlated command
+(10.18 seconds), exact L3 Raw/Hourly points, native TwinMaker projection and
+authenticated managed-Grafana queries for those same points. Twelve application
+infrastructure checks and the typed dashboard link pass. Browser chart proof,
+the actual Flutter Open click and final cleanup remain pending at this checkpoint;
+these technical passes alone are not the complete UI-inclusive E2E.
+
 ### Renewed application verification — 2026-10-17, incomplete
 
 Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested
