@@ -116,6 +116,18 @@ Completion requires normal Destroy and
 independent zero inventory for each provider; API link correctness alone is not
 a complete Flutter-to-Grafana browser E2E.
 
+On 2026-10-27 independent rechecks of both earlier AWS attempts report zero
+active residuals and zero inactive deletion markers across 24 categories,
+including the newly added Grafana reader-user check. These dated null-inventory
+observations complete their cleanup, not their failed functional tests.
+A fresh admission caught and corrected the stale catalog reference to the old
+Grafana IAM role policy before Apply. The catalog now owns the reader user and
+its policy; current contract copies and fixture digests are synchronized.
+Verification: 2,294 safe Deployer tests passed with one intentional skip, eight
+separate native Terraform checks, 34 Optimizer architecture tests and 13
+Management architecture tests passed. A new managed AWS run is in progress;
+no functional or browser pass is claimed yet.
+
 ### Renewed application verification — 2026-10-17, incomplete
 
 Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested
