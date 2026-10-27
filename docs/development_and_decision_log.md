@@ -88,6 +88,14 @@ bounded IAM propagation retries and the exact URL-only policy. The disposable
 local Grafana fixture was removed after verification. Managed AWS E2E remains
 open; no previous failed attempt is relabelled as passing.
 
+On 2026-10-27 the fresh normal-application admission exposed a stale catalog
+binding to the replaced Grafana IAM role policy. The error occurred before
+Apply. The catalog now references the dedicated reader user and user policy;
+generated contract copies and fixture digests were refreshed. A focused
+catalog-to-Terraform declaration regression prevents this mismatch. Historical
+persisted optimizer runs are not rewritten; the retry uses a freshly calculated
+candidate. The safe Deployer suite passes 2,294 tests with one intentional skip.
+
 The failed AWS attempt also exposed an SDK IoT simulator identity not removed
 by Terraform. Cleanup now checks exact configured device names and exclusive
 certificate/policy ownership before detaching and deleting them; shared

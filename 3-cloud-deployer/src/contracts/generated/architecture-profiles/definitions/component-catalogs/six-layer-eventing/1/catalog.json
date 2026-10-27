@@ -1136,7 +1136,8 @@
           "aws_grafana_workspace.aws_six_layer",
           "aws_grafana_role_association.aws_six_layer_viewer",
           "aws_iam_role.aws_six_layer_grafana",
-          "aws_iam_role_policy.aws_six_layer_grafana"
+          "aws_iam_user.aws_six_layer_grafana_reader",
+          "aws_iam_user_policy.aws_six_layer_grafana_reader"
         ],
         "module_addresses": [],
         "allowed_input_variable_ids": [],
@@ -11164,5 +11165,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:efd829467b247635fc99633a464be6234f59c27ebfa7c066b42177dd44d1a639"
+  "content_digest": "sha256:e41ddb235348ab55aa10cf78b0d3e3db89741c38ad55cef1bb989ffa99d7c014"
 }
