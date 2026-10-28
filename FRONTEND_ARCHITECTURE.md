@@ -203,8 +203,13 @@ authentication kind, assigned identity, readiness, limitation, and optional
 service-local one-time Viewer credential. Flutter opens provider-owned
 L4 surfaces and AWS/Azure Managed Grafana dashboards through the existing Open
 action and external navigation handle. Provider sign-in (AWS Identity Center
-or Azure Entra) is separate from the local application bearer. Grafana queries
-the authenticated provider-local L3 reader; cloud keys never enter Flutter.
+or Azure Entra) is separate from the local application bearer.
+The managed-Grafana access card explains first-time password setup and any
+provider-required MFA registration/challenge, with administrator help when
+setup instructions or access are missing. Existing provider MFA policies remain
+unchanged; the client does not detect, configure or bypass them.
+Grafana queries the authenticated provider-local L3 reader; cloud keys never
+enter Flutter.
 There is no embedded Grafana, chart editor or automatic dashboard refresh.
 GCP L4/L5 remain excluded from the live PoC.
 

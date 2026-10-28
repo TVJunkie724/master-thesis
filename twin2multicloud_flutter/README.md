@@ -56,8 +56,12 @@ Native results show the resolved graph including Eventing and the result's
 currency, not a reconstructed linear L1–L5 path. Estimates are model outputs,
 not cloud bills. Infrastructure inspection and one telemetry sample are not
 automatic command/L4/L5 proof. L5 opens the provisioned Raw/Hourly Managed
-Grafana dashboard with provider sign-in, without embedding or auto-refresh;
-inspect its actual values separately. Historical HTML/SVG snapshots remain
+Grafana dashboard with provider sign-in, without embedding or auto-refresh.
+The access card explains first-time password setup and provider-required MFA.
+Use the assigned identity, follow the provider's registration/sign-in prompts,
+and contact the cloud administrator if setup instructions or access are missing.
+Existing MFA policies remain unchanged. Inspect actual dashboard values
+separately. Historical HTML/SVG snapshots remain
 distinguishable from this managed-Grafana path. GCP L4/L5 stay excluded.
 Cleanup shows the returned evidence, not an independent global account scan.
 Failed Destroy is labeled **Cleanup incomplete**, separately from a failed

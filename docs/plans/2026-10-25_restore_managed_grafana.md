@@ -96,6 +96,16 @@ feedback, Copy URL, loading/empty/error panels and cleanup guards. No URL
 query credentials. Grafana login is intentionally separate from local app login.
 Dashboard auto-refresh disabled; bounded raw and hourly time series only.
 
+User-approved clarification (2026-10-28): add one wrapping text hint below the
+assigned identity in the existing AWS/Azure managed-Grafana card. Explain Open,
+first-time password setup, and provider-required MFA registration/challenge;
+direct unavailable setup credentials to the provider administrator. Reuse
+`TwinOverviewStrings`, current body text and spacing. No new state, API, dialog,
+permission or authentication-policy change. Existing snapshot/GCP cards do not
+show this hint. Verify analyze, existing widget/unit tests, architecture guard
+and Web/macOS builds. Architect/builder review: this bounded copy addition
+fits the approved access-handoff scope; no new workflow or cloud test is needed.
+
 ## 9. Accessibility
 
 Retain existing keyboard traversal, button semantics, contrast and focus.

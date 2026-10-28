@@ -226,6 +226,14 @@ class LayerAccessCard extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (surface.serviceId == 'aws_managed_grafana' ||
+                  surface.serviceId == 'azure_managed_grafana') ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  TwinOverviewStrings.grafanaSignInHint,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
               if (blockingReason != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 _InlineNotice(
