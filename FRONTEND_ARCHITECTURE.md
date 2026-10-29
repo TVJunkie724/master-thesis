@@ -205,8 +205,8 @@ L4 surfaces and AWS/Azure Managed Grafana dashboards through the existing Open
 action and external navigation handle. Provider sign-in (AWS Identity Center
 or Azure Entra) is separate from the local application bearer.
 The managed-Grafana access card explains first-time password setup and any
-provider-required MFA registration/challenge, with administrator help when
-setup instructions or access are missing. Existing provider MFA policies remain
+provider-required MFA registration/challenge, pointing the self-administering
+PoC operator to Cloud access's existing provider Setup guide. Existing MFA policies remain
 unchanged; the client does not detect, configure or bypass them.
 Grafana queries the authenticated provider-local L3 reader; cloud keys never
 enter Flutter.

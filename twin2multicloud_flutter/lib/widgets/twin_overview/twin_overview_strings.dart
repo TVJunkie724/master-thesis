@@ -76,7 +76,7 @@ abstract final class TwinOverviewStrings {
   static const snapshotScope =
       'Open fetches one authenticated Raw/Hourly snapshot through Management. It does not require a Grafana login, poll continuously, or mark data as verified. Allow a new browser window if blocked.';
   static const grafanaSignInHint =
-      'Select Open and sign in with the user shown above. On first sign-in, complete any password setup and MFA registration requested by AWS or Azure; later sign-ins may require an MFA code or security key. If you lack setup instructions or cannot sign in, contact your cloud administrator.';
+      'Select Open and sign in with the user shown above. Complete any first-time password setup and provider-required MFA. As the account administrator, follow Cloud access > Setup guide for AWS or Azure if the login is not yet set up.';
   static const deployCostWarning =
       'This creates billable cloud resources. The monthly model estimate is not this run’s bill or a spending cap. Verify promptly, then Destroy and inspect cleanup evidence.';
 }

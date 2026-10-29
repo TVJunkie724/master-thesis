@@ -59,7 +59,7 @@ automatic command/L4/L5 proof. L5 opens the provisioned Raw/Hourly Managed
 Grafana dashboard with provider sign-in, without embedding or auto-refresh.
 The access card explains first-time password setup and provider-required MFA.
 Use the assigned identity, follow the provider's registration/sign-in prompts,
-and contact the cloud administrator if setup instructions or access are missing.
+and use **Cloud access → Setup guide** for the administrator's first-login steps.
 Existing MFA policies remain unchanged. Inspect actual dashboard values
 separately. Historical HTML/SVG snapshots remain
 distinguishable from this managed-Grafana path. GCP L4/L5 stay excluded.

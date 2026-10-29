@@ -99,7 +99,8 @@ Dashboard auto-refresh disabled; bounded raw and hourly time series only.
 User-approved clarification (2026-10-28): add one wrapping text hint below the
 assigned identity in the existing AWS/Azure managed-Grafana card. Explain Open,
 first-time password setup, and provider-required MFA registration/challenge;
-direct unavailable setup credentials to the provider administrator. Reuse
+direct the self-administering operator to the existing Cloud access provider
+Setup guide, including first-login instructions (clarified 2026-10-29). Reuse
 `TwinOverviewStrings`, current body text and spacing. No new state, API, dialog,
 permission or authentication-policy change. Existing snapshot/GCP cards do not
 show this hint. Verify analyze, existing widget/unit tests, architecture guard

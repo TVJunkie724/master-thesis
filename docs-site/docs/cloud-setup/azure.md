@@ -84,6 +84,27 @@ preparation plan. Quota increases, policy exemptions, billing repair and
 credential creation remain manual. Graph consent is a one-time supervised
 operator bootstrap and is never an automatic deployment or UI action.
 
+## 4. First Grafana sign-in (PoC administrator)
+
+The operator may also administer the subscription and tenant. The deployment
+service principal is still separate from the human Entra user used to view
+Grafana. A client secret is not that user's sign-in password.
+
+1. Before a paid run, confirm you can sign in to the intended Entra tenant
+   with the human identity selected for layer access.
+2. Complete any password setup, MFA registration or verification requested by
+   that tenant. Keep the existing tenant authentication policy.
+3. After deployment, use **Twin overview → L5 → Open** and choose the user
+   shown on the access card. The deployment assigns the selected human user
+   Grafana Viewer access; subscription ownership alone is not the dashboard
+   sign-in identity.
+4. If the browser selects a different account, switch to the displayed user
+   and intended tenant. If access is still denied, inspect the Twin's access
+   binding/readiness result before changing roles or retrying deployment.
+
+Reuse the same human account on later runs. Destroy removes the test workspace,
+so its old dashboard link will no longer work.
+
 ## Cleanup and revocation
 
 After every run, Destroy Twin-owned resources and inspect residual inventory.
