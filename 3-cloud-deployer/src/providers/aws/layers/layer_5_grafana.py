@@ -261,6 +261,8 @@ def _history_target(device_id: str, metric: str, bucket_seconds: int) -> dict[st
             "uid": SIX_LAYER_DATASOURCE_UID,
         },
         "type": "json", "source": "url", "parser": "backend",
+        # Infinity's browser query migration reads this before backend dispatch.
+        "url_options": {"method": "GET"},
         "format": "timeseries", "root_selector": "points",
         "url": (f"?device_id={quote(device_id, safe='')}&metric={quote(metric, safe='')}"
                 "&from=${__from:date:iso}&to=${__to:date:iso}"

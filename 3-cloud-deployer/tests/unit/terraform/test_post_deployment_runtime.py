@@ -769,6 +769,9 @@ def test_aws_six_layer_dashboard_has_bounded_raw_and_rollup_queries():
     assert "bucket_seconds=0&limit=1000" in targets[0]["url"]
     assert "bucket_seconds=3600&limit=1000" in targets[1]["url"]
     assert all(target["parser"] == "backend" for target in targets)
+    # The Infinity browser migrator dereferences url_options.method; the
+    # backend-only query API accepts its absence and cannot catch this defect.
+    assert all(target["url_options"]["method"] == "GET" for target in targets)
     assert dashboard["refresh"] == ""
     assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
 
