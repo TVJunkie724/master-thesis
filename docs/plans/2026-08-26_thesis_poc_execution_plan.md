@@ -152,6 +152,20 @@ infrastructure checks and the typed dashboard link pass. Browser chart proof,
 the actual Flutter Open click and final cleanup remain pending at this checkpoint;
 these technical passes alone are not the complete UI-inclusive E2E.
 
+On 2026-10-30 independent scoped inventory rechecks of the third and fourth
+AWS attempts report zero in all 24 categories, including inactive deletion
+markers. Their cleanup is now complete; this does not retroactively supply
+missing browser evidence. The existing human Identity Center user successfully
+reaches the AWS access portal after completing password setup. No MFA
+registration interrupts this observed login. The account administrator explicitly
+allowed sign-in for users without registered MFA devices; this is a manual,
+instance-wide evaluation prerequisite, not an application-managed setting or
+a per-user MFA exception. Existing registered-device policy remains unchanged.
+The fourth workspace has already been destroyed. A fresh AWS-only draft has
+a reviewed plan of 111 create-only managed entries and no updates/deletions;
+no Apply has been started. Real Grafana panels and the actual Flutter Open
+click remain outstanding and require a new admitted live observation.
+
 ### Renewed application verification — 2026-10-17, incomplete
 
 Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested
