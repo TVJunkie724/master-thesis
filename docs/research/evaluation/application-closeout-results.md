@@ -790,3 +790,52 @@ Independent account reads confirmed **zero experiment resource groups,
 resources and scoped role assignments**. The UI displayed `DESTROYED`,
 cleanup `COMPLETE`, and the historical telemetry `PASS` separately; retained
 provider registrations are shared prerequisites, not remaining Twin workloads.
+
+### Restored AWS Managed Grafana: real Viewer observation — 2026-10-30
+
+Deployment revision `aef7b615`; dashboard-only in-place repair `e9295ac3`.
+This AWS-local Small observation uses the normal Management deployment and
+downloaded simulator with native TwinMaker and Amazon Managed Grafana. It
+does not reuse the historical HTML/SVG result as Grafana evidence.
+
+| Observation | Result / seconds |
+|---|---:|
+| Ordinary deployment | 400.102247 |
+| Image publication log boundary | 49.618826 |
+| Per-resource creation completion observations | 110 |
+| Simulator transmission plus correlated command phase | 10.717255 |
+| Correlated command roundtrip | 10.131906 |
+| Exact L3 Raw/Hourly readback | 4.126884 |
+| Exact native TwinMaker projection check | 0.174948 |
+| Exact authenticated Grafana backend query checks | 2.039979 |
+| Application infrastructure checks | 12/12 healthy |
+
+These phase durations are observed verifier intervals, not independent cloud
+service creation latencies or a statistically supported performance ranking.
+Individual Terraform creation/deletion durations are retained separately.
+
+The first real Identity Center Viewer session found an actual dashboard defect:
+Infinity's browser migration dereferences `url_options.method`, absent from
+both generated targets. Direct Grafana backend queries had passed because
+they bypass this browser migration. Explicit GET options fix the generated
+dashboard; 72 focused tests pass. Updating only the same live dashboard and
+reloading the browser shows raw values 40/42/44 and hourly mean 42. Repeating
+the exact-value checks using targets read from the saved dashboard also passes.
+Retain this as a repaired-in-place observation, not a clean first-attempt pass.
+
+The authenticated provider browser, two real panels, typed Management link
+and least-privilege IAM reader scope are verified. The actual Flutter Open
+click is **not verified**: localhost control was denied, so the browser opened
+the real Management-provided URL directly. No browser-click pass is inferred
+from API or widget evidence. Screenshots, before/after dashboard JSON and
+trace-correlated readbacks remain private; no credentials enter this report.
+
+RQ1 gains reproducible deployment and repair evidence; RQ2 gains real managed
+Grafana rendering over the same exact simulator data; RQ3 retains the event
+and command path and bounded execution. Ordinary Destroy was requested
+immediately after the final checks and succeeds in **318.012720 seconds**,
+with all **110 destruction timings** retained (**220** creation/deletion
+observations total). Independent inventory across **24 categories** finds
+**zero active residuals and one inactive IoT command deletion marker**. This
+is successful resource destruction with qualified residual evidence, not yet
+a strict null inventory. Billing can lag and is not inferred from execution time.

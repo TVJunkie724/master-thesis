@@ -166,6 +166,25 @@ a reviewed plan of 111 create-only managed entries and no updates/deletions;
 no Apply has been started. Real Grafana panels and the actual Flutter Open
 click remain outstanding and require a new admitted live observation.
 
+The fifth AWS attempt on 2026-10-30 completes ordinary Management deployment
+in 400.10 seconds with 110 creation timings (111 planned managed entries).
+Downloaded simulator values 40/42/44, correlated command (10.13 seconds),
+exact L3 Raw/Hourly, TwinMaker and authenticated Grafana queries all pass;
+the ordinary application infrastructure check reports 12/12 healthy checks.
+The first actual Viewer browser session reveals a missing Infinity query
+`url_options.method`, despite passing backend queries. Fix `e9295ac3` adds
+explicit GET to generated targets; 72 focused tests pass. Updating only the
+existing dashboard restores the visible Raw telemetry and Hourly rollups
+charts, with exact values rechecked from saved dashboard queries. This is a
+repaired-in-place browser observation, not a clean first-deployment UI pass.
+The actual Flutter Open click remains unverified; direct browser navigation
+uses the correct Management-provided URL. Normal Destroy succeeds in 318.01
+seconds with all 110 deletion timings; 220 creation/deletion observations are
+retained in total. Independent inventory across 24 categories reports zero
+active residuals and one inactive IoT command deletion marker. Do not label
+this a strict null inventory until that provider marker disappears. Provider
+billing remains provisional and is not a per-attempt measured cost.
+
 ### Renewed application verification — 2026-10-17, incomplete
 
 Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested

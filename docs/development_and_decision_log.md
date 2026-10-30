@@ -2053,3 +2053,25 @@ browser proof. See `docs/research/evaluation/application-closeout-results.md`
 for timings, failed precursor observations and the unchanged RQ1–RQ3 scope.
 This closes the representative Azure functional/UI-verification observation,
 not every remaining scenario or a multi-browser compatibility claim.
+
+### 2026-10-30 — Fix AWS Grafana browser query initialization
+
+The restored AWS Managed Grafana application passed simulator, correlated
+command, exact L3 Raw/Hourly, native TwinMaker and Grafana backend query checks.
+The first real Viewer browser session nevertheless failed both panels with
+`Cannot read properties of undefined (reading 'method')`. Generated Infinity
+targets omitted `url_options`; the plugin's browser query migration reads
+`url_options.method` before dispatch ([Infinity migration source](https://github.com/grafana/grafana-infinity-datasource/blob/main/src/migrate.ts)), whereas direct backend queries accepted
+the omission. This is a dashboard configuration defect, not a cold start,
+password problem or missing cloud data.
+
+The narrow fix adds explicit GET options to both generated AWS panel queries.
+The existing dashboard contract test covers this browser prerequisite; 72
+focused runtime/reader-identity tests pass. Reprovisioning only the dashboard
+in the same workspace restores both real browser charts. Queries taken from
+the saved dashboard also match the exact simulator points. No cloud runtime,
+identity permissions, Azure dashboard or research question changes are needed.
+Keep the failed browser observation and identify the successful observation
+as repaired in place. Direct navigation to the Management-provided dashboard
+URL is verified; the local Flutter Open click remains unverified because the
+browser-control tool denied localhost access. Do not equate these two claims.
