@@ -29,14 +29,13 @@ class AzureCredentials(BaseModel):
 
     subscription_id: str
     client_id: str
-    client_secret: str
+    client_secret: str = Field(..., json_schema_extra={"writeOnly": True})
     tenant_id: str
     region: str = Field(default="westeurope")
     # IoT Hub and Digital Twins are only available in a subset of Azure
     # regions. These optional overrides fall back to `region` when omitted.
     region_iothub: Optional[str] = None
     region_digital_twin: Optional[str] = None
-
 
 class GCPCredentials(BaseModel):
     model_config = ConfigDict(extra="forbid")

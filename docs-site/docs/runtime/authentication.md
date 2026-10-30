@@ -16,5 +16,5 @@ Never expose the PoC bearer as a general login or use it as evidence of
 production authentication.
 
 Google OAuth, university SAML, Microsoft/OIDC login, role management and
-production session operations are outside the final PoC scope. The retained
-login screen is an unrouted UI seam and contains no provider implementation.
+production session operations are outside the final PoC scope. The unused
+login screen was removed; the local profile bootstrap gate remains.

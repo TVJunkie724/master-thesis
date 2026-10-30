@@ -1,15 +1,22 @@
 # Configuration Workspace
 
-The workspace presents one dependency-aware Twin workflow.
+The workspace presents one dependency-aware Twin workflow through four thesis
+phases. The phase row is the stable map; the task selector lists only the
+current phase. Use **Back** and **Continue** for the complete ordered workflow,
+or select a reachable phase directly.
 
-| Responsibility | Typical content |
+| Phase | Typical content |
 |---|---|
-| Define Twin | unique identity and draft metadata |
-| Architecture | read-only canonical Six-layer explanation |
-| Workload | scenario, devices, traffic, processing, retention and Twin inputs |
-| User logic | bounded processor/rule/feedback extensions |
-| Optimize and review | cost calculation, exclusions, assumptions, trace and immutable selection |
-| Deployment preparation | connection binding, graph readiness, bounded plan confirmation and repair result |
+| Scenario | Twin identity, canonical Six-layer contract, workload and bounded user logic |
+| Optimize | cost calculation, exclusions, assumptions, trace and immutable selection |
+| Prepare | CloudConnection binding, data contracts and Twin assets |
+| Review | summary, readiness findings, validation and preflight |
+
+A phase with unmet prerequisites is disabled and explains the blocker. A task's
+status remains accurate when the task is selected. The bottom bar uses one
+primary next action: **Calculate** on the calculation task, otherwise
+**Continue** or **Finish configuration**. Save remains a secondary draft
+action.
 
 ## Dependency order
 

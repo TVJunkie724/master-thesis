@@ -19,8 +19,11 @@ credential.
    provider.
 
 Supported file shapes are AWS access-key CSV, Azure service-principal JSON,
-and GCP service-account JSON. Files are parsed as credential input, not stored
-as portable Twin artifacts.
+the allowlisted Azure compatibility bundle, and GCP service-account JSON.
+On **Settings → Cloud access**, import is the primary action and manual entry
+remains available. Azure files are parsed locally to prefill known metadata;
+only normalized deployment-principal fields reach the Management import
+endpoint. Files are credential input, not stored portable Twin artifacts.
 
 Readiness may reveal missing permissions or external provider prerequisites.
 The Management/Deployer preparation contract is bounded and confirmation-

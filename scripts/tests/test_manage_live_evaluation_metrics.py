@@ -303,35 +303,122 @@ def test_metric_collection_rejects_incomparable_final_runs() -> None:
 
 
 def test_complete_matrix_gate_reports_missing_scenarios() -> None:
-    with pytest.raises(metrics.LiveMetricsError, match="nine-scenario matrix"):
+    with pytest.raises(metrics.LiveMetricsError, match="eight-scenario matrix"):
         metrics.validate_metric_collection([_record()], require_complete_matrix=True)
 
 
-def test_summary_creates_csv_tables_and_svg_charts(tmp_path: Path) -> None:
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_summary_defaults_to_core_tables_and_opts_into_diagnostics(
+    tmp_path: Path, diagnostics: bool
+) -> None:
     record = _record()
     output_dir = tmp_path / "summary"
 
-    metrics.summarize_metrics([record], output_dir)
+    metrics.summarize_metrics([record], output_dir, diagnostics=diagnostics)
 
     expected = {
         "run-summary.csv",
-        "stage-latency.csv",
         "lifecycle.csv",
         "resources.csv",
         "cost-observations.csv",
-        "end-to-end-latency-p95.svg",
-        "lifecycle-duration.svg",
     }
+    if diagnostics:
+        expected.update(
+            {
+                "stage-latency.csv",
+                "end-to-end-latency-p95.svg",
+                "lifecycle-duration.svg",
+            }
+        )
     assert {path.name for path in output_dir.iterdir()} == expected
     with (output_dir / "run-summary.csv").open(encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     assert rows[0]["measured_messages"] == "2"
+    assert rows[0]["run_outcome"] == "complete"
     assert rows[0]["success_rate"] == "1.000"
     assert rows[0]["retries"] == "0"
     assert float(rows[0]["p95_ms"]) > 80
-    assert "Measured end-to-end latency" in (
-        output_dir / "end-to-end-latency-p95.svg"
-    ).read_text(encoding="utf-8")
+    if diagnostics:
+        assert "Measured end-to-end latency" in (
+            output_dir / "end-to-end-latency-p95.svg"
+        ).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("keep_samples", [0, 1])
+def test_early_abort_uses_same_record_without_claiming_final_coverage(
+    tmp_path: Path, keep_samples: int
+) -> None:
+    record = _record()
+    for phase in record["lifecycle"]:
+        if phase["phase"] == "l1_l3_eventing_ready":
+            phase["status"] = "failed"
+        if phase["phase"] in {"l4_ready", "l5_ready"}:
+            phase.update(
+                status="skipped", started_at=None, completed_at=None, duration_ms=None
+            )
+    record["message_samples"] = record["message_samples"][:keep_samples]
+    record["limitations"] = ["Stopped after the L1-L3/Eventing gate failed."]
+
+    metrics.validate_metrics(record)
+    assert not metrics.scenario_run_complete(record)
+    with pytest.raises(metrics.LiveMetricsError, match="eight-scenario matrix"):
+        metrics.validate_metric_collection([record], require_complete_matrix=True)
+    metrics.summarize_metrics([record], tmp_path / "summary")
+    with (tmp_path / "summary/run-summary.csv").open(encoding="utf-8") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["run_outcome"] == "incomplete"
+    assert row["success_rate"] == ""
+
+    completed_retry = _record()
+    completed_retry["run_id"] += "-retry"
+    metrics.validate_metric_collection([record, completed_retry])
+
+    if keep_samples == 0:
+        template_path = tmp_path / "template.json"
+        plan_path = tmp_path / "samples.json"
+        output_path = tmp_path / "collected.json"
+        template_path.write_text(json.dumps(record), encoding="utf-8")
+        plan_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "live-evaluation-sample-plan.v1",
+                    "samples": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert (
+            metrics.main(
+                [
+                    "collect",
+                    "--template",
+                    str(template_path),
+                    "--sample-plan",
+                    str(plan_path),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+            == 0
+        )
+        assert metrics.load_metrics(output_path)["message_samples"] == []
+
+    record["limitations"] = []
+    with pytest.raises(metrics.LiveMetricsError, match="count is"):
+        metrics.validate_metrics(record)
+
+
+def test_missing_samples_without_aborted_lifecycle_still_fail() -> None:
+    record = _record()
+    record["message_samples"] = []
+    with pytest.raises(metrics.LiveMetricsError, match="count is"):
+        metrics.validate_metrics(record)
+    with pytest.raises(metrics.LiveMetricsError, match="count is"):
+        metrics.assemble_metrics(
+            record,
+            {"schema_version": "live-evaluation-sample-plan.v1", "samples": []},
+            {},
+        )
 
 
 def test_summary_does_not_overwrite_existing_directory(tmp_path: Path) -> None:
@@ -422,7 +509,10 @@ def test_checkpoint_parser_accepts_structured_provider_log_envelope() -> None:
     _template, _plan, checkpoints = _collection_inputs()
     checkpoint = next(iter(checkpoints.values()))[0]
     line = json.dumps(
-        {"severity": "INFO", "message": metrics.CHECKPOINT_PREFIX + json.dumps(checkpoint)}
+        {
+            "severity": "INFO",
+            "message": metrics.CHECKPOINT_PREFIX + json.dumps(checkpoint),
+        }
     )
 
     assert metrics._checkpoint_payload(line) == checkpoint

@@ -17,9 +17,22 @@ from src.deployment_access import (
     collect_deployment_access_runtime_evidence,
     project_deployment_access_evidence,
 )
+from src.deployment_access.runtime_evidence import DeploymentAccessRuntimeEvidenceError
 
 
 FIXED_TIME = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
+
+
+def test_graphical_readiness_does_not_claim_simulator_data_proof():
+    context = _context("aws", "aws")
+    outputs = _outputs()
+    internal = outputs["aws_component_visualization_output"]["internal_evidence"]
+    internal.update(content_revision="managed-grafana-l5.v1", data_probe_revision="managed-grafana-readiness.v1")
+    context.deployment_access_runtime_evidence = collect_deployment_access_runtime_evidence(context, outputs)
+    result = project_deployment_access_evidence(context, outputs)
+    l5 = next(item for item in result["surfaces"] if item["layer"] == "l5")
+    assert l5["readiness"]["content"] == "ready"
+    assert l5["readiness"]["data_probe"] == "pending"
 
 
 class _Config:
@@ -76,18 +89,17 @@ def _outputs() -> dict:
             ),
         },
         "aws_component_visualization_output": {
-            "workspace_id": "aws-grafana-workspace",
-            "access_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups/raw-rollups",
-            "workspace_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com",
-            "reader_url": "https://reader.lambda-url.eu-central-1.on.aws/",
+            "access_url": "https://g-example.grafana-workspace.eu-central-1.amazonaws.com/d/t2mc-raw-rollups",
+            "workspace_id": "g-example",
             "reader_function_name": "factory-six-layer-raw-history-reader",
-            "principal_label": "researcher@example.invalid",
+            "principal_label": "arn:aws:iam::123456789012:user/researcher",
+            "access_role": "AWS IAM signed read-only invocation",
             "internal_evidence": _internal(
-                "aws-grafana-workspace",
-                "aws-grafana-role-association",
-                "dashboard:t2mc-raw-rollups",
-                "grafana-raw-rollups.v1",
-                "aws-grafana-bounded-readback.v1",
+                "arn:aws:lambda:eu-central-1:123456789012:function:reader",
+                "https://reader.lambda-url.eu-central-1.on.aws/",
+                "aws-six-layer-runtime.zip",
+                "raw-history-query.v1",
+                "aws-raw-history-readback.v1",
             ),
         },
         "azure_component_twin_state_output": {
@@ -105,19 +117,17 @@ def _outputs() -> dict:
             ),
         },
         "azure_component_visualization_output": {
-            "workspace_name": "azure-grafana-workspace",
-            "access_url": "https://example.westeurope.grafana.azure.com/d/t2mc-raw-rollups/raw-rollups",
-            "workspace_url": "https://example.westeurope.grafana.azure.com",
-            "reader_url": "https://reader.azurewebsites.net/api/raw-history/v1",
+            "access_url": "https://example.grafana.azure.com/d/t2mc-raw-rollups",
+            "workspace_name": "example",
             "reader_function_name": "reader",
-            "principal_label": "researcher@example.invalid",
-            "access_role": "Grafana Viewer",
+            "principal_label": "00000000-0000-4000-8000-000000000002",
+            "access_role": "Function key resolved by the deployment principal",
             "internal_evidence": _internal(
-                "azure-grafana-workspace",
-                "azure-grafana-role-assignment",
-                "dashboard:t2mc-raw-rollups",
-                "grafana-raw-rollups.v1",
-                "azure-grafana-bounded-readback.v1",
+                "/subscriptions/example/resourceGroups/example/providers/Microsoft.Web/sites/reader",
+                "/subscriptions/example/resourceGroups/example/providers/Microsoft.Web/sites/reader",
+                "azure-six-layer-runtime.zip",
+                "raw-history-query.v1",
+                "azure-raw-history-readback.v1",
             ),
         },
         "gcp_component_twin_state_output": {
@@ -139,25 +149,18 @@ def _outputs() -> dict:
             ),
         },
         "gcp_component_visualization_output": {
-            "service": "Grafana OSS 12 on GKE",
-            "endpoint": "https://grafana.example.invalid",
-            "viewer_username": "researcher@example.invalid",
-            "authentication": "Grafana local Viewer credential",
-            "certificate_sha256": "1" * 64,
-            "source_cidrs": ["203.0.113.0/24"],
-            "dashboard_uid": "twin2multicloud-raw-rollups",
-            "dashboard_title": "Twin2MultiCloud Raw & Rollups",
+            "service": "Cloud Run bounded raw-history reader",
+            "access_url": "https://reader-example-ew.a.run.app/raw-history/v1",
+            "principal_label": "deployer@example.iam.gserviceaccount.com",
+            "authentication": "Google identity token",
+            "access_role": "Cloud Run Invoker",
             "reader_service_id": "projects/example/locations/europe-west1/services/reader",
-            "viewer_credential": "owner-scoped rotate-and-reveal operation required",
-            "internal_secrets_output": False,
-            "replica_count": 1,
-            "persistent_disk_gib": 10,
             "internal_evidence": _internal(
-                "gcp-grafana-deployment",
-                "gcp-grafana-runtime-secret",
-                "grafana/grafana@sha256:abc",
-                "grafana-raw-rollups.v1",
-                "gcp-grafana-bounded-readback.v1",
+                "projects/example/locations/europe-west1/services/reader",
+                "projects/example/locations/europe-west1/services/reader roles/run.invoker",
+                "platform@sha256:abc",
+                "raw-history-query.v1",
+                "gcp-raw-history-readback.v1",
             ),
         },
         "unrelated_password": "must-not-cross",
@@ -206,29 +209,15 @@ def test_projects_exact_two_safe_surfaces_for_all_nine_placements(
 @pytest.mark.parametrize("l5", ["aws", "azure", "gcp"])
 @pytest.mark.parametrize(
     ("profile_id", "version"),
-    [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
+    [("six-layer-eventing", "1")],
 )
-def test_successful_runtime_gates_mark_all_nine_placements_content_ready(
+def test_raw_history_readback_cannot_mark_any_placement_graphically_ready(
     l4: str, l5: str, profile_id: str, version: str
 ) -> None:
     context = _context(l4, l5, profile_id=profile_id, version=version)
     outputs = _outputs()
-    context.deployment_access_runtime_evidence = (
+    with pytest.raises(DeploymentAccessRuntimeEvidenceError, match="not graphical L5"):
         collect_deployment_access_runtime_evidence(context, outputs)
-    )
-
-    evidence = project_deployment_access_evidence(
-        context,
-        outputs,
-        generated_at=FIXED_TIME,
-    )
-
-    assert evidence is not None
-    assert all(
-        surface["readiness"]["content"] == "ready"
-        and surface["readiness"]["data_probe"] == "ready"
-        for surface in evidence["surfaces"]
-    )
 
 
 def test_unknown_profile_has_no_deployer_access_evidence() -> None:
@@ -252,19 +241,25 @@ def test_selected_surface_requires_exact_safe_output_bundle() -> None:
         )
 
 
-def test_gcp_surface_rejects_internal_secret_output_claim() -> None:
+def test_gcp_surface_does_not_project_unrelated_internal_fields() -> None:
     outputs = _outputs()
     outputs["gcp_component_visualization_output"]["internal_secrets_output"] = True
 
-    with pytest.raises(DeploymentAccessProjectionError, match="internal secrets"):
-        project_deployment_access_evidence(
-            _context("aws", "gcp"), outputs, generated_at=FIXED_TIME
-        )
+    evidence = project_deployment_access_evidence(
+        _context("aws", "gcp"), outputs, generated_at=FIXED_TIME
+    )
+    assert evidence is not None
+    assert "internal_secrets_output" not in json.dumps(evidence)
 
 
 def test_projection_rejects_stale_runtime_evidence() -> None:
     context = _context("aws", "azure")
     outputs = _outputs()
+    # Synthetic graphical proof tests stale-reference protection, not a live
+    # reader or an implemented dashboard.
+    for key, value in outputs.items():
+        if key.endswith("component_visualization_output"):
+            value["internal_evidence"]["content_revision"] = "test-graphical-surface.v1"
     context.deployment_access_runtime_evidence = (
         collect_deployment_access_runtime_evidence(context, outputs)
     )

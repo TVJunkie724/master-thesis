@@ -42,6 +42,13 @@ def test_aws_event_layer_is_profile_and_provider_gated():
     ) in source
 
 
+def test_command_endpoint_lookup_is_not_legacy_profile_gated():
+    block = _source("aws_iot.tf").split('data "aws_iot_endpoint" "main" {', 1)[1].split("}", 1)[0]
+    assert 'count         = var.layer_1_provider == "aws" ? 1 : 0' in block
+    assert 'endpoint_type = "iot:Data-ATS"' in block
+    assert "local.l1_aws_enabled" not in block
+
+
 def test_aws_event_layer_uses_graph_capacity_and_bounded_failure_storage():
     source = _source("aws_eventing.tf")
     assert "shard_count      = var.aws_event_kinesis_shards" in source

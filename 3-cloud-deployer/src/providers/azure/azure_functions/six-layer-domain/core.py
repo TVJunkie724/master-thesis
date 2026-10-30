@@ -727,14 +727,14 @@ def decode_cursor(
 def cosmos_raw_history_statement(bucket_seconds: int) -> str:
     if bucket_seconds == 0:
         return (
-            "SELECT c.stored_at, c.event_time, c.value FROM c "
+            'SELECT c.stored_at, c.event_time, c["value"] FROM c '
             "WHERE c.device_id = @device_id AND c.kind = 'raw' "
             "AND c.metric = @metric AND c.stored_at >= @from "
             "AND c.stored_at <= @to ORDER BY c.stored_at ASC"
         )
     if bucket_seconds == 3600:
         return (
-            "SELECT c.bucket_start, c.min, c.max, c.sum, c.count FROM c "
+            'SELECT c.bucket_start, c["min"], c["max"], c["sum"], c["count"] FROM c '
             "WHERE c.device_id = @device_id AND c.kind = 'hourly_rollup' "
             "AND c.metric = @metric AND c.bucket_start >= @from "
             "AND c.bucket_start <= @to ORDER BY c.bucket_start ASC"

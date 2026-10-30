@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-08-27"
-version: "1.2"
+lastUpdated: "2026-09-10"
+version: "1.4"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -90,9 +90,9 @@ The PoC retains one local owner profile so Twins and encrypted
 CloudConnections have an explicit user boundary. Startup binds a configured
 static local bearer to that profile; it does not expose interactive application
 login. Google OAuth, Microsoft login, university SAML, JWT issuance, roles, and
-multi-tenant session management are outside the runtime. The existing login
-screen remains dormant and unrouted as a possible adapter boundary, not as a
-supported capability. Provider-owned Entra, IAM Identity Center, IAP, OIDC, or
+multi-tenant session management are outside the runtime. The unused login
+screen is removed; only the local profile bootstrap remains. Provider-owned
+Entra, IAM Identity Center, IAP, OIDC, or
 SAML mechanisms used by deployed cloud resources are separate from application
 authentication and remain where the Six-layer graph requires them.
 
@@ -104,7 +104,8 @@ The final PoC supports one cohesive workflow:
 2. Configure its typed workload, devices, events, state behavior, bounded user
    functions, simulator settings, and provider-independent Twin inputs.
 3. Select one deployment CloudConnection per required provider from the
-   user's existing connections.
+   user's existing connections. Each connection contains one provider
+   administrator for the isolated thesis scope.
 4. Calculate the cost-only Six-layer result and review the selected provider
    allocation, exclusions, assumptions, and trace.
 5. Run graph-derived provider readiness checks.
@@ -183,6 +184,12 @@ one connection per required provider for a Twin. Credential values are
 write-only, redacted from logs and responses, and forwarded only for the
 current downstream request.
 
+Each provider uses one principal per connection. The Azure principal has the
+broad subscription and Microsoft Graph authority needed for resource CRUD,
+role assignments and graph-required Entra objects. This is a deliberate
+single-operator thesis-PoC simplification, not a production security model or
+a generic authority-administration feature.
+
 The operator supplies a pre-existing, non-root deployment administrator
 credential for an isolated thesis account, subscription, or project. The PoC
 does not create, rotate, or revoke that deployment authority. It may delete its
@@ -198,6 +205,11 @@ the exact account capabilities required by the selected deployment:
   route and present the supervised manual action;
 - create Twin-scoped runtime identities, roles, trust objects, service
   accounts, managed identities, and role assignments through the deployment.
+
+For Azure, Terraform uses the same administrator for ordinary resources, role
+assignments and Entra operations. Readiness requires subscription Owner plus
+the documented Microsoft Graph application permissions. Tenant administrator
+consent itself remains the one unavoidable manual directory step.
 
 Account-level changes are listed before execution, require explicit
 confirmation, are idempotent, and are recorded separately from Twin-owned
@@ -272,22 +284,20 @@ and L5 surface:
 - authentication kind;
 - required login identity or user name;
 - role and readiness state;
-- expiry or rotation information where applicable;
+- expiry information where applicable;
 - certificate fingerprint or network restriction when relevant;
 - a one-time generated Viewer password or token only when the deployed service
   actually uses such a credential.
 
-Deployment administrator secrets are never returned. AWS and Azure managed
-surfaces normally redirect to IAM Identity Center, SAML, or Entra ID, so the
-access bundle contains the link and assigned login identity rather than an
-invented password. A generated resource-local credential, such as a bounded
-Grafana Viewer for the GCP-hosted surface, is revealed once and can be rotated
-through its narrow runtime operation.
-
-AWS IAM Identity Center remains a provider prerequisite for the selected
-Amazon Managed Grafana access path. Its primary Region is recorded explicitly
-and must be compatible with the workspace. AWS-to-Azure workload identity is a
-separate requirement and uses a regional STS endpoint.
+Deployment administrator secrets are never returned. The current L5 handoff
+is authenticated readback, not a deployed Grafana surface. A
+[minimal graphical replacement](../research/evaluation/l5-visualization-feasibility.md)
+is proposed but blocked at the cost/integration gate. Provider login links or
+resource-local credentials must describe only surfaces actually deployed;
+there is no runtime credential-rotation UI to restore. If AWS Managed Grafana
+is selected later, its Identity Center Region and user association must be
+validated for that workspace. AWS-to-Azure workload identity remains a separate
+requirement using regional STS.
 
 ## 11. Verification and live evaluation
 
@@ -295,45 +305,37 @@ Deterministic tests prove contracts, formulas, admissibility, state behavior,
 redaction, graph resolution, package selection, and offline provider logic.
 They are not live-cloud evidence.
 
-Before cost-incurring deployments, the evaluation runs low-cost or read-only
-provider gates:
+The live scope is fixed to three provider-local and six directed multi-cloud
+Small scenarios. One attempt supplies one record with staged functional
+checks and terminal cleanup. The operational authority is the
+[live-evaluation protocol](../research/evaluation/live-evaluation-protocol.md);
+the exact assignments are in its linked scenario matrix. Prerequisites,
+sampling, shared application checks, budget/timer rules and artifact
+requirements are maintained there, not repeated in this concept.
 
-- credential identity and target scope;
-- required API/resource-provider state;
-- exact graph-required permissions, including Azure Microsoft Graph rights;
-- quota and regional capacity reads where available;
-- all six directed workload-identity exchanges with minimal messages;
-- image-build and service availability checks without full Twin load.
+### Implementation freeze
 
-The final supervised evaluation targets nine Small scenarios:
-
-- three provider-local deployments;
-- six multi-cloud deployments covering every directed AWS/Azure/GCP provider
-  pair at least once on the required cross-cloud Eventing or Twin-projection
-  boundary.
-
-Before execution, a generated coverage matrix must prove that the nine
-scenarios cover the required provider directions and graph edge classes. A
-scenario is not added merely to enumerate redundant layer assignments.
-
-The checked scenario set and execution safeguards are defined by
-`docs/research/evaluation/small-scenario-matrix.json` and
-`docs/research/evaluation/live-evaluation-protocol.md`. They are plans, not
-live-result evidence.
-
-Every live run uses cost guardrails: reviewed Small inputs, no Large/preview
-capacity, an explicit maximum duration, immediate verification, guaranteed
-Destroy attempt, post-destroy inventory, and recorded residual-resource check.
+Existing Import, Export, Duplicate and other working convenience functions are
+frozen. Remaining implementation is limited to defects blocking the agreed
+evaluation, evidence correctness or cleanup. No additional UI redesign,
+visualization client, normalized Five-layer implementation, generic repair
+framework, or extra live workload size is added. The original Five-layer
+reproduction remains the historical reference. The outstanding L5 comparison
+decision is separate; this workflow reduction does not settle or modify it.
 
 ## 12. Documentation boundary
 
-The active repository retains:
+Document responsibilities are fixed:
 
-- this target concept;
-- one research-driven execution plan;
+- this concept owns scope and the implementation freeze;
+- the execution plan owns current status and remaining work;
+- the live-evaluation protocol owns the operating procedure and evidence rules;
+- the research design owns RQ reasoning and comparison limitations; and
+- the decision log owns the rationale for material choices.
+
+Other retained references provide:
+
 - focused architecture and security concepts;
-- research method and evidence documentation;
-- one development and decision log explaining important design rationale;
 - one architecture-evolution trace separating inherited, reasoned,
   offline-verified, and live-validated changes;
 - one provider-service evolution register for material service, tier, hosting,

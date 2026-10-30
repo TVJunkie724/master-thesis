@@ -863,8 +863,9 @@ class CostCalculationRunService:
             )
         except PricingCatalogUnavailable as exc:
             raise CostCalculationRunSelectionError(
-                "Pricing evidence is no longer fresh; refresh pricing and run "
-                "the optimizer again before deployment.",
+                "The pinned pricing evidence cannot be verified. Restore the "
+                "reviewed baseline, or rerun the optimizer if the baseline has "
+                "changed, before selecting this deployment.",
                 error_code=exc.error_code,
             ) from exc
         architecture_service = ResolvedArchitectureService(self.db)

@@ -209,7 +209,10 @@ class CredentialResolutionService:
     def build_deployer_validation_payload(
         cls, provider: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
-        if cls._normalize_provider(provider) == "gcp":
+        provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload)
+        if provider == "gcp":
             result = {
                 "gcp_credentials_file": payload.get("gcp_credentials_file"),
                 "gcp_project_id": payload.get("gcp_project_id"),
@@ -225,6 +228,8 @@ class CredentialResolutionService:
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
         provider = cls._normalize_provider(provider)
+        if provider == "azure":
+            return cls._azure_deployer_payload(payload), None
         if provider != "gcp":
             return payload.copy(), None
 
@@ -361,6 +366,25 @@ class CredentialResolutionService:
             )
             for field in missing
         ]
+
+    @staticmethod
+    def _azure_deployer_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        """Project Azure credentials onto the current single-admin contract.
+
+        Older encrypted Cloud Connections can contain retired preparation keys.
+        They are deliberately ignored here and never cross the Deployer boundary.
+        """
+
+        fields = (
+            "azure_subscription_id",
+            "azure_tenant_id",
+            "azure_client_id",
+            "azure_client_secret",
+            "azure_region",
+            "azure_region_iothub",
+            "azure_region_digital_twin",
+        )
+        return {field: payload[field] for field in fields if payload.get(field)}
 
     @staticmethod
     def _connection_id(config, provider: str) -> str | None:

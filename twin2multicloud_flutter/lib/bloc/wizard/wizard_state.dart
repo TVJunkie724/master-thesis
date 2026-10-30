@@ -109,6 +109,7 @@ class WizardState extends Equatable {
   final int highestStepReached; // For step indicator gating
   final WizardStatus status;
   final String? twinState; // Lifecycle state: draft, deployed, etc.
+  final bool hasBeenDeployed;
 
   // === Transient UI (cleared on step change) ===
   final String? errorMessage;
@@ -220,6 +221,7 @@ class WizardState extends Equatable {
     this.highestStepReached = 0,
     this.status = WizardStatus.initial,
     this.twinState,
+    this.hasBeenDeployed = false,
     this.errorMessage,
     this.successMessage,
     this.warningMessage,
@@ -305,7 +307,8 @@ class WizardState extends Equatable {
 
   /// Can modifications (save draft, finish config) be made?
   /// Returns false for deployed/deploying/destroying twins.
-  bool get canModify => TwinStateUtils.canEdit(twinState);
+  bool get canModify =>
+      TwinStateUtils.canEdit(twinState, hasBeenDeployed: hasBeenDeployed);
 
   /// Legacy persistence gate for entering workload configuration.
   bool get canProceedToStep2 =>
@@ -400,6 +403,11 @@ class WizardState extends Equatable {
 
   UserFunctionSourceDraft? extensionDraft(String slotId) =>
       extensionDrafts[slotId];
+
+  Map<String, dynamic> extensionConfiguration(String slotId) =>
+      extensionDraft(slotId)?.configuration ??
+      twinUserFunction(slotId)?.configuration ??
+      const {};
 
   UserFunctionValidationResult? extensionValidation(String slotId) =>
       extensionValidationResults[slotId];
@@ -704,6 +712,7 @@ class WizardState extends Equatable {
     int? highestStepReached,
     WizardStatus? status,
     String? twinState,
+    bool? hasBeenDeployed,
     String? errorMessage,
     String? successMessage,
     String? warningMessage,
@@ -812,6 +821,7 @@ class WizardState extends Equatable {
       highestStepReached: highestStepReached ?? this.highestStepReached,
       status: status ?? this.status,
       twinState: twinState ?? this.twinState,
+      hasBeenDeployed: hasBeenDeployed ?? this.hasBeenDeployed,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       successMessage: clearSuccess
           ? null
@@ -961,6 +971,7 @@ class WizardState extends Equatable {
     highestStepReached,
     status,
     twinState,
+    hasBeenDeployed,
     errorMessage,
     successMessage,
     warningMessage,

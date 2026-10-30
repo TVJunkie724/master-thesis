@@ -40,6 +40,13 @@ account-specific pricing context. AWS TwinMaker uses the reviewed Standard
 model required by the canonical architecture; account plan switching/tiering
 administration is outside scope.
 
+The minimal graphical L5 has its own Lambda/Flex request and duration meters;
+it is not a free alias of L3. Each snapshot issues two L3 queries (raw and
+hourly). The model assumes two seconds per snapshot: 512 MiB on AWS and 2 GiB
+on Azure, with no always-ready worker. These are explicit sizing assumptions,
+not measured rendering latency. Repository rates are pinned comparisons, not
+a fresh provider quote or a run's bill. Storage reads remain charged to L3.
+
 ## Historical baseline
 
 Five-layer v1 remains an immutable offline reproduction inside the Optimizer

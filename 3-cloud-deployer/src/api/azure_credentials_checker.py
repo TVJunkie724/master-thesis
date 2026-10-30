@@ -1,25 +1,24 @@
 """
 Azure Credentials Permission Checker
 
-Validates if provided Azure Service Principal credentials have the required
-RBAC (Role-Based Access Control) permissions for the deployer by listing
-role assignments and comparing against required roles.
+Validates the one Azure Service Principal used as administrator by the isolated
+thesis PoC. It owns resource CRUD, RBAC assignments, and the Microsoft Graph
+application permissions required by directed federation.
 
 This module is shared by both:
 - REST API endpoints (api/credentials.py)
 - CLI commands (src/main.py)
 
 Authentication Flow:
-    1. Use ClientSecretCredential with tenant_id, client_id, client_secret
-    2. Verify credentials by listing subscriptions
-    3. List role assignments at subscription scope
-    4. Compare against required roles:
-       - Custom: "Digital Twin Deployer" (recommended, least-privilege)
-       - Built-in: "Contributor" + "User Access Administrator" (development)
+    1. Authenticate the administrator.
+    2. Verify the subscription and deployment resource authority.
+    3. Verify an Owner assignment at subscription scope.
+    4. Verify the required Microsoft Graph app roles.
 """
 
 import base64
 import binascii
+from fnmatch import fnmatchcase
 import json
 import os
 import logging
@@ -37,17 +36,38 @@ AZURE_BUILTIN_ROLES = {
     "Contributor": "b24988ac-6180-42a0-ab88-20f7382dd24c",
     "Reader": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
     "User Access Administrator": "18d7d88d-d35e-4fb5-a5c3-7773c20a72d9",
+    "Role Based Access Control Administrator": "f58310d9-a9f6-439a-9e8d-f62e7b41a168",
     "Managed Identity Contributor": "e40ec5ca-96e0-45a2-b4ff-59039f2c2b59",
     "Website Contributor": "de139f84-1756-47ae-9be6-808fbbe84772",
     "IoT Hub Data Contributor": "4fc6c259-987e-4a07-842e-c321cc9d413f",
     "Cosmos DB Operator": "230815da-be43-4aae-9cb4-875f7bd000aa",
     "Storage Account Contributor": "17d1049b-9a84-46fb-8f53-869881c3d3ab",
-    "Azure Digital Twins Data Owner": "bcd981a7-7f74-457b-83e1-cceb9e632gy0",
+    "Azure Digital Twins Data Owner": "bcd981a7-7f74-457b-83e1-cceb9e632ffe",
+    "Azure Digital Twins Data Reader": "d57506d4-4c8d-48b1-8587-93c323f6a5a3",
+    "AcrPull": "7f951dda-4ed3-4680-a7ca-43fe172d538d",
+    "Azure Event Hubs Data Receiver": "a638d3c7-ab3a-418d-83e6-5f17a39d4fde",
+    "Azure Event Hubs Data Sender": "2b629674-e913-4c01-ae53-ef4638d8f975",
+    "Azure Service Bus Data Receiver": "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0",
+    "Azure Service Bus Data Sender": "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39",
     "Grafana Admin": "22926164-76b3-42b3-bc55-97df8dab3e41",
+    "Grafana Viewer": "60921a7e-fef1-4a43-9b16-a26c52ad4769",
+    "IoT Hub Data Reader": "b447c946-2db7-41ec-983d-d8bf3b1c77e3",
+    "Storage Blob Data Contributor": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
 }
 
-# Specific RBAC actions required per layer (from azure_custom_role.json)
-# These are validated against the user's role assignments
+AZURE_ROLE_ASSIGNMENT_ACTIONS = (
+    "Microsoft.Authorization/roleAssignments/write",
+    "Microsoft.Authorization/roleAssignments/delete",
+)
+AZURE_GRAPH_APPLICATION_PERMISSIONS = frozenset(
+    {
+        "Application.ReadWrite.All",
+        "AppRoleAssignment.ReadWrite.All",
+    }
+)
+
+# Resource-management actions required by the supported Six-layer graph.
+# These are validated against the PoC administrator's role assignments.
 REQUIRED_AZURE_PERMISSIONS = {
     "setup": {
         "description": "Resource Groups, Managed Identity, Storage Account",
@@ -105,11 +125,10 @@ REQUIRED_AZURE_PERMISSIONS = {
         ],
     },
     "layer_1": {
-        "description": "IoT Hub, Event Grid, Role Assignments, L1 Function Deployment",
+        "description": "IoT Hub, Event Grid, and L1 Function Deployment",
         "resource_providers": [
             "Microsoft.Devices",
             "Microsoft.EventGrid",
-            "Microsoft.Authorization",
             "Microsoft.Web",
         ],
         "required_actions": [
@@ -135,8 +154,6 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.EventGrid/systemTopics/eventSubscriptions/delete",
             "Microsoft.EventGrid/topics/write",
             "Microsoft.EventGrid/topics/delete",
-            "Microsoft.Authorization/roleAssignments/write",
-            "Microsoft.Authorization/roleAssignments/delete",
             "Microsoft.Web/sites/config/list/action",  # Get publish credentials for L1 functions
             "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",  # Enable SCM Basic Auth
         ],
@@ -186,7 +203,11 @@ REQUIRED_AZURE_PERMISSIONS = {
             "Microsoft.DigitalTwins/digitalTwinsInstances/privateEndpointConnections/delete",
             "Microsoft.DigitalTwins/register/action",
         ],
-        "required_data_actions": [
+        # These data-plane actions are not ambient subscription prerequisites.
+        # The atomic Six-layer graph grants Azure Digital Twins Data Owner to
+        # the PoC administrator on the newly created ADT instance through
+        # the PoC administrator before seed/readback.
+        "provisioned_data_actions": [
             "Microsoft.DigitalTwins/digitaltwins/read",
             "Microsoft.DigitalTwins/digitaltwins/write",
             "Microsoft.DigitalTwins/digitaltwins/delete",
@@ -214,7 +235,7 @@ REQUIRED_AZURE_PERMISSIONS = {
 
 
 def _create_credential(credentials: dict):
-    """Create Azure credential from credentials dict."""
+    """Create one Azure credential without permitting ambient auth fallback."""
     from azure.identity import ClientSecretCredential
 
     tenant_id = credentials.get("azure_tenant_id")
@@ -222,9 +243,7 @@ def _create_credential(credentials: dict):
     client_secret = credentials.get("azure_client_secret")
 
     if not all([tenant_id, client_id, client_secret]):
-        raise ValueError(
-            "Missing required Azure credentials: azure_tenant_id, azure_client_id, azure_client_secret"
-        )
+        raise ValueError("Missing required Azure administrator credentials")
 
     return ClientSecretCredential(
         tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
@@ -254,6 +273,43 @@ def _get_current_principal_claims(credential) -> dict:
     return {
         "principal_id": claims.get("oid") or claims.get("objectid"),
         "application_id": claims.get("appid") or claims.get("azp"),
+    }
+
+
+def _check_microsoft_graph_authority(credential) -> dict:
+    """Validate the required Graph application roles carried by the app token."""
+
+    try:
+        token = credential.get_token("https://graph.microsoft.com/.default").token
+    except Exception as exc:
+        return {
+            "status": "authentication_failed",
+            "message": "Microsoft Graph authentication failed for the Azure administrator.",
+            "reason": redact_sensitive(exc),
+            "missing_permissions": sorted(AZURE_GRAPH_APPLICATION_PERMISSIONS),
+            "unexpected_permissions": [],
+        }
+
+    claims = _decode_jwt_claims(token)
+    raw_roles = claims.get("roles")
+    granted = (
+        {str(role) for role in raw_roles if isinstance(role, str) and role.strip()}
+        if isinstance(raw_roles, list)
+        else set()
+    )
+    missing = sorted(AZURE_GRAPH_APPLICATION_PERMISSIONS - granted)
+    if missing:
+        return {
+            "status": "consent_required",
+            "message": "Microsoft Graph application permissions are incomplete.",
+            "missing_permissions": missing,
+            "unexpected_permissions": [],
+        }
+    return {
+        "status": "ready",
+        "message": "The required Microsoft Graph application permissions are consented.",
+        "missing_permissions": [],
+        "unexpected_permissions": [],
     }
 
 
@@ -368,7 +424,7 @@ def _check_sp_credential_expiration(
                         "status": "consent_required",
                         "message": (
                             "Microsoft Graph denied application inspection; tenant admin consent "
-                            "for Application.Read.All is required."
+                            "for the documented application permissions is required."
                         ),
                     },
                     "reason": "Microsoft Graph application authority is not granted.",
@@ -408,9 +464,7 @@ def _check_sp_credential_expiration(
                 end_date_str = cred.get("endDateTime")
                 if not end_date_str:
                     continue
-                end_date = datetime.fromisoformat(
-                    end_date_str.replace("Z", "+00:00")
-                )
+                end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
                 if end_date >= now:
                     active_expirations.append(end_date)
 
@@ -608,6 +662,7 @@ def _get_role_assignments_with_permissions(
                         permission_blocks.append(
                             {
                                 "role_name": role_name,
+                                "role_definition_id": role_def_guid,
                                 "actions": actions,
                                 "not_actions": not_actions,
                                 "data_actions": data_actions,
@@ -624,6 +679,8 @@ def _get_role_assignments_with_permissions(
                     "role_name": role_name,
                     "role_definition_id": role_def_guid,
                     "scope": assignment.scope,
+                    "condition": getattr(assignment, "condition", None),
+                    "condition_version": getattr(assignment, "condition_version", None),
                 }
             )
 
@@ -640,10 +697,6 @@ def _get_role_assignments_with_permissions(
         raise
 
 
-# Custom role name for least-privilege access
-CUSTOM_ROLE_NAME = "Digital Twin Deployer"
-
-
 def _action_matches(user_actions: set, required_action: str) -> str:
     """
     Check if user's actions cover the required action.
@@ -658,24 +711,17 @@ def _action_matches(user_actions: set, required_action: str) -> str:
         "wildcard" - if matched via a wildcard pattern (less reliable)
         "none" - if not matched
     """
-    if required_action in user_actions:
+    normalized_required = required_action.casefold()
+    normalized_actions = {str(action).casefold() for action in user_actions}
+    if normalized_required in normalized_actions:
         return "exact"
 
-    # Check wildcard patterns
-    for action in user_actions:
-        if action == "*":
-            return "wildcard"  # Owner role - matches but may not be reliable
-        if action.endswith("/*"):
-            prefix = action[:-1]  # Remove "*"
-            if required_action.startswith(prefix):
-                return "wildcard"
-        if action == "*/read" and required_action.endswith("/read"):
-            return "wildcard"
-        if action == "*/write" and required_action.endswith("/write"):
-            return "wildcard"
-        if action == "*/delete" and required_action.endswith("/delete"):
-            return "wildcard"
-        if action == "*/action" and required_action.endswith("/action"):
+    # Azure role definitions can place wildcards in any action segment, for
+    # example ``Microsoft.Authorization/*/Write`` in Contributor.notActions.
+    # Match them case-insensitively because Azure resource-provider operations
+    # are case-insensitive.
+    for action in normalized_actions:
+        if "*" in action and fnmatchcase(normalized_required, action):
             return "wildcard"
 
     return "none"
@@ -721,6 +767,40 @@ def _action_allowed(
         "all_data_actions" if data_plane else "all_actions", set()
     )
     return _action_matches(action_set, required_action)
+
+
+def _validate_administrator_authority(role_info: dict) -> dict:
+    """Validate the deliberately broad administrator used by this thesis PoC."""
+
+    comparison = _compare_permissions(role_info)
+    assignments = list(role_info.get("assignments") or [])
+    owner_role_id = AZURE_BUILTIN_ROLES["Owner"].casefold()
+    has_owner_assignment = any(
+        str(assignment.get("role_definition_id") or "").casefold()
+        == owner_role_id
+        for assignment in assignments
+    )
+    missing_assignment_actions = [
+        action
+        for action in AZURE_ROLE_ASSIGNMENT_ACTIONS
+        if _action_allowed(role_info, action) == "none"
+    ]
+    complete = (
+        comparison["summary"]["valid_layers"]
+        == comparison["summary"]["total_layers"]
+    )
+    ready = has_owner_assignment and complete and not missing_assignment_actions
+    return {
+        "status": "ready" if ready else "invalid",
+        "message": (
+            "Azure thesis-PoC administrator has subscription Owner authority."
+            if ready
+            else "Azure thesis-PoC administrator requires subscription Owner authority."
+        ),
+        "owner_assignment_found": has_owner_assignment,
+        "missing_actions": missing_assignment_actions,
+        "comparison": comparison,
+    }
 
 
 def _compare_permissions(
@@ -801,6 +881,9 @@ def _compare_permissions(
             "resource_providers": requirements["resource_providers"],
             "required_actions": requirements.get("required_actions", []),
             "required_data_actions": requirements.get("required_data_actions", []),
+            "provisioned_data_actions": requirements.get(
+                "provisioned_data_actions", []
+            ),
             "present_actions": present_actions,
             "wildcard_actions": wildcard_actions,  # Permissions matched via wildcards (may not work at runtime)
             "missing_actions": missing_actions,
@@ -818,22 +901,15 @@ def _compare_permissions(
 
 
 def check_azure_credentials(credentials: dict) -> dict:
-    """
-    Main entry point. Validates Azure credentials against ALL required permissions.
+    """Validate the single-administrator Azure thesis-PoC contract."""
 
-    Args:
-        credentials: Dict with azure_subscription_id, azure_tenant_id,
-                     azure_client_id, azure_client_secret, azure_region
-
-    Returns:
-        Dict with status, caller_identity, and permission results by layer
-    """
     result = {
         "status": "invalid",
         "message": "",
         "caller_identity": None,
         "region_validation": None,
         "microsoft_graph_authority": None,
+        "administrator_authority": None,
         "can_list_roles": False,
         "by_layer": {},
         "summary": {
@@ -842,13 +918,9 @@ def check_azure_credentials(credentials: dict) -> dict:
             "partial_layers": 0,
             "invalid_layers": 0,
         },
-        "recommended_roles": {
-            "custom": "Digital Twin Deployer",
-            "builtin": ["Contributor", "User Access Administrator"],
-        },
+        "recommended_roles": {"administrator": "Owner"},
     }
 
-    # Validate required fields
     required_fields = [
         "azure_subscription_id",
         "azure_tenant_id",
@@ -856,79 +928,67 @@ def check_azure_credentials(credentials: dict) -> dict:
         "azure_client_secret",
     ]
     missing = [f for f in required_fields if not credentials.get(f)]
-
     if missing:
         result["message"] = f"Missing required credentials: {', '.join(missing)}"
         return result
-
     subscription_id = credentials["azure_subscription_id"]
 
     try:
-        # Step 1: Create credential
         try:
-            credential = _create_credential(credentials)
+            administrator_credential = _create_credential(credentials)
         except ValueError as exc:
             result["message"] = redact_sensitive(exc)
             return result
 
-        # Step 2: Validate credentials with subscription access
         try:
-            caller_identity = _get_caller_identity(credential, subscription_id)
-            result["caller_identity"] = caller_identity
+            administrator_identity = _get_caller_identity(
+                administrator_credential,
+                subscription_id,
+            )
         except ValueError as exc:
             result["message"] = redact_sensitive(exc)
             return result
 
-        principal_id = caller_identity.get("principal_id")
-        if not principal_id:
+        administrator_principal_id = administrator_identity.get("principal_id")
+        if not administrator_principal_id:
             result["status"] = "check_failed"
             result["message"] = (
-                "Cannot determine the Azure Service Principal object ID from the ARM token. "
-                "Permission validation would be unsafe because subscription role assignments "
-                "could not be filtered to the authenticated principal."
+                "Cannot determine the Azure administrator object ID from the ARM token; "
+                "permission validation cannot safely filter role assignments."
             )
-            result["can_list_roles"] = False
             return result
 
-        # Step 2.5: FAIL-FAST - Check subscription state (catches disabled/deleted subscriptions)
-        subscription_state = caller_identity.get("state")
+        subscription_state = str(administrator_identity.get("state") or "")
         if subscription_state and subscription_state != "Enabled":
-            result["status"] = "invalid"
-            result["message"] = (
-                f"Azure subscription is '{subscription_state}'. "
-                f"Subscription must be 'Enabled' for deployment. "
-                f"Check Azure billing status or contact your administrator to reactivate the subscription."
-            )
+            result["message"] = "Azure subscription is not enabled."
+            result["subscription_state"] = subscription_state
             return result
 
-        # Step 2.6: Check SP credential expiration (if Graph API accessible)
+        result["caller_identity"] = {
+            "subscription_state": administrator_identity.get("state"),
+            "principal_type": "service_principal",
+            "administrator_authenticated": True,
+        }
+
+        graph_authority = _check_microsoft_graph_authority(administrator_credential)
+        result["microsoft_graph_authority"] = graph_authority
+
         sp_expiration = _check_sp_credential_expiration(
             tenant_id=credentials["azure_tenant_id"],
             client_id=credentials["azure_client_id"],
             client_secret=credentials["azure_client_secret"],
-        )
-        result["microsoft_graph_authority"] = sp_expiration.get(
-            "graph_authority",
-            {
-                "status": "not_checked",
-                "message": "Microsoft Graph authority was not inspected.",
-            },
         )
         result["sp_credential_expiration"] = {
             key: value
             for key, value in sp_expiration.items()
             if key != "graph_authority"
         }
-
         if sp_expiration.get("status") == "expired":
-            result["status"] = "invalid"
             result["message"] = sp_expiration.get(
-                "message", "Service Principal credentials have expired"
+                "message", "Azure administrator credentials have expired"
             )
             return result
-        # Note: "expiring_soon" is a warning, not a failure - will be shown but deployment proceeds
 
-        # Step 3: Validate regions
         regions_to_validate = {
             "azure_region": credentials.get("azure_region", ""),
             "azure_region_iothub": credentials.get("azure_region_iothub", ""),
@@ -936,80 +996,59 @@ def check_azure_credentials(credentials: dict) -> dict:
                 "azure_region_digital_twin", ""
             ),
         }
-        # Filter out empty regions
         regions_to_validate = {
             k: v for k, v in regions_to_validate.items() if v and v.strip()
         }
-
         if regions_to_validate:
             region_results = _validate_azure_regions(
-                credential, subscription_id, regions_to_validate
+                administrator_credential,
+                subscription_id,
+                regions_to_validate,
             )
             result["region_validation"] = region_results
-
-            # Check if any region is invalid
             invalid_regions = [
                 k for k, v in region_results.items() if not v.get("valid")
             ]
             if invalid_regions:
-                errors = [
-                    region_results[k].get("error", "Invalid region")
-                    for k in invalid_regions
-                ]
-                result["status"] = "invalid"
-                result["message"] = f"Invalid region(s): {'; '.join(errors)}"
+                result["message"] = "One or more Azure regions are unavailable."
                 return result
 
-        # Step 4: Get role assignments with permissions
-        role_info = _get_role_assignments_with_permissions(
-            credential, subscription_id, principal_id
+        administrator_roles = _get_role_assignments_with_permissions(
+            administrator_credential,
+            subscription_id,
+            administrator_principal_id,
         )
-
-        if role_info is None:
+        if administrator_roles is None:
             result["status"] = "check_failed"
             result["message"] = (
-                "Cannot determine permissions - Service Principal lacks permission to list role assignments. "
-                "This typically means the principal doesn't have Reader or higher access at subscription scope. "
-                "Grant 'Reader' role at subscription level to enable permission checking."
+                "Azure role assignments cannot be inspected for the PoC administrator."
             )
-            result["can_list_roles"] = False
             return result
 
         result["can_list_roles"] = True
-        result["role_assignments_count"] = len(role_info.get("assignments", []))
-        result["total_actions_count"] = len(role_info.get("all_actions", set()))
-
-        # List assigned role names for reference
-        result["assigned_roles"] = [
-            a["role_name"] for a in role_info.get("assignments", [])
-        ]
-
-        # Step 4: Compare against required permissions
-        permission_contract = REQUIRED_AZURE_PERMISSIONS
-        comparison = _compare_permissions(role_info, permission_contract)
+        administrator_authority = _validate_administrator_authority(
+            administrator_roles
+        )
+        result["administrator_authority"] = administrator_authority
+        comparison = administrator_authority["comparison"]
         result["by_layer"] = comparison["by_layer"]
         result["summary"] = comparison["summary"]
 
-        # Determine overall status
-        summary = comparison["summary"]
-
-        if summary["valid_layers"] == summary["total_layers"]:
+        if (
+            administrator_authority["status"] == "ready"
+            and graph_authority["status"] == "ready"
+        ):
             result["status"] = "valid"
             result["message"] = (
-                "All required permissions are present. Ready for deployment."
+                "Azure thesis-PoC administrator and Microsoft Graph authority are ready."
             )
-        elif summary["valid_layers"] > 0:
+        elif comparison["summary"]["valid_layers"] > 0:
             result["status"] = "partial"
-            missing_count = summary["partial_layers"] + summary["invalid_layers"]
             result["message"] = (
-                f"Some layers have missing permissions: {missing_count} of {summary['total_layers']} layers incomplete."
+                "Azure administrator authority requires repair before deployment."
             )
         else:
-            result["status"] = "invalid"
-            result["message"] = (
-                "Required permissions are missing. For the PoC, use the "
-                "configured administrator credential and rerun validation."
-            )
+            result["message"] = "Azure administrator is not ready for deployment."
 
         return result
 

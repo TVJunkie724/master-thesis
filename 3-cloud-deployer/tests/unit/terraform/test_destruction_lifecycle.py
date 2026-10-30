@@ -1,6 +1,8 @@
 """Contract tests for bounded and single-owner destruction orchestration."""
 
 from types import SimpleNamespace
+import json
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +47,7 @@ def test_required_cleanup_without_context_fails_closed(tmp_path):
 def test_v3_destroy_rebuilds_graph_packages_even_with_existing_tfvars(tmp_path):
     strategy = _strategy(tmp_path)
     strategy.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
-    strategy.tfvars_path.touch()
+    strategy.tfvars_path.write_text("{}")
     strategy._build_packages = MagicMock()
     strategy._generate_tfvars = MagicMock()
     graph = object()
@@ -60,6 +62,50 @@ def test_v3_destroy_rebuilds_graph_packages_even_with_existing_tfvars(tmp_path):
     assert strategy._extension_operation_id == "destroy-v3"
     strategy._build_packages.assert_called_once_with()
     strategy._generate_tfvars.assert_not_called()
+
+
+@pytest.mark.parametrize("registry", [None, "example.azurecr.io"])
+def test_destroy_supplies_azure_schema_image_without_publication(tmp_path, registry):
+    strategy = _strategy(tmp_path)
+    strategy.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+    values = {
+        "architecture_profile_id": "six-layer-eventing",
+        "architecture_profile_version": 1,
+        "layer_3_hot_provider": "azure",
+        "azure_six_layer_storage_mover_image": "",
+    }
+    strategy.tfvars_path.write_text(json.dumps(values))
+    strategy._terraform_outputs = {"azure_six_layer_acr_login_server": registry}
+    strategy._publish_azure_six_layer_images = MagicMock()
+
+    strategy._prepare_destroy_image_inputs()
+
+    assert strategy._read_tfvars()["azure_six_layer_storage_mover_image"] == (
+        f"{registry or 'unpublished.azurecr.io'}/storage-mover@sha256:" + "0" * 64
+    )
+    assert re.fullmatch(
+        r"[a-z0-9]+\.azurecr\.io/[a-z0-9_./-]+@sha256:[0-9a-f]{64}",
+        strategy._read_tfvars()["azure_six_layer_storage_mover_image"],
+    )
+    strategy._publish_azure_six_layer_images.assert_not_called()
+
+
+@pytest.mark.parametrize("profile,image", [
+    ("six-layer-eventing", "example.azurecr.io/storage-mover@sha256:" + "a" * 64),
+    ("legacy", ""),
+])
+def test_destroy_preserves_existing_image_and_other_profiles(tmp_path, profile, image):
+    strategy = _strategy(tmp_path)
+    strategy.tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+    values = {
+        "architecture_profile_id": profile,
+        "architecture_profile_version": 1,
+        "layer_3_hot_provider": "azure",
+        "azure_six_layer_storage_mover_image": image,
+    }
+    strategy.tfvars_path.write_text(json.dumps(values))
+    strategy._prepare_destroy_image_inputs()
+    assert strategy._read_tfvars() == values
 
 
 def test_v2_destroy_keeps_historical_tfvars_path_without_package_rebuild(tmp_path):

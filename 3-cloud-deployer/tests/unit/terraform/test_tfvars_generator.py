@@ -120,6 +120,8 @@ class TestLoadCredentials:
 
         assert result["azure_subscription_id"] == "sub123"
         assert result["azure_client_id"] == "client123"
+        assert "azure_preparation_client_id" not in result
+        assert "azure_preparation_client_secret" not in result
         assert result["azure_region"] == "westeurope"
         # IoT Hub region should fall back to main region
         assert result["azure_region_iothub"] == "westeurope"
@@ -242,7 +244,6 @@ def test_load_platform_user_maps_existing_azure_principal_without_credentials(tm
                 "admin_last_name": "Researcher",
                 "azure_principal_object_id": "11111111-1111-1111-1111-111111111111",
                 "azure_principal_label": "researcher@example.test",
-                "gcp_grafana_source_cidrs": ["203.0.113.42/32"],
             }
         )
     )
@@ -253,7 +254,6 @@ def test_load_platform_user_maps_existing_azure_principal_without_credentials(tm
         "11111111-1111-1111-1111-111111111111"
     )
     assert result["azure_layer_access_principal_label"] == "researcher@example.test"
-    assert result["gcp_grafana_source_cidrs"] == ["203.0.113.42/32"]
     assert "password" not in result
 
 
@@ -328,6 +328,7 @@ class TestGenerateTfvars:
         with pytest.raises(ValueError, match="project_path is required"):
             generate_tfvars(None, "/tmp/output.json")
 
+    @pytest.mark.usefixtures("offline_graph_mechanics")
     def test_generates_tfvars_file(self, complete_project, tmp_path, monkeypatch):
         """Should generate tfvars.json file."""
         output_path = tmp_path / "terraform" / "generated.tfvars.json"

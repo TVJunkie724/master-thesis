@@ -266,15 +266,14 @@ def _load_hierarchy_for_provider(project_path: Path, provider: str) -> Dict[str,
     """
     provider_lower = provider.lower()
 
-    # TODO(GCP-L4L5): GCP has no managed Digital Twin service. When GCP L4 is implemented,
-    # add a 'google' branch here similar to 'aws' and 'azure' to load GCP hierarchy format.
-    # For now, return empty hierarchy - Terraform skips L4/L5 resources for GCP.
+    # GCP Six-layer L4 uses the graph-derived Cloud Run/Firestore Twin bundle,
+    # not an AWS hierarchy or Azure DTDL file. This loader supplies neither its
+    # state schema nor its resources; an empty result does not disable GCP L4/L5.
     provider_lower = normalize_provider_name(provider_lower)
     if provider_lower == "gcp":
-        return []  # No hierarchy for GCP - no Digital Twin service
+        return []
 
-    # Handle 'none' provider - used when L4/L5 layers are explicitly disabled
-    # (e.g., GCP-only scenarios with no Digital Twin service)
+    # Retain the disabled-layer marker for diagnostic reads of older projects.
     if provider_lower == "none":
         return []  # No hierarchy when L4 is disabled
 

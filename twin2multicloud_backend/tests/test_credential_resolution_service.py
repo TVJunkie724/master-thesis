@@ -114,6 +114,42 @@ def test_gcp_deployment_credentials_use_service_account_file_boundary():
     assert "private_key" not in str(resolved.config_credentials)
 
 
+def test_azure_connection_uses_single_admin_and_drops_retired_fields():
+    payload = {
+        "azure_subscription_id": "subscription-1",
+        "azure_tenant_id": "tenant-1",
+        "azure_client_id": "administrator-client-1",
+        "azure_client_secret": "administrator-secret-1",
+        "azure_preparation_client_id": "retired-client-1",
+        "azure_preparation_client_secret": "retired-secret-1",
+        "azure_region": "westeurope",
+        "azure_region_iothub": "westeurope",
+        "azure_region_digital_twin": "westeurope",
+    }
+    twin = _twin(
+        configuration=_configuration(
+            azure_cloud_connection_id="connection-azure",
+            azure_cloud_connection=_cloud_connection(
+                "connection-azure", "azure", payload
+            ),
+        )
+    )
+
+    resolved = CredentialResolutionService().resolve_deployment_credentials(
+        twin, USER_ID
+    )
+
+    assert resolved.config_credentials["azure"] == {
+        "azure_subscription_id": "subscription-1",
+        "azure_tenant_id": "tenant-1",
+        "azure_client_id": "administrator-client-1",
+        "azure_client_secret": "administrator-secret-1",
+        "azure_region": "westeurope",
+        "azure_region_iothub": "westeurope",
+        "azure_region_digital_twin": "westeurope",
+    }
+
+
 def test_legacy_credential_columns_cannot_activate_stored_twin_credentials():
     twin = _twin(
         configuration=_configuration(
@@ -213,6 +249,9 @@ def test_plaintext_azure_credentials_use_canonical_region_fallbacks():
     assert (
         resolved.deployer_validation_payload["azure_region_digital_twin"]
         == "northeurope"
+    )
+    assert not any(
+        "preparation" in key for key in resolved.deployer_validation_payload
     )
 
 

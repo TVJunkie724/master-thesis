@@ -82,6 +82,7 @@ REQUIRED_DEPLOYER_CONFIG_FILES = [
 SECRET_FRAGMENT_PATTERN = re.compile(
     r"(?i)"
     r"(\b(?:aws_access_key_id|aws_secret_access_key|azure_client_secret|"
+    r"azure_preparation_client_secret|"
     r"client_secret|private_key|private_key_id|token|access_token|refresh_token|"
     r"password|secret|api_key|access_key)\b)"
     r"([\"']?\s*[:=]\s*[\"']?)"
@@ -2005,11 +2006,24 @@ def _validate_six_layer_deployer_artifacts(
         or deployer_config is None
     ):
         return
-    forbidden = [
-        field
-        for field in SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS
-        if bool(getattr(deployer_config, field, None))
-    ]
+    forbidden = []
+    map_fields = {
+        "event_action_contents", "event_action_requirements",
+        "processor_contents", "processor_requirements",
+    }
+    for field in SIX_LAYER_DISALLOWED_DEPLOYER_FIELDS:
+        value = getattr(deployer_config, field, None)
+        if not value:
+            continue
+        # The normal UI persists empty maps as JSON text. They are absence,
+        # not embedded legacy code; malformed or populated maps stay forbidden.
+        if field in map_fields and isinstance(value, str):
+            try:
+                if json.loads(value) == {}:
+                    continue
+            except (ValueError, TypeError):
+                pass
+        forbidden.append(field)
     if forbidden:
         _raise_package_error(
             "deployer_config",

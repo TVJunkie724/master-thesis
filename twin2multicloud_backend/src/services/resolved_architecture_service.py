@@ -517,7 +517,6 @@ class ResolvedArchitectureService:
             isinstance(readiness, dict)
             and readiness.get("status") == "offline_contract_fixture"
             and isinstance(readiness.get("blocking_gate_ids"), list)
-            and readiness["blocking_gate_ids"]
         ):
             expected_resolution_status = "offline_contract_fixture"
         else:
@@ -733,10 +732,22 @@ class ResolvedArchitectureService:
                     "Architecture and deployment component references differ.",
                 )
             assigned_ids.update(actual_ids)
-        if assigned_ids != selected_ids or set(selections_by_logical) != {
+        expected_selected_logical = {
             item["logical_component_id"]
             for item in architecture["component_assignments"]
-        }:
+        }
+        if (
+            architecture["resolution_status"] == "offline_contract_fixture"
+            and specification.get("readiness", {}).get("status")
+            == "offline_contract_fixture"
+            and "gate.implementation.l5-visualization-pending"
+            in specification.get("readiness", {}).get("blocking_gate_ids", [])
+        ):
+            expected_selected_logical.discard("component.visualization")
+        if (
+            assigned_ids != selected_ids
+            or set(selections_by_logical) != expected_selected_logical
+        ):
             raise architecture_error(
                 "ARCH_RESOLUTION_REFERENCE_MISMATCH",
                 "Architecture and deployment component sets differ.",

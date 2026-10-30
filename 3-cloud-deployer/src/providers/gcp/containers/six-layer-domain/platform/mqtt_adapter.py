@@ -33,6 +33,7 @@ from google.cloud import pubsub_v1
 from google.oauth2 import id_token
 import paho.mqtt.client as mqtt
 import requests
+from werkzeug.serving import WSGIRequestHandler
 
 
 LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,24 @@ _subscriber: pubsub_v1.SubscriberClient | None = None
 _mqtt_client: mqtt.Client | None = None
 _started = False
 _start_lock = threading.Lock()
+_mqtt_subscribed = threading.Event()
+
+
+class BrokerWebhookRequestHandler(WSGIRequestHandler):
+    """Preserve only the pinned broker plugin's two underscore headers."""
+
+    def make_environ(self):
+        environ = super().make_environ()
+        # Werkzeug drops underscore headers. BifroMQ 4.0.0 sends these exact
+        # names on the cluster-internal webhook; do not enable arbitrary ones
+        # or allow ambiguous hyphen/underscore aliases to authorize a request.
+        for header in ("user_id", "tenant_id"):
+            key = "HTTP_" + header.upper()
+            environ.pop(key, None)
+            values = self.headers.get_all(header, [])
+            if len(values) == 1 and not self.headers.get_all(header.replace("_", "-"), []):
+                environ[key] = values[0]
+        return environ
 
 
 def _required_environment(name: str) -> str:
@@ -135,6 +154,8 @@ def _action_topic(value: Mapping[str, Any]) -> tuple[str, str] | None:
 
 
 def _authorized(user_id: str, action: str, topic: str) -> bool:
+    if not user_id:
+        return False
     bridge_user = os.environ.get("BIFROMQ_BRIDGE_USERNAME", "")
     device_user = os.environ.get("BIFROMQ_DEVICE_USERNAME", "")
     if action == "conn":
@@ -169,7 +190,8 @@ def authorize():
 
 @app.get("/healthz")
 def health():
-    return jsonify({"schema_version": "mqtt-adapter-health.v1", "ready": _started})
+    ready = _started and _mqtt_subscribed.is_set()
+    return jsonify({"schema_version": "mqtt-adapter-health.v1", "ready": ready}), 200 if ready else 503
 
 
 def _ingress_token(audience: str) -> str:
@@ -216,12 +238,27 @@ def _forward_telemetry(topic: str, payload: bytes) -> None:
 
 
 def _on_connect(client, _userdata, _flags, reason_code, _properties=None):
+    _mqtt_subscribed.clear()
     if reason_code != 0:
         LOGGER.error("MQTT bridge connection rejected with code %s", reason_code)
         return
     result, _mid = client.subscribe(SHARED_TELEMETRY_FILTER, qos=1)
     if result != mqtt.MQTT_ERR_SUCCESS:
         raise RuntimeError("Could not subscribe the MQTT telemetry bridge")
+
+
+def _on_subscribe(_client, _userdata, _mid, reason_codes, _properties=None):
+    # CONNECT/PUBACK do not prove that this consumer is receiving telemetry.
+    # Keep the existing Kubernetes readiness probe closed until QoS-1 SUBACK.
+    if len(reason_codes) == 1 and reason_codes[0] == 1:
+        _mqtt_subscribed.set()
+    else:
+        _mqtt_subscribed.clear()
+        LOGGER.error("MQTT bridge subscription rejected or QoS-1 not granted")
+
+
+def _on_disconnect(_client, _userdata, _flags, _reason_code, _properties=None):
+    _mqtt_subscribed.clear()
 
 
 def _on_message(client, _userdata, message):
@@ -295,6 +332,8 @@ def _run_bridge() -> None:
         _required_environment("BIFROMQ_BRIDGE_PASSWORD"),
     )
     client.on_connect = _on_connect
+    client.on_subscribe = _on_subscribe
+    client.on_disconnect = _on_disconnect
     client.on_message = _on_message
     client.reconnect_delay_set(min_delay=1, max_delay=30)
     client.connect(
@@ -333,4 +372,5 @@ if __name__ == "__main__":
         host="0.0.0.0",  # nosec B104
         port=int(os.environ.get("PORT", "8080")),
         threaded=True,
+        request_handler=BrokerWebhookRequestHandler,
     )

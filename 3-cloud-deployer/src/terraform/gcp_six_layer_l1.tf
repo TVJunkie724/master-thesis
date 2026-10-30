@@ -88,7 +88,7 @@ resource "kubernetes_config_map_v1" "gcp_six_layer_bifromq" {
 
   metadata {
     name      = "bifromq-config"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -131,7 +131,7 @@ resource "kubernetes_secret_v1" "gcp_six_layer_bifromq" {
 
   metadata {
     name      = "bifromq-runtime"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -155,7 +155,7 @@ resource "kubernetes_service_v1" "gcp_six_layer_bifromq_headless" {
 
   metadata {
     name      = "bifromq-headless"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -188,7 +188,7 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 
   metadata {
     name      = "bifromq"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels = merge(local.gcp_six_layer_labels, {
       component = "bifromq"
     })
@@ -214,6 +214,12 @@ resource "kubernetes_deployment_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
       spec {
         security_context {
           run_as_non_root = true
+          # The pinned upstream image declares USER bifromq. Kubernetes cannot
+          # prove a named image user is non-root unless the numeric identity is
+          # explicit in the pod security context. The image binds bifromq to
+          # UID/GID 1000; keep that immutable-image contract visible here.
+          run_as_user  = 1000
+          run_as_group = 1000
         }
 
         affinity {
@@ -355,7 +361,7 @@ resource "kubernetes_service_v1" "gcp_gcp_external_load_balancer" {
 
   metadata {
     name      = "bifromq-mqtt"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
@@ -424,7 +430,7 @@ resource "kubernetes_service_account_v1" "gcp_six_layer_mqtt_adapter" {
 
   metadata {
     name      = "mqtt-adapter"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
     annotations = {
       "iam.gke.io/gcp-service-account" = google_service_account.gcp_six_layer_runtime["ingress"].email
@@ -500,11 +506,14 @@ resource "kubernetes_service_v1" "gcp_six_layer_bifromq_auth" {
 
   metadata {
     name      = "bifromq-auth"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels    = local.gcp_six_layer_labels
   }
 
   spec {
+    # Authentication must be reachable before the bridge can receive SUBACK.
+    # This private webhook is not the device-facing MQTT readiness boundary.
+    publish_not_ready_addresses = true
     selector = {
       app = "mqtt-adapter"
     }
@@ -523,7 +532,7 @@ resource "kubernetes_deployment_v1" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
 
   metadata {
     name      = "mqtt-adapter"
-    namespace = local.gcp_six_layer_bifromq_namespace
+    namespace = kubernetes_namespace_v1.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].metadata[0].name
     labels = merge(local.gcp_six_layer_labels, {
       component = "mqtt-adapter"
     })

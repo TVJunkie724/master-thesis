@@ -56,3 +56,13 @@ def test_directory_accessor_rejects_directory_symlinks(tmp_path):
 
     with pytest.raises(ValueError, match="symbolic links"):
         DirectoryAccessor(project)
+def test_directory_inventory_includes_canonical_extension_sources(tmp_path):
+    from src.validation.accessors import DirectoryAccessor
+
+    source = tmp_path / '.twin2multicloud/extensions/artifacts/test/source/process.py'
+    source.parent.mkdir(parents=True)
+    source.write_text('def process(payload, configuration, context): return payload')
+    build = tmp_path / '.build/generated.zip'
+    build.parent.mkdir()
+    build.write_bytes(b'build')
+    assert DirectoryAccessor(tmp_path).list_files() == [source.relative_to(tmp_path).as_posix()]

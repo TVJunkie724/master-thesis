@@ -91,7 +91,7 @@ class ResolvedArchitectureReview extends StatelessWidget {
             ),
             const Chip(
               avatar: Icon(Icons.verified_outlined),
-              label: Text('Functionally complete'),
+              label: Text('Model contract complete'),
             ),
             if (sixLayer)
               const Chip(
@@ -110,6 +110,17 @@ class ResolvedArchitectureReview extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: AppSpacing.md),
+        const Text(
+          'Estimated monthly cost from frozen pricing evidence, not a cloud bill. '
+          'Model admission is not live verification. Costs below describe the selected allocation, not uncalculated alternatives.',
+        ),
+        if (sixLayer) ...[
+          const SizedBox(height: AppSpacing.sm),
+          const Text(
+            'GCP L4/L5 are excluded from this PoC; GCP Core and Eventing remain in scope.',
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text('Logical flow', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.sm),

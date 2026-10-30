@@ -43,7 +43,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Twin entities'), findsOneWidget);
-      expect(find.text('Dashboard refreshes'), findsOneWidget);
+      expect(find.text('Modeled L5 reads'), findsOneWidget);
       expect(find.text('3D representation'), findsNothing);
       expect(tester.takeException(), isNull);
     },

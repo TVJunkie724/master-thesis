@@ -132,6 +132,14 @@ def generate_tfvars(project_path: str, output_path: str) -> dict:
         providers,
     )
     resolved_graph = resolve_deployment_graph(validated_manifest)
+    # Explicit single-user PoC accommodation for the shared Terraform root.
+    # Never substitute host credentials for a graph-selected Azure deployment.
+    tfvars.update(
+        _load_auxiliary_azure_auth(
+            azure_selected=any(node.provider == "azure" for node in resolved_graph.nodes),
+            tfvars=tfvars,
+        )
+    )
     phase8_profile = _phase8_profile_identity(resolved_graph)
     deployment_tfvars = translate_graph_inputs(resolved_graph).values
     tfvars["resolved_component_dimensions"] = _project_graph_component_dimensions(
@@ -845,6 +853,37 @@ def _load_config(project_dir: Path) -> dict:
     return result
 
 
+def _load_auxiliary_azure_auth(*, azure_selected: bool, tfvars: dict) -> dict:
+    """Authenticate unused Azure providers without changing resource placement.
+
+    Opt-in, local single-user deployment only. Read four fields from the existing
+    credential-file format; do not add them to portable/operation packages or
+    use this fallback for actual Azure resources.
+    """
+    fields = (
+        "azure_subscription_id", "azure_client_id", "azure_client_secret",
+        "azure_tenant_id",
+    )
+    path = os.environ.get("TF_AZURE_PROVIDER_AUTH_FILE", "")
+    if azure_selected or not path or any(field in tfvars for field in fields):
+        return {}
+    try:
+        with Path(path).open("rb") as source:
+            raw = source.read(65537)
+        if len(raw) > 65536:
+            raise ValueError("size")
+        azure = json.loads(raw)["azure"]
+        result = {field: azure[field] for field in fields}
+        if not all(isinstance(value, str) and value.strip() for value in result.values()):
+            raise ValueError("fields")
+    except (OSError, ValueError, KeyError, TypeError):
+        raise ConfigurationError(
+            "TF_AZURE_PROVIDER_AUTH_FILE requires a readable credential JSON "
+            "with four nonempty Azure authentication fields"
+        ) from None
+    return result
+
+
 def _load_credentials(project_dir: Path) -> dict:
     """Load provider credentials from config_credentials.json."""
     creds_file = project_dir / "config_credentials.json"
@@ -917,7 +956,19 @@ def _load_credentials(project_dir: Path) -> dict:
 
         if creds_file_path.exists():
             with open(creds_file_path) as f:
-                tfvars["gcp_credentials_json"] = f.read()
+                credential_payload = f.read()
+            tfvars["gcp_credentials_json"] = credential_payload
+            try:
+                principal_email = json.loads(credential_payload).get("client_email")
+            except (AttributeError, json.JSONDecodeError) as exc:
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON is invalid"
+                ) from exc
+            if not isinstance(principal_email, str) or not principal_email.strip():
+                raise ConfigurationError(
+                    "Configured GCP credentials JSON has no client_email"
+                )
+            tfvars["gcp_deployment_principal_email"] = principal_email.strip()
         else:
             raise ConfigurationError(
                 "Configured GCP credentials file is missing or unreadable"
@@ -1110,9 +1161,6 @@ def _load_platform_user_config(project_dir: Path) -> dict:
 
     if user.get("azure_principal_label"):
         result["azure_layer_access_principal_label"] = user["azure_principal_label"]
-
-    if user.get("gcp_grafana_source_cidrs"):
-        result["gcp_grafana_source_cidrs"] = user["gcp_grafana_source_cidrs"]
 
     return result
 

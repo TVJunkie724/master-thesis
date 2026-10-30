@@ -67,7 +67,7 @@ rewrite an unresolved choice into an established fact.
 | AE-05 | Theoretical GCP broker capacity used a three-replica `e2-standard-8` allocation, including for Small | Small uses one non-HA `e2-standard-4` broker node and one `e2-standard-2` adapter node; Medium 3+1 and Large 12+4 remain theoretical | The earlier HA-derived allocation is not justified by the 100-device Small workload | RQ2, RQ3 | offline-verified sizing; live pending |
 | AE-06 | Several potential optimization objectives and public profile choices existed in the implementation surface | Monetary cost is the only active objective behind one small scoring-strategy boundary | Answer RQ3 reproducibly without claiming a generic optimization framework | RQ3, RQ3.1 | offline-verified |
 | AE-07 | Mutable deployments implied update, migration, rollback, and replacement semantics | Draft Twins are editable; deployed Twins are immutable; duplicate/import creates an independent draft | Bound lifecycle and cost risk to what the RQs require | RQ1 | offline-verified; live pending |
-| AE-08 | External application login and identity-provider integrations expanded the product surface | One local owner profile retains data ownership; external login UI remains dormant behind an adapter boundary | Preserve user-scoped credentials without building an authentication product | RQ1 | offline-verified |
+| AE-08 | External application login and identity-provider integrations expanded the product surface | One local owner profile retains data ownership; the unused external login UI is removed | Preserve user-scoped credentials without building an authentication product | RQ1 | offline-verified |
 | AE-09 | Broad deployment testing could enumerate many redundant layer permutations | Three provider-local and six directed multi-cloud Small scenarios, preceded by component and identity probes | Cover every provider direction while controlling cost and separating partial from final evidence | RQ1, RQ2, RQ3.1 | planned; live pending |
 | AE-10 | Broad provider service labels appeared comparable by layer position | One evidence-backed provider bundle per responsibility, including explicit support services, access paths, and cost owners | Functional equivalence cannot be inferred from product names; service changes must remain thesis-traceable | RQ1, RQ2, RQ3 | offline-verified; live pending |
 
@@ -158,13 +158,13 @@ separately authorized and executed.
 
 ## Measurement-driven validation
 
-The live evaluation uses one versioned metrics document per run. Component
-probes and final scenarios remain different datasets and carry different
-`run_kind` values. A functional verification message proves reachability; a
-small controlled measurement batch supports descriptive latency statistics.
+The live evaluation uses one versioned metrics document per deployment
+attempt, including early component checks and cleanup. Aborted attempts remain
+explicitly incomplete. Optional standalone component diagnostics cannot replace
+the final scenario evidence. A functional verification message proves
+reachability; a small controlled batch supports descriptive latency statistics.
 
-The default protocol is five warm-up messages followed by 50 measured messages
-per required direction. Any deviation is recorded in the metrics document.
+Sampling follows the live protocol; deviations are recorded in the metrics document.
 Each trace uses one correlation identifier and provider/application timestamps
 for the relevant stops:
 
@@ -179,10 +179,12 @@ provider delivery outcome:
 command request -> delivery accepted/failed -> durable Event Layer -> L3/L4
 ```
 
-The evaluation reports end-to-end and consecutive-stage latency, success,
-timeouts, duplicates, ordering, retries, DLQ observations, deployment/readiness
-time, Destroy/cleanup time, resources, and cost. Latency is an evaluation
-metric, not an Optimizer objective.
+The required evaluation reports end-to-end latency, functional outcomes,
+deployment/readiness and Destroy/cleanup time, resources and cost. Recorded
+delivery counters remain available; consecutive-stage analysis and plots are
+optional. The operating rules are maintained in the
+[live-evaluation protocol](evaluation/live-evaluation-protocol.md).
+Latency remains an evaluation metric, not an Optimizer objective.
 
 ## Thesis placement
 

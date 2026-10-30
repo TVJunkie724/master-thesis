@@ -1,6 +1,7 @@
 """Source-level gates for the reviewed Azure Event Layer bundle."""
 
 from pathlib import Path
+import re
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
@@ -8,6 +9,29 @@ TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
 
 def _source(filename: str) -> str:
     return (TERRAFORM_ROOT / filename).read_text(encoding="utf-8")
+
+
+def test_autoforwarding_sources_disable_sessions_but_destination_queues_keep_them():
+    source = _source("azure_six_layer.tf")
+    subscriptions = re.findall(
+        r'resource "azurerm_servicebus_subscription" "[^"]+" \{(.*?)\n\}',
+        source, re.S,
+    )
+    forwarded = [body for body in subscriptions if "forward_to" in body]
+    assert len(forwarded) == 3
+    for body in forwarded:
+        assert re.search(r"requires_session\s*=\s*false", body)
+        queue = re.search(r"forward_to\s*=\s*azurerm_servicebus_queue\.(\w+)", body)[1]
+        destination = source.split(f'resource "azurerm_servicebus_queue" "{queue}" {{', 1)[1].split("\n}", 1)[0]
+        assert re.search(r"requires_session\s*=\s*true", destination)
+
+
+def test_outbound_telemetry_bridge_can_receive_from_its_source_hub():
+    source = _source("azure_six_layer.tf")
+    outbound = source.split("local.azure_six_layer_remote_telemetry_outbound ? {", 1)[1].split("} : {},", 1)[0]
+    receiver = outbound.split("event_hubs_outbound_receiver = {", 1)[1].split("}", 1)[0]
+    assert 'role  = "Azure Event Hubs Data Receiver"' in receiver
+    assert 'azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id' in receiver
 
 
 def test_azure_event_layer_owns_exact_reviewed_resource_symbols():
@@ -50,7 +74,17 @@ def test_azure_event_layer_uses_reviewed_tiers_and_failure_paths():
     assert '"historical-persistence"' in source
     assert '"twin-state-update"' in source
     assert '"rule-evaluator"' in source
-    assert 'name            = "$Default"' in source
+    assert (
+        'resource "azurerm_servicebus_subscription_rule" '
+        '"domain_control_filter"' in source
+    )
+    assert (
+        'resource "azurerm_servicebus_subscription_rule" '
+        '"event_bridge_control_filter"' in source
+    )
+    assert 'name            = "domain-events"' in source
+    assert 'name            = "bridge-events"' in source
+    assert '/$Default"' not in source
     assert "max_delivery_count" in source
     assert "EVENT_FAILURE_HUB_NAME" in source
     assert "EVENT_DOMAIN_DELIVERY_KEY" in source

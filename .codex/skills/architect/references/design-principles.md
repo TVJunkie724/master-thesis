@@ -31,4 +31,4 @@
 | Assume 5 edge cases is always enough | Justify the count — complex units need more, simple need justification for fewer |
 | Use Mermaid diagrams | **Mermaid is forbidden.** Always use ASCII diagrams |
 | Add a third-party icon library | Use Material `Icons` unless the architect explicitly approves an addition |
-| Add a state-management package alongside `flutter_bloc` | One pattern only — `flutter_bloc` |
+| Add a state-management package alongside `flutter_bloc` | Preserve Riverpod composition and feature BLoC ownership |

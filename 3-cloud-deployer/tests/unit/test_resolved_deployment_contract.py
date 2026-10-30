@@ -78,6 +78,55 @@ def test_valid_v2_contract_fixtures_are_accepted_by_runtime(fixture_path):
     assert validated.digest == specification["digest"]
 
 
+def test_offline_fixture_is_not_an_executable_manifest():
+    from src.deployment_specification import (
+        DeploymentSpecificationError,
+        validate_deployment_manifest,
+    )
+    from tests.utils.deployment_specification import deployment_manifest
+
+    manifest = deployment_manifest()
+    assert manifest["resolved_deployment_specification"]["readiness"]["status"] == "offline_contract_fixture"
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_deployment_manifest(manifest, manifest["providers"])
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
+
+
+def test_relabelling_offline_architecture_cannot_bypass_real_admission():
+    from src.architecture_profiles.contracts import calculate_digest
+    from src.deployment_specification import (
+        DeploymentSpecificationError,
+        validate_deployment_manifest,
+    )
+    from tests.utils.deployment_specification import deployment_manifest
+
+    manifest = deployment_manifest()
+    architecture = manifest["resolved_twin_architecture"]
+    architecture["resolution_status"] = "publishable"
+    architecture["content_digest"] = calculate_digest(architecture)
+    manifest["resolved_twin_architecture_digest"] = architecture["content_digest"]
+    with pytest.raises(DeploymentSpecificationError) as raised:
+        validate_deployment_manifest(manifest, manifest["providers"])
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
+
+
+def test_component_ownership_does_not_depend_on_bundle_order(offline_graph_mechanics):
+    from src.deployment_specification import validate_deployment_manifest
+    from tests.utils.deployment_specification import deployment_manifest
+
+    manifest = deployment_manifest()
+    specification = manifest["resolved_deployment_specification"]
+    specification["component_selections"].reverse()
+    specification["digest"] = _canonical_digest(specification)
+    manifest["resolved_deployment_specification_digest"] = specification["digest"]
+    architecture = manifest["resolved_twin_architecture"]
+    architecture["deployment_specification_ref"]["digest"] = specification["digest"]
+    from src.architecture_profiles.contracts import calculate_digest as architecture_digest
+    architecture["content_digest"] = architecture_digest(architecture)
+    manifest["resolved_twin_architecture_digest"] = architecture["content_digest"]
+    validate_deployment_manifest(manifest, manifest["providers"])
+
+
 @pytest.mark.parametrize(
     "mutation, expected_code",
     (

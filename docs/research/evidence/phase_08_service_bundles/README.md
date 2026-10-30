@@ -2,6 +2,15 @@
 
 ## Status
 
+Scope correction, 2026-09-16: reader resources and prices belong to L3 hot
+storage. The canonical bundles and generated manifests reflect this; no L5
+atomic visualization resource is selected. GCP L4/L5 are excluded from the
+active provider mapping. The old catalog L5 bindings/output names survive only
+as offline compatibility descriptors, not resource ownership or graphical
+evidence. Publication is blocked by the missing graphical implementation.
+Historical reviews below do not approve the revised live graph. The current
+evaluation matrix and separation plan supersede the older service table.
+
 This directory is the immutable offline decision package
 `phase-08-complete-service-bundles@1` for the complete Twin PoC service
 boundary reviewed on 2026-08-03.
@@ -39,8 +48,10 @@ versioned price catalog within the selected profile.
 
 - Six-layer v1 includes mandatory domain behavior and owns canonical
   domain-event transport in an independent Eventing responsibility.
-- L3 hot and L5 are provider-local; L4 remains independently placeable. The
-  package contains all three single-cloud and six `L3 hot/L5 != L4` cases.
+- L3 readers are local to hot storage. L4 is independently placeable on AWS
+  or Azure; the six L3-to-L4 placements do not assert an implemented L5.
+  Remote visualization consumers remain blocked until authenticated integration
+  is implemented. Co-location of L3 storage tiers remains a PoC restriction.
 - `L3 hot -> L5` uses `raw_history_query.v1`.
 - `L3 hot -> L4` uses `twin_projection.v1` locally or through the source-owned
   Phase 8.8 bridge. No public destination Function is introduced.

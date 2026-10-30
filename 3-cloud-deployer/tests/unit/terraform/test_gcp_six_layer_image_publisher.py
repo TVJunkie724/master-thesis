@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src.providers.terraform.gcp_six_layer_image_publisher import (
+    CLOUD_BUILD_MACHINE_TYPE,
     DOCKER_BUILDER,
     GcpSixLayerImagePublisher,
     GcpSixLayerImageRequest,
@@ -38,13 +41,12 @@ def test_placeholder_refs_are_registry_scoped_and_stage_one_is_closed():
         "gcp_six_layer_platform_image",
         "gcp_six_layer_processor_extension_image",
         "gcp_six_layer_storage_mover_image",
-        "gcp_six_layer_grafana_image",
         "gcp_event_runtime_image",
         "gcp_six_layer_kubernetes_stage_enabled",
     }
     assert all(
         value.startswith(
-            "europe-west1-docker.pkg.dev/phase8-project/factory-twin-six-layer/"
+            "europe-west1-docker.pkg.dev/phase8-project/factory-twin-v2/"
         )
         and value.endswith("@sha256:" + "0" * 64)
         for key, value in values.items()
@@ -99,9 +101,7 @@ class _Request:
 class _BuildService:
     def __init__(self):
         self.created = []
-        self.operation_name = (
-            "projects/phase8-project/locations/europe-west1/operations/1"
-        )
+        self.build_name = "projects/phase8-project/locations/europe-west1/builds/1"
         self.image_name = None
 
     def projects(self):
@@ -119,26 +119,30 @@ class _BuildService:
     def create(self, *, parent, body):
         self.created.append((parent, body))
         self.image_name = body["images"][0]
-        return _Request({"name": self.operation_name, "done": False})
+        return _Request({
+            "name": "operations/build/phase8-project/opaque",
+            "metadata": {"build": {"id": "1", "status": "QUEUED"}},
+        })
 
     def get(self, *, name):
-        assert name == self.operation_name
+        assert name == self.build_name
         return _Request(
             {
-                "name": name,
-                "done": True,
-                "response": {
-                    "results": {
-                        "images": [
-                            {"name": self.image_name, "digest": "sha256:" + "a" * 64}
-                        ]
-                    }
+                "id": "1",
+                "status": "SUCCESS",
+                "results": {
+                    "images": [
+                        {"name": self.image_name, "digest": "sha256:" + "a" * 64}
+                    ]
                 },
             }
         )
 
 
-def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path):
+@pytest.mark.parametrize("core_evaluation, timeout", [(False, "1200s"), (True, "300s")])
+def test_publisher_uploads_generation_bound_context_and_returns_digest(
+    tmp_path, core_evaluation, timeout
+):
     context = tmp_path / "context.tar.gz"
     context.write_bytes(b"deterministic context")
     blob = _Blob()
@@ -156,20 +160,20 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
         storage_client=_Storage(blob),
         build_service=builds,
         sleep=lambda _seconds: None,
+        core_evaluation=core_evaluation,
     )
 
     images = publisher.publish(
         (
             GcpSixLayerImageRequest(
-                "grafana",
+                "storage-mover",
                 context,
-                dockerfile="grafana/Dockerfile",
-                build_args=("TARGETARCH=amd64",),
+                dockerfile="storage-mover/Dockerfile",
             ),
         )
     )
 
-    assert images["grafana"].endswith("@sha256:" + "a" * 64)
+    assert images["storage-mover"].endswith("@sha256:" + "a" * 64)
     assert blob.uploads[0][1]["if_generation_match"] == 0
     parent, body = builds.created[0]
     assert parent == "projects/phase8-project/locations/europe-west1"
@@ -179,13 +183,15 @@ def test_publisher_uploads_generation_bound_context_and_returns_digest(tmp_path)
         "build",
         "--platform=linux/amd64",
         "-f",
-        "grafana/Dockerfile",
-        "--build-arg",
+        "storage-mover/Dockerfile",
+        "-t",
     ]
     assert body["serviceAccount"].endswith(
         "/serviceAccounts/build@phase8-project.iam.gserviceaccount.com"
     )
-    assert body["tags"] == ["twin2multicloud", "phase-8", "grafana"]
+    assert body["options"]["machineType"] == CLOUD_BUILD_MACHINE_TYPE
+    assert body["timeout"] == timeout
+    assert body["tags"] == ["twin2multicloud", "phase-8", "storage-mover"]
     assert publisher.evidence_path.stat().st_mode & 0o077 == 0
 
 
@@ -194,7 +200,6 @@ def test_image_tfvars_uses_dedicated_finite_storage_job_image():
     images = {
         "platform": prefix + "platform@sha256:" + "a" * 64,
         "processor-extension": prefix + "processor-extension@sha256:" + "b" * 64,
-        "grafana": prefix + "grafana@sha256:" + "c" * 64,
         "storage-mover": prefix + "storage-mover@sha256:" + "d" * 64,
     }
 
@@ -205,7 +210,6 @@ def test_image_tfvars_uses_dedicated_finite_storage_job_image():
         values["gcp_six_layer_processor_extension_image"]
         == images["processor-extension"]
     )
-    assert values["gcp_six_layer_grafana_image"] == images["grafana"]
     assert values["gcp_six_layer_kubernetes_stage_enabled"] is False
 
 

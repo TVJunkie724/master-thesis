@@ -11,6 +11,7 @@ import '../../widgets/results/layer_cost_card.dart';
 import '../../widgets/results/optimization_warning.dart';
 import '../../widgets/results/cheapest_path_visualization.dart';
 import '../../widgets/results/deployment_selection_status.dart';
+import '../../widgets/results/resolved_architecture_review.dart';
 import '../../features/configuration_workspace/domain/configuration_journey.dart';
 
 /// Step 2: Optimizer - BLoC version
@@ -259,7 +260,7 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
   String _taskTitle(ConfigurationTaskId? taskId) => switch (taskId) {
     ConfigurationTaskId.scenarioAndCurrency => 'Scenario and currency',
     ConfigurationTaskId.deviceTraffic => 'Device traffic',
-    ConfigurationTaskId.processing => 'Processing',
+    ConfigurationTaskId.processing => 'Processing and Eventing',
     ConfigurationTaskId.retention => 'Retention',
     ConfigurationTaskId.twinCapabilities => 'Twin capabilities',
     _ => 'Calculation inputs',
@@ -272,14 +273,14 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
     ConfigurationTaskId.scenarioAndCurrency =>
       'Start from a representative scenario and choose the reporting currency.',
     ConfigurationTaskId.deviceTraffic =>
-      'Describe connected devices and the telemetry volume they produce.',
+      'Review the fixed device count and telemetry volume for this scenario.',
     ConfigurationTaskId.processing =>
-      'Describe event evaluation, orchestration, and device feedback.',
+      'Review processing and the independent Event Layer contract, including device feedback.',
     ConfigurationTaskId.retention =>
-      'Define how long telemetry remains in each storage tier.',
+      'Review the fixed retention periods for each storage tier.',
     ConfigurationTaskId.twinCapabilities =>
       usesPhase8Profile
-          ? 'Review the frozen twin-state and dashboard activity.'
+          ? 'Review the frozen twin-state and L5 read workload; these are model inputs, not automatic browser polling.'
           : 'Describe 3D representation and dashboard usage requirements.',
     _ =>
       'Configure your digital twin workload parameters to calculate optimized costs.',
@@ -287,6 +288,39 @@ class _Step2OptimizerState extends State<Step2Optimizer> {
 
   Widget _buildResultsSection(BuildContext context, WizardState state) {
     final result = state.calcResult!;
+
+    if (state.usesSixLayerProfile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Optimization Results',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DeploymentSelectionStatus(
+            review: state.deploymentReview,
+            isSelecting: state.isSelectingDeploymentRun,
+            onRetry: () => context.read<WizardBloc>().add(
+              const WizardDeploymentRunSelectionRequested(),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ResolvedArchitectureReview(
+            phase: state.resolvedArchitecturePhase,
+            resolved: state.resolvedArchitecture,
+            error: state.resolvedArchitectureError,
+            onRetry: state.deploymentRun == null
+                ? null
+                : () => context.read<WizardBloc>().add(
+                    WizardResolvedArchitectureRetried(
+                      runId: state.deploymentRun!.id,
+                    ),
+                  ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

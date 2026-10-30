@@ -8,6 +8,7 @@ import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/config/runtime_composition.dart';
 import 'package:twin2multicloud_flutter/providers/runtime_providers.dart';
 import 'package:twin2multicloud_flutter/screens/dashboard_screen.dart';
+import 'package:twin2multicloud_flutter/screens/settings_screen.dart';
 import 'package:twin2multicloud_flutter/screens/twin_overview/twin_overview_screen.dart';
 
 void main() {
@@ -55,10 +56,27 @@ void main() {
 
       expect(find.byType(TwinOverviewScreen), findsOneWidget);
       expect(find.byTooltip('Toggle theme'), findsOneWidget);
+      expect(find.byTooltip('Back to Twin experiments'), findsOneWidget);
+      expect(find.byTooltip('Open cloud access'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Telemetry trace')), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      final destroy = find.text('DESTROY');
+      await tester.tap(find.byTooltip('Open cloud access'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      router.go('/twins/demo-deployed/overview');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byTooltip('Back to Twin experiments'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DashboardScreen), findsOneWidget);
+
+      router.go('/twins/demo-deployed/overview');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      final destroy = find.text('Destroy');
       await tester.ensureVisible(destroy);
       await tester.tap(destroy);
       await tester.pumpAndSettle();

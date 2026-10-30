@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Helper Functions
 # ==========================================
 
-def _wait_for_iothub_active(provider: 'AzureProvider', timeout: int = 180, poll_interval: int = 10) -> None:
+def _wait_for_iothub_active(provider: 'AzureProvider', timeout: int = 180, poll_interval: int = 10, *, hub_name: str | None = None) -> None:
     """
     Wait for IoT Hub to reach Active state.
     
@@ -45,7 +45,7 @@ def _wait_for_iothub_active(provider: 'AzureProvider', timeout: int = 180, poll_
         TimeoutError: If IoT Hub doesn't reach Active state within timeout
     """
     rg_name = provider.naming.resource_group()
-    hub_name = provider.naming.iot_hub()
+    hub_name = hub_name or provider.naming.iot_hub()
     
     start_time = time.time()
     
@@ -80,14 +80,15 @@ def _wait_for_iothub_active(provider: 'AzureProvider', timeout: int = 180, poll_
             time.sleep(poll_interval)
 
 
-def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
+def _get_iot_hub_connection_string(provider: 'AzureProvider', *, hub_name: str | None = None, hub_hostname: str | None = None) -> str:
     """Get the IoT Hub connection string for management operations."""
     rg_name = provider.naming.resource_group()
-    hub_name = provider.naming.iot_hub()
+    hub_name = hub_name or provider.naming.iot_hub()
+    hub_hostname = hub_hostname or f"{hub_name}.azure-devices.net"
     
     # Wait for IoT Hub to reach Active state before querying keys
     # This fixes race condition where Terraform returns before hub is fully ready
-    _wait_for_iothub_active(provider)
+    _wait_for_iothub_active(provider, hub_name=hub_name)
     
     try:
         keys = provider.clients["iothub"].iot_hub_resource.list_keys(
@@ -98,7 +99,7 @@ def _get_iot_hub_connection_string(provider: 'AzureProvider') -> str:
         for key in keys:
             if key.key_name == "iothubowner":
                 return (
-                    f"HostName={hub_name}.azure-devices.net;"
+                    f"HostName={hub_hostname};"
                     f"SharedAccessKeyName={key.key_name};"
                     f"SharedAccessKey={key.primary_key}"
                 )
@@ -186,7 +187,11 @@ def info_l1(context, provider: 'AzureProvider') -> dict:
 # Post-Terraform SDK Operations
 # ==========================================
 
-def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -> None:
+def register_iot_devices(
+    provider: 'AzureProvider', config, project_path: str, *,
+    hub_name: str | None = None, hub_hostname: str | None = None,
+    canonical_device_ids: bool = False,
+) -> None:
     """
     Register IoT devices in Azure IoT Hub (post-Terraform).
     
@@ -204,14 +209,17 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
         logger.info("No IoT devices configured")
         return
     
-    hub_conn_str = _get_iot_hub_connection_string(provider)
-    hub_name = provider.naming.iot_hub()
+    hub_name = hub_name or provider.naming.iot_hub()
+    hub_hostname = hub_hostname or f"{hub_name}.azure-devices.net"
+    hub_conn_str = _get_iot_hub_connection_string(
+        provider, hub_name=hub_name, hub_hostname=hub_hostname
+    )
     
     from azure.iot.hub import IoTHubRegistryManager
     registry_manager = IoTHubRegistryManager(hub_conn_str)
     
     for device in config.iot_devices:
-        device_id = provider.naming.iot_device(device["id"])
+        device_id = device["id"] if canonical_device_ids else provider.naming.iot_device(device["id"])
         
         try:
             # Try to get existing device
@@ -238,7 +246,7 @@ def register_iot_devices(provider: 'AzureProvider', config, project_path: str) -
         
         # Build device connection string
         device_conn_str = (
-            f"HostName={hub_name}.azure-devices.net;"
+            f"HostName={hub_hostname};"
             f"DeviceId={device_id};"
             f"SharedAccessKey={primary_key}"
         )

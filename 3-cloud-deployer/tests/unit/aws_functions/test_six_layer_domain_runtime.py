@@ -48,6 +48,16 @@ def test_six_layer_runtime_has_its_own_profile_identity():
     assert _six_layer_module().PROFILE == "six-layer-eventing@1"
 
 
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    runtime = _six_layer_module()
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+    publish = Mock(side_effect=AssertionError("Core published a Twin projection"))
+    monkeypatch.setattr(runtime, "_publish_control", publish)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", publish)
+    runtime._project_twin({"payload": {"projection_candidate": True}})
+    publish.assert_not_called()
+
+
 def test_diagnostic_checkpoint_accepts_trace_id_from_ingress_payload(capsys):
     runtime = _six_layer_module()
     event = {
@@ -164,9 +174,9 @@ class _TwinMaker:
     def __init__(self):
         self.entries = []
 
-    def batch_put_property_values(self, **kwargs):
+    def update_entity(self, **kwargs):
         self.entries.append(kwargs)
-        return {"errorEntries": []}
+        return {"state": "ACTIVE"}
 
 
 class _Dynamo:
@@ -224,6 +234,7 @@ def test_event_adapter_emits_canonical_received_event_to_local_fifo(monkeypatch)
     envelope = json.loads(message["MessageBody"])
     assert envelope["event_type"] == "telemetry.received.v1"
     assert envelope["producer"] == "component.device-ingress"
+    assert envelope["payload"]["twin_id"] == "device-1"
     assert "stored_at" not in envelope["payload"]
 
 
@@ -307,6 +318,13 @@ def test_canonical_source_id_is_bounded_and_drives_ordering_key():
     event["source_id"] = "d" * 129
     with pytest.raises(runtime.ContractError, match="INVALID_CANONICAL_EVENT"):
         runtime._validate_canonical_event(event)
+
+
+def test_ingress_event_keeps_explicit_twin_id_for_federation():
+    event = _module()._ingress_event(
+        {"device_id": "device-1", "twin_id": "twin-1", "value": 21.5}
+    )
+    assert event["payload"]["twin_id"] == "twin-1"
 
 
 def test_processor_atomically_writes_raw_and_hourly_rollup(monkeypatch):
@@ -651,6 +669,32 @@ def test_processed_event_retry_is_idempotent_across_new_storage_timestamp(monkey
     assert dynamo.get_calls == 1
 
 
+def test_rollup_conflict_does_not_reuse_event_only_transaction_token(monkeypatch):
+    runtime = _module()
+    class ConflictingDynamo(_Dynamo):
+        transactions = []
+        def get_item(self, **kwargs):
+            if "event_id" in kwargs["Key"] or not self.transactions:
+                return {}
+            return {"Item": {"version": {"N": "1"}, "count": {"N": "1"},
+                             "sum": {"N": "2"}, "min": {"N": "2"}, "max": {"N": "2"}}}
+        def transact_write_items(self, **kwargs):
+            self.transactions.append(kwargs)
+            if len(self.transactions) == 1:
+                raise runtime.ClientError({"Error": {"Code": "TransactionCanceledException"}}, "TransactWriteItems")
+            return {}
+    dynamo = ConflictingDynamo()
+    monkeypatch.setenv("RAW_TABLE_NAME", "raw")
+    monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
+    monkeypatch.setattr(runtime, "_client", lambda _: dynamo)
+    runtime._write_raw_and_rollup({"event_id": "event-1", "source_id": "device-1", "payload": {
+        "device_id": "device-1", "metric": "temperature", "value": 1,
+        "event_time": "2026-08-05T00:00:00Z"}})
+    assert len(dynamo.transactions) == 2
+    assert dynamo.transactions[0]["TransactItems"] != dynamo.transactions[1]["TransactItems"]
+    assert all("ClientRequestToken" not in transaction for transaction in dynamo.transactions)
+
+
 def test_projection_candidate_updates_local_twin_with_observation_time(monkeypatch):
     runtime = _module()
     dynamo = _Dynamo()
@@ -683,18 +727,18 @@ def test_projection_candidate_updates_local_twin_with_observation_time(monkeypat
     )
 
     assert twinmaker.entries[0]["workspaceId"] == "workspace-1"
-    entries = {
-        entry["entityPropertyReference"]["propertyName"]: entry
-        for entry in twinmaker.entries[0]["entries"]
-    }
-    assert set(entries) == {"metric", "value", "sourceSequence"}
-    value = entries["value"]["propertyValues"][0]
-    assert runtime._iso(value["timestamp"]) == "2026-08-05T00:00:00.000000Z"
-    assert value["value"] == {"doubleValue": 20.5}
-    assert entries["metric"]["propertyValues"][0]["value"] == {
+    assert twinmaker.entries[0]["entityId"] == "twin-1"
+    component = twinmaker.entries[0]["componentUpdates"]["telemetry"]
+    assert component["updateType"] == "UPDATE"
+    entries = component["propertyUpdates"]
+    assert set(entries) == {"metric", "value", "sourceSequence", "observedAt", "lastEventId"}
+    assert entries["observedAt"]["value"] == {"stringValue": "2026-08-05T00:00:00.000000Z"}
+    assert entries["lastEventId"]["value"]["stringValue"]
+    assert entries["value"]["value"] == {"doubleValue": 20.5}
+    assert entries["metric"]["value"] == {
         "stringValue": "temperature"
     }
-    assert entries["sourceSequence"]["propertyValues"][0]["value"] == {
+    assert entries["sourceSequence"]["value"] == {
         "stringValue": "event-projection-1"
     }
 
@@ -1112,9 +1156,9 @@ def test_step_function_callback_persists_typed_workflow_outcome(monkeypatch):
     assert dynamo.puts[0]["Item"]["status"]["S"] == "SUCCEEDED"
 
 
-def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
+def test_reader_fails_closed_until_cursor_key_is_provisioned(monkeypatch):
     runtime = _module()
-    monkeypatch.setenv("READER_KEY_SHA256", "")
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "")
 
     response = runtime.raw_history_reader({"headers": {}}, None)
 
@@ -1122,15 +1166,11 @@ def test_reader_fails_closed_until_secure_stage_provisions_key(monkeypatch):
     assert json.loads(response["body"])["code"] == "READER_NOT_PROVISIONED"
 
 
-def test_reader_exposes_only_authenticated_datasource_health(monkeypatch):
+def test_reader_exposes_health_after_function_url_iam_authentication(monkeypatch):
     runtime = _module()
-    secret = "reader-secret"
-    monkeypatch.setenv("READER_KEY_SHA256", hashlib.sha256(secret.encode()).hexdigest())
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "cursor-key-with-at-least-thirty-two-bytes")
 
-    response = runtime.raw_history_reader(
-        {"headers": {"X-Twin-Reader-Key": secret}},
-        None,
-    )
+    response = runtime.raw_history_reader({"headers": {}}, None)
 
     assert response["statusCode"] == 200
     payload = json.loads(response["body"])
@@ -1140,7 +1180,6 @@ def test_reader_exposes_only_authenticated_datasource_health(monkeypatch):
 
 def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
     runtime = _module()
-    secret = "reader-secret"
     dynamo = _Dynamo(
         query_response={
             "Items": [
@@ -1152,7 +1191,7 @@ def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
             ]
         }
     )
-    monkeypatch.setenv("READER_KEY_SHA256", hashlib.sha256(secret.encode()).hexdigest())
+    monkeypatch.setenv("CURSOR_HMAC_KEY", "cursor-key-with-at-least-thirty-two-bytes")
     monkeypatch.setenv("RAW_TABLE_NAME", "raw")
     monkeypatch.setenv("ROLLUP_TABLE_NAME", "rollup")
     monkeypatch.setattr(
@@ -1161,7 +1200,7 @@ def test_reader_returns_only_closed_raw_history_shape(monkeypatch):
 
     response = runtime.raw_history_reader(
         {
-            "headers": {"X-Twin-Reader-Key": secret},
+            "headers": {},
             "queryStringParameters": {
                 "device_id": "device-1",
                 "metric": "temperature",

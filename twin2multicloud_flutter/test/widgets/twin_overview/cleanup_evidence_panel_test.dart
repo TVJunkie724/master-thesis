@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:twin2multicloud_flutter/models/cleanup_evidence.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/cleanup_evidence_panel.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_strings.dart';
 
 void main() {
   testWidgets('shows complete provider proof and retained prerequisites', (
@@ -24,6 +25,7 @@ void main() {
     );
 
     expect(find.text('COMPLETE'), findsOneWidget);
+    expect(find.text(TwinOverviewStrings.cleanupScope), findsOneWidget);
     expect(find.text('Terraform state'), findsOneWidget);
     expect(find.text('AWS'), findsOneWidget);
     expect(find.text('Retained shared prerequisites'), findsOneWidget);

@@ -80,7 +80,7 @@ class _Step1ConfigurationState extends State<Step1Configuration> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         ChoiceChip(
-                          label: const Text('Production'),
+                          label: const Text('Standard PoC'),
                           selected: !state.debugMode,
                           onSelected: (_) {
                             bloc.add(const WizardDebugModeChanged(false));

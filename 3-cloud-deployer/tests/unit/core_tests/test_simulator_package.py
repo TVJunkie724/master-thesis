@@ -25,7 +25,7 @@ def _source_root(tmp_path: Path, provider: str) -> Path:
     templates.mkdir(parents=True)
     for name in ("main.py", "transmission.py", "globals.py"):
         (provider_dir / name).write_text(f"# {name}\n", encoding="utf-8")
-    for name in ("README.md.template", "requirements.txt", "Dockerfile", "docker-compose.yml.template"):
+    for name in ("README.md.template", "requirements.txt", "Dockerfile", ".dockerignore", "docker-compose.yml.template"):
         (templates / name).write_text("project={{project_name}}\n", encoding="utf-8")
     if provider == "aws":
         (provider_dir / "AmazonRootCA1.pem").write_text(
@@ -100,6 +100,7 @@ def test_builds_azure_archive_with_only_device_identity_and_allowlisted_files(tm
     assert package.provider == "azure"
     assert package.credential_class == "azure_iot_hub_device_identity"
     assert sorted(entries) == [
+        ".dockerignore",
         "Dockerfile",
         "README.md",
         "config.json",
@@ -107,6 +108,7 @@ def test_builds_azure_archive_with_only_device_identity_and_allowlisted_files(tm
         "docker-compose.yml",
         "payloads.json",
         "requirements.txt",
+        "src/__init__.py",
         "src/globals.py",
         "src/main.py",
         "src/transmission.py",

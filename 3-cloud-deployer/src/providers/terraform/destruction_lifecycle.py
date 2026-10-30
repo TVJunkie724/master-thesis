@@ -16,6 +16,9 @@ from src.cleanup_evidence import CleanupEvidence
 from src.providers.cleanup_observability import ProviderCleanupReport
 from src.providers.cleanup_registry import CleanupRequest
 from src.providers.terraform.cleanup_execution import run_cleanup_attempt
+from src.providers.terraform.azure_six_layer_image_publisher import (
+    azure_six_layer_container_deployment,
+)
 from src.providers.terraform.pre_destroy import run_pre_destroy_cleanup
 from src.terraform_runner import TerraformError
 
@@ -97,7 +100,28 @@ class DestructionLifecycleMixin:
             self._build_packages()
         if not self.tfvars_path.exists():
             self._generate_tfvars()
+        if graph is not None:
+            self._prepare_destroy_image_inputs()
         return graph is not None
+
+    def _prepare_destroy_image_inputs(self) -> None:
+        """Satisfy Azure's schema during destroy without publishing an image.
+
+        Fresh operation packages do not retain generated image variables. Even
+        a failed apply with no Container App Job requires a nonempty image for
+        provider validation. This value is used only by destroy, never apply;
+        Terraform deletes the real resources recorded in state. No image is
+        built, pulled, or claimed as deployed by this placeholder.
+        """
+        values = self._read_tfvars()
+        key = "azure_six_layer_storage_mover_image"
+        if azure_six_layer_container_deployment(values) and not values.get(key):
+            registry = (self._terraform_outputs or {}).get(
+                "azure_six_layer_acr_login_server"
+            ) or "unpublished.azurecr.io"
+            self._merge_tfvars(
+                {key: f"{registry}/storage-mover@sha256:" + "0" * 64}
+            )
 
     @staticmethod
     def _validate_destroy_policy(
@@ -336,6 +360,7 @@ class DestructionLifecycleMixin:
             context,
             self._load_providers_config(),
             dry_run=dry_run,
+            state_path=self.runner.state_path,
         )
 
     def destroy_all(

@@ -345,33 +345,19 @@ class LayerAccessViewState extends Equatable {
   final LayerAccessViewPhase phase;
   final DeploymentAccessSnapshot? snapshot;
   final String? errorMessage;
-  final bool rotatingViewerCredential;
-  final String? rotationError;
-  final int credentialRequestToken;
-
-  // The one-time password is deliberately transient and excluded from props.
-  final DeploymentAccessCredential? pendingCredential;
 
   const LayerAccessViewState({
     this.phase = LayerAccessViewPhase.idle,
     this.snapshot,
     this.errorMessage,
-    this.rotatingViewerCredential = false,
-    this.rotationError,
-    this.credentialRequestToken = 0,
-    this.pendingCredential,
   });
 
-  factory LayerAccessViewState.fromSnapshot(
-    DeploymentAccessSnapshot snapshot, {
-    int credentialRequestToken = 0,
-  }) {
+  factory LayerAccessViewState.fromSnapshot(DeploymentAccessSnapshot snapshot) {
     return LayerAccessViewState(
       phase: snapshot.availability == DeploymentAccessAvailability.available
           ? LayerAccessViewPhase.ready
           : LayerAccessViewPhase.unsupported,
       snapshot: snapshot,
-      credentialRequestToken: credentialRequestToken,
     );
   }
 
@@ -383,42 +369,18 @@ class LayerAccessViewState extends Equatable {
     LayerAccessViewPhase? phase,
     DeploymentAccessSnapshot? snapshot,
     String? errorMessage,
-    bool? rotatingViewerCredential,
-    String? rotationError,
-    int? credentialRequestToken,
-    DeploymentAccessCredential? pendingCredential,
     bool clearSnapshot = false,
     bool clearError = false,
-    bool clearRotationError = false,
-    bool clearPendingCredential = false,
   }) {
     return LayerAccessViewState(
       phase: phase ?? this.phase,
       snapshot: clearSnapshot ? null : (snapshot ?? this.snapshot),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      rotatingViewerCredential:
-          rotatingViewerCredential ?? this.rotatingViewerCredential,
-      rotationError: clearRotationError
-          ? null
-          : (rotationError ?? this.rotationError),
-      credentialRequestToken:
-          credentialRequestToken ?? this.credentialRequestToken,
-      pendingCredential: clearPendingCredential
-          ? null
-          : (pendingCredential ?? this.pendingCredential),
     );
   }
 
   @override
-  List<Object?> get props => [
-    phase,
-    snapshot,
-    errorMessage,
-    rotatingViewerCredential,
-    rotationError,
-    credentialRequestToken,
-    pendingCredential != null,
-  ];
+  List<Object?> get props => [phase, snapshot, errorMessage];
 }
 
 abstract class TwinOverviewState extends Equatable {
@@ -449,6 +411,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
   final String projectName;
   final String? cloudResourceName;
   final String twinState;
+  final bool hasBeenDeployed;
 
   // Calculated permissions based on state
   final bool canDeploy;
@@ -489,6 +452,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     required this.projectName,
     this.cloudResourceName,
     required this.twinState,
+    this.hasBeenDeployed = false,
     required this.canDeploy,
     required this.canDestroy,
     required this.canEdit,
@@ -531,6 +495,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     String? projectName,
     String? cloudResourceName,
     String? twinState,
+    bool? hasBeenDeployed,
     bool? canDeploy,
     bool? canDestroy,
     bool? canEdit,
@@ -565,6 +530,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
       projectName: projectName ?? this.projectName,
       cloudResourceName: cloudResourceName ?? this.cloudResourceName,
       twinState: twinState ?? this.twinState,
+      hasBeenDeployed: hasBeenDeployed ?? this.hasBeenDeployed,
       canDeploy: canDeploy ?? this.canDeploy,
       canDestroy: canDestroy ?? this.canDestroy,
       canEdit: canEdit ?? this.canEdit,
@@ -604,6 +570,7 @@ class TwinOverviewLoaded extends TwinOverviewState {
     projectName,
     cloudResourceName,
     twinState,
+    hasBeenDeployed,
     canDeploy,
     canDestroy,
     canEdit,

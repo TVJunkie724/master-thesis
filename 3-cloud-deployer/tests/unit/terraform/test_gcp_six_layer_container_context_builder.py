@@ -83,11 +83,6 @@ def test_gcp_six_layer_container_context_is_deterministic_and_complete(tmp_path)
             ".dockerignore",
             "bridge_core.py",
             "Dockerfile",
-            "grafana/Dockerfile",
-            "grafana/dashboard.json.template",
-            "grafana/entrypoint.sh",
-            "grafana/provisioning/dashboards/twin2multicloud.yaml",
-            "grafana/provisioning/datasources/twin2multicloud.yaml",
             "platform/app.py",
             "platform/constraints.txt",
             "platform/core.py",
@@ -140,7 +135,9 @@ def test_gcp_six_layer_container_context_rejects_unknown_builder_target(tmp_path
 def test_gcp_six_layer_extension_context_is_deterministic_and_closed(tmp_path):
     package = tmp_path / "processor.zip"
     with zipfile.ZipFile(package, "w") as archive:
-        archive.writestr("process.py", "def process(payload, config, context): return payload\n")
+        archive.writestr(
+            "process.py", "def process(payload, config, context): return payload\n"
+        )
         archive.writestr("main.py", "def main(request): return ('{}', 200, {})\n")
         archive.writestr("requirements.txt", "functions-framework==3.8.3\n")
 

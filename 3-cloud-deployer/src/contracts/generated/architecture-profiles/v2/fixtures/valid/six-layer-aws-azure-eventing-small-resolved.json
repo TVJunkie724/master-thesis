@@ -31,7 +31,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -63,7 +63,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -126,7 +126,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -140,12 +140,13 @@
       ],
       "cost_contribution": {
         "currency": "USD",
-        "monthly_amount": "46.377856"
+        "monthly_amount": "46.459936"
       },
       "deployment_component_id": "deployment.azure.hot-storage.v2",
       "deployment_component_version": "1",
       "deployment_specification_component_ids": [
         "azure.cosmos-db-nosql-raw-and-rollup",
+        "azure.functions-flex-raw-history-reader",
         "azure.container-apps-scheduled-storage-job",
         "azure.acr-basic-if-container-selected"
       ],
@@ -160,7 +161,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -199,7 +200,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.aws.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e"
+        "digest": "sha256:1f67809a1f04e750f883fe70a89951b880767744e856bcae7fca87953829f1a5"
       },
       "region": "eu-central-1",
       "required": true,
@@ -234,7 +235,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -267,7 +268,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -281,14 +282,12 @@
       ],
       "cost_contribution": {
         "currency": "USD",
-        "monthly_amount": "50.486512"
+        "monthly_amount": "76.97"
       },
       "deployment_component_id": "deployment.azure.visualization.v2",
       "deployment_component_version": "1",
       "deployment_specification_component_ids": [
-        "azure.managed-grafana-12-standard",
-        "azure.functions-flex-raw-history-reader",
-        "azure.grafana-marcusolsson-json-datasource"
+        "azure.managed-grafana-12-standard"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -301,7 +300,7 @@
       "provider_implementation_profile_ref": {
         "id": "provider-profile.azure.six-layer-eventing-v1",
         "version": "1",
-        "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc"
+        "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1"
       },
       "region": "westeurope",
       "required": true,
@@ -309,7 +308,7 @@
       "service_id": "azure.visualization.v2"
     }
   ],
-  "content_digest": "sha256:4078961ae9244959d9902fc2835ef0e35ea6d1123c1521429f5a6258c535cf14",
+  "content_digest": "sha256:ab1b8a382e72c061328905766675af75fe78a104d61da38dcd4a335a90a59154",
   "cost_summary": {
     "component_totals": [
       {
@@ -326,7 +325,7 @@
       },
       {
         "item_id": "component.hot-storage",
-        "monthly_amount": "46.377856"
+        "monthly_amount": "46.459936"
       },
       {
         "item_id": "component.ingestion",
@@ -342,7 +341,7 @@
       },
       {
         "item_id": "component.visualization",
-        "monthly_amount": "50.486512"
+        "monthly_amount": "76.97"
       }
     ],
     "currency": "USD",
@@ -384,7 +383,7 @@
         "monthly_amount": "0"
       }
     ],
-    "monthly_total": "196.07170186",
+    "monthly_total": "222.63726986",
     "responsibility_totals": [
       {
         "item_id": "responsibility.ingestion",
@@ -396,7 +395,7 @@
       },
       {
         "item_id": "responsibility.storage",
-        "monthly_amount": "46.406856"
+        "monthly_amount": "46.488936"
       },
       {
         "item_id": "responsibility.twin-state",
@@ -404,7 +403,7 @@
       },
       {
         "item_id": "responsibility.visualization",
-        "monthly_amount": "50.486512"
+        "monthly_amount": "76.97"
       },
       {
         "item_id": "responsibility.eventing",
@@ -414,7 +413,7 @@
   },
   "deployment_specification_ref": {
     "calculation_run_id": "d6934ac4-76eb-5ad6-8dae-9a599e3c34e4",
-    "digest": "sha256:5dba5d0a6ae67f39f7049d8d464e89eec71f869224bee689b9ca385ca4f5fe37",
+    "digest": "sha256:f19d8dac5333c2a1f775268c62ef887b2471832abd9d498e13c359a788144e51",
     "schema_version": "resolved-deployment-specification.v2"
   },
   "extension_bindings": [
@@ -486,7 +485,7 @@
       "capability.visualization"
     ],
     "status": "complete",
-    "validation_digest": "sha256:5d3b2df27127fd79ba3081310725e4dbeedabbc73ee9a37d1ec0488c25a593c8",
+    "validation_digest": "sha256:d8b68e9696513ba74ea7a1ae802e3927807d344f57eaac5f44dbc303f6ec1e25",
     "validator_version": "2"
   },
   "optimization_bundle_ref": {
@@ -503,15 +502,15 @@
   "pricing_evidence_refs": [
     {
       "currency": "USD",
-      "digest": "sha256:121893d4bd57f0114a49f72ba928c21e31491ac29b4b39b7638e319c77045bf6",
-      "id": "pcs_514d5d0e7796e2722ab4b848e9e1a72805e6cd8500c606ad79d87479c1ebecb9",
+      "digest": "sha256:17ca3be17ad125546bfc95e8d756ab4faa086efc97a2749ffbd7de6c88fd3e03",
+      "id": "pcs_10aa2d30149ea8c275ed1ef444eb3f3f0b3ed1e79c6647764943f364e9f4045c",
       "provider": "aws",
       "version": "1"
     },
     {
       "currency": "USD",
-      "digest": "sha256:790a89d32263b460ed54b60bd491d78ad4a03173d87101d625fa567af7c79d06",
-      "id": "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70",
+      "digest": "sha256:648d1c134cb5e33ad82ced929998130fd8a7b9ffc6d757e9f12ffc3d24dabe85",
+      "id": "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100",
       "provider": "azure",
       "version": "1"
     }
@@ -520,17 +519,17 @@
     {
       "id": "provider-profile.aws.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e",
+      "digest": "sha256:1f67809a1f04e750f883fe70a89951b880767744e856bcae7fca87953829f1a5",
       "provider": "aws"
     },
     {
       "id": "provider-profile.azure.six-layer-eventing-v1",
       "version": "1",
-      "digest": "sha256:26d18eae256807ca6da69c84e09e5a61733b162587679da2b8f770efe911a0dc",
+      "digest": "sha256:6417eeb80bf3ca27fa8687d5a0d4c20528ea12ebf41f9080d6507174039bc7c1",
       "provider": "azure"
     }
   ],
-  "resolution_id": "afe75d85-f9a7-5278-8ae0-a7522b8ea8a7",
+  "resolution_id": "9b8d6288-679c-5186-9328-cbf9bd84fef9",
   "resolution_status": "offline_contract_fixture",
   "resolved_edges": [
     {
@@ -569,7 +568,7 @@
       "source_assignment_id": "assignment.cool-storage",
       "source_port_id": "catalog.azure.port.cool-storage.transition-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -613,7 +612,7 @@
       "source_assignment_id": "assignment.hot-storage",
       "source_port_id": "catalog.azure.port.hot-storage.twin-projection-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -657,7 +656,7 @@
       "source_assignment_id": "assignment.hot-storage",
       "source_port_id": "catalog.azure.port.hot-storage.transition-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -701,7 +700,7 @@
       "source_assignment_id": "assignment.hot-storage",
       "source_port_id": "catalog.azure.port.hot-storage.raw-history-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -745,8 +744,8 @@
       "source_assignment_id": "assignment.ingestion",
       "source_port_id": "catalog.aws.port.ingestion.eventing-out",
       "transfer_evidence_refs": [
-        "pcs_514d5d0e7796e2722ab4b848e9e1a72805e6cd8500c606ad79d87479c1ebecb9",
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_10aa2d30149ea8c275ed1ef444eb3f3f0b3ed1e79c6647764943f364e9f4045c",
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "cross_provider",
       "trust_contract_ref": {
@@ -790,7 +789,7 @@
       "source_assignment_id": "assignment.eventing",
       "source_port_id": "catalog.azure.port.eventing.processing-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -834,7 +833,7 @@
       "source_assignment_id": "assignment.processing",
       "source_port_id": "catalog.azure.port.processing.eventing-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {
@@ -878,8 +877,8 @@
       "source_assignment_id": "assignment.eventing",
       "source_port_id": "catalog.azure.port.eventing.ingestion-out",
       "transfer_evidence_refs": [
-        "pcs_514d5d0e7796e2722ab4b848e9e1a72805e6cd8500c606ad79d87479c1ebecb9",
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_10aa2d30149ea8c275ed1ef444eb3f3f0b3ed1e79c6647764943f364e9f4045c",
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "cross_provider",
       "trust_contract_ref": {
@@ -923,7 +922,7 @@
       "source_assignment_id": "assignment.eventing",
       "source_port_id": "catalog.azure.port.eventing.hot-storage-out",
       "transfer_evidence_refs": [
-        "pcs_adfbeca810853966b9dd11577a040469a0d49d4c6143bff97a4e145c8875be70"
+        "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100"
       ],
       "transfer_route_class": "same_provider_same_region",
       "trust_contract_ref": {

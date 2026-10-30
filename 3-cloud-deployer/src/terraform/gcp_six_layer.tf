@@ -11,13 +11,13 @@ locals {
   gcp_six_layer_archive_enabled = local.six_layer_enabled && var.layer_3_archive_provider == "google"
   gcp_six_layer_l4_enabled      = local.six_layer_enabled && var.layer_4_provider == "google"
   gcp_six_layer_l5_enabled      = local.six_layer_enabled && var.layer_5_provider == "google"
-  gcp_six_layer_gke_enabled     = local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l5_enabled
+  gcp_six_layer_gke_enabled     = local.gcp_six_layer_l1_enabled
 
   gcp_six_layer_any_enabled = (
     local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l2_enabled ||
     local.gcp_six_layer_hot_enabled || local.gcp_six_layer_cool_enabled ||
     local.gcp_six_layer_archive_enabled || local.gcp_six_layer_l4_enabled ||
-    local.gcp_six_layer_l5_enabled || local.gcp_six_layer_event_layer_local
+    local.gcp_six_layer_hot_enabled || local.gcp_six_layer_event_layer_local
   )
 
   gcp_six_layer_event_enabled = (
@@ -35,7 +35,7 @@ locals {
   gcp_six_layer_platform_container_enabled = (
     local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l2_enabled ||
     local.gcp_six_layer_hot_enabled || local.gcp_six_layer_cool_enabled ||
-    local.gcp_six_layer_l4_enabled || local.gcp_six_layer_l5_enabled ||
+    local.gcp_six_layer_l4_enabled || local.gcp_six_layer_hot_enabled ||
     local.gcp_six_layer_remote_landing_enabled ||
     length(local.gcp_six_layer_outbound_event_routes) > 0
   )
@@ -60,8 +60,8 @@ locals {
     local.gcp_six_layer_container_enabled ? "cloudbuild.googleapis.com" : "",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
-    local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l5_enabled ? "compute.googleapis.com" : "",
-    local.gcp_six_layer_l1_enabled || local.gcp_six_layer_l5_enabled ? "container.googleapis.com" : "",
+    local.gcp_six_layer_l1_enabled ? "compute.googleapis.com" : "",
+    local.gcp_six_layer_l1_enabled ? "container.googleapis.com" : "",
     local.gcp_six_layer_hot_enabled || local.gcp_six_layer_l4_enabled ? "firestore.googleapis.com" : "",
     local.gcp_six_layer_container_enabled ? "storage.googleapis.com" : "",
     local.gcp_six_layer_l2_enabled ? "workflows.googleapis.com" : "",
@@ -98,27 +98,14 @@ locals {
     "dimension.gcp.gcp.ordered-mqtt-pubsub-adapter.node_count",
     local.gcp_six_layer_large_scenario ? "4" : "1",
   ))
-  gcp_six_layer_gke_zone             = "${var.gcp_region}-b"
-  gcp_six_layer_grafana_machine_type = local.gcp_six_layer_large_scenario ? "e2-standard-8" : "e2-standard-4"
-  gcp_six_layer_grafana_disk_gib = tonumber(lookup(
-    var.resolved_component_dimensions,
-    "dimension.gcp.gcp.persistent-disk-rwo.stored_gib_month",
-    "10",
-  ))
-  gcp_six_layer_grafana_namespace = "${local.gcp_six_layer_name}-grafana"
+  gcp_six_layer_gke_zone          = "${var.gcp_region}-b"
   gcp_six_layer_bifromq_namespace = "${local.gcp_six_layer_name}-bifromq"
   gcp_six_layer_gke_endpoint = local.gcp_six_layer_l1_enabled ? try(
     google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].endpoint,
     "127.0.0.1",
-    ) : local.gcp_six_layer_l5_enabled ? try(
-    google_container_cluster.gcp_grafana_oss_12_on_gke[0].endpoint,
-    "127.0.0.1",
   ) : "127.0.0.1"
   gcp_six_layer_gke_ca_certificate = local.gcp_six_layer_l1_enabled ? try(
     google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard[0].master_auth[0].cluster_ca_certificate,
-    "",
-    ) : local.gcp_six_layer_l5_enabled ? try(
-    google_container_cluster.gcp_grafana_oss_12_on_gke[0].master_auth[0].cluster_ca_certificate,
     "",
   ) : ""
 
@@ -295,6 +282,10 @@ resource "terraform_data" "gcp_six_layer_foundation_guard" {
       error_message = "GCP Six-layer container components require a content-addressed platform image."
     }
     precondition {
+      condition     = !local.gcp_six_layer_hot_enabled || var.gcp_deployment_principal_email != ""
+      error_message = "GCP Six-layer L3 read access requires the deployment service-account email for authenticated readback."
+    }
+    precondition {
       condition = (
         !local.gcp_six_layer_platform_container_enabled ||
         startswith(var.gcp_six_layer_platform_image, local.gcp_six_layer_registry_prefix)
@@ -318,25 +309,6 @@ resource "terraform_data" "gcp_six_layer_foundation_guard" {
         startswith(var.gcp_six_layer_storage_mover_image, local.gcp_six_layer_registry_prefix)
       )
       error_message = "GCP Six-layer storage-mover images must come from the deployment Artifact Registry repository."
-    }
-    precondition {
-      condition     = !local.gcp_six_layer_l5_enabled || var.gcp_six_layer_grafana_image != ""
-      error_message = "GCP Six-layer L5 requires the content-addressed Grafana 12 image with the reviewed Infinity plugin."
-    }
-    precondition {
-      condition = (
-        !local.gcp_six_layer_l5_enabled ||
-        startswith(var.gcp_six_layer_grafana_image, local.gcp_six_layer_registry_prefix)
-      )
-      error_message = "GCP Six-layer Grafana images must come from the deployment Artifact Registry repository."
-    }
-    precondition {
-      condition     = !local.gcp_six_layer_l5_enabled || length(var.gcp_grafana_source_cidrs) > 0
-      error_message = "GCP Six-layer L5 requires a non-empty Grafana LoadBalancer source CIDR allowlist."
-    }
-    precondition {
-      condition     = !local.gcp_six_layer_l5_enabled || local.gcp_six_layer_grafana_disk_gib == 10
-      error_message = "GCP Six-layer Grafana requires the reviewed fixed 10 GiB PoC Persistent Disk allocation."
     }
     precondition {
       condition = (
@@ -427,6 +399,15 @@ resource "google_storage_bucket" "gcp_six_layer_cloud_build_sources" {
   public_access_prevention    = "enforced"
   labels                      = local.gcp_six_layer_labels
 
+  # Disposable Core build inputs must not survive deletion as billable objects.
+  # Leave the full-profile policy unchanged.
+  dynamic "soft_delete_policy" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      retention_duration_seconds = 0
+    }
+  }
+
   lifecycle_rule {
     condition { age = 1 }
     action { type = "Delete" }
@@ -435,9 +416,8 @@ resource "google_storage_bucket" "gcp_six_layer_cloud_build_sources" {
   depends_on = [terraform_data.gcp_six_layer_foundation_guard]
 }
 
-# L1 owns the shared Standard cluster when BifroMQ is selected. The default
-# pool is retained only for L5's one general-workload node; otherwise it is
-# removed. Small deliberately uses one non-HA broker node and one integration
+# L1 owns the Standard cluster when BifroMQ is selected. The unused default
+# pool is removed. Small deliberately uses one non-HA broker node and one integration
 # node; Medium retains three brokers with one integration node, and Large keeps
 # the reviewed 12/4 theoretical allocation.
 resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
@@ -446,9 +426,9 @@ resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
   name     = "${local.gcp_six_layer_name}-six-gke"
   location = local.gcp_six_layer_gke_zone
 
-  description              = "Twin2MultiCloud Six-layer shared BifroMQ and Grafana PoC cluster"
+  description              = "Twin2MultiCloud Six-layer BifroMQ PoC cluster"
   deletion_protection      = false
-  remove_default_node_pool = !local.gcp_six_layer_l5_enabled
+  remove_default_node_pool = true
   initial_node_count       = 1
   networking_mode          = "VPC_NATIVE"
   enable_shielded_nodes    = true
@@ -462,27 +442,6 @@ resource "google_container_cluster" "gcp_apache_bifromq_4_0_0_incubating_on_gke_
 
   workload_identity_config {
     workload_pool = "${local.gcp_project_id}.svc.id.goog"
-  }
-
-  node_config {
-    machine_type = local.gcp_six_layer_grafana_machine_type
-    disk_type    = "pd-balanced"
-    disk_size_gb = 50
-    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-    labels       = local.gcp_six_layer_labels
-
-    metadata = {
-      disable-legacy-endpoints = "true"
-    }
-
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
-
-    shielded_instance_config {
-      enable_secure_boot          = true
-      enable_integrity_monitoring = true
-    }
   }
 
   depends_on = [terraform_data.gcp_six_layer_foundation_guard]
@@ -562,64 +521,10 @@ resource "google_container_node_pool" "gcp_gcp_ordered_mqtt_pubsub_adapter" {
   }
 }
 
-# When L1 is elsewhere, L5 owns one zonal one-node Standard cluster. This is
-# the only additional cluster permitted by the reviewed GCP visualization
-# bundle.
-resource "google_container_cluster" "gcp_grafana_oss_12_on_gke" {
-  count    = local.gcp_six_layer_l5_enabled && !local.gcp_six_layer_l1_enabled ? 1 : 0
-  project  = local.gcp_project_id
-  name     = "${local.gcp_six_layer_name}-six-grafana-gke"
-  location = local.gcp_six_layer_gke_zone
-
-  description              = "Twin2MultiCloud Six-layer single-node Grafana PoC cluster"
-  deletion_protection      = false
-  remove_default_node_pool = false
-  initial_node_count       = 1
-  networking_mode          = "VPC_NATIVE"
-  enable_shielded_nodes    = true
-  resource_labels          = local.gcp_six_layer_labels
-
-  release_channel {
-    channel = "REGULAR"
-  }
-
-  ip_allocation_policy {}
-
-  workload_identity_config {
-    workload_pool = "${local.gcp_project_id}.svc.id.goog"
-  }
-
-  node_config {
-    machine_type = local.gcp_six_layer_grafana_machine_type
-    disk_type    = "pd-balanced"
-    disk_size_gb = 50
-    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-    labels       = local.gcp_six_layer_labels
-
-    metadata = {
-      disable-legacy-endpoints = "true"
-    }
-
-    workload_metadata_config {
-      mode = "GKE_METADATA"
-    }
-
-    shielded_instance_config {
-      enable_secure_boot          = true
-      enable_integrity_monitoring = true
-    }
-  }
-
-  depends_on = [terraform_data.gcp_six_layer_foundation_guard]
-}
-
 data "google_client_config" "gcp_six_layer_kubernetes" {
   count = local.gcp_six_layer_gke_enabled ? 1 : 0
 
-  depends_on = [
-    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard,
-    google_container_cluster.gcp_grafana_oss_12_on_gke,
-  ]
+  depends_on = [google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard]
 }
 
 resource "kubernetes_namespace_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_standard" {
@@ -631,20 +536,6 @@ resource "kubernetes_namespace_v1" "gcp_apache_bifromq_4_0_0_incubating_on_gke_s
   }
 
   depends_on = [google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard]
-}
-
-resource "kubernetes_namespace_v1" "gcp_grafana_oss_12_on_gke" {
-  count = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-
-  metadata {
-    name   = local.gcp_six_layer_grafana_namespace
-    labels = local.gcp_six_layer_labels
-  }
-
-  depends_on = [
-    google_container_cluster.gcp_apache_bifromq_4_0_0_incubating_on_gke_standard,
-    google_container_cluster.gcp_grafana_oss_12_on_gke,
-  ]
 }
 
 resource "google_pubsub_topic" "gcp_gcp_pubsub_separated_embedded_topics" {
@@ -685,7 +576,7 @@ resource "google_service_account" "gcp_six_layer_runtime" {
       twin     = "twin"
       explorer = "explorer"
     } : {},
-    local.gcp_six_layer_l5_enabled ? { reader = "reader" } : {},
+    local.gcp_six_layer_hot_enabled ? { reader = "reader" } : {},
     local.gcp_six_layer_storage_mover_enabled ? {
       storage   = "storage"
       scheduler = "scheduler"
@@ -739,7 +630,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -834,6 +725,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_event_adapter" {
         value = var.layer_4_provider
       }
       env {
+        name  = "SIX_LAYER_EVALUATION_SCOPE"
+        value = var.evaluation_scope
+      }
+      env {
         name  = "EVENTING_DELIVERY_ENDPOINT_ENABLED"
         value = tostring(local.gcp_six_layer_event_layer_local)
       }
@@ -861,8 +756,11 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_processor_extension" {
   name                = "${local.gcp_six_layer_name}-six-processor-extension"
   description         = "Validated processor.telemetry@1 GCP adapter"
   deletion_protection = false
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
-  labels              = local.gcp_six_layer_labels
+  # Cloud Run callers without VPC egress are not considered internal ingress.
+  # Reachability is separate from authorization; only the bound processor invokes.
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  labels               = local.gcp_six_layer_labels
 
   template {
     service_account                  = google_service_account.gcp_six_layer_runtime["extension"].email
@@ -871,7 +769,7 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_processor_extension" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -926,7 +824,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -951,6 +849,10 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_service" {
       env {
         name  = "RUNTIME_ROLE"
         value = "processor"
+      }
+      env {
+        name  = "L2_PROVIDER"
+        value = var.layer_2_provider
       }
       env {
         name  = "PROCESSOR_EXTENSION_URL"
@@ -1004,8 +906,10 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_action_sink" {
   name                = "${local.gcp_six_layer_name}-six-poc-action"
   description         = "Fixed side-effect-free Six-layer action boundary"
   deletion_protection = false
-  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
-  labels              = local.gcp_six_layer_labels
+  # The domain runtime calls this boundary without a VPC connector as well.
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = false
+  labels               = local.gcp_six_layer_labels
 
   template {
     service_account                  = google_service_account.gcp_six_layer_runtime["action"].email
@@ -1014,7 +918,7 @@ resource "google_cloud_run_v2_service" "gcp_six_layer_action_sink" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 20
+      max_instance_count = local.core_evaluation ? 1 : 20
     }
 
     containers {
@@ -1059,7 +963,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_twin_api_materializer"
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -1196,27 +1100,21 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_iap_twin_explorer" {
   ]
 }
 
-resource "random_password" "gcp_six_layer_raw_history_reader_key" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
-  length  = 48
-  special = false
-}
-
 resource "random_password" "gcp_six_layer_raw_history_cursor_hmac" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count   = local.gcp_six_layer_hot_enabled ? 1 : 0
   length  = 64
   special = false
 }
 
 resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
-  count                = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count                = local.gcp_six_layer_hot_enabled ? 1 : 0
   project              = local.gcp_project_id
   location             = var.gcp_region
   name                 = "${local.gcp_six_layer_name}-six-raw-history"
   description          = "Typed and bounded Six-layer Firestore history reader"
   deletion_protection  = false
   ingress              = "INGRESS_TRAFFIC_ALL"
-  invoker_iam_disabled = true
+  invoker_iam_disabled = false
   default_uri_disabled = false
   labels               = local.gcp_six_layer_labels
 
@@ -1227,7 +1125,7 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -1262,10 +1160,6 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
         value = tostring(local.gcp_six_layer_timestamp_shards)
       }
       env {
-        name  = "READER_KEY_SHA256"
-        value = sha256(random_password.gcp_six_layer_raw_history_reader_key[0].result)
-      }
-      env {
         name  = "CURSOR_HMAC_KEY"
         value = random_password.gcp_six_layer_raw_history_cursor_hmac[0].result
       }
@@ -1277,406 +1171,6 @@ resource "google_cloud_run_v2_service" "gcp_gcp_cloud_run_raw_history_reader" {
     google_firestore_index.gcp_gcp_firestore_native_standard_raw_and_rollup,
     google_project_iam_member.gcp_six_layer_reader_firestore_reader,
   ]
-}
-
-resource "google_compute_disk" "gcp_gcp_persistent_disk_rwo" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
-  project = local.gcp_project_id
-  zone    = local.gcp_six_layer_gke_zone
-  name    = "${local.gcp_six_layer_name}-six-grafana"
-  type    = "pd-balanced"
-  size    = local.gcp_six_layer_grafana_disk_gib
-  labels  = local.gcp_six_layer_labels
-
-  depends_on = [terraform_data.gcp_six_layer_foundation_guard]
-}
-
-resource "google_compute_address" "gcp_gcp_grafana_tls_load_balancer" {
-  count        = local.gcp_six_layer_l5_enabled ? 1 : 0
-  project      = local.gcp_project_id
-  region       = var.gcp_region
-  name         = "${local.gcp_six_layer_name}-six-grafana"
-  description  = "Static address for the CIDR-scoped Six-layer Grafana PoC endpoint"
-  address_type = "EXTERNAL"
-  network_tier = "PREMIUM"
-  labels       = local.gcp_six_layer_labels
-
-  depends_on = [terraform_data.gcp_six_layer_foundation_guard]
-}
-
-resource "tls_private_key" "gcp_six_layer_grafana" {
-  count       = local.gcp_six_layer_l5_enabled ? 1 : 0
-  algorithm   = "ECDSA"
-  ecdsa_curve = "P256"
-}
-
-resource "tls_self_signed_cert" "gcp_six_layer_grafana" {
-  count           = local.gcp_six_layer_l5_enabled ? 1 : 0
-  private_key_pem = tls_private_key.gcp_six_layer_grafana[0].private_key_pem
-
-  subject {
-    common_name  = google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address
-    organization = "Twin2MultiCloud thesis PoC"
-  }
-
-  ip_addresses          = [google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address]
-  validity_period_hours = 8760
-  early_renewal_hours   = 168
-  allowed_uses = [
-    "digital_signature",
-    "key_encipherment",
-    "server_auth",
-  ]
-}
-
-resource "random_password" "gcp_six_layer_grafana_admin" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
-  length  = 32
-  special = false
-}
-
-resource "random_password" "gcp_six_layer_grafana_viewer" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
-  length  = 24
-  special = false
-}
-
-resource "kubernetes_persistent_volume_v1" "gcp_gcp_persistent_disk_rwo" {
-  count = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-
-  metadata {
-    name = "${local.gcp_six_layer_name}-grafana-pv"
-    labels = merge(local.gcp_six_layer_labels, {
-      component = "grafana"
-    })
-  }
-
-  spec {
-    access_modes                     = ["ReadWriteOnce"]
-    persistent_volume_reclaim_policy = "Retain"
-    storage_class_name               = ""
-
-    capacity = {
-      storage = "${local.gcp_six_layer_grafana_disk_gib}Gi"
-    }
-
-    persistent_volume_source {
-      csi {
-        driver        = "pd.csi.storage.gke.io"
-        volume_handle = google_compute_disk.gcp_gcp_persistent_disk_rwo[0].id
-        fs_type       = "ext4"
-      }
-    }
-  }
-
-  depends_on = [
-    google_compute_disk.gcp_gcp_persistent_disk_rwo,
-    kubernetes_namespace_v1.gcp_grafana_oss_12_on_gke,
-  ]
-}
-
-resource "kubernetes_persistent_volume_claim_v1" "gcp_gcp_persistent_disk_rwo" {
-  count            = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-  wait_until_bound = true
-
-  metadata {
-    name      = "grafana-data"
-    namespace = local.gcp_six_layer_grafana_namespace
-    labels = merge(local.gcp_six_layer_labels, {
-      component = "grafana"
-    })
-  }
-
-  spec {
-    access_modes       = ["ReadWriteOnce"]
-    storage_class_name = ""
-    volume_name        = kubernetes_persistent_volume_v1.gcp_gcp_persistent_disk_rwo[0].metadata[0].name
-
-    resources {
-      requests = {
-        storage = "${local.gcp_six_layer_grafana_disk_gib}Gi"
-      }
-    }
-  }
-}
-
-resource "kubernetes_secret_v1" "gcp_gcp_grafana_tls_load_balancer" {
-  count = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-
-  metadata {
-    name      = "grafana-runtime"
-    namespace = local.gcp_six_layer_grafana_namespace
-    labels = merge(local.gcp_six_layer_labels, {
-      component = "grafana"
-    })
-  }
-
-  data = {
-    "tls.crt"         = tls_self_signed_cert.gcp_six_layer_grafana[0].cert_pem
-    "tls.key"         = tls_private_key.gcp_six_layer_grafana[0].private_key_pem
-    "admin-user"      = "provisioner"
-    "admin-password"  = random_password.gcp_six_layer_grafana_admin[0].result
-    "viewer-user"     = var.platform_user_email
-    "viewer-password" = random_password.gcp_six_layer_grafana_viewer[0].result
-    "reader-key"      = random_password.gcp_six_layer_raw_history_reader_key[0].result
-  }
-  type = "Opaque"
-
-  # The owner-scoped rotation endpoint deliberately changes only this key.
-  # Keeping every other secret under Terraform ownership prevents a later
-  # apply from reverting a successfully rotated Viewer credential.
-  lifecycle {
-    ignore_changes = [data["viewer-password"]]
-  }
-}
-
-resource "kubernetes_deployment_v1" "gcp_grafana_oss_12_on_gke" {
-  count            = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-  wait_for_rollout = true
-
-  metadata {
-    name      = "grafana"
-    namespace = local.gcp_six_layer_grafana_namespace
-    labels = merge(local.gcp_six_layer_labels, {
-      component = "grafana"
-    })
-  }
-
-  spec {
-    replicas = 1
-
-    strategy {
-      type = "Recreate"
-    }
-
-    selector {
-      match_labels = {
-        app = "grafana"
-      }
-    }
-
-    template {
-      metadata {
-        labels = merge(local.gcp_six_layer_labels, {
-          app       = "grafana"
-          component = "grafana"
-        })
-      }
-
-      spec {
-        security_context {
-          fs_group        = 472
-          run_as_non_root = true
-          run_as_user     = 472
-          run_as_group    = 472
-        }
-
-        container {
-          name  = "grafana"
-          image = var.gcp_six_layer_grafana_image
-
-          image_pull_policy = "IfNotPresent"
-
-          port {
-            name           = "https"
-            container_port = 3000
-            protocol       = "TCP"
-          }
-
-          env {
-            name  = "GF_SERVER_PROTOCOL"
-            value = "https"
-          }
-          env {
-            name  = "GF_SERVER_HTTP_PORT"
-            value = "3000"
-          }
-          env {
-            name  = "GF_SERVER_CERT_FILE"
-            value = "/etc/grafana/tls/tls.crt"
-          }
-          env {
-            name  = "GF_SERVER_CERT_KEY"
-            value = "/etc/grafana/tls/tls.key"
-          }
-          env {
-            name  = "GF_USERS_ALLOW_SIGN_UP"
-            value = "false"
-          }
-          env {
-            name  = "GF_AUTH_ANONYMOUS_ENABLED"
-            value = "false"
-          }
-          env {
-            name  = "GF_PLUGINS_PLUGIN_ADMIN_ENABLED"
-            value = "false"
-          }
-          env {
-            name = "GF_SECURITY_ADMIN_USER"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-                key  = "admin-user"
-              }
-            }
-          }
-          env {
-            name = "GF_SECURITY_ADMIN_PASSWORD"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-                key  = "admin-password"
-              }
-            }
-          }
-          env {
-            name = "GRAFANA_VIEWER_USER"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-                key  = "viewer-user"
-              }
-            }
-          }
-          env {
-            name = "GRAFANA_VIEWER_PASSWORD"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-                key  = "viewer-password"
-              }
-            }
-          }
-          env {
-            name  = "RAW_HISTORY_READER_URL"
-            value = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].uri
-          }
-          env {
-            name = "RAW_HISTORY_READER_KEY"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-                key  = "reader-key"
-              }
-            }
-          }
-
-          resources {
-            limits = {
-              cpu    = local.gcp_six_layer_large_scenario ? "4" : "2"
-              memory = local.gcp_six_layer_large_scenario ? "8Gi" : "4Gi"
-            }
-            requests = {
-              cpu    = local.gcp_six_layer_large_scenario ? "2" : "1"
-              memory = local.gcp_six_layer_large_scenario ? "4Gi" : "2Gi"
-            }
-          }
-
-          readiness_probe {
-            initial_delay_seconds = 10
-            period_seconds        = 10
-            timeout_seconds       = 3
-            failure_threshold     = 12
-
-            exec {
-              command = ["test", "-f", "/tmp/twin2multicloud-ready"]
-            }
-          }
-
-          liveness_probe {
-            initial_delay_seconds = 30
-            period_seconds        = 20
-            timeout_seconds       = 3
-            failure_threshold     = 3
-
-            http_get {
-              path   = "/api/health"
-              port   = "https"
-              scheme = "HTTPS"
-            }
-          }
-
-          volume_mount {
-            name       = "data"
-            mount_path = "/var/lib/grafana"
-          }
-
-          volume_mount {
-            name       = "tls"
-            mount_path = "/etc/grafana/tls"
-            read_only  = true
-          }
-
-          security_context {
-            allow_privilege_escalation = false
-            capabilities {
-              drop = ["ALL"]
-            }
-          }
-        }
-
-        volume {
-          name = "data"
-          persistent_volume_claim {
-            claim_name = kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo[0].metadata[0].name
-          }
-        }
-
-        volume {
-          name = "tls"
-          secret {
-            secret_name = kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer[0].metadata[0].name
-            items {
-              key  = "tls.crt"
-              path = "tls.crt"
-            }
-            items {
-              key  = "tls.key"
-              path = "tls.key"
-            }
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [
-    google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader,
-    kubernetes_persistent_volume_claim_v1.gcp_gcp_persistent_disk_rwo,
-    kubernetes_secret_v1.gcp_gcp_grafana_tls_load_balancer,
-  ]
-}
-
-resource "kubernetes_service_v1" "gcp_gcp_grafana_tls_load_balancer" {
-  count                  = local.gcp_six_layer_l5_enabled && var.gcp_six_layer_kubernetes_stage_enabled ? 1 : 0
-  wait_for_load_balancer = true
-
-  metadata {
-    name      = "grafana"
-    namespace = local.gcp_six_layer_grafana_namespace
-    labels = merge(local.gcp_six_layer_labels, {
-      component = "grafana"
-    })
-  }
-
-  spec {
-    selector = {
-      app = "grafana"
-    }
-    type                        = "LoadBalancer"
-    external_traffic_policy     = "Local"
-    load_balancer_ip            = google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address
-    load_balancer_source_ranges = var.gcp_grafana_source_cidrs
-
-    port {
-      name        = "https"
-      port        = 443
-      target_port = "https"
-      protocol    = "TCP"
-    }
-  }
-
-  depends_on = [kubernetes_deployment_v1.gcp_grafana_oss_12_on_gke]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_processor_extension_invoker" {
@@ -1754,6 +1248,15 @@ resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_twin_push_invok
   member   = "serviceAccount:${google_service_account.gcp_six_layer_runtime["twin"].email}"
 }
 
+resource "google_cloud_run_v2_service_iam_member" "gcp_six_layer_raw_history_deployment_invoker" {
+  count    = local.gcp_six_layer_hot_enabled ? 1 : 0
+  project  = local.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.gcp_deployment_principal_email}"
+}
+
 resource "google_cloud_run_v2_service_iam_member" "gcp_gcp_cloud_run_iap_twin_explorer" {
   count    = local.gcp_six_layer_l4_enabled ? 1 : 0
   project  = local.gcp_project_id
@@ -1824,7 +1327,7 @@ resource "google_pubsub_topic_iam_member" "gcp_six_layer_processor_publishers" {
 }
 
 resource "google_pubsub_topic_iam_member" "gcp_six_layer_persistence_domain_publisher" {
-  count = local.gcp_six_layer_hot_enabled && (
+  count = local.gcp_six_layer_hot_enabled && !local.core_evaluation && (
     !local.gcp_six_layer_event_layer_local ||
     (local.six_layer_eventing_enabled && var.layer_4_provider != "google")
   ) ? 1 : 0
@@ -1927,7 +1430,7 @@ resource "google_project_iam_member" "gcp_six_layer_explorer_firestore_reader" {
 }
 
 resource "google_project_iam_member" "gcp_six_layer_reader_firestore_reader" {
-  count   = local.gcp_six_layer_l5_enabled ? 1 : 0
+  count   = local.gcp_six_layer_hot_enabled ? 1 : 0
   project = local.gcp_project_id
   role    = "roles/datastore.viewer"
   member  = "serviceAccount:${google_service_account.gcp_six_layer_runtime["reader"].email}"
@@ -2127,7 +1630,7 @@ resource "google_firestore_index" "gcp_gcp_firestore_native_standard_raw_and_rol
         { field_path = "device_id", order = "ASCENDING" },
         { field_path = "metric", order = "ASCENDING" },
         { field_path = "timestamp_shard", order = "ASCENDING" },
-        { field_path = "stored_at", order = "DESCENDING" },
+        { field_path = "stored_at", order = "ASCENDING" },
       ]
     }
     raw_mover = {
@@ -2298,8 +1801,8 @@ resource "google_cloud_run_v2_job" "gcp_gcp_cloud_run_storage_job" {
 
     template {
       service_account = google_service_account.gcp_six_layer_runtime["storage"].email
-      max_retries     = 1
-      timeout         = "900s"
+      max_retries     = local.core_evaluation ? 0 : 1
+      timeout         = local.core_evaluation ? "300s" : "900s"
 
       containers {
         image = var.gcp_six_layer_storage_mover_image
@@ -2386,11 +1889,12 @@ resource "google_cloud_scheduler_job" "gcp_gcp_cloud_scheduler" {
   name             = substr("${local.gcp_six_layer_name}-six-${each.key}", 0, 49)
   description      = "Run the finite Six-layer ${each.key} storage window"
   schedule         = each.value.schedule
+  paused           = local.core_evaluation
   time_zone        = "Etc/UTC"
   attempt_deadline = "900s"
 
   retry_config {
-    retry_count          = 1
+    retry_count          = local.core_evaluation ? 0 : 1
     min_backoff_duration = "30s"
     max_backoff_duration = "300s"
     max_doublings        = 1
@@ -2409,13 +1913,14 @@ resource "google_cloud_scheduler_job" "gcp_gcp_cloud_scheduler" {
 }
 
 resource "google_workflows_workflow" "gcp_gcp_workflows" {
-  count           = local.gcp_six_layer_l2_enabled ? 1 : 0
-  project         = local.gcp_project_id
-  region          = var.gcp_region
-  name            = local.gcp_six_layer_workflow_name
-  description     = "Fixed four-action Six-layer notification workflow"
-  service_account = google_service_account.gcp_six_layer_runtime["workflow"].id
-  labels          = local.gcp_six_layer_labels
+  count               = local.gcp_six_layer_l2_enabled ? 1 : 0
+  project             = local.gcp_project_id
+  region              = var.gcp_region
+  name                = local.gcp_six_layer_workflow_name
+  description         = "Fixed four-action Six-layer notification workflow"
+  service_account     = google_service_account.gcp_six_layer_runtime["workflow"].id
+  deletion_protection = false
+  labels              = local.gcp_six_layer_labels
 
   source_contents = yamlencode({
     main = {
@@ -2467,6 +1972,27 @@ resource "google_workflows_workflow" "gcp_gcp_workflows" {
   ]
 }
 
+output "gcp_component_processing_output" {
+  value = local.gcp_six_layer_l2_enabled ? {
+    service_uri = google_cloud_run_v2_service.gcp_gcp_cloud_run_service[0].uri
+    workflow_id = google_workflows_workflow.gcp_gcp_workflows[0].id
+  } : null
+}
+
+output "gcp_component_cool_storage_output" {
+  value = local.gcp_six_layer_cool_enabled ? {
+    bucket_name = google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name
+  } : null
+}
+
+output "gcp_component_archive_storage_output" {
+  value = local.gcp_six_layer_archive_enabled ? {
+    bucket_name = (local.gcp_six_layer_cool_enabled
+      ? google_storage_bucket.gcp_gcp_cloud_storage_nearline[0].name
+    : google_storage_bucket.gcp_gcp_cloud_storage_archive[0].name)
+  } : null
+}
+
 output "gcp_component_twin_state_output" {
   description = "Safe Six-layer GCP L4 browser access and deterministic content evidence"
   value = local.gcp_six_layer_l4_enabled ? {
@@ -2498,41 +2024,30 @@ output "gcp_component_hot_storage_output" {
   } : null
 }
 
-output "gcp_component_visualization_output" {
-  description = "Safe Six-layer GCP L5 browser access and deterministic dashboard evidence"
-  value = local.gcp_six_layer_l5_enabled ? {
-    service                 = "Grafana OSS 12 on one selected/shared GKE Standard cluster"
-    endpoint                = "https://${google_compute_address.gcp_gcp_grafana_tls_load_balancer[0].address}"
-    viewer_username         = var.platform_user_email
-    authentication          = "Grafana local Viewer credential"
-    certificate_sha256      = sha256(tls_self_signed_cert.gcp_six_layer_grafana[0].cert_pem)
-    source_cidrs            = var.gcp_grafana_source_cidrs
-    dashboard_uid           = "twin2multicloud-raw-rollups"
-    dashboard_title         = "Twin2MultiCloud Raw & Rollups"
-    reader_service_id       = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].id
-    viewer_credential       = "owner-scoped rotate-and-reveal operation required"
-    internal_secrets_output = false
-    replica_count           = 1
-    persistent_disk_gib     = local.gcp_six_layer_grafana_disk_gib
+locals {
+  gcp_six_layer_storage_read_access = local.gcp_six_layer_hot_enabled ? {
+    service           = "Cloud Run bounded raw-history reader"
+    access_url        = "${google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].uri}/raw-history/v1"
+    principal_label   = var.gcp_deployment_principal_email
+    authentication    = "Google identity token"
+    access_role       = "Cloud Run Invoker"
+    reader_service_id = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].id
     internal_evidence = {
-      resource_ref        = "kubernetes/${local.gcp_six_layer_grafana_namespace}/deployment/grafana"
-      access_binding_refs = ["kubernetes/${local.gcp_six_layer_grafana_namespace}/secret/grafana-runtime"]
-      artifact_refs       = [var.gcp_six_layer_grafana_image]
-      content_revision    = "grafana-raw-rollups.v1"
-      data_probe_revision = "gcp-grafana-bounded-readback.v1"
+      resource_ref        = google_cloud_run_v2_service.gcp_gcp_cloud_run_raw_history_reader[0].id
+      access_binding_refs = [google_cloud_run_v2_service_iam_member.gcp_six_layer_raw_history_deployment_invoker[0].id]
+      artifact_refs       = [var.gcp_six_layer_platform_image]
+      content_revision    = "raw-history-query.v1"
+      data_probe_revision = "gcp-raw-history-readback.v1"
     }
   } : null
 }
 
-output "gcp_grafana_rotation_secret" {
-  description = "Internal-only GKE control-plane coordinates for explicit Viewer rotation"
-  sensitive   = true
-  value = local.gcp_six_layer_l5_enabled ? {
-    cluster_host           = "https://${local.gcp_six_layer_gke_endpoint}"
-    cluster_ca_certificate = local.gcp_six_layer_gke_ca_certificate
-    namespace              = local.gcp_six_layer_grafana_namespace
-    secret_name            = "grafana-runtime"
-    pod_label_selector     = "app=grafana"
-    viewer_username        = var.platform_user_email
-  } : null
+output "gcp_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.gcp_six_layer_storage_read_access
+}
+
+output "gcp_component_visualization_output" {
+  description = "Deprecated readback compatibility alias; does not prove graphical L5"
+  value       = local.gcp_six_layer_l5_enabled ? local.gcp_six_layer_storage_read_access : null
 }

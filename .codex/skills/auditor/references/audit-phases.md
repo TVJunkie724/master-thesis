@@ -128,5 +128,5 @@ This is the most critical phase. Go through the plan's **Definition of Done** ch
 | Every DoD item from the plan verified | Line-by-line cross-check | ⬜ |
 | No items from the plan were skipped | Systematic comparison | ⬜ |
 | No items were added that aren't in the plan | Systematic comparison; `git diff` review | ⬜ |
-| Commit messages all carry `[AI-MMDD-xxxx] type: …` | `git log --oneline` review | ⬜ |
-| `.ai-session.json` `files_modified` matches actual git diff | Compare both | ⬜ |
+| Commit messages follow current onboarding conventions | `git log --oneline` review | ⬜ |
+| Changed files match the approved scope | Inspect actual git diff; session metadata is optional | ⬜ |

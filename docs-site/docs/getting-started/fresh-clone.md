@@ -26,6 +26,15 @@ Run commands from the repository root.
 
 ## 2. Choose A Start Mode
 
+```mermaid
+flowchart LR
+    Goal{"What do you want to try?"} -->|"Explore the UI"| Demo["Offline demo<br/>Fixture data; resets on restart"]
+    Goal -->|"Save and reopen Twins"| Local["Integrated development<br/>Local services + database"]
+```
+
+Neither mode needs cloud credentials for startup. Cloud operations require separate
+setup and the activation checks in [Results and Limits](../runtime/known-limitations.md).
+
 ### Offline demo
 
 ```bash

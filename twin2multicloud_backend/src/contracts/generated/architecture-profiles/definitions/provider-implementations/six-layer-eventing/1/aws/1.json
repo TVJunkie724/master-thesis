@@ -100,7 +100,8 @@
         "service-model.aws.aws.eventbridge-scheduler",
         "service-model.aws.aws.ecs-fargate-storage-mover",
         "service-model.aws.aws.ecr-if-container-selected",
-        "service-model.aws.aws.cloudwatch"
+        "service-model.aws.aws.cloudwatch",
+        "service-model.aws.aws.lambda-raw-history-reader"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -118,7 +119,8 @@
         "aws.eventbridge-scheduler",
         "aws.ecs-fargate-storage-mover",
         "aws.ecr-if-container-selected",
-        "aws.cloudwatch"
+        "aws.cloudwatch",
+        "aws.lambda-raw-history-reader"
       ],
       "deployment_specification_slot_ids": [
         "l3_hot_storage"
@@ -260,10 +262,7 @@
       ],
       "service_model_refs": [
         "service-model.aws.aws.amazon-managed-grafana-12",
-        "service-model.aws.aws.lambda-raw-history-reader",
-        "service-model.aws.aws.grafana-marcusolsson-json-datasource",
-        "service-model.aws.aws.cloudwatch",
-        "service-model.aws.aws.iam-identity-center-layer-access"
+        "service-model.aws.aws.cloudwatch"
       ],
       "formula_refs": [
         "formula.phase-08-complete-service-bundles"
@@ -273,10 +272,7 @@
       ],
       "deployment_specification_component_ids": [
         "aws.amazon-managed-grafana-12",
-        "aws.lambda-raw-history-reader",
-        "aws.grafana-marcusolsson-json-datasource",
-        "aws.cloudwatch",
-        "aws.iam-identity-center-layer-access"
+        "aws.cloudwatch"
       ],
       "deployment_specification_slot_ids": [
         "l5_visualization"
@@ -577,5 +573,5 @@
       "resolved-deployment-specification.v2"
     ]
   },
-  "content_digest": "sha256:58f79913882b00c964e7cea7f3216326b6016e8e760bd05fd9e5faecfd2ed91e"
+  "content_digest": "sha256:1f67809a1f04e750f883fe70a89951b880767744e856bcae7fca87953829f1a5"
 }

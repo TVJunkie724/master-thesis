@@ -93,7 +93,7 @@ def _candidate_pack(tmp_path: Path, plan: dict) -> tuple[Path, Path]:
         "schema_version": "six-layer-evaluation-candidate-pack.v1",
         "evidence_status": "offline_planned_candidates",
         "plan_digest": plan_digest,
-        "scenario_count": 9,
+        "scenario_count": 8,
         "candidates": entries,
     }
     manifest["manifest_digest"] = evidence._document_digest(manifest)
@@ -125,9 +125,7 @@ def _lifecycle(provider: str) -> list[dict]:
             "status": "completed",
             "started_at": f"2026-08-28T{started_at}",
             "completed_at": f"2026-08-28T{completed_at}",
-            "duration_ms": (
-                60000 if phase == "terraform_destroy" else 1000
-            ),
+            "duration_ms": (60000 if phase == "terraform_destroy" else 1000),
         }
         for phase, started_at, completed_at in phases
     ]
@@ -369,7 +367,7 @@ def test_planned_template_binds_exact_matrix_and_pack(tmp_path: Path) -> None:
         "status": "planned_not_executed",
         "provider_check_count": 3,
         "identity_exchange_count": 6,
-        "scenario_count": 9,
+        "scenario_count": 8,
     }
 
 
@@ -390,17 +388,15 @@ def test_candidate_pack_digest_drift_is_rejected(tmp_path: Path) -> None:
         )
 
 
-def test_redigested_candidate_cannot_drift_from_plan_assignments(tmp_path: Path) -> None:
+def test_redigested_candidate_cannot_drift_from_plan_assignments(
+    tmp_path: Path,
+) -> None:
     pack_dir, plan_path = _candidate_pack(tmp_path, _read_plan())
     candidate_path = pack_dir / "small-local-aws.candidate.json"
     candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
     candidate["assignments"]["component.eventing"] = "azure"
     candidate["evidence_digest"] = evidence._document_digest(
-        {
-            key: value
-            for key, value in candidate.items()
-            if key != "evidence_digest"
-        }
+        {key: value for key, value in candidate.items() if key != "evidence_digest"}
     )
     _write_json(candidate_path, candidate)
     manifest_path = pack_dir / "candidate-pack-manifest.json"
@@ -409,11 +405,7 @@ def test_redigested_candidate_cannot_drift_from_plan_assignments(tmp_path: Path)
         "evidence_digest"
     ]
     manifest["manifest_digest"] = evidence._document_digest(
-        {
-            key: value
-            for key, value in manifest.items()
-            if key != "manifest_digest"
-        }
+        {key: value for key, value in manifest.items() if key != "manifest_digest"}
     )
     _write_json(manifest_path, manifest)
 
@@ -454,6 +446,84 @@ def test_referenced_evidence_digest_drift_is_rejected(tmp_path: Path) -> None:
     _write_json(evidence_root / reference["path"], {"status": "tampered"})
 
     with pytest.raises(evidence.LiveEvidenceError, match="evidence digest"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_replay_is_required_once_for_the_completed_evaluation(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    for scenario in record["scenarios"][1:]:
+        scenario["artifacts"] = [
+            item for item in scenario["artifacts"] if item["kind"] != "replay"
+        ]
+    assert (
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )["status"]
+        == "completed"
+    )
+
+    record["scenarios"][0]["artifacts"] = [
+        item for item in record["scenarios"][0]["artifacts"] if item["kind"] != "replay"
+    ]
+    with pytest.raises(evidence.LiveEvidenceError, match="representative replay"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+
+def test_early_abort_is_retained_in_one_blocked_scenario_record(tmp_path: Path) -> None:
+    record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
+    scenario = record["scenarios"][0]
+    artifact = next(
+        item for item in scenario["artifacts"] if item["kind"] == "evaluation_metrics"
+    )
+    path = evidence_root / artifact["path"]
+    value = json.loads(path.read_text(encoding="utf-8"))
+    for phase in value["lifecycle"]:
+        if phase["phase"] == "l1_l3_eventing_ready":
+            phase["status"] = "failed"
+        if phase["phase"] in {"l4_ready", "l5_ready"}:
+            phase.update(
+                status="skipped", started_at=None, completed_at=None, duration_ms=None
+            )
+    value["message_samples"] = []
+    value["limitations"] = ["Early verification failed; later checks were skipped."]
+    _write_json(path, value)
+    artifact["digest"] = evidence._file_digest(path)
+    with pytest.raises(evidence.LiveEvidenceError, match="incomplete run"):
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )
+
+    scenario.update(status="blocked", blocker_code="early-verification-failed")
+    record["status"] = "completed_with_blockers"
+    assert (
+        evidence.validate_record(
+            record,
+            candidate_pack_dir=pack_dir,
+            evidence_root=evidence_root,
+            plan_path=plan_path,
+        )["status"]
+        == "completed_with_blockers"
+    )
+    scenario["artifacts"] = [
+        item for item in scenario["artifacts"] if item["kind"] != "evaluation_metrics"
+    ]
+    with pytest.raises(evidence.LiveEvidenceError, match="requires metrics"):
         evidence.validate_record(
             record,
             candidate_pack_dir=pack_dir,
@@ -527,9 +597,7 @@ def test_completed_metrics_cost_is_bound_to_indexed_export(tmp_path: Path) -> No
 def test_completed_scenario_requires_clean_typed_cleanup(tmp_path: Path) -> None:
     record, pack_dir, plan_path, evidence_root = _completed_record(tmp_path)
     scenario = record["scenarios"][0]
-    artifact = next(
-        item for item in scenario["artifacts"] if item["kind"] == "cleanup"
-    )
+    artifact = next(item for item in scenario["artifacts"] if item["kind"] == "cleanup")
     path = evidence_root / artifact["path"]
     value = json.loads(path.read_text(encoding="utf-8"))
     value["status"] = "incomplete"

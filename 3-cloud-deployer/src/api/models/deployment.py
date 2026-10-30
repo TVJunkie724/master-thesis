@@ -5,7 +5,6 @@ These models define the public deploy/destroy boundary. Route handlers should
 return these contracts rather than assembling ad hoc dictionaries or JSON.
 """
 
-from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -85,17 +84,6 @@ class DestroyResult(BaseModel):
     @classmethod
     def validate_cleanup(cls, value: dict[str, Any]) -> dict[str, Any]:
         return validate_cleanup_evidence(value)
-
-
-class DeploymentAccessCredentialResult(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid")
-
-    schema_version: str = Field(pattern="^deployment-access-credential\\.v1$")
-    layer: str = Field(pattern="^l5$")
-    provider: str = Field(pattern="^gcp$")
-    username: str = Field(min_length=1)
-    password: str = Field(min_length=1, repr=False)
-    issued_at: datetime
 
 
 class DeploymentStreamEvent(BaseModel):

@@ -319,7 +319,7 @@
           "$ref": "#/$defs/non_empty_stable_id_array"
         },
         "deployment_specification_component_ids": {
-          "$ref": "#/$defs/non_empty_stable_id_array"
+          "$ref": "#/$defs/stable_id_array"
         },
         "cost_contribution": {
           "$ref": "#/$defs/cost_contribution"

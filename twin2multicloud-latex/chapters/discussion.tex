@@ -36,50 +36,48 @@ identity mechanisms, and operations. A candidate enters the cost comparison
 only when all mandatory components and edges resolve to explicit deployment,
 verification, cleanup, and pricing ownership.
 
-The final discussion should evaluate where the shared contract provides a
-meaningful comparison and where provider-specific semantics remain. In
-particular, it should discuss delivery and replay behavior, the hosted GCP Twin
-and Grafana bundles, workload-identity differences, regional availability,
-quota behavior, and the limits of treating a curated implementation as
-representative of an entire provider.
+The nine successful Core observations support comparison at the shared
+telemetry/readback boundary. The separate local command observations and
+AWS/Azure Event-to-L4 and L3-to-L5 checks extend that evidence only for their
+named contracts. They do not establish identical delivery semantics, replay
+behavior, failure recovery, or production capability across providers.
+GCP's hosted Twin and visualization replacements were excluded from live L4/L5
+evaluation; AWS/Azure visualization was reduced to a two-panel HTML/SVG consumer.
+These findings narrow the supported equivalence claim without changing RQ2.
 
 \section{Answer to RQ3: Cost Effect}
 
-The quantitative answer must use the frozen workload and price evidence and
-report estimated monthly cost rather than observed billing unless provider
-billing data is separately reconciled. For each baseline and multi-cloud
-candidate, the discussion should report:
-
-\begin{itemize}
-    \item the exact component assignment and admissibility result;
-    \item total estimated monthly cost and difference from each provider-local
-    baseline;
-    \item component, transfer, bridge, and shared-pool contributions;
-    \item price, workload, tier, and region sensitivity; and
-    \item the difference between the estimate and any observed short-lived
-    evaluation cost.
-\end{itemize}
-
-No conclusion about a cost advantage should be written until the final
-calculation digests and the supervised evidence records have been frozen.
+The frozen comparison in Table~\ref{tab:modeled-costs} supports a conditional
+modeled advantage, not a billing claim. Small's AWS placement with GCP Eventing
+is 20.73\% below the cheaper AWS-local complete-profile baseline among the
+eight examined placements. AWS local is cheapest in the same set at Medium and
+Large. Thus, multi-cloud placement is not universally cheaper: the workload,
+admissible service mapping, broker capacity and bridge/transfer contributions
+matter together. The discrete scale sensitivity does not isolate their separate
+causal effects. Price and regional sensitivity and actual per-run attribution
+remain outside this result; no unmeasured value is inferred from account bills.
 
 \subsection{RQ3.1: Baseline Control}
 
-The three provider-local baselines and every selected multi-cloud candidate
-must use the same Small workload, Six-layer profile, currency, pricing policy,
-regions, and functional requirements. This paired design isolates provider
-allocation from changes in scenario semantics. The nine live cases cover all
-three local providers and every directed AWS/Azure/GCP pair without claiming
-to enumerate every valid component permutation.
+Within a comparison, provider allocations must use the same workload, currency,
+pricing policy, regions, and functional requirements. The nine live Core cases
+cover all three local providers and every directed AWS/Azure/GCP pair, but omit
+L4/L5. Complete-profile model candidates therefore form a different comparison
+set: excluding GCP L4/L5 must not be represented as a cheap, functionally complete
+GCP alternative. Likewise, the historical Five-layer reference is not silently
+rewritten to match the reduced L5 consumer. Differences in functional scope and
+service mapping prevent attribution of their entire cost difference to Eventing.
 
 \subsection{RQ3.2: Explicit Eventing Responsibility}
 
-The explicit Eventing responsibility should be assessed in three dimensions:
-functional behavior, topology, and cost. The discussion must trace ordering,
-delivery, retry, replay, terminal-failure handling, and directed bridge
-identity, then attribute the corresponding Eventing and bridge costs. This
-does not claim that Eventing universally improves a Digital Twin; it evaluates
-one bounded, versioned contract and workload family.
+The independent Eventing responsibility makes topology and cost ownership
+explicit. All six directed Core telemetry paths passed the bounded readback
+contract, and the ledger exposes substantial broker and bridge contributions.
+These observations do not exhaust ordering, replay, failure recovery or directed
+command return. Nor does the modeled difference isolate the effect of adding
+Eventing to the historical architecture: service mappings and functional scope
+also differ. The supported result is traceable routing and cost attribution for
+one bounded contract, not a universal architectural improvement.
 
 \section{Architecture and Pattern Trade-offs}
 
@@ -91,8 +89,10 @@ keeps clear seams, while the PoC avoids promising a generic optimization or
 architecture framework.
 
 The immutable Twin lifecycle similarly trades operational flexibility for
-traceability. Duplicate, Import, Deploy, Destroy, and post-Destroy Re-deploy
-are sufficient for the evaluation. In-place Terraform updates, migrations,
+traceability. Duplicate, Import, Deploy, and Destroy are sufficient for the
+evaluation. A successfully deployed Twin is not modified or redeployed in
+place; a new definition is created through duplication. A failed first
+deployment can be retried after cleanup and renewed preparation. In-place Terraform updates, migrations,
 rollbacks, and continuous re-optimization would require new evidence and state
 contracts and are therefore outside scope.
 
@@ -102,6 +102,71 @@ or Destroy. In contrast, application OAuth, SAML, RBAC, and multi-tenancy would
 not strengthen the research answers and were removed from the runtime path.
 
 \section{Simplifications and Limitations}
+
+\subsection{Attempted Automatic Price Acquisition and Scope Boundary}
+\label{sec:pricing-acquisition-scope}
+
+Automatic price acquisition was implemented and investigated during the
+development of the PoC. The approach included provider-specific fetchers for
+AWS, Azure, and GCP, extraction and matching of pricing candidates, and
+regression checks. It was therefore more than a proposed future capability.
+The development history records repeated refinements to matching evidence,
+Azure Digital Twins billing semantics, and cross-cloud transfer pricing before
+the automatic refresh path was deliberately removed in favor of frozen,
+source-attributed pricing snapshots.\footnote{Repository checkpoints:
+\texttt{8f980bde} (fetcher matching evidence), \texttt{4bf4a10d} (Azure Digital
+Twins billing), \texttt{48458db1} (transfer pricing), and \texttt{b10df896}
+(retirement of the live pricing-catalog boundary).}
+
+The difficulty was not limited to obtaining current numbers through an API.
+The providers expose heterogeneous service editions, regional identifiers,
+billing meters, and tariff structures that are not directly interchangeable.
+Selecting a price required interpreting which resource and operation it
+represented and how the modeled workload consumed it. Reliable, general
+automation of both acquisition and semantic integration, including its ongoing
+validation and maintenance, would have expanded the implementation beyond the
+scope of this master's thesis. Freezing the inputs was consequently a
+deliberate research-scope decision, not evidence that cloud-price automation
+is technically impossible. A later documentation-level assessment of
+Infracost did not constitute an implemented replacement or a comparative
+tool-validation experiment.
+
+% Authoring note (2026-09-08; wording deferred): acknowledge Infracost resource
+% pricing as an existing alternative. Integration plus service coverage,
+% billing-semantics and Optimizer-output validation was excluded from the
+% remaining thesis scope, not demonstrated to be infeasible. See the authoring
+% note in docs/research/research_questions_and_evaluation_design.md for sources.
+
+\subsection{Normalization Effort Remains Without Automatic Fetching}
+
+Abandoning automatic fetching did not eliminate the substantial engineering
+effort required to make cloud prices comparable and calculable. Curated price
+inputs still required the following work:
+
+\begin{itemize}
+    \item mapping a shared workload to provider-specific operations, payload
+    increments, storage quantities, and provisioned capacity;
+    \item preserving distinctions such as decimal GB versus binary GiB,
+    per-request versus volume-based charges, and capacity-hour versus
+    consumption-based pricing;
+    \item representing price tiers, account-wide allowances, aggregation
+    scopes, and minimum-duration or monthly billing rules; and
+    \item attributing storage transitions, transfer, adapters, and shared
+    resources without omitting or double-counting their costs.
+\end{itemize}
+
+These tasks required semantic modeling and validation, not merely conversion
+into a common JSON structure. A shared currency or billing unit alone also
+does not establish functional equivalence between provider service bundles.
+This work contributes to RQ1 as an operationalization burden, to RQ2 through
+explicit comparability assumptions, and to RQ3 through defensible cost
+formulas and attribution. The effort is reported qualitatively through the
+implementation trace; no measured person-hour total or monetary development
+cost is inferred. Frozen snapshots make the calculations reproducible, but
+do not remove pricing drift, interpretation errors, or limitations of the
+chosen workload and service mappings.
+
+\subsection{Remaining PoC Limitations}
 
 The principal limitations are:
 
@@ -119,8 +184,12 @@ The principal limitations are:
     \item provider account creation, billing recovery, quota approval,
     organization policy, and broad consent remain external;
     \item no embedded dashboard administration or general operations console;
-    and
-    \item nine supervised Small scenarios rather than exhaustive architecture,
+    \item AWS/Azure L5 is a bounded snapshot rather than Managed Grafana, and
+    GCP L4/L5 are excluded from the live comparison;
+    \item the retained monolithic Terraform root requires an explicitly enabled
+    auxiliary Azure provider authentication context even for an AWS-only native
+    plan; this does not authorize or create Azure resources; and
+    \item nine supervised Core scenarios rather than exhaustive architecture,
     region, workload, concurrency, or failure-injection coverage.
 \end{itemize}
 

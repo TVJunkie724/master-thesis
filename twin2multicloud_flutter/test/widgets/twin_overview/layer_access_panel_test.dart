@@ -7,6 +7,7 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.d
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
 import 'package:twin2multicloud_flutter/widgets/twin_overview/layer_access_panel.dart';
+import 'package:twin2multicloud_flutter/widgets/twin_overview/twin_overview_strings.dart';
 
 void main() {
   testWidgets('renders exactly one ready L4 and L5 card with enabled Open', (
@@ -22,7 +23,8 @@ void main() {
     expect(find.byKey(const Key('layer-access-card-l4')), findsOneWidget);
     expect(find.byKey(const Key('layer-access-card-l5')), findsOneWidget);
     expect(find.text('Azure Digital Twins Explorer'), findsOneWidget);
-    expect(find.text('Amazon Managed Grafana'), findsOneWidget);
+    expect(find.text('AWS Raw-history Reader'), findsOneWidget);
+    expect(find.text(TwinOverviewStrings.snapshotScope), findsOneWidget);
     expect(_filledButton(tester, 'open-layer-l4').onPressed, isNotNull);
     expect(_filledButton(tester, 'open-layer-l5').onPressed, isNotNull);
 
@@ -31,23 +33,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('open-layer-l5')));
     expect(opened, [DeploymentLayer.l4, DeploymentLayer.l5]);
-  });
-
-  testWidgets('GCP L5 exposes one rotation action and invokes it once', (
-    tester,
-  ) async {
-    var rotations = 0;
-    await _pumpHost(
-      tester,
-      state: _state(l5: CloudProvider.gcp),
-      onRotate: () => rotations += 1,
-    );
-
-    expect(find.byKey(const Key('rotate-gcp-viewer')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('rotate-gcp-viewer')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('rotate-gcp-viewer')));
-    expect(rotations, 1);
   });
 
   testWidgets('failed GET shows isolated error and Retry without cards', (
@@ -152,7 +137,7 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.byKey(const Key('layer-access-card-l4')), findsOneWidget);
-        expect(find.byKey(const Key('rotate-gcp-viewer')), findsOneWidget);
+        expect(find.byKey(const Key('open-layer-l5')), findsOneWidget);
       },
     );
   }
@@ -193,7 +178,6 @@ void main() {
       'open-layer-l4',
       'layer-access-details-l4',
       'open-layer-l5',
-      'rotate-gcp-viewer',
       'layer-access-details-l5',
     ]) {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -250,7 +234,6 @@ Future<void> _pumpHost(
   Brightness brightness = Brightness.light,
   VoidCallback? onRetry,
   ValueChanged<DeploymentAccessSurface>? onOpen,
-  VoidCallback? onRotate,
 }) async {
   await tester.binding.setSurfaceSize(Size(width, 1200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -266,7 +249,6 @@ Future<void> _pumpHost(
               state: state,
               onRetry: onRetry ?? () {},
               onOpenSurface: onOpen ?? (_) {},
-              onRotateViewerCredential: onRotate ?? () {},
             ),
           ),
         ),
@@ -333,22 +315,22 @@ Map<String, dynamic> _surface(
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_managed_grafana',
-      'Amazon Managed Grafana',
-      'aws_identity_center',
+      'aws_l5_visualization',
+      'AWS Raw-history Reader',
+      'aws_sigv4',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.azure) => (
-      'azure_managed_grafana',
-      'Azure Managed Grafana',
-      'azure_entra',
+      'azure_l5_visualization',
+      'Azure Raw-history Reader',
+      'azure_function_key',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.gcp) => (
-      'gcp_grafana_oss',
-      'Grafana OSS on GKE',
-      'generated_viewer',
-      'rotate',
+      'gcp_raw_history_reader',
+      'GCP Raw-history Reader',
+      'gcp_identity_token',
+      'none',
     ),
   };
   return {

@@ -27,7 +27,9 @@ locals {
 # ==============================================================================
 
 data "aws_iot_endpoint" "main" {
-  count         = local.l1_aws_enabled ? 1 : 0
+  # Both profiles need the account data endpoint. The legacy resource guard
+  # excludes Six-layer, but its command adapter still needs this read-only input.
+  count         = var.layer_1_provider == "aws" ? 1 : 0
   endpoint_type = "iot:Data-ATS"
 }
 

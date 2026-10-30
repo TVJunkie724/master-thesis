@@ -1,6 +1,7 @@
 """Azure Six-layer canonical envelope parity tests."""
 
 from datetime import datetime, timedelta, timezone
+import json
 import importlib.util
 from pathlib import Path
 import sys
@@ -86,6 +87,41 @@ def _event(**overrides):
     }
     value.update(overrides)
     return value
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_c2d_uses_service_sdk_preserves_trace_and_closes_client(monkeypatch, caplog, failure):
+    client = MagicMock()
+    connection = client.amqp_svc_client
+    if failure:
+        client.send_c2d_message.side_effect = RuntimeError("sensitive-error-text")
+    factory = MagicMock(return_value=client)
+    monkeypatch.setattr(function_app, "_iot_command_client", factory)
+    monkeypatch.setenv("SIX_LAYER_IOT_HUB_HOSTNAME", "test.azure-devices.net")
+    event = _event(event_type="device.command.requested.v1", source_sequence="TRACE-ABCDEF12",
+                   payload={"device_id": "device-1", "message": "cool-down"})
+    assert function_app._send_device_command(event) is (not failure)
+    factory.assert_called_once_with("test.azure-devices.net")
+    sent = client.send_c2d_message.call_args
+    assert sent.args[0] == "device-1"
+    assert json.loads(sent.args[1]) == {"message": "cool-down", "trace_id": "TRACE-ABCDEF12"}
+    assert sent.kwargs["properties"]["messageId"] == event["event_id"]
+    connection.disconnect_sync.assert_called_once_with()
+    assert client.amqp_svc_client is None
+    assert "sensitive-error-text" not in caplog.text
+
+
+def test_c2d_missing_host_never_constructs_client(monkeypatch):
+    factory = MagicMock()
+    monkeypatch.setattr(function_app, "_iot_command_client", factory)
+    monkeypatch.delenv("SIX_LAYER_IOT_HUB_HOSTNAME", raising=False)
+    assert function_app._send_device_command(_event()) is False
+    factory.assert_not_called()
+
+
+def test_c2d_dependencies_are_pinned_for_python312():
+    requirements = CORE_PATH.with_name("requirements.txt").read_text().splitlines()
+    assert {"azure-iot-hub==2.7.0", "uamqp==1.6.11", "six==1.17.0"} <= set(requirements)
 
 
 def test_accepts_exact_canonical_event_and_partition_key():
@@ -699,6 +735,11 @@ def test_cosmos_queries_are_partition_scoped_and_points_are_typed():
     assert "c.device_id = @device_id" in raw
     assert "c.kind = 'raw'" in raw
     assert "c.kind = 'hourly_rollup'" in rollup
+    # VALUE is a Cosmos query keyword; dot notation fails with SC1001 live.
+    assert 'c["value"]' in raw
+    assert "c.value" not in raw
+    for name in ("min", "max", "sum", "count"):
+        assert f'c["{name}"]' in rollup
     assert core.normalize_history_points(
         [
             {

@@ -22,7 +22,6 @@ Note:
 
 from datetime import datetime, timedelta, timezone
 import logging
-import secrets
 import time
 from typing import TYPE_CHECKING, Optional, Dict, Any
 
@@ -40,13 +39,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 MANAGEMENT_API_VERSION = "2025-08-01"
-APP_SERVICE_API_VERSION = "2025-05-01"
 JSON_DATASOURCE_PLUGIN_ID = "marcusolsson-json-datasource"
-JSON_DATASOURCE_PLUGIN_VERSION = "1.4.0"
+JSON_DATASOURCE_PLUGIN_VERSION = "1.4.1"
 SIX_LAYER_DATASOURCE_UID = "t2mc-azure-hot-reader"
 SIX_LAYER_FOLDER_UID = "t2mc-raw-rollups"
 SIX_LAYER_DASHBOARD_UID = "t2mc-raw-rollups"
-SIX_LAYER_READER_FUNCTION_NAME = "six-layer-raw-history-reader"
 _TRANSIENT_GRAFANA_READINESS_CODES = frozenset({403, 404, 429, 502, 503, 504})
 
 
@@ -150,44 +147,22 @@ def _workspace_arm_url(provider: "AzureProvider", workspace_name: str) -> str:
     )
 
 
-def _function_arm_url(
-    provider: "AzureProvider", function_app_name: str, suffix: str
-) -> str:
-    return (
-        "https://management.azure.com/subscriptions/"
-        f"{provider.subscription_id}/resourceGroups/{provider.naming.resource_group()}"
-        f"/providers/Microsoft.Web/sites/{function_app_name}"
-        f"/functions/{SIX_LAYER_READER_FUNCTION_NAME}/{suffix}"
-    )
-
-
 def _require_status(response, allowed: tuple[int, ...], operation: str) -> None:
     if response.status_code not in allowed:
         raise RuntimeError(f"{operation} returned HTTP {response.status_code}")
 
 
-def _ensure_managed_grafana_plugin(
+def _verify_managed_grafana_workspace(
     provider: "AzureProvider", workspace_name: str
 ) -> None:
-    """Fail closed unless Azure offers and loads the frozen v2 plugin."""
+    """Check the workspace; JSON API is built in, not a catalog installation.
+
+    The authenticated plugin-settings probe below verifies the loaded version.
+    Azure's optional-plugin catalog does not include this built-in datasource.
+    """
 
     token = _get_management_token(provider)
     workspace_url = _workspace_arm_url(provider, workspace_name)
-    response = requests.post(
-        f"{workspace_url}/fetchAvailablePlugins?api-version={MANAGEMENT_API_VERSION}",
-        headers=_headers(token),
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Grafana plugin catalog preflight")
-    available = response.json().get("value", [])
-    if not any(
-        isinstance(item, dict) and item.get("pluginId") == JSON_DATASOURCE_PLUGIN_ID
-        for item in available
-    ):
-        raise RuntimeError(
-            f"Azure Managed Grafana does not offer {JSON_DATASOURCE_PLUGIN_ID}"
-        )
-
     response = requests.get(
         f"{workspace_url}?api-version={MANAGEMENT_API_VERSION}",
         headers=_headers(token),
@@ -197,31 +172,14 @@ def _ensure_managed_grafana_plugin(
     properties = response.json().get("properties", {})
     if str(properties.get("grafanaMajorVersion")) != "12":
         raise RuntimeError("Azure Managed Grafana workspace is not on major version 12")
-    installed = properties.get("grafanaPlugins", {})
-    if not isinstance(installed, dict) or JSON_DATASOURCE_PLUGIN_ID not in installed:
-        response = requests.patch(
-            f"{workspace_url}?api-version={MANAGEMENT_API_VERSION}",
-            headers=_headers(token),
-            json={
-                "properties": {
-                    "grafanaPlugins": {
-                        JSON_DATASOURCE_PLUGIN_ID: {
-                            "pluginId": JSON_DATASOURCE_PLUGIN_ID
-                        }
-                    }
-                }
-            },
-            timeout=30,
-        )
-        _require_status(response, (200, 202), "Azure Grafana plugin installation")
 
 
 def _wait_for_exact_plugin(
     grafana_url: str,
     grafana_token: str,
     *,
-    attempts: int = 12,
-    delay_seconds: float = 5,
+    attempts: int = 40,
+    delay_seconds: float = 15,
 ) -> None:
     headers = _headers(grafana_token)
     last_detail = "no response"
@@ -267,40 +225,10 @@ def _wait_for_exact_plugin(
 def _ensure_reader_function_key(
     provider: "AzureProvider", function_app_name: str
 ) -> str:
-    """Create once or reuse one function-scoped key without logging it."""
+    """Reuse the already verified L3 function key; never create host/admin keys."""
+    from .layer_5_raw_history import _reader_key
 
-    token = _get_management_token(provider)
-    headers = _headers(token)
-    response = requests.post(
-        _function_arm_url(provider, function_app_name, "listkeys")
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Function key lookup")
-    properties = response.json().get("properties", {})
-    existing = (
-        properties.get("twin2multicloud-grafana")
-        if isinstance(properties, dict)
-        else None
-    )
-    if isinstance(existing, str) and existing:
-        return existing
-
-    value = secrets.token_urlsafe(32)
-    response = requests.put(
-        _function_arm_url(
-            provider,
-            function_app_name,
-            "keys/twin2multicloud-grafana",
-        )
-        + f"?api-version={APP_SERVICE_API_VERSION}",
-        headers=headers,
-        json={"name": "twin2multicloud-grafana", "value": value},
-        timeout=30,
-    )
-    _require_status(response, (200, 201), "Azure Function key creation")
-    return value
+    return _reader_key(provider, function_app_name)
 
 
 # ==========================================
@@ -635,7 +563,7 @@ def _v2_dashboard(
         "timezone": "browser",
         "schemaVersion": 41,
         "version": 0,
-        "refresh": "30s",
+        "refresh": "",
         "time": {"from": "now-6h", "to": "now"},
         "panels": [
             {
@@ -757,8 +685,8 @@ def _probe_v2_surface(
         (3600, now - timedelta(days=30)),
     ):
         response = requests.get(
-            hot_reader_url,
-            headers={"x-functions-key": function_key},
+            f"{grafana_url}/api/datasources/proxy/uid/{SIX_LAYER_DATASOURCE_UID}/",
+            headers=_headers(grafana_token),
             params={
                 "device_id": device_id,
                 "metric": metric,
@@ -775,14 +703,8 @@ def _probe_v2_surface(
                 "Azure raw-history query probe returned an invalid contract"
             )
     headers = _headers(grafana_token)
-    response = requests.get(
-        f"{grafana_url}/api/datasources/uid/{SIX_LAYER_DATASOURCE_UID}/health",
-        headers=headers,
-        timeout=30,
-    )
-    _require_status(response, (200,), "Azure Grafana datasource health probe")
-    if response.json().get("status") != "OK":
-        raise RuntimeError("Azure Grafana datasource health probe was not OK")
+    # JSON API is a frontend datasource. Its actual proxy request above, not
+    # the optional backend /health endpoint, verifies the stored function key.
     response = requests.get(
         f"{grafana_url}/api/dashboards/uid/{SIX_LAYER_DASHBOARD_UID}",
         headers=headers,
@@ -816,7 +738,7 @@ def configure_six_layer_grafana(
         )
     ):
         raise ValueError("Azure Phase 8 Grafana inputs must be non-empty")
-    _ensure_managed_grafana_plugin(provider, workspace_name)
+    _verify_managed_grafana_workspace(provider, workspace_name)
     grafana_token = _get_grafana_service_account_token(provider)
     if not grafana_token:
         raise RuntimeError("Azure Grafana service-account token was not created")

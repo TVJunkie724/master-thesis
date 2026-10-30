@@ -77,7 +77,9 @@ def _parse_aws(
     unknown = sorted(set(normalized_headers) - set(_AWS_FIELDS))
     if unknown:
         raise ValueError("AWS credential CSV contains unsupported columns")
-    rows = [row for row in reader if any(str(value or "").strip() for value in row.values())]
+    rows = [
+        row for row in reader if any(str(value or "").strip() for value in row.values())
+    ]
     if len(rows) != 1:
         raise ValueError("AWS credential CSV must contain exactly one credential row")
     values: dict[str, str] = {}

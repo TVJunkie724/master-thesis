@@ -2,6 +2,7 @@
 
 from fastapi.testclient import TestClient
 from unittest.mock import patch
+import pytest
 
 import rest_api
 from src.api.preflight import build_provider_preflight
@@ -30,6 +31,35 @@ GCP_PAYLOAD = {
     "gcp_credentials_file": '{"type":"service_account","client_email":"deployer@demo-project.iam.gserviceaccount.com","private_key":"super-secret-key"}',
     "gcp_region": "europe-west1",
 }
+
+
+@pytest.mark.parametrize("provider,extra", [
+    ("aws", {"sts_region_validation": {"status": "ready"}}),
+    ("azure", {"microsoft_graph_authority": {"status": "ready"}}),
+    ("gcp", {}),
+])
+@pytest.mark.parametrize("status", ["invalid", "partial", "check_failed", "unknown"])
+def test_successful_partial_checks_never_override_failed_checker(provider, extra, status):
+    result = build_provider_preflight(provider, {"status": status, **extra})
+    assert result.ready is False
+    assert result.status == "failed"
+    assert any(check.status == "failed" for check in result.checks)
+
+
+@patch("src.api.credentials_checker._create_session")
+def test_invalid_aws_token_fails_through_actual_checker_and_http_adapter(mock_session):
+    from botocore.exceptions import ClientError
+
+    mock_session.return_value.client.return_value.get_caller_identity.side_effect = ClientError(
+        {"Error": {"Code": "InvalidClientTokenId", "Message": "Invalid"}},
+        "GetCallerIdentity",
+    )
+    response = client.post("/permissions/preflight/aws", json=AWS_PAYLOAD)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["ready"] is False
+    assert all(check["code"] != "REGIONAL_STS_READY" for check in result["checks"])
+    assert result["checks"][0]["name"] == "provider_validation"
 
 
 @patch("src.api.credentials.check_aws_credentials")
@@ -161,6 +191,7 @@ def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
             "microsoft_graph_authority": {
                 "status": "consent_required",
                 "message": "Tenant admin consent is missing.",
+                "missing_permissions": ["Application.ReadWrite.All"],
             },
         },
     )
@@ -169,6 +200,35 @@ def test_azure_preflight_reports_graph_consent_as_explicit_authority_failure():
     assert [check.code for check in data.checks] == [
         "AZURE_READY",
         "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+    ]
+    assert data.checks[1].permissions == [
+        "Microsoft Graph: Application.ReadWrite.All"
+    ]
+
+
+def test_azure_preflight_keeps_rbac_and_graph_failures_separate():
+    data = build_provider_preflight(
+        "azure",
+        {
+            "status": "partial",
+            "message": "repair required",
+            "administrator_authority": {
+                "status": "invalid",
+                "message": "subscription Owner is missing",
+                "owner_assignment_found": False,
+                "missing_actions": ["Microsoft.Authorization/roleAssignments/write"],
+            },
+            "microsoft_graph_authority": {
+                "status": "ready",
+                "message": "ready",
+            },
+        },
+    )
+
+    assert data.ready is False
+    assert [check.code for check in data.checks] == [
+        "MICROSOFT_GRAPH_AUTHORITY_READY",
+        "AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
     ]
 
 

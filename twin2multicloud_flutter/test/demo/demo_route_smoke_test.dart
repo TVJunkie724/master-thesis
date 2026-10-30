@@ -67,13 +67,11 @@ void main() {
           expect(find.byType(entry.value), findsOneWidget);
           expect(find.textContaining('Offline demo'), findsOneWidget);
           if (entry.key == '/dashboard') {
-            expect(
-              find.text('Digital Twin research inventory'),
-              findsOneWidget,
-            );
+            expect(find.text('Twin experiments'), findsOneWidget);
             expect(find.text('Import Twin'), findsOneWidget);
             expect(find.text('New Twin'), findsOneWidget);
-            expect(find.text('Destroyed'), findsOneWidget);
+            expect(find.byType(FilterChip), findsNothing);
+            expect(find.byType(DataTable), findsNothing);
             expect(find.text('Pricing readiness'), findsNothing);
             expect(find.text('Est. Cost'), findsNothing);
           }

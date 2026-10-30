@@ -102,7 +102,7 @@ class _CloudConnectionCreateDialogState
       CloudConnectionCreateRequest(
         provider: widget.provider,
         displayName: displayName,
-        credentials: payloadForm.credentials(),
+        credentials: payloadForm.takeCredentials(),
       ),
     );
   }

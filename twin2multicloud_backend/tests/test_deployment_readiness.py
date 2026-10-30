@@ -262,6 +262,31 @@ def test_readiness_contract_rejects_inconsistent_or_empty_provider_evidence():
 
 
 @pytest.mark.asyncio
+async def test_preflight_legacy_required_column_fails_then_upgrade_restores_flow(db_session):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+    from migrations.drop_removed_preflight_columns import migrate
+
+    user = _create_user(db_session)
+    twin, _ = _create_twin(db_session, user, ("aws",))
+    twin_id, user_id = twin.id, user.id
+    db_session.execute(text(
+        "ALTER TABLE deployment_preflight_cache ADD COLUMN supplied_permission_set_version TEXT"
+    ))
+    db_session.execute(text(
+        "ALTER TABLE deployment_preflight_cache ADD COLUMN expected_permission_set_version TEXT NOT NULL"
+    ))
+    db_session.commit()
+    service = DeploymentReadinessService(db_session, validator=_successful_validator)
+    with pytest.raises(IntegrityError, match="expected_permission_set_version"):
+        await service.run_preflight(twin_id, user_id)
+    db_session.rollback()
+    migrate(str(db_session.get_bind().url))
+    assert (await service.run_preflight(twin_id, user_id)).ready is True
+    assert service.get_cached(twin_id, user_id).ready is True
+
+
+@pytest.mark.asyncio
 async def test_three_provider_preflight_is_deterministic_cached_and_secret_free(
     db_session,
 ):
@@ -641,6 +666,44 @@ def test_optional_authority_checks_are_filtered_by_resolved_graph():
     )
 
     assert [check.code for check in filtered] == ["AZURE_READY"]
+
+
+def test_azure_admin_and_optional_graph_failures_remain_independent():
+    checks = [
+        DeploymentReadinessCheck(
+            component="deployer.credentials",
+            status="failed",
+            code="AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
+            message="Subscription Owner is missing.",
+            action="Grant Owner at subscription scope.",
+        ),
+        DeploymentReadinessCheck(
+            component="deployer.microsoft_graph_authority",
+            status="failed",
+            code="MICROSOFT_GRAPH_CONSENT_REQUIRED",
+            message="Graph consent is missing.",
+            action="Grant admin consent.",
+        ),
+    ]
+
+    with_graph = DeploymentReadinessService._checks_for_graph(
+        checks,
+        [
+            {
+                "capability_id": "azure.microsoft-graph.authority",
+                "provider": "azure",
+            }
+        ],
+    )
+    without_graph = DeploymentReadinessService._checks_for_graph(checks, [])
+
+    assert [check.code for check in with_graph] == [
+        "AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
+        "MICROSOFT_GRAPH_CONSENT_REQUIRED",
+    ]
+    assert [check.code for check in without_graph] == [
+        "AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
+    ]
 
 
 @pytest.mark.asyncio

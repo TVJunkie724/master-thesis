@@ -7,9 +7,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.providers.aws.layers import layer_5_grafana as aws_layer_5_grafana
-from src.providers.azure.layers import layer_4_adt, layer_5_grafana
+from src.providers.azure.layers import layer_4_adt, layer_5_grafana, layer_5_raw_history
 from src.providers.terraform import aws_deployer, azure_deployer
 from src.providers.terraform.runtime_outcome import ProviderRuntimeError, RuntimeRun
+from src.providers.terraform import provider_runtime
 
 
 class ConflictError(Exception):
@@ -21,6 +22,57 @@ class ResourceNotFoundError(Exception):
 
 
 TERRAFORM_ROOT = Path(__file__).resolve().parents[3] / "src" / "terraform"
+
+
+def test_azure_postapply_logs_ordered_phases_without_changing_outcome(monkeypatch, caplog):
+    called = []
+    for name in ("verify_azure_storage_read_access", "upload_dtdl_models",
+                 "register_azure_iot_devices", "configure_azure_visualization"):
+        monkeypatch.setattr(provider_runtime, name,
+                            lambda *args, name=name: called.append(name))
+    evidence = object()
+    monkeypatch.setattr(provider_runtime, "collect_deployment_access_runtime_evidence",
+                        lambda *args: evidence)
+    context = SimpleNamespace(resolved_deployment_graph=SimpleNamespace(
+        profile_ref={"id": "six-layer-eventing"}))
+    config = {key: "azure" for key in ("layer_1_provider", "layer_3_hot_provider",
+                                      "layer_4_provider", "layer_5_provider")}
+    with caplog.at_level("INFO"):
+        assert provider_runtime.run_post_deployment(context, Path("."), config, {}) is evidence
+    assert called == ["verify_azure_storage_read_access", "upload_dtdl_models",
+                      "register_azure_iot_devices", "configure_azure_visualization"]
+    for phase in ("storage-read", "twin-seed", "iot-devices", "visualization"):
+        assert f"phase={phase} state=started" in caplog.text
+        assert f"phase={phase} state=complete" in caplog.text
+
+
+def test_azure_postapply_failure_retains_exception_but_never_logs_secret_text(caplog):
+    class Denied(Exception):
+        status_code = 403
+    failure = Denied("client_secret=must-not-leak https://private.azurewebsites.net")
+    def action():
+        raise failure
+    with caplog.at_level("INFO"), pytest.raises(Denied) as caught:
+        provider_runtime._azure_post_step("twin-seed", action)
+    assert caught.value is failure
+    assert failure._azure_postapply_phase == "twin-seed"
+    assert "phase=twin-seed state=failed" in caplog.text
+    assert "error_type=Denied http=403" in caplog.text
+    assert "must-not-leak" not in caplog.text
+    assert "azurewebsites.net" not in caplog.text
+
+
+@pytest.mark.parametrize("message, expected", [
+    ("Reader returned HTTP 503; client_secret=must-not-leak", 503),
+    ("client_secret=must-not-leak", None),
+])
+def test_azure_postapply_extracts_only_known_http_status(message, expected, caplog):
+    failure = RuntimeError(message)
+    with caplog.at_level("INFO"), pytest.raises(RuntimeError):
+        provider_runtime._azure_post_step(
+            "storage-read", lambda: (_ for _ in ()).throw(failure))
+    assert failure._azure_postapply_http_status == expected
+    assert "must-not-leak" not in caplog.text
 
 
 def _aws_context(
@@ -83,11 +135,45 @@ def test_aws_six_layer_identity_center_user_requires_explicit_invite_intent():
     assert "terraform_data.aws_six_layer_layer_access_principal_admission" in terraform
 
 
-def test_gcp_grafana_readiness_waits_for_content_probe_marker():
+def test_gcp_l3_reader_is_authenticated_cloud_run_without_dashboard_resources():
     terraform = (TERRAFORM_ROOT / "gcp_six_layer.tf").read_text("utf-8")
 
-    assert 'command = ["test", "-f", "/tmp/twin2multicloud-ready"]' in terraform
-    assert terraform.count('path   = "/api/health"') == 1
+    assert "invoker_iam_disabled = false" in terraform
+    assert 'role     = "roles/run.invoker"' in terraform
+    assert (
+        'member   = "serviceAccount:${var.gcp_deployment_principal_email}"' in terraform
+    )
+    assert "grafana" not in terraform.lower()
+
+
+@pytest.mark.parametrize("provider", ("aws", "azure", "gcp"))
+def test_reader_lifecycle_remains_l3_owned(provider):
+    terraform = (TERRAFORM_ROOT / f"{provider}_six_layer.tf").read_text("utf-8")
+    assert f'output "{provider}_component_storage_read_access_output"' in terraform
+    if provider in {"aws", "azure"}:
+        assert 'content_revision    = "managed-grafana-l5.v1"' in terraform
+        visualization = (TERRAFORM_ROOT / "six_layer_visualization.tf").read_text("utf-8")
+        assert f"local.{provider}_six_layer_l5_enabled ? 1 : 0" in visualization
+        assert 'resource "aws_grafana_workspace"' in visualization
+        assert 'resource "azurerm_dashboard_grafana"' in visualization
+        assert 'L5_ALLOW_EMPTY' not in visualization
+        assert 'aws_dynamodb_table' not in visualization
+        assert 'azurerm_cosmosdb' not in visualization
+    else:
+        assert "Deprecated readback compatibility alias" in terraform
+
+
+@pytest.mark.parametrize("provider", ("aws", "azure"))
+def test_raw_history_verification_cannot_complete_graphical_l5(provider):
+    context = SimpleNamespace(
+        providers={provider: object()},
+        resolved_deployment_graph=SimpleNamespace(
+            profile_ref={"id": "six-layer-eventing", "version": "1"}
+        ),
+    )
+    module = aws_deployer if provider == "aws" else azure_deployer
+    with pytest.raises(ValueError, match="Managed Grafana output and L3 reader are required"):
+        getattr(module, f"configure_{provider}_visualization")(context, {})
 
 
 def test_gcp_twin_explorer_readiness_waits_for_seed_readback():
@@ -166,12 +252,17 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
             {
                 "entityId": kwargs["entityId"],
                 "parentEntityId": kwargs.get("parentEntityId"),
+                "status": {"state": "ACTIVE"},
                 "components": {},
             },
         )
 
     def create_component_type(**kwargs):
-        component_types[kwargs["componentTypeId"]] = {"status": {"state": "ACTIVE"}}
+        assert "functions" not in kwargs
+        component_types[kwargs["componentTypeId"]] = {
+            "status": {"state": "ACTIVE"},
+            "propertyDefinitions": kwargs["propertyDefinitions"],
+        }
 
     def update_entity(**kwargs):
         entities[kwargs["entityId"]]["components"].update(kwargs["componentUpdates"])
@@ -185,14 +276,13 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
     provider.clients["twinmaker"].get_entity = lambda **kwargs: entities[
         kwargs["entityId"]
     ]
+    del provider.clients["lambda"]  # The native seed must not resolve a connector.
 
     aws_deployer.create_twinmaker_entities(
         context,
         tmp_path,
         {
-            "aws_twinmaker_workspace_id": "workspace",
-            "aws_l4_connector_function_arn": "connector",
-            "aws_l4_connector_last_entry_function_arn": "last-entry",
+            "aws_component_twin_state_output": {"workspace_id": "workspace"},
         },
     )
 
@@ -205,6 +295,38 @@ def test_active_profile_creates_and_reads_back_deterministic_aws_seed(
     assert component["componentTypeId"] == (
         f"factory-{aws_deployer.SIX_LAYER_SEED_COMPONENT_NAME}"
     )
+    definitions = component_types[component["componentTypeId"]]["propertyDefinitions"]
+    assert set(definitions) == {"schemaVersion", "metric", "value", "sourceSequence", "observedAt", "lastEventId"}
+    assert all(not prop["isTimeSeries"] and not prop["isStoredExternally"] for prop in definitions.values())
+
+
+def test_legacy_external_component_definition_is_unchanged():
+    properties = aws_deployer._component_properties({
+        "properties": [{"name": "value", "dataType": "DOUBLE"}],
+        "constProperties": [{"name": "unit", "value": "C"}],
+    })
+    assert properties["value"]["isTimeSeries"] is True
+    assert properties["value"]["isStoredExternally"] is True
+    assert properties["unit"]["defaultValue"] == {"stringValue": "C"}
+
+
+def test_native_seed_rejects_existing_external_component():
+    context, provider = _aws_context(profile=("six-layer-eventing", "1"))
+    twinmaker = provider.clients["twinmaker"]
+    twinmaker.create_component_type = MagicMock(side_effect=ConflictError)
+    twinmaker.get_component_type = MagicMock(return_value={"propertyDefinitions": {
+        "value": {"isTimeSeries": True, "isStoredExternally": True},
+    }})
+    twinmaker.update_entity = MagicMock()
+    run = RuntimeRun("AWS", "native seed", aws_deployer.logger)
+    node = aws_deployer._six_layer_seed(context)["children"][0]["children"][0]
+    aws_deployer._create_component(
+        run, twinmaker, workspace_id="workspace", twin_name="factory", node=node,
+        parent_id="sensor", connector_arn=None, connector_last_entry_arn=None,
+    )
+    with pytest.raises(ProviderRuntimeError):
+        run.raise_if_failed()
+    twinmaker.update_entity.assert_not_called()
 
 
 def test_iot_registration_continues_devices_and_fails_aggregate(monkeypatch, tmp_path):
@@ -238,21 +360,21 @@ def test_aws_grafana_requires_every_terraform_output():
     context, _provider = _aws_context()
 
     with pytest.raises(RuntimeError, match="Missing AWS Grafana outputs"):
-        aws_deployer.configure_aws_grafana(context, {})
+        aws_deployer.configure_aws_visualization(context, {})
 
 
 def test_azure_grafana_requires_hot_reader_output():
     context = SimpleNamespace(providers={"azure": object()})
 
     with pytest.raises(RuntimeError, match="azure_l3_hot_reader_url"):
-        azure_deployer.configure_azure_grafana(context, {})
+        azure_deployer.configure_azure_visualization(context, {})
 
 
 @pytest.mark.parametrize(
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
+def test_active_profile_azure_l3_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     graph = SimpleNamespace(profile_ref={"id": profile[0], "version": profile[1]})
     context = SimpleNamespace(
@@ -267,31 +389,147 @@ def test_active_profile_azure_grafana_uses_typed_output(monkeypatch, profile):
             ]
         ),
     )
-    configure = MagicMock()
-    monkeypatch.setattr(layer_5_grafana, "configure_six_layer_grafana", configure)
+    verify = MagicMock()
+    monkeypatch.setattr(layer_5_raw_history, "verify_raw_history_reader", verify)
 
-    azure_deployer.configure_azure_grafana(
+    azure_deployer.verify_azure_storage_read_access(
         context,
         {
-            "azure_component_visualization_output": {
-                "workspace_name": "factory-grafana",
-                "workspace_url": "https://grafana.example/",
-                "access_url": "https://grafana.example/d/t2mc-raw-rollups/raw-rollups",
-                "reader_url": "https://reader.example/api/raw-history/v1",
+            "azure_component_storage_read_access_output": {
+                "access_url": "https://reader.example/api/raw-history/v1",
                 "reader_function_name": "factory-history",
             }
         },
     )
 
-    configure.assert_called_once_with(
+    verify.assert_called_once_with(
         provider,
-        workspace_name="factory-grafana",
-        grafana_url="https://grafana.example",
-        hot_reader_url="https://reader.example/api/raw-history/v1",
+        endpoint="https://reader.example/api/raw-history/v1",
         function_app_name="factory-history",
         device_id="sensor-1",
         metric="temperature",
-        architecture_profile=f"{profile[0]}@{profile[1]}",
+    )
+
+
+def _azure_raw_history_provider():
+    return SimpleNamespace(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        naming=SimpleNamespace(resource_group=lambda: "rg-thesis-poc"),
+        credential=SimpleNamespace(
+            get_token=lambda _scope: SimpleNamespace(token="management-token")
+        ),
+    )
+
+
+def test_azure_raw_history_reuses_existing_function_key(monkeypatch):
+    provider = _azure_raw_history_provider()
+    post = MagicMock(
+        return_value=SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "properties": {layer_5_raw_history.KEY_NAME: "existing-evaluation-key"}
+            },
+        )
+    )
+    put = MagicMock()
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+
+    value = layer_5_raw_history._reader_key(provider, "history-reader")
+
+    assert value == "existing-evaluation-key"
+    assert (
+        "/functions/six-layer-raw-history-reader/listkeys?" in (post.call_args.args[0])
+    )
+    put.assert_not_called()
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_azure_raw_history_reuses_default_without_creating_a_key(monkeypatch, wrapped):
+    provider = _azure_raw_history_provider()
+    keys = {"default": "existing-function-key"}
+    monkeypatch.setattr(
+        layer_5_raw_history.requests,
+        "post",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status_code=200,
+            json=lambda: {"properties": keys} if wrapped else keys,
+        ),
+    )
+    put = MagicMock()
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+
+    value = layer_5_raw_history._reader_key(provider, "history-reader")
+
+    assert value == "existing-function-key"
+    put.assert_not_called()
+
+
+@pytest.mark.parametrize("wait_for_ready,attempts", [(True, 3), (False, 1)])
+def test_azure_raw_history_missing_key_fails_closed_without_creation(
+    monkeypatch, wait_for_ready, attempts
+):
+    post = MagicMock(return_value=SimpleNamespace(status_code=200, json=lambda: {}))
+    put, sleep = MagicMock(), MagicMock()
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.requests, "put", put)
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", sleep)
+    with pytest.raises(RuntimeError, match="access key is not ready"):
+        layer_5_raw_history._reader_key(
+            _azure_raw_history_provider(), "reader", wait_for_ready=wait_for_ready
+        )
+    assert post.call_count == attempts
+    assert sleep.call_count == attempts - 1
+    put.assert_not_called()
+
+
+def test_azure_raw_history_retries_registration_but_not_permission_errors(monkeypatch):
+    post = MagicMock(side_effect=[
+        SimpleNamespace(status_code=404),
+        SimpleNamespace(status_code=200, json=lambda: {"default": "ready-key"}),
+    ])
+    monkeypatch.setattr(layer_5_raw_history.requests, "post", post)
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", MagicMock())
+    assert layer_5_raw_history._reader_key(_azure_raw_history_provider(), "reader") == "ready-key"
+    post.reset_mock(side_effect=True)
+    post.return_value = SimpleNamespace(status_code=403)
+    with pytest.raises(RuntimeError, match="HTTP 403"):
+        layer_5_raw_history._reader_key(_azure_raw_history_provider(), "reader")
+    post.assert_called_once()
+
+
+def test_azure_raw_history_probe_is_authenticated_and_bounded(monkeypatch):
+    provider = _azure_raw_history_provider()
+    monkeypatch.setattr(
+        layer_5_raw_history,
+        "_reader_key",
+        lambda _provider, _app: "evaluation-key",
+    )
+    get = MagicMock(
+        return_value=SimpleNamespace(
+            status_code=200,
+            json=lambda: {"schema_version": "raw-history-query.v1"},
+        )
+    )
+    monkeypatch.setattr(layer_5_raw_history.requests, "get", get)
+
+    layer_5_raw_history.verify_raw_history_reader(
+        provider,
+        endpoint="https://reader.example/api/raw-history/v1",
+        function_app_name="history-reader",
+        device_id="sensor-1",
+        metric="temperature",
+    )
+
+    assert get.call_count == 2
+    assert [call.kwargs["params"]["bucket_seconds"] for call in get.call_args_list] == [
+        "0",
+        "3600",
+    ]
+    assert all(call.kwargs["params"]["limit"] == "1" for call in get.call_args_list)
+    assert all(
+        call.kwargs["headers"] == {"x-functions-key": "evaluation-key"}
+        for call in get.call_args_list
     )
 
 
@@ -454,11 +692,10 @@ def test_azure_six_layer_dashboard_has_bounded_raw_and_rollup_queries():
         dashboard["panels"][1]["targets"][0],
         dashboard["panels"][2]["targets"][0],
     ]
-    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
-        "0",
-        "3600",
-    ]
+    assert [dict(target["params"])["bucket_seconds"] for target in targets] == ["0", "3600"]
     assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert dashboard["refresh"] == ""
+    assert dashboard["time"]["from"] == "now-6h"
     assert (
         "No data is a valid initial state"
         in dashboard["panels"][0]["options"]["content"]
@@ -476,14 +713,14 @@ def test_azure_six_layer_dashboard_reports_resolved_profile():
     assert "six-layer-eventing@1" in dashboard["description"]
 
 
-def test_azure_six_layer_surface_probe_executes_reader_health_and_dashboard(
+def test_azure_six_layer_surface_probe_executes_grafana_proxy_and_dashboard(
     monkeypatch,
 ):
     calls = []
 
     def get(url, **kwargs):
         calls.append((url, kwargs))
-        if url == "https://reader.example/api/raw-history/v1":
+        if "/api/datasources/proxy/uid/" in url:
             return SimpleNamespace(
                 status_code=200,
                 json=lambda: {"schema_version": "raw-history-query.v1"},
@@ -503,16 +740,16 @@ def test_azure_six_layer_surface_probe_executes_reader_health_and_dashboard(
         metric="temperature",
     )
 
-    reader_calls = [call for call in calls if call[0].startswith("https://reader")]
+    reader_calls = [call for call in calls if "/api/datasources/proxy/uid/" in call[0]]
     assert [call[1]["params"]["bucket_seconds"] for call in reader_calls] == [
         "0",
         "3600",
     ]
     assert all(
-        call[1]["headers"] == {"x-functions-key": "function-secret"}
+        call[1]["headers"]["Authorization"] == "Bearer short-lived-token"
         for call in reader_calls
     )
-    assert calls[-2][0].endswith("/api/datasources/uid/t2mc-azure-hot-reader/health")
+    assert all("x-functions-key" not in call[1]["headers"] for call in reader_calls)
     assert calls[-1][0].endswith("/api/dashboards/uid/t2mc-raw-rollups")
 
 
@@ -529,11 +766,13 @@ def test_aws_six_layer_dashboard_has_bounded_raw_and_rollup_queries():
         dashboard["panels"][1]["targets"][0],
         dashboard["panels"][2]["targets"][0],
     ]
-    assert [dict(target["params"])["bucket_seconds"] for target in targets] == [
-        "0",
-        "3600",
-    ]
-    assert all(dict(target["params"])["limit"] == "1000" for target in targets)
+    assert "bucket_seconds=0&limit=1000" in targets[0]["url"]
+    assert "bucket_seconds=3600&limit=1000" in targets[1]["url"]
+    assert all(target["parser"] == "backend" for target in targets)
+    # The Infinity browser migrator dereferences url_options.method; the
+    # backend-only query API accepts its absence and cannot catch this defect.
+    assert all(target["url_options"]["method"] == "GET" for target in targets)
+    assert dashboard["refresh"] == ""
     assert "test-message utility" in dashboard["panels"][0]["options"]["content"]
 
 
@@ -570,7 +809,7 @@ def test_aws_six_layer_surface_probe_rejects_non_ok_datasource_health(monkeypatc
         )
 
 
-def test_aws_six_layer_datasource_keeps_reader_key_only_in_secure_data(monkeypatch):
+def test_aws_six_layer_datasource_keeps_reader_keys_only_in_secure_json(monkeypatch):
     not_found = SimpleNamespace(status_code=404)
     created = SimpleNamespace(status_code=201)
     create = MagicMock(return_value=created)
@@ -585,16 +824,19 @@ def test_aws_six_layer_datasource_keeps_reader_key_only_in_secure_data(monkeypat
         grafana_url="https://grafana.example",
         token="short-lived-token",
         reader_url="https://reader.example/",
-        reader_key="reader-secret",
+        region="eu-central-1",
+        reader_credentials={"AccessKeyId": "fixture-reader-key", "SecretAccessKey": "fixture-reader-secret"},
     )
 
     payload = create.call_args.kwargs["json"]
-    assert payload["jsonData"]["httpHeaderName1"] == "X-Twin-Reader-Key"
-    assert payload["secureJsonData"] == {"httpHeaderValue1": "reader-secret"}
-    assert "reader-secret" not in str(payload["jsonData"])
+    assert payload["jsonData"]["aws"] == {"authType": "keys", "region": "eu-central-1", "service": "lambda"}
+    assert payload["jsonData"]["allowedHosts"] == ["https://reader.example"]
+    assert payload["secureJsonData"] == {"awsAccessKey": "fixture-reader-key", "awsSecretKey": "fixture-reader-secret"}
+    assert "fixture-reader" not in str(payload["jsonData"])
+    assert "fixture-reader" not in payload["url"]
 
 
-def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypatch):
+def test_aws_six_layer_provisioner_tokens_are_revoked_when_content_setup_fails(monkeypatch):
     provider = SimpleNamespace()
     deleted = MagicMock()
     monkeypatch.setattr(aws_layer_5_grafana, "_install_reader_key", MagicMock())
@@ -610,30 +852,43 @@ def test_aws_six_layer_provisioner_is_deleted_when_content_setup_fails(monkeypat
     )
     monkeypatch.setattr(
         aws_layer_5_grafana,
-        "_delete_provisioning_service_account",
+        "_revoke_provisioning_tokens",
         deleted,
     )
 
-    with pytest.raises(RuntimeError, match="plugin unavailable"):
+    with pytest.raises(RuntimeError, match="plugin unavailable") as failure:
         aws_layer_5_grafana.configure_six_layer_grafana(
             provider,
             workspace_id="g-1234567890",
             grafana_url="https://grafana.example",
             reader_url="https://reader.example/",
             reader_function_name="reader",
+            reader_user_name="reader-user",
             device_id="sensor-1",
             metric="temperature",
             architecture_profile="six-layer-eventing@1",
         )
 
     deleted.assert_called_once_with(provider, "g-1234567890", "service-account")
+    assert failure.value._aws_grafana_stage == "plugin"
+
+
+def test_aws_grafana_failure_classifies_credentials_without_forwarding_response():
+    response = SimpleNamespace(status_code=400, text=(
+        'failed to refresh cached credentials, no EC2 IMDS role found; token=must-not-leak'))
+    with pytest.raises(RuntimeError) as failure:
+        aws_layer_5_grafana._require_status(response, (200,), "AWS Grafana backend query")
+    assert failure.value._aws_grafana_http_status == 400
+    assert failure.value._aws_grafana_cause == "credential-chain-unavailable"
+    assert "must-not-leak" not in str(failure.value)
+    assert "must-not-leak" not in str(vars(failure.value))
 
 
 @pytest.mark.parametrize(
     "profile",
     [("six-layer-eventing", "1"), ("six-layer-eventing", "1")],
 )
-def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile):
+def test_active_profile_aws_l3_uses_bounded_raw_history_probe(monkeypatch, profile):
     provider = SimpleNamespace()
     config = SimpleNamespace(
         iot_devices=[
@@ -650,31 +905,45 @@ def test_active_profile_aws_grafana_uses_exact_configurator(monkeypatch, profile
             profile_ref={"id": profile[0], "version": profile[1]}
         ),
     )
-    configure = MagicMock()
-    monkeypatch.setattr(aws_layer_5_grafana, "configure_six_layer_grafana", configure)
+    verify = MagicMock()
+    monkeypatch.setattr(aws_deployer, "_probe_aws_raw_history_reader", verify)
 
-    aws_deployer.configure_aws_grafana(
+    aws_deployer.verify_aws_storage_read_access(
         context,
         {
-            "aws_component_visualization_output": {
-                "workspace_id": "g-1234567890",
-                "workspace_url": "https://grafana.example/",
-                "reader_url": "https://reader.example/",
+            "aws_component_storage_read_access_output": {
+                "access_url": "https://reader.example/",
                 "reader_function_name": "reader",
             }
         },
     )
 
-    configure.assert_called_once_with(
-        provider,
-        workspace_id="g-1234567890",
-        grafana_url="https://grafana.example",
+    verify.assert_called_once_with(
+        provider=provider,
         reader_url="https://reader.example/",
-        reader_function_name="reader",
         device_id="sensor-1",
         metric="temperature",
-        architecture_profile=f"{profile[0]}@{profile[1]}",
     )
+
+
+def test_azure_builtin_json_plugin_does_not_require_optional_catalog(monkeypatch):
+    provider = SimpleNamespace(
+        credential=SimpleNamespace(get_token=lambda _scope: SimpleNamespace(token="test-token")),
+        subscription_id="11111111-1111-1111-1111-111111111111",
+        naming=SimpleNamespace(resource_group=lambda: "test-rg"),
+    )
+    lookup = MagicMock(return_value=SimpleNamespace(
+        status_code=200,
+        json=lambda: {"properties": {"grafanaMajorVersion": "12", "grafanaPlugins": {}}},
+    ))
+    post, patch = MagicMock(), MagicMock()
+    monkeypatch.setattr(layer_5_grafana.requests, "get", lookup)
+    monkeypatch.setattr(layer_5_grafana.requests, "post", post)
+    monkeypatch.setattr(layer_5_grafana.requests, "patch", patch)
+    layer_5_grafana._verify_managed_grafana_workspace(provider, "test-grafana")
+    lookup.assert_called_once()
+    post.assert_not_called()
+    patch.assert_not_called()
 
 
 def test_azure_six_layer_plugin_preflight_rejects_wrong_loaded_version(monkeypatch):
@@ -719,7 +988,8 @@ def test_azure_six_layer_plugin_readiness_retries_role_propagation(monkeypatch):
     sleep.assert_called_once_with(0)
 
 
-def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
+@pytest.mark.parametrize("enveloped", [False, True])
+def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch, enveloped):
     credential = SimpleNamespace(
         get_token=lambda _scope: SimpleNamespace(token="management-token")
     )
@@ -730,7 +1000,7 @@ def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
     )
     response = SimpleNamespace(
         status_code=200,
-        json=lambda: {"properties": {"twin2multicloud-grafana": "existing-key"}},
+        json=lambda: {"properties": {"default": "existing-key"}} if enveloped else {"default": "existing-key"},
     )
     lookup = MagicMock(return_value=response)
     update = MagicMock()
@@ -746,7 +1016,7 @@ def test_azure_six_layer_reader_key_is_function_scoped_and_reused(monkeypatch):
     update.assert_not_called()
 
 
-def test_azure_six_layer_reader_key_is_created_without_exposing_it_in_outputs(
+def test_azure_six_layer_missing_reader_key_fails_without_creating_credentials(
     monkeypatch,
 ):
     credential = SimpleNamespace(
@@ -761,28 +1031,17 @@ def test_azure_six_layer_reader_key_is_created_without_exposing_it_in_outputs(
         status_code=200,
         json=lambda: {"properties": {}},
     )
-    create_response = SimpleNamespace(status_code=200)
     monkeypatch.setattr(
         layer_5_grafana.requests,
         "post",
         MagicMock(return_value=lookup_response),
     )
-    create = MagicMock(return_value=create_response)
+    create = MagicMock()
     monkeypatch.setattr(layer_5_grafana.requests, "put", create)
-    monkeypatch.setattr(
-        layer_5_grafana.secrets,
-        "token_urlsafe",
-        lambda _length: "generated-function-key",
-    )
-
-    value = layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
-
-    assert value == "generated-function-key"
-    assert "/functions/six-layer-raw-history-reader/keys/" in create.call_args.args[0]
-    assert create.call_args.kwargs["json"] == {
-        "name": "twin2multicloud-grafana",
-        "value": "generated-function-key",
-    }
+    monkeypatch.setattr(layer_5_raw_history.time, "sleep", lambda _: None)
+    with pytest.raises(RuntimeError, match="function-scoped access key is not ready"):
+        layer_5_grafana._ensure_reader_function_key(provider, "factory-history")
+    create.assert_not_called()
 
 
 def test_azure_twin_failures_are_aggregated_after_relationship_attempt(monkeypatch):

@@ -12,11 +12,11 @@ import logging
 import os
 import re
 import time
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, List, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 import uuid
+from urllib.parse import urlencode
 
 import azure.functions as func
 from azure.core.exceptions import ResourceNotFoundError
@@ -61,6 +61,49 @@ from core import (
 
 
 app = func.FunctionApp()
+
+if os.getenv("SIX_LAYER_VISUALIZATION_ENABLED", "false").lower() == "true":
+    from phase8_eventing.visualization import HEADERS as VISUALIZATION_HEADERS, page as visualization_page
+    @app.function_name(name="six-layer-visualization")
+    @app.route(route="visualization/v1", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
+    def visualization(req: func.HttpRequest) -> func.HttpResponse:
+        """Separate L5 app consumes the HTTP-only L3 reader with an app key."""
+        try:
+            reader_deadline = time.monotonic() + 150
+            def fetch(query):
+                request = Request(os.environ["L3_READER_URL"] + "?" + urlencode(query),
+                                  headers={"x-functions-key": os.environ["L3_READER_KEY"]})
+                for attempt in range(2):
+                    remaining = reader_deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("VISUALIZATION_READER_DEADLINE")
+                    try:
+                        with urlopen(request, timeout=min(60, remaining)) as response:
+                            data = response.read(1024 * 1024 + 1)
+                        if len(data) > 1024 * 1024:
+                            raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
+                        if time.monotonic() > reader_deadline:
+                            raise TimeoutError("VISUALIZATION_READER_DEADLINE")
+                        return json.loads(data)
+                    except (HTTPError, URLError, TimeoutError) as exc:
+                        transient = (isinstance(exc, HTTPError) and exc.code in (502, 503, 504)
+                                     or isinstance(exc, TimeoutError)
+                                     or isinstance(exc, URLError) and not isinstance(exc, HTTPError)
+                                     and isinstance(exc.reason, TimeoutError))
+                        if not transient or attempt == 1 or reader_deadline - time.monotonic() <= 1:
+                            raise
+                        status = getattr(exc, "code", None)
+                        logging.warning("L5 reader retry error_type=%s upstream_http=%s",
+                                        type(exc).__name__, status if type(status) is int else None)
+                        time.sleep(1)
+            body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
+                                      allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
+            return func.HttpResponse(body, status_code=200, headers=VISUALIZATION_HEADERS)
+        except Exception as exc:
+            status = getattr(exc, "code", None)
+            logging.warning("L5 data unavailable error_type=%s upstream_http=%s",
+                            type(exc).__name__, status if type(status) is int else None)
+            return func.HttpResponse("L5 data unavailable", status_code=503, headers=VISUALIZATION_HEADERS)
 DIAGNOSTIC_TRACE_PATTERN = re.compile(r"^(?:TRACE|VERIFY)-[A-Z0-9]{8,48}$")
 REMOTE_TELEMETRY_ENABLED = (
     os.getenv("SIX_LAYER_REMOTE_TELEMETRY_ENABLED", "false").strip().lower() == "true"
@@ -445,6 +488,8 @@ def _persist_processed(processed: Mapping[str, Any]) -> None:
 
 
 def _project_twin(processed: Mapping[str, Any]) -> None:
+    if os.getenv("SIX_LAYER_EVALUATION_SCOPE") == "core":
+        return
     projection = build_twin_projection(processed)
     if projection is None:
         return
@@ -577,40 +622,35 @@ def _start_notification_workflow(event: Mapping[str, Any]) -> None:
     )
 
 
+def _iot_command_client(hostname):
+    # Import only for the command role; the pinned service SDK sends via AMQP.
+    from azure.iot.hub import IoTHubRegistryManager
+    return IoTHubRegistryManager.from_token_credential(hostname, _credential())
+
+
 def _send_device_command(event: Mapping[str, Any]) -> bool:
     hostname = os.getenv("SIX_LAYER_IOT_HUB_HOSTNAME", "")
     body = event_body(event)
     device_id = partition_key(event)
     if not hostname:
         return False
-    url = (
-        f"https://{hostname}/devices/{quote(device_id, safe='')}/messages/deviceBound"
-        "?api-version=2021-04-12"
-    )
     command = {"message": str(body.get("message") or "Rule matched")}
     trace_id = _diagnostic_trace_id(event)
     if trace_id is not None:
         command["trace_id"] = trace_id
-    payload = canonical_json(command).encode("utf-8")
-    for _ in range(3):
-        try:
-            token = _credential().get_token("https://iothubs.azure.net/.default")
-            request = Request(
-                url,
-                data=payload,
-                headers={
-                    "authorization": f"Bearer {token.token}",
-                    "content-type": "application/json; charset=utf-8",
-                    "iothub-messageid": event_id(event),
-                },
-                method="POST",
-            )
-            with urlopen(request, timeout=10) as response:  # nosec B310
-                if response.status == 204:
-                    return True
-        except (HTTPError, TimeoutError, URLError, OSError):
-            continue
-    return False
+    client = None
+    try:
+        client = _iot_command_client(hostname)
+        client.send_c2d_message(device_id, canonical_json(command), properties={"messageId": event_id(event)})
+        return True
+    except Exception as exc:
+        # Never expose the credential, command payload or SDK exception text.
+        logging.warning("IoT command send failed: %s", type(exc).__name__)
+        return False
+    finally:
+        if client is not None:
+            client.amqp_svc_client.disconnect_sync()
+            client.amqp_svc_client = None  # Avoid a second disconnect in SDK __del__.
 
 
 def _deliver_device_command(event: Mapping[str, Any]) -> None:
@@ -1157,6 +1197,7 @@ if EVENTING_DELIVERY_ENDPOINT_ENABLED:
                 },
             )
         except ContractError as exc:
+            logging.warning("Event delivery rejected: %s", exc.code)
             return _reader_response(
                 exc.status,
                 {
@@ -1164,6 +1205,9 @@ if EVENTING_DELIVERY_ENDPOINT_ENABLED:
                     "error_code": exc.code,
                 },
             )
+        except Exception as exc:
+            logging.error("Event delivery failed: %s", type(exc).__name__)
+            raise
 
 
 if REMOTE_TELEMETRY_ENABLED:
@@ -1176,7 +1220,7 @@ if REMOTE_TELEMETRY_ENABLED:
         cardinality="many",
         consumer_group="$Default",
     )
-    def remote_telemetry_consumer(messages: list[func.EventHubEvent]) -> None:
+    def remote_telemetry_consumer(messages: List[func.EventHubEvent]) -> None:
         """Consume provider-managed Event Hubs batches after durable landing."""
 
         try:
@@ -1203,7 +1247,7 @@ if BRIDGE_TELEMETRY_ENABLED:
         consumer_group="$Default",
     )
     def cross_cloud_telemetry_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         """Checkpoint the source Event Hub only after durable target acceptance."""
@@ -1233,7 +1277,7 @@ if BRIDGE_EVENT_RECEIVED_ENABLED:
         consumer_group="bridge-received",
     )
     def cross_cloud_event_received_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         from phase8_eventing.azure.runtime import event_hub_batch
@@ -1261,7 +1305,7 @@ if BRIDGE_EVENT_PROCESSED_ENABLED:
         consumer_group="bridge-processed",
     )
     def cross_cloud_event_processed_bridge(
-        messages: list[func.EventHubEvent],
+        messages: List[func.EventHubEvent],
         context: func.Context,
     ) -> None:
         from phase8_eventing.azure.runtime import event_hub_batch
@@ -1335,7 +1379,7 @@ if IOT_PROCESSOR_ENABLED:
         cardinality="many",
         consumer_group="$Default",
     )
-    def iot_telemetry_adapter(messages: list[func.EventHubEvent]) -> None:
+    def iot_telemetry_adapter(messages: List[func.EventHubEvent]) -> None:
         """Adapt the existing simulator payload from IoT Hub and enqueue it."""
 
         try:

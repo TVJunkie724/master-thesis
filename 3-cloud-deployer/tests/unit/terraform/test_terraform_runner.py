@@ -3,6 +3,14 @@
 from src.terraform_runner import TerraformRunner
 
 
+def test_show_uses_positional_isolated_state_file(tmp_path):
+    state_path = tmp_path / 'project' / 'terraform.tfstate'
+    runner = TerraformRunner(str(tmp_path), state_path=str(state_path))
+    assert runner._build_command(['show', '-json']) == [
+        'terraform', f'-chdir={tmp_path}', 'show', '-json', str(state_path)
+    ]
+
+
 def test_plan_defaults_to_project_workspace_when_state_path_is_set(tmp_path, monkeypatch):
     terraform_dir = tmp_path / "src" / "terraform"
     terraform_dir.mkdir(parents=True)

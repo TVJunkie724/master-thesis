@@ -8,15 +8,18 @@ import '../models/deployment_verification.dart';
 import '../theme/colors.dart';
 import '../theme/spacing.dart';
 import 'twin_overview/telemetry_evidence_panel.dart';
+import 'twin_overview/twin_overview_strings.dart';
 
 class DeploymentVerificationCard extends StatefulWidget {
   final String? payloadsJson;
   final String? configEventsJson;
+  final bool historyOnly;
 
   const DeploymentVerificationCard({
     super.key,
     this.payloadsJson,
     this.configEventsJson,
+    this.historyOnly = false,
   });
 
   @override
@@ -72,6 +75,29 @@ class _DeploymentVerificationCardState
         }
       },
       builder: (context, state) {
+        if (widget.historyOnly) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                TwinOverviewStrings.recordedVerification,
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(TwinOverviewStrings.recordedVerificationScope),
+              const SizedBox(height: AppSpacing.sm),
+              TelemetryEvidencePanel(
+                isLoading: state.isLoadingHistory,
+                isRunning: false,
+                historyError: state.historyError,
+                activeVerificationId: null,
+                terminalEvidence: null,
+                latestRecord: state.latestDataFlowRecord,
+                history: state.verificationHistory,
+              ),
+            ],
+          );
+        }
         return Card(
           elevation: AppSpacing.cardElevationLow,
           child: Padding(
@@ -179,7 +205,7 @@ class _InfrastructureSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Verify deployed cloud resources across the selected architecture. Duration: 5-30s. Cost: none.',
+          TwinOverviewStrings.infrastructureScope,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -249,7 +275,7 @@ class _DataFlowSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Send one test IoT message end-to-end. Duration: 1-15 min. Cost: one IoT message.',
+          TwinOverviewStrings.telemetryScope,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

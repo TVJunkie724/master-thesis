@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
-import hashlib
+import asyncio
+from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -25,13 +26,63 @@ from src.services.service_errors import (
 
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
+
+
+def _ready_seed(db, **kwargs):
+    user, twin, deployment = _seed(db, **kwargs)
+    evidence = deepcopy(deployment.deployment_access_evidence)
+    evidence["surfaces"][1]["readiness"]["content"] = "ready"
+    deployment.deployment_access_evidence = evidence
+    db.commit()
+    return user, twin, deployment
+
+
+@pytest.mark.parametrize("provider", ["aws", "azure"])
+def test_visualization_owner_gets_fixed_html_without_provider_secrets(db, provider):
+    user, twin, _ = _ready_seed(db, l5=provider)
+    prepare = AsyncMock(return_value=SimpleNamespace(resource_name="twin-resource", operation_token="test-token"))
+    client = SimpleNamespace(get_visualization=AsyncMock(return_value=b"<html>chart</html>"))
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db),
+                                      project_preparer=prepare, deployer_client=client)
+    assert asyncio.run(service.get_visualization(twin.id, user.id)) == b"<html>chart</html>"
+    prepare.assert_awaited_once_with(twin, user.id)
+    client.get_visualization.assert_awaited_once_with("twin-resource", "test-token")
+
+
+def test_visualization_wrong_owner_does_not_stage_credentials(db):
+    _, twin, _ = _seed(db)
+    prepare = AsyncMock()
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db), project_preparer=prepare)
+    with pytest.raises(EntityNotFoundError):
+        asyncio.run(service.get_visualization(twin.id, "different-owner"))
+    prepare.assert_not_awaited()
+
+
+@pytest.mark.parametrize("state", [TwinState.DRAFT, TwinState.DESTROYED, TwinState.ERROR])
+def test_visualization_non_deployed_twin_does_not_stage_credentials(db, state):
+    user, twin, _ = _seed(db, state=state)
+    prepare = AsyncMock()
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db), project_preparer=prepare)
+    with pytest.raises(ConflictError):
+        asyncio.run(service.get_visualization(twin.id, user.id))
+    prepare.assert_not_awaited()
+
+
+def test_visualization_upstream_errors_are_not_exposed(db):
+    from src.services.service_errors import DownstreamServiceError
+    user, twin, _ = _ready_seed(db)
+    service = DeploymentAccessService(TwinRepository(db), DeploymentRepository(db),
+        project_preparer=AsyncMock(side_effect=RuntimeError("client_secret=must-not-leak")))
+    with pytest.raises(DownstreamServiceError) as error:
+        asyncio.run(service.get_visualization(twin.id, user.id))
+    assert "must-not-leak" not in error.value.public_detail
 SURFACES = {
     ("l4", "aws"): ("aws_iot_twinmaker", "aws_identity_center", "none"),
     ("l4", "azure"): ("azure_digital_twins", "azure_entra", "none"),
     ("l4", "gcp"): ("gcp_twin_explorer", "gcp_iap", "none"),
-    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
-    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
-    ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
+    ("l5", "aws"): ("aws_l5_visualization", "aws_sigv4", "none"),
+    ("l5", "azure"): ("azure_l5_visualization", "azure_function_key", "none"),
+    ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 
 
@@ -121,43 +172,6 @@ def _service(db) -> DeploymentAccessService:
     return DeploymentAccessService(
         TwinRepository(db),
         DeploymentRepository(db),
-    )
-
-
-class _FakeDeployer:
-    def __init__(self, *, payload: dict | None = None):
-        self.calls = []
-        self.payload = payload or {
-            "schema_version": "deployment-access-credential.v1",
-            "layer": "l5",
-            "provider": "gcp",
-            "username": "researcher@example.invalid",
-            "password": "rotated-fixture-password-123456",
-            "issued_at": "2026-07-31T12:00:00Z",
-        }
-
-    async def rotate_gcp_grafana_viewer_credential(self, resource_name, token):
-        self.calls.append((resource_name, token))
-        return dict(self.payload)
-
-
-def _rotation_service(db, deployer, *, blocker=None) -> DeploymentAccessService:
-    async def prepare(_twin, _user_id, *, frozen_graph_evidence=None):
-        assert frozen_graph_evidence is not None
-        if blocker is not None:
-            blocker["prepared"].set()
-        return SimpleNamespace(
-            resource_name="fixture-resource",
-            operation_token="fixture-operation-token",
-            graph_evidence=frozen_graph_evidence,
-        )
-
-    return DeploymentAccessService(
-        TwinRepository(db),
-        DeploymentRepository(db),
-        db=db,
-        deployer_client=deployer,
-        project_preparer=prepare,
     )
 
 
@@ -297,67 +311,13 @@ def test_owner_scoped_endpoint_returns_contract(auth_client, db) -> None:
     assert payload["reason_code"] is None
 
 
-@pytest.mark.asyncio
-async def test_gcp_rotation_reveals_once_and_persists_only_metadata(db) -> None:
-    user, twin, deployment = _seed(db, l4="azure", l5="gcp")
-    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
-    db.commit()
-    deployer = _FakeDeployer()
-
-    credential = await _rotation_service(db, deployer).rotate_gcp_grafana_viewer(
-        twin.id, user.id
-    )
-
-    db.refresh(deployment)
-    assert credential.password == "rotated-fixture-password-123456"
-    assert credential.password not in repr(credential)
-    assert deployer.calls == [("fixture-resource", "fixture-operation-token")]
-    assert deployment.layer_access_credential_rotated_at == NOW.replace(tzinfo=None)
-    assert (
-        deployment.layer_access_credential_fingerprint
-        == hashlib.sha256(credential.password.encode()).hexdigest()
-    )
-    assert credential.password not in str(deployment.__dict__)
+def test_visualization_endpoint_requires_auth(client):
+    assert client.get('/twins/unknown/deployment-access/visualization').status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_non_gcp_l5_rotation_performs_no_preparation_or_deployer_call(db) -> None:
-    user, twin, deployment = _seed(db, l5="aws")
-    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
-    db.commit()
-    deployer = _FakeDeployer()
-
-    with pytest.raises(ConflictError, match="ROTATION_NOT_AVAILABLE"):
-        await _rotation_service(db, deployer).rotate_gcp_grafana_viewer(
-            twin.id, user.id
-        )
-
-    assert deployer.calls == []
-
-
-@pytest.mark.asyncio
-async def test_concurrent_rotation_returns_exact_conflict_without_waiting(db) -> None:
-    user, twin, deployment = _seed(db, l5="gcp")
-    deployment.graph_validation = {"graph_digest": "sha256:" + ("1" * 64)}
-    db.commit()
-    started = asyncio.Event()
-    release = asyncio.Event()
-
-    class BlockingDeployer(_FakeDeployer):
-        async def rotate_gcp_grafana_viewer_credential(self, resource_name, token):
-            self.calls.append((resource_name, token))
-            started.set()
-            await release.wait()
-            return dict(self.payload)
-
-    deployer = BlockingDeployer()
-    service = _rotation_service(db, deployer)
-    first = asyncio.create_task(service.rotate_gcp_grafana_viewer(twin.id, user.id))
-    await started.wait()
-
-    with pytest.raises(ConflictError, match="ROTATION_IN_PROGRESS"):
-        await service.rotate_gcp_grafana_viewer(twin.id, user.id)
-
-    release.set()
-    await first
-    assert len(deployer.calls) == 1
+def test_visualization_endpoint_rejects_other_owner(auth_client, db, monkeypatch):
+    _, twin, _ = _ready_seed(db)
+    prepare = AsyncMock()
+    monkeypatch.setattr('src.services.deployment_service.prepare_project_for_deployment', prepare)
+    assert auth_client.get(f'/twins/{twin.id}/deployment-access/visualization').status_code == 404
+    prepare.assert_not_awaited()

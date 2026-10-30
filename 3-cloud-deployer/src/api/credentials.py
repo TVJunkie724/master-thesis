@@ -70,12 +70,18 @@ class AWSCredentialsRequest(BaseModel):
 class AzureCredentialsRequest(BaseModel):
     """Request body for Azure credential validation."""
 
+    model_config = ConfigDict(extra="forbid")
+
     azure_subscription_id: str = Field(..., description="Azure Subscription ID")
     azure_tenant_id: str = Field(..., description="Azure AD Tenant ID")
     azure_client_id: str = Field(
-        ..., description="Service Principal Client/Application ID"
+        ..., description="Azure thesis-PoC administrator Client/Application ID"
     )
-    azure_client_secret: str = Field(..., description="Service Principal Client Secret")
+    azure_client_secret: str = Field(
+        ...,
+        description="Azure thesis-PoC administrator Client Secret",
+        json_schema_extra={"writeOnly": True},
+    )
     azure_region: str = Field(
         ..., description="Azure Region for general resources (e.g., 'italynorth')"
     )
@@ -87,7 +93,6 @@ class AzureCredentialsRequest(BaseModel):
         ...,
         description="Azure Region for Digital Twins (e.g., 'westeurope'), must be in ADT supported list",
     )
-
 
 class GCPCredentialsRequest(BaseModel):
     """Request body for GCP credential validation."""
@@ -159,7 +164,15 @@ class AzureCredentialsCheckResponse(BaseModel):
     )
     recommended_roles: Optional[dict] = Field(
         None,
-        description="Recommended roles: custom (preferred) and builtin alternatives",
+        description="Required Azure role for the thesis-PoC administrator",
+    )
+    administrator_authority: Optional[dict] = Field(
+        None,
+        description="Secret-safe subscription Owner authority result",
+    )
+    microsoft_graph_authority: Optional[dict] = Field(
+        None,
+        description="Secret-safe Microsoft Graph application-permission result",
     )
 
 
@@ -288,9 +301,9 @@ async def check_aws_from_config(
     tags=["Permissions - Upload"],
     summary="Verify Azure permissions from request body",
     description=(
-        "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n"
+        "**Purpose:** Verifies the Azure thesis-PoC administrator.\n\n"
         "**When to call:** During wizard to validate user-provided Azure credentials.\n\n"
-        "**Checks:** Contributor and User Access Administrator role assignments."
+        "**Checks:** Subscription Owner authority, deployment resource actions, and the required Microsoft Graph application permissions."
     ),
     responses={
         200: {"description": "Credential validation completed (check status field)"},
@@ -302,16 +315,17 @@ async def check_azure_from_body(request: AzureCredentialsRequest):
     """
     Validate Azure Service Principal credentials from request body.
 
-    Checks RBAC role assignments for all deployment layers:
+    Checks the one administrator's resource permissions for all deployment
+    layers, RBAC authority, and Microsoft Graph application permissions:
     - **Setup**: Resource Groups, Managed Identity, Storage
     - **Layer 0**: App Service Plan, Function Apps
-    - **Layer 1**: IoT Hub, Event Grid, Role Assignments
+    - **Layer 1**: IoT Hub and Event Grid resources
     - **Layer 2**: Function Apps (Compute)
     - **Layer 3**: Cosmos DB, Blob Storage
     - **Layer 4**: Azure Digital Twins
     - **Layer 5**: Azure Managed Grafana
 
-    Returns status and missing roles by layer.
+    Returns separate Azure RBAC and Microsoft Graph results.
     """
     return check_azure_credentials(request.model_dump())
 

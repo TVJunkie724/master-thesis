@@ -55,6 +55,19 @@
       "AzureCredentialsCheckResponse": {
         "description": "Response schema for Azure credential validation.",
         "properties": {
+          "administrator_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe subscription Owner authority result",
+            "title": "Administrator Authority"
+          },
           "by_layer": {
             "additionalProperties": true,
             "description": "Permission results organized by deployment layer",
@@ -84,6 +97,19 @@
             "title": "Message",
             "type": "string"
           },
+          "microsoft_graph_authority": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Secret-safe Microsoft Graph application-permission result",
+            "title": "Microsoft Graph Authority"
+          },
           "recommended_roles": {
             "anyOf": [
               {
@@ -94,7 +120,7 @@
                 "type": "null"
               }
             ],
-            "description": "Recommended roles: custom (preferred) and builtin alternatives",
+            "description": "Required Azure role for the thesis-PoC administrator",
             "title": "Recommended Roles"
           },
           "status": {
@@ -120,17 +146,19 @@
         "type": "object"
       },
       "AzureCredentialsRequest": {
+        "additionalProperties": false,
         "description": "Request body for Azure credential validation.",
         "properties": {
           "azure_client_id": {
-            "description": "Service Principal Client/Application ID",
+            "description": "Azure thesis-PoC administrator Client/Application ID",
             "title": "Azure Client Id",
             "type": "string"
           },
           "azure_client_secret": {
-            "description": "Service Principal Client Secret",
+            "description": "Azure thesis-PoC administrator Client Secret",
             "title": "Azure Client Secret",
-            "type": "string"
+            "type": "string",
+            "writeOnly": true
           },
           "azure_region": {
             "description": "Azure Region for general resources (e.g., 'italynorth')",
@@ -747,51 +775,6 @@
           "valid"
         ],
         "title": "DeployerValidationResponse",
-        "type": "object"
-      },
-      "DeploymentAccessCredentialResult": {
-        "additionalProperties": false,
-        "properties": {
-          "issued_at": {
-            "format": "date-time",
-            "title": "Issued At",
-            "type": "string"
-          },
-          "layer": {
-            "pattern": "^l5$",
-            "title": "Layer",
-            "type": "string"
-          },
-          "password": {
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
-          },
-          "provider": {
-            "pattern": "^gcp$",
-            "title": "Provider",
-            "type": "string"
-          },
-          "schema_version": {
-            "pattern": "^deployment-access-credential\\.v1$",
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "username": {
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
-          }
-        },
-        "required": [
-          "schema_version",
-          "layer",
-          "provider",
-          "username",
-          "password",
-          "issued_at"
-        ],
-        "title": "DeploymentAccessCredentialResult",
         "type": "object"
       },
       "GCPCredentialsCheckResponse": {
@@ -1819,66 +1802,6 @@
         ]
       }
     },
-    "/infrastructure/deployment-access/l5/credentials:rotate": {
-      "post": {
-        "operationId": "rotate_deployment_access_credential_infrastructure_deployment_access_l5_credentials_rotate_post",
-        "parameters": [
-          {
-            "description": "Name of the project context",
-            "in": "query",
-            "name": "project_name",
-            "required": true,
-            "schema": {
-              "description": "Name of the project context",
-              "title": "Project Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Operation-Package",
-            "required": true,
-            "schema": {
-              "minLength": 1,
-              "title": "X-Operation-Package",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeploymentAccessCredentialResult"
-                }
-              }
-            },
-            "description": "One-time Viewer credential"
-          },
-          "400": {
-            "description": "Invalid or expired operation package"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "502": {
-            "description": "Bounded GKE rotation failed"
-          }
-        },
-        "summary": "Rotate the deployed GCP Grafana Viewer credential once",
-        "tags": [
-          "Infrastructure"
-        ]
-      }
-    },
     "/infrastructure/destroy": {
       "post": {
         "description": "Destroys the full digital twin environment using Terraform.\n\n**Destruction process:**\n1. Runs `terraform destroy` to remove all infrastructure\n2. Cleans up SDK-managed resources (IoT devices, Digital Twin entities)\n\n**Note:** This operation cannot be undone. All data will be lost.",
@@ -2826,7 +2749,7 @@
         ]
       },
       "post": {
-        "description": "**Purpose:** Verifies Azure Service Principal credentials against required RBAC roles.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Contributor and User Access Administrator role assignments.",
+        "description": "**Purpose:** Verifies the Azure thesis-PoC administrator.\n\n**When to call:** During wizard to validate user-provided Azure credentials.\n\n**Checks:** Subscription Owner authority, deployment resource actions, and the required Microsoft Graph application permissions.",
         "operationId": "verifyAzureCredentialsFromBody",
         "requestBody": {
           "content": {
@@ -3272,6 +3195,57 @@
         "summary": "Download standalone IoT simulator package as ZIP",
         "tags": [
           "Projects"
+        ]
+      }
+    },
+    "/projects/{project_name}/visualization": {
+      "get": {
+        "operationId": "get_visualization_projects__project_name__visualization_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_name",
+            "required": true,
+            "schema": {
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Operation-Package",
+            "required": true,
+            "schema": {
+              "title": "X-Operation-Package",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Visualization",
+        "tags": [
+          "Layer Access"
         ]
       }
     },

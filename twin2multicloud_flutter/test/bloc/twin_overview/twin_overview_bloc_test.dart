@@ -8,6 +8,7 @@ import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_bloc.da
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_event.dart';
 import 'package:twin2multicloud_flutter/bloc/twin_overview/twin_overview_state.dart';
 import 'package:twin2multicloud_flutter/core/result.dart';
+import 'package:twin2multicloud_flutter/models/twin.dart';
 import 'package:twin2multicloud_flutter/models/cleanup_evidence.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/models/deployment_access.dart';
@@ -169,28 +170,58 @@ void main() {
       expect(stateWith([1]), stateWith([9, 8, 7]));
       expect(stateWith([1]).props, isNot(contains(isA<BinaryDownload>())));
     });
-
-    test('one-time layer credential never participates in state equality', () {
-      final first = LayerAccessViewState(
-        phase: LayerAccessViewPhase.ready,
-        credentialRequestToken: 1,
-        pendingCredential: _credential('first-secret'),
-      );
-      final second = LayerAccessViewState(
-        phase: LayerAccessViewPhase.ready,
-        credentialRequestToken: 1,
-        pendingCredential: _credential('second-secret'),
-      );
-
-      expect(first, second);
-      expect(first.props, isNot(contains(isA<DeploymentAccessCredential>())));
-    });
   });
 
   group('TwinOverviewBloc layer access', () {
     late MockApiService api;
 
     setUp(() => api = MockApiService());
+
+    for (final lifecycle in [
+      DeploymentTwinState.error,
+      DeploymentTwinState.destroyed,
+      DeploymentTwinState.configured,
+    ]) {
+      blocTest<TwinOverviewBloc, TwinOverviewState>(
+        'deployed history disables re-deploy and edit in ${lifecycle.apiValue}',
+        setUp: () {
+          _stubLoad(
+            api,
+            status: DeploymentStatusSnapshot(
+              schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+              state: lifecycle,
+            ),
+            readiness: _readiness(ready: true),
+          );
+          final stamp = DateTime.utc(2026, 10, 10);
+          when(() => api.getTwin('test-id')).thenAnswer(
+            (_) async => Twin(
+              id: 'test-id',
+              name: 'History',
+              state: lifecycle.apiValue,
+              createdAt: stamp,
+              updatedAt: stamp,
+              deployedAt: stamp,
+            ),
+          );
+        },
+        build: () => _buildBloc(api),
+        act: (bloc) => bloc.add(const TwinOverviewLoad('test-id')),
+        expect: () => [
+          isA<TwinOverviewLoading>(),
+          isA<TwinOverviewLoaded>()
+              .having((s) => s.hasBeenDeployed, 'history', isTrue)
+              .having((s) => s.canDeploy, 'deploy', isFalse)
+              .having((s) => s.canEdit, 'edit', isFalse)
+              .having(
+                (s) => s.canDelete,
+                'delete',
+                lifecycle == DeploymentTwinState.destroyed,
+              ),
+        ],
+        verify: (_) => verifyNever(() => api.deployTwin(any())),
+      );
+    }
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'loads one ready access snapshot for an initially deployed twin',
@@ -326,120 +357,6 @@ void main() {
       verify: (_) => verifyNever(() => api.getDeploymentOutputs(any())),
     );
 
-    blocTest<TwinOverviewBloc, TwinOverviewState>(
-      'rotates GCP viewer exactly once and consumes only matching token',
-      seed: () => _loaded(
-        twinState: 'deployed',
-        layerAccess: LayerAccessViewState.fromSnapshot(
-          _accessSnapshot(l5: CloudProvider.gcp),
-        ),
-      ),
-      setUp: () => when(
-        () => api.rotateGcpGrafanaViewerCredential('test-id'),
-      ).thenAnswer((_) async => _credential('one-time-secret')),
-      build: () => _buildBloc(api),
-      act: (bloc) async {
-        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
-        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
-        await pumpEventQueue();
-        bloc.add(const TwinOverviewAccessCredentialConsumed(999));
-        await pumpEventQueue();
-        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
-      },
-      expect: () => [
-        isA<TwinOverviewLoaded>().having(
-          (state) => state.layerAccess.rotatingViewerCredential,
-          'busy',
-          isTrue,
-        ),
-        isA<TwinOverviewLoaded>()
-            .having(
-              (state) => state.layerAccess.rotatingViewerCredential,
-              'busy',
-              isFalse,
-            )
-            .having(
-              (state) => state.layerAccess.credentialRequestToken,
-              'token',
-              1,
-            )
-            .having(
-              (state) => state.layerAccess.pendingCredential?.password,
-              'credential',
-              'one-time-secret',
-            ),
-        isA<TwinOverviewLoaded>().having(
-          (state) => state.layerAccess.pendingCredential,
-          'credential consumed',
-          isNull,
-        ),
-      ],
-      verify: (_) => verify(
-        () => api.rotateGcpGrafanaViewerCredential('test-id'),
-      ).called(1),
-    );
-
-    blocTest<TwinOverviewBloc, TwinOverviewState>(
-      'never calls rotation for a non-GCP L5 surface',
-      seed: () => _loaded(
-        twinState: 'deployed',
-        layerAccess: LayerAccessViewState.fromSnapshot(_accessSnapshot()),
-      ),
-      build: () => _buildBloc(api),
-      act: (bloc) =>
-          bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential()),
-      expect: () => <TwinOverviewState>[],
-      verify: (_) =>
-          verifyNever(() => api.rotateGcpGrafanaViewerCredential(any())),
-    );
-
-    for (final failure in const [
-      ('conflict', 'GCP_GRAFANA_VIEWER_ROTATION_IN_PROGRESS'),
-      ('provider failure', 'GCP_GRAFANA_VIEWER_ROTATION_FAILED'),
-    ]) {
-      blocTest<TwinOverviewBloc, TwinOverviewState>(
-        'keeps ${failure.$1} rotation errors inline without a credential',
-        seed: () => _loaded(
-          twinState: 'deployed',
-          layerAccess: LayerAccessViewState.fromSnapshot(
-            _accessSnapshot(l5: CloudProvider.gcp),
-          ),
-        ),
-        setUp: () => when(
-          () => api.rotateGcpGrafanaViewerCredential('test-id'),
-        ).thenThrow(AppException(failure.$2, code: failure.$2)),
-        build: () => _buildBloc(api),
-        act: (bloc) =>
-            bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential()),
-        expect: () => [
-          isA<TwinOverviewLoaded>().having(
-            (state) => state.layerAccess.rotatingViewerCredential,
-            'rotation busy',
-            isTrue,
-          ),
-          isA<TwinOverviewLoaded>()
-              .having(
-                (state) => state.layerAccess.rotatingViewerCredential,
-                'rotation busy',
-                isFalse,
-              )
-              .having(
-                (state) => state.layerAccess.rotationError,
-                'safe rotation error',
-                contains(failure.$2),
-              )
-              .having(
-                (state) => state.layerAccess.pendingCredential,
-                'pending credential',
-                isNull,
-              ),
-        ],
-        verify: (_) => verify(
-          () => api.rotateGcpGrafanaViewerCredential('test-id'),
-        ).called(1),
-      );
-    }
-
     test(
       'late access response for an old twin generation is ignored',
       () async {
@@ -538,48 +455,6 @@ void main() {
     });
 
     test(
-      'a duplicate consumed token cannot clear a newer credential',
-      () async {
-        _stubLoad(
-          api,
-          status: const DeploymentStatusSnapshot(
-            schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
-            state: DeploymentTwinState.deployed,
-          ),
-          readiness: _readiness(ready: true),
-        );
-        when(
-          () => api.getDeploymentOutputs('test-id'),
-        ).thenAnswer((_) async => _outputs(const {'endpoint': 'safe'}));
-        when(
-          () => api.getDeploymentAccess('test-id'),
-        ).thenAnswer((_) async => _accessSnapshot(l5: CloudProvider.gcp));
-        var rotation = 0;
-        when(
-          () => api.rotateGcpGrafanaViewerCredential('test-id'),
-        ).thenAnswer((_) async => _credential('secret-${++rotation}'));
-        final bloc = _buildBloc(api);
-        bloc.add(const TwinOverviewLoad('test-id'));
-        await pumpEventQueue(times: 20);
-
-        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
-        await pumpEventQueue(times: 10);
-        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
-        await pumpEventQueue(times: 5);
-        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
-        await pumpEventQueue(times: 10);
-        bloc.add(const TwinOverviewAccessCredentialConsumed(1));
-        await pumpEventQueue(times: 5);
-
-        final loaded = bloc.state as TwinOverviewLoaded;
-        expect(loaded.layerAccess.credentialRequestToken, 2);
-        expect(loaded.layerAccess.pendingCredential?.password, 'secret-2');
-        verify(() => api.rotateGcpGrafanaViewerCredential('test-id')).called(2);
-        await bloc.close();
-      },
-    );
-
-    test(
       'successful deployment completion refreshes layer access exactly once',
       () async {
         _stubLoad(
@@ -624,62 +499,53 @@ void main() {
         await bloc.close();
       },
     );
-
-    final delayedRotation = Completer<DeploymentAccessCredential>();
-    final streams = ControlledLogStreamFactory();
-    blocTest<TwinOverviewBloc, TwinOverviewState>(
-      'destroy clears credential immediately and drops late rotation response',
-      seed: () => _loaded(
-        twinState: 'deployed',
-        layerAccess: LayerAccessViewState.fromSnapshot(
-          _accessSnapshot(l5: CloudProvider.gcp),
-        ),
-      ),
-      setUp: () {
-        when(
-          () => api.rotateGcpGrafanaViewerCredential('test-id'),
-        ).thenAnswer((_) => delayedRotation.future);
-        when(() => api.destroyTwin('test-id')).thenAnswer(
-          (_) async => const OperationSession(
-            sessionId: 'session-1',
-            sseUrl: '/sse/deploy/session-1',
-          ),
-        );
-        _stubEmptyLogPage(api);
-      },
-      build: () => _buildBloc(api, streams: streams),
-      act: (bloc) async {
-        bloc.add(const TwinOverviewRotateGcpGrafanaViewerCredential());
-        await pumpEventQueue();
-        bloc.add(const TwinOverviewDestroy());
-        await pumpEventQueue(times: 10);
-        delayedRotation.complete(_credential('late-secret'));
-      },
-      expect: () => [
-        isA<TwinOverviewLoaded>().having(
-          (state) => state.layerAccess.rotatingViewerCredential,
-          'rotation started',
-          isTrue,
-        ),
-        isA<TwinOverviewLoaded>()
-            .having((state) => state.twinState, 'state', 'destroying')
-            .having(
-              (state) => state.layerAccess.phase,
-              'access cleared',
-              LayerAccessViewPhase.idle,
-            ),
-        isA<TwinOverviewLoaded>(),
-        isA<TwinOverviewLoaded>(),
-        isA<TwinOverviewLoaded>(),
-      ],
-      tearDown: streams.dispose,
-    );
   });
 
   group('TwinOverviewBloc cleanup evidence', () {
     late MockApiService api;
 
     setUp(() => api = MockApiService());
+
+    for (final type in DeploymentOperationType.values) {
+      test(
+        'restores failed $type on load and refresh without mutation',
+        () async {
+          _stubLoad(
+            api,
+            status: DeploymentStatusSnapshot(
+              schemaVersion: DeploymentStatusSnapshot.supportedSchemaVersion,
+              state: DeploymentTwinState.error,
+              lastError: 'Provider operation failed',
+              latestDeployment: DeploymentOperationSummary(
+                id: 'operation-1',
+                sessionId: 'session-1',
+                operationType: type,
+                status: DeploymentOperationStatus.failed,
+              ),
+            ),
+            readiness: _readiness(ready: true),
+          );
+          final bloc = _buildBloc(api);
+          addTearDown(bloc.close);
+          bloc.add(const TwinOverviewLoad('test-id'));
+          final loaded =
+              await bloc.stream.firstWhere((s) => s is TwinOverviewLoaded)
+                  as TwinOverviewLoaded;
+          expect(loaded.deploymentOperation.operationType, type);
+          expect(loaded.deploymentOperation.isActive, isFalse);
+          bloc.add(const TwinOverviewRefresh());
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          expect(
+            (bloc.state as TwinOverviewLoaded)
+                .deploymentOperation
+                .operationType,
+            type,
+          );
+          verifyNever(() => api.deployTwin(any()));
+          verifyNever(() => api.destroyTwin(any()));
+        },
+      );
+    }
 
     blocTest<TwinOverviewBloc, TwinOverviewState>(
       'restores persisted cleanup evidence from the latest operation',
@@ -856,7 +722,7 @@ void main() {
             .having((state) => state.twinState, 'state', 'destroyed')
             .having((state) => state.lastError, 'lastError', isNull)
             .having((state) => state.deploymentOutputs, 'outputs', isNull)
-            .having((state) => state.canDeploy, 'canDeploy', isTrue)
+            .having((state) => state.canDeploy, 'canDeploy', isFalse)
             .having((state) => state.canDestroy, 'canDestroy', isFalse),
       ],
     );
@@ -2249,19 +2115,19 @@ DeploymentAccessSnapshot _accessSnapshot({
         'none',
       ),
       (DeploymentLayer.l5, CloudProvider.aws) => (
-        'aws_managed_grafana',
-        'aws_identity_center',
+        'aws_l5_visualization',
+        'aws_sigv4',
         'none',
       ),
       (DeploymentLayer.l5, CloudProvider.azure) => (
-        'azure_managed_grafana',
-        'azure_entra',
+        'azure_l5_visualization',
+        'azure_function_key',
         'none',
       ),
       (DeploymentLayer.l5, CloudProvider.gcp) => (
-        'gcp_grafana_oss',
-        'generated_viewer',
-        'rotate',
+        'gcp_raw_history_reader',
+        'gcp_identity_token',
+        'none',
       ),
     };
     return {
@@ -2298,17 +2164,6 @@ DeploymentAccessSnapshot _accessSnapshot({
       surface(DeploymentLayer.l4, l4),
       surface(DeploymentLayer.l5, l5),
     ],
-  });
-}
-
-DeploymentAccessCredential _credential(String password) {
-  return DeploymentAccessCredential.fromJson({
-    'schema_version': 'deployment-access-credential.v1',
-    'layer': 'l5',
-    'provider': 'gcp',
-    'username': 'viewer@example.invalid',
-    'password': password,
-    'issued_at': '2026-07-14T12:00:00Z',
   });
 }
 

@@ -191,10 +191,6 @@ abstract interface class DeploymentLifecycleApi {
 
   Future<DeploymentAccessSnapshot> getDeploymentAccess(String twinId);
 
-  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
-    String twinId,
-  );
-
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,
@@ -212,6 +208,8 @@ abstract interface class DeploymentLifecycleApi {
   Future<LogTraceStartResult> startLogTrace(String twinId);
 
   Future<BinaryDownload> downloadSimulator(String twinId);
+
+  Future<String> getVisualization(String twinId);
 }
 
 abstract interface class VerificationApi {

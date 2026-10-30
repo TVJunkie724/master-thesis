@@ -27,6 +27,7 @@ from src.providers.terraform.package_builder import build_all_packages
 from src.runtime_state import RuntimeStateStore
 from src.tfvars_generator import generate_tfvars
 from src.user_function_extensions.contracts import runtime as extension_runtime
+from src.validation.accessors import DirectoryAccessor
 from tests.utils.deployment_specification import deployment_manifest
 
 
@@ -200,6 +201,25 @@ def _store(tmp_path: Path) -> tuple[OperationPackageStore, Path, RuntimeStateSto
     )
 
 
+def test_acquired_manifest_excludes_only_operation_owned_outputs(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        'file_manager.validator.validate_project_zip', lambda _archive, **_kwargs: []
+    )
+    store, _, runtime = _store(tmp_path)
+    staged = store.stage('factory', _archive())
+    state = runtime.project_path('factory')
+    for name in ('iot_devices_auth/device/cert.pem',
+                 'iot_device_simulator/aws/core/config_generated.json'):
+        path = state / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('fixture')
+    with store.acquire('factory', staged.token) as acquired:
+        expected = {'config.json', 'config_credentials.json'}
+        assert set(DirectoryAccessor(acquired).list_files()) == expected
+        (acquired / 'unexpected.json').write_text('{}')
+        assert set(DirectoryAccessor(acquired).list_files()) == expected | {'unexpected.json'}
+
+
 def test_stage_is_private_and_acquire_is_one_shot(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "file_manager.validator.validate_project_zip", lambda _archive, **_kwargs: []
@@ -248,6 +268,7 @@ def test_stage_rejects_invalid_contract_before_creating_package_root(
     assert not store.root.exists()
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
     monkeypatch,
     tmp_path,
@@ -273,6 +294,7 @@ def test_stage_six_layer_compiles_graph_and_returns_bounded_evidence(
     assert metadata["graph_evidence"] == staged.graph_evidence
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_requirement_inspection_is_secret_free_and_leaves_no_workspace(
     monkeypatch,
     tmp_path,
@@ -315,6 +337,7 @@ def test_requirement_inspection_is_secret_free_and_leaves_no_workspace(
     assert not created.exists()
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_six_layer_operation_package_drives_real_graph_packages_and_tfvars(
     monkeypatch,
     tmp_path,

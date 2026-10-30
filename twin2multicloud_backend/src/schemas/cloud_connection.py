@@ -94,7 +94,6 @@ class CloudConnectionImportMetadata(BaseModel):
         min_length=1,
         max_length=80,
     )
-
     @model_validator(mode="after")
     def validate_target_scope(self):
         if self.provider in {"azure", "gcp"} and not self.target_scope_id:
@@ -104,7 +103,8 @@ class CloudConnectionImportMetadata(BaseModel):
         if self.provider != "aws" and (self.account_id or self.sso_region):
             raise ValueError("AWS import metadata is only valid for AWS")
         if self.provider != "azure" and (
-            self.region_iothub or self.region_digital_twin
+            self.region_iothub
+            or self.region_digital_twin
         ):
             raise ValueError("Azure region overrides are only valid for Azure")
         return self

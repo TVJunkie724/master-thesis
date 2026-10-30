@@ -32,6 +32,7 @@ from .destination_publishers import (
     AzureDestinationPublisher,
     GcpDestination,
     GcpDestinationPublisher,
+    GcpRestPublisherClient,
     load_destination,
 )
 
@@ -70,6 +71,10 @@ def _gcp_publisher(credentials: object) -> object:
             enable_message_ordering=True
         ),
     )
+
+
+def _gcp_rest_publisher(credentials: object) -> object:
+    return GcpRestPublisherClient(credentials)
 
 
 def _publisher_for_destination(
@@ -137,7 +142,9 @@ def _publisher_for_destination(
             source_provider=source_provider,
             assertion_supplier=assertion,
         )
-        return GcpDestinationPublisher(destination, _gcp_publisher(credentials))
+        publisher = (_gcp_rest_publisher(credentials) if source_provider == "azure"
+                     else _gcp_publisher(credentials))
+        return GcpDestinationPublisher(destination, publisher)
     raise BridgeContractError("INVALID_IDENTITY_CONFIGURATION")
 
 

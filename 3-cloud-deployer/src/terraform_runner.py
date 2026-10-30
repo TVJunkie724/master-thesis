@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 _ALLOWED_TERRAFORM_COMMANDS = frozenset(
     {"apply", "destroy", "init", "output", "plan", "show", "state", "validate"}
 )
-_STATEFUL_COMMANDS = frozenset({"apply", "destroy", "output", "plan", "show"})
+_STATEFUL_COMMANDS = frozenset({"apply", "destroy", "output", "plan"})
 _TERRAFORM_TARGET = re.compile(r'^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_".-]+\])?$')
 
 
@@ -118,6 +118,9 @@ class TerraformRunner:
         if self.state_path and subcommand in _STATEFUL_COMMANDS:
             command.append(f"-state={self.state_path}")
         command.extend(args[1:])
+        if self.state_path and subcommand == "show":
+            # `show` accepts a positional state/plan file, not `-state`.
+            command.append(str(self.state_path))
         return command
 
     def state_list(self) -> subprocess.CompletedProcess:

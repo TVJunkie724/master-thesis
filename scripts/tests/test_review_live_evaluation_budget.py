@@ -26,8 +26,8 @@ def test_budget_proposal_is_digest_bound_and_keeps_execution_disabled(
     assert proposal["maximum_runtime_minutes"] == 60
     assert proposal["maximum_individual_scenario_cap_usd"] == 3
     assert proposal["maximum_scenario_cap_portfolio_usd"] == 25
-    assert proposal["proposed_scenario_cap_total_usd"] == "21.000000"
-    assert proposal["scenario_count"] == 9
+    assert proposal["proposed_scenario_cap_total_usd"] == "16.000000"
+    assert proposal["scenario_count"] == 8
     assert proposal["proposal_digest"] == budget._digest(
         {key: value for key, value in proposal.items() if key != "proposal_digest"}
     )
@@ -49,13 +49,12 @@ def test_budget_proposals_are_bounded_to_the_checked_small_matrix(
     } == {
         "small-local-aws": 2,
         "small-local-azure": 2,
-        "small-local-gcp": 2.5,
         "small-focus-aws-to-azure": 2,
         "small-focus-azure-to-aws": 2,
-        "small-focus-aws-to-gcp": 2.5,
-        "small-focus-gcp-to-aws": 3,
-        "small-focus-azure-to-gcp": 2.5,
-        "small-focus-gcp-to-azure": 2.5,
+        "small-focus-aws-to-gcp": 1.5,
+        "small-focus-gcp-to-aws": 2.5,
+        "small-focus-azure-to-gcp": 2,
+        "small-focus-gcp-to-azure": 2,
     }
     assert all(
         item["billing_semantics_review_required"] is True

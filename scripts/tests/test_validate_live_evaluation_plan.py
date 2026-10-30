@@ -21,10 +21,10 @@ def _use_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, plan: dict) -> No
 def test_checked_matrix_is_valid_only_as_planned() -> None:
     result = validator.validate(required_state="planned")
 
-    assert result["scenario_count"] == 9
+    assert result["scenario_count"] == 8
     assert result["directed_pair_count"] == 6
     assert result["required_state"] == "planned"
-    assert len(result["missing_budget_caps"]) == 9
+    assert len(result["missing_budget_caps"]) == 8
 
     with pytest.raises(RuntimeError, match="approved_for_supervised_execution"):
         validator.validate(required_state="ready")
@@ -63,6 +63,6 @@ def test_ready_gate_rejects_missing_or_invalid_budget(
     plan["scenarios"][0]["budget_cap_usd"] = budget
     _use_plan(monkeypatch, tmp_path, plan)
 
-    message = "invalid budget cap" if budget is not None else "nine budget caps"
+    message = "invalid budget cap" if budget is not None else "eight budget caps"
     with pytest.raises(RuntimeError, match=message):
         validator.validate(required_state="ready")

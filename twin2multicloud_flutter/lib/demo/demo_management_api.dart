@@ -28,6 +28,10 @@ import '../services/management_api.dart';
 import 'demo_fixture_store.dart';
 
 class DemoManagementApi implements ManagementApi {
+  @override
+  Future<String> getVisualization(String twinId) async =>
+      '<!doctype html><html><meta charset="utf-8"><title>Offline demo</title>'
+      '<h1>Offline L5 demo</h1><p>No live measurements. This is not cloud evidence.</p></html>';
   static const double _sixLayerEurPerUsd = 0.865948;
   static const _demoGraphDigest =
       'sha256:1111111111111111111111111111111111111111111111111111111111111111';
@@ -384,6 +388,7 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => {
         'region': request.region,
         'credential_source': 'azure_service_principal_json',
+        'client_configured': true,
       },
       CloudProvider.gcp => {
         'region': request.region,
@@ -871,7 +876,7 @@ class DemoManagementApi implements ManagementApi {
         parsedSelectionSpecification.readiness.evaluationOnly) {
       throw const DemoApiException(
         'DEPLOYMENT_CAPACITY_EVIDENCE_PENDING',
-        'The Six-layer result is evaluation-only until its live-capacity gates are evidenced.',
+        'The Six-layer result is evaluation-only until live readiness is approved.',
       );
     }
     final selectedAt = store.clock().toUtc().toIso8601String();
@@ -1230,30 +1235,6 @@ class DemoManagementApi implements ManagementApi {
         _demoAccessSurface(DeploymentLayer.l5, l5, twinId),
       ],
     }, expectedTwinId: twinId);
-  }
-
-  @override
-  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
-    String twinId,
-  ) async {
-    final access = await getDeploymentAccess(twinId);
-    final l5 = access.surfaceFor(DeploymentLayer.l5);
-    if (l5?.provider != CloudProvider.gcp ||
-        l5?.auth.credentialAction != DeploymentAccessCredentialAction.rotate) {
-      throw const DemoApiException(
-        'DEMO_GCP_GRAFANA_ROTATION_UNAVAILABLE',
-        'Viewer credential rotation is only available for GCP Grafana.',
-      );
-    }
-    final requestId = store.nextId('demo-grafana-viewer-rotation');
-    return DeploymentAccessCredential.fromJson({
-      'schema_version': DeploymentAccessCredential.supportedSchemaVersion,
-      'layer': 'l5',
-      'provider': 'gcp',
-      'username': l5!.auth.principalLabel,
-      'password': 'demo-viewer-$requestId',
-      'issued_at': store.clock().toUtc().toIso8601String(),
-    });
   }
 
   @override
@@ -2144,6 +2125,7 @@ class DemoManagementApi implements ManagementApi {
       CloudProvider.azure => {
         if (request.cloudScope['subscription_id'] != null)
           'subscription_id': request.cloudScope['subscription_id'],
+        'client_configured': request.credentials['client_id'] != null,
       },
       CloudProvider.gcp => {
         if (request.cloudScope['project_id'] != null)
@@ -2740,25 +2722,25 @@ Map<String, dynamic> _demoAccessSurface(
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.aws) => (
-      'aws_managed_grafana',
-      'Amazon Managed Grafana',
-      'aws_identity_center',
+      'aws_l5_visualization',
+      'AWS Raw-history Reader',
+      'aws_sigv4',
       'demo@twin2multicloud.local',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.azure) => (
-      'azure_managed_grafana',
-      'Azure Managed Grafana',
-      'azure_entra',
+      'azure_l5_visualization',
+      'Azure Raw-history Reader',
+      'azure_function_key',
       'demo@twin2multicloud.local',
       'none',
     ),
     (DeploymentLayer.l5, CloudProvider.gcp) => (
-      'gcp_grafana_oss',
-      'Grafana OSS on GKE',
-      'generated_viewer',
-      'demo-viewer',
-      'rotate',
+      'gcp_raw_history_reader',
+      'GCP Raw-history Reader',
+      'gcp_identity_token',
+      'demo@twin2multicloud.local',
+      'none',
     ),
   };
   return {
@@ -2783,7 +2765,7 @@ Map<String, dynamic> _demoAccessSurface(
     'capabilities': [
       layer == DeploymentLayer.l4
           ? 'Inspect the modeled twin surface.'
-          : 'Inspect the provisioned thesis dashboard.',
+          : 'Inspect bounded raw history and hourly rollups.',
     ],
     'limitations': ['Demo links do not create live cloud resources.'],
   };

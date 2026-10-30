@@ -86,20 +86,11 @@ abstract class AppSpacing {
   /// Compact global marker height for the isolated offline demo runtime
   static const double demoBannerMinHeight = 36;
 
-  /// Profile avatar radius for account identity cards
-  static const double profileAvatarRadius = 40;
-
   /// Deployment verification payload editor max lines
   static const int payloadEditorMaxLines = 6;
 
   /// Evidence cards stack below this width.
   static const double evidenceCardBreakpoint = 900;
-
-  /// Configuration Workspace switches between sidebar and task selector.
-  static const double workspaceSidebarBreakpoint = 960;
-
-  /// Stable width of the Configuration Workspace task sidebar.
-  static const double workspaceSidebarWidth = 300;
 
   /// Minimum width covered by the compact supported-layout contract.
   static const double compactSupportedWidth = 640;

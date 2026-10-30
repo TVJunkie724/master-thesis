@@ -104,7 +104,7 @@ class _Transport:
         raise AssertionError((method, url))
 
 
-def _publisher(tmp_path, transport):
+def _publisher(tmp_path, transport, *, core_evaluation=False):
     return AzureSixLayerImagePublisher(
         project_path=tmp_path,
         subscription_id="00000000-0000-0000-0000-000000000001",
@@ -117,16 +117,27 @@ def _publisher(tmp_path, transport):
         ),
         transport=transport,
         sleep=lambda _seconds: None,
+        core_evaluation=core_evaluation,
     )
 
 
-def test_publisher_uploads_context_and_returns_task_run_digest(tmp_path):
+@pytest.mark.parametrize("core_evaluation, timeout", [(False, 1200), (True, 300)])
+def test_publisher_uploads_context_and_returns_task_run_digest(
+    tmp_path, core_evaluation, timeout
+):
     context = tmp_path / "context.tar.gz"
     context.write_bytes(b"deterministic context")
     transport = _Transport()
-    publisher = _publisher(tmp_path, transport)
+    publisher = _publisher(tmp_path, transport, core_evaluation=core_evaluation)
 
     images = publisher.publish((AzureSixLayerImageRequest("storage-mover", context),))
+
+    request = next(
+        kwargs["json"]["properties"]["runRequest"]
+        for method, url, kwargs in transport.calls
+        if method == "PUT" and "taskRuns/" in url
+    )
+    assert request["timeout"] == timeout
 
     assert images["storage-mover"] == (
         "twinregistry.azurecr.io/storage-mover@sha256:" + "a" * 64

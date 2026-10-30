@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -381,9 +382,18 @@ class ApiService implements ManagementApi {
 
   @override
   Future<Twin> updateTwin(String twinId, {String? name, String? state}) async {
+    if (state != null && state != 'configured') {
+      throw ArgumentError.value(state, 'state', 'Use lifecycle operations');
+    }
+    if (state == 'configured') {
+      if (name != null) {
+        await _dio.put('/twins/$twinId', data: {'name': name});
+      }
+      final response = await _dio.post('/twins/$twinId/configure');
+      return Twin.fromJson(_contractMap(response.data, 'twin'));
+    }
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
-    if (state != null) data['state'] = state;
 
     final response = await _dio.put('/twins/$twinId', data: data);
     return Twin.fromJson(_contractMap(response.data, 'twin'));
@@ -816,17 +826,6 @@ class ApiService implements ManagementApi {
   }
 
   @override
-  Future<DeploymentAccessCredential> rotateGcpGrafanaViewerCredential(
-    String twinId,
-  ) async {
-    final twinPath = _managementPathSegment(twinId, 'Twin ID');
-    final response = await _dio.post(
-      '/twins/$twinPath/deployment-access/l5/credentials:rotate',
-    );
-    return DeploymentAccessCredential.fromJson(_responseMap(response.data));
-  }
-
-  @override
   Future<DeploymentHistory> getDeploymentHistory(
     String twinId, {
     int limit = 10,
@@ -990,7 +989,32 @@ class ApiService implements ManagementApi {
     );
   }
 
-  /// Download IoT simulator package (L1 provider determined by backend).
+  /// Fetch the fixed L5 snapshot through owner-scoped Management authentication.
+  @override
+  Future<String> getVisualization(String twinId) async {
+    final id = _managementPathSegment(twinId, 'Twin ID');
+    final response = await _dio.get<List<int>>(
+      '/twins/$id/deployment-access/visualization',
+      options: Options(
+        responseType: ResponseType.bytes,
+        // Management stages the operation package before its bounded L5 read.
+        receiveTimeout: const Duration(seconds: 300),
+      ),
+    );
+    final bytes = response.data;
+    if (bytes == null ||
+        bytes.isEmpty ||
+        bytes.length > 1024 * 1024 ||
+        response.headers.value(Headers.contentTypeHeader)?.split(';').first !=
+            'text/html') {
+      throw const AppException(
+        'Invalid L5 visualization response.',
+        code: 'DEPLOYMENT_CONTRACT_INVALID',
+      );
+    }
+    return utf8.decode(bytes);
+  }
+
   @override
   Future<BinaryDownload> downloadSimulator(String twinId) async {
     final response = await _dio.get(

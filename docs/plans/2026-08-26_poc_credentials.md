@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud PoC Credential, Readiness, and Repair Concept"
 description: "Bounded credential and provider-preparation contract for the supervised thesis proof of concept."
 tags: [security, credentials, readiness, repair, thesis-scope]
-lastUpdated: "2026-08-27"
-version: "2.1"
+lastUpdated: "2026-09-03"
+version: "2.5"
 ---
 
 # PoC credential, readiness, and repair concept
@@ -16,6 +16,12 @@ The proof of concept accepts a pre-existing, non-root deployment administrator
 credential for an isolated thesis account, Azure subscription, or Google Cloud
 project. It does not create, rotate, or revoke this deployment authority and
 does not claim that it is least privilege or production ready.
+
+Each provider uses one administrator principal per CloudConnection. For Azure,
+that one service principal performs resource CRUD, Azure RBAC assignment,
+Microsoft Graph operations, verification, and cleanup in the isolated thesis
+subscription. The deliberately broad authority minimizes manual setup for the
+PoC; it is not a least-privilege or production recommendation.
 
 Twin2MultiCloud may use the supplied authority to prepare a closed set of
 provider capabilities that the selected resolved deployment graph actually
@@ -68,16 +74,27 @@ credential files. Import is a convenience parser, not a general file upload.
 | Provider | Accepted PoC input | Required target metadata |
 |---|---|---|
 | AWS | access-key CSV or equivalent typed fields; optional session token for a supervised temporary session | account identity discovered by STS, intended regions |
-| Azure | service-principal JSON or equivalent typed fields | tenant ID, subscription ID, client ID |
+| Azure | administrator service-principal JSON, allowlisted compatibility JSON, or equivalent typed fields | tenant ID and subscription ID |
 | GCP | service-account JSON or equivalent typed fields | existing billing-enabled project ID |
 
-The exact schemas are versioned and allowlisted. Unknown keys, multiple
-credentials in one file, executable content, provider CLI profiles with
-implicit local dependencies, and arbitrary ZIP layouts are rejected. The
-original file is not retained after validated field extraction.
+The exact schemas are versioned and allowlisted. Unknown keys, executable
+content, provider CLI profiles with implicit local dependencies, and arbitrary
+ZIP layouts are rejected. The original file is not retained after validated
+field extraction. For the Azure compatibility form, Flutter extracts its Azure
+member locally, ignores known AWS/GCP members and retired preparation fields,
+then rebuilds one administrator JSON before calling the one-provider
+Management import endpoint.
 
 Immediately after entry or import, a non-mutating identity probe verifies the
 principal and target scope. It does not yet claim deployment readiness.
+
+For Azure, typed entry requires one client ID and secret. Import accepts one
+standard service-principal JSON document or one allowlisted compatibility
+object containing the Azure subscription, tenant, Regions and administrator
+pair. The compatibility object may be the direct Azure object or the tracked
+root object with only `aws`, `azure` and `gcp` members. It is a convenience
+input, not a retained credential archive. Retired preparation fields are
+accepted only by the local compatibility parser, ignored, and never uploaded.
 
 ## 5. Graph-derived readiness
 
@@ -150,6 +167,16 @@ requires Microsoft Graph permissions in addition to Azure subscription roles.
 Readiness tests both planes. Missing tenant consent is classified as
 `manual_action`; it is not hidden behind a generic Owner-role check and is not
 granted automatically by the PoC.
+
+The Azure service principal must have the built-in **Owner** role at the
+isolated subscription scope. Terraform uses the same principal for AzureRM,
+AzAPI, Azure RBAC assignments and Entra operations.
+
+The same principal requires the Microsoft Graph application permissions
+`Application.ReadWrite.All` and `AppRoleAssignment.ReadWrite.All`, with tenant
+administrator consent. Twin2MultiCloud verifies the required permissions but
+never grants consent. Additional permissions do not make readiness fail,
+because this PoC accepts an administrator rather than auditing least privilege.
 
 ## 9. Repair flow
 
@@ -256,11 +283,17 @@ The remaining boundary is deliberately visible:
 
 - AWS outbound-identity account enablement remains `manual_action`; the PoC has
   no reviewed automatic executor for it;
-- external billing, quota, organization-policy, tenant-consent, Marketplace,
-  and IAP OAuth steps remain manual or unsupported;
+- external billing, quota, organization-policy, tenant-consent, and Marketplace
+  steps remain manual or unsupported;
+- GCP L4 uses the approved supervised console bootstrap in
+  `docs/research/evaluation/gcp-l4-iap-bootstrap-runbook.md`; it is deliberately
+  not an automatic credential executor and no OAuth client credential enters
+  the repository or application;
 - a manual acknowledgement records the supervised operator decision but is not
   substituted for a provider probe where a non-mutating probe exists;
-- provider-console links are not yet a structured cross-provider contract; and
+- provider-specific text setup guides and canonical Settings links are
+  available for AWS, Azure, and GCP without embedding provider identifiers or
+  secrets; and
 - Flutter exposes the digest-bound plan, warns about persistent account-level
   changes, confirms only the listed automatic actions, records individually
   selected manual acknowledgements, and renders the returned readiness result.

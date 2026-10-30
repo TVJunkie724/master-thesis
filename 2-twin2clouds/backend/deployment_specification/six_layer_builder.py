@@ -308,8 +308,10 @@ def _dimension_value(
         * month_seconds
     ) + int(derived["l4_inspection_reads_per_month"])
     request_count = (
-        dashboard_requests
-        if "reader" in component_id or logical == "component.visualization"
+        dashboard_requests * 2
+        if "reader" in component_id
+        else dashboard_requests
+        if logical == "component.visualization"
         else event_attempts
         if any(
             token in component_id
@@ -329,7 +331,8 @@ def _dimension_value(
     rollup_document_count = int(workload["numberOfDevices"]) * int(
         derived["maximum_aggregate_rollup_points"]
     )
-    dashboard_point_reads = dashboard_requests * int(
+    # Each server-rendered view queries raw and hourly history through L3.
+    dashboard_point_reads = dashboard_requests * 2 * int(
         derived["maximum_aggregate_rollup_points"]
     )
     rollup_storage_gib = (
@@ -348,7 +351,6 @@ def _dimension_value(
             Decimal(str(derived["hot_payload_gib"])) + rollup_storage_gib
         ),
         "gcp.firestore-native-standard-bounded-twin": _decimal_text(twin_storage_gib),
-        "gcp.persistent-disk-rwo": str(fixed["gcp_grafana_persistent_disk_gib"]),
         "aws.s3-event-failure-store": _EVENT_FAILURE_STORE_GIB_MONTH[resolved.size],
     }.get(
         component_id,
@@ -450,6 +452,11 @@ def _dimension_value(
             )
         return int(derived[task_count_key]), units[dimension_id]
     values: dict[str, str | int] = {
+        # One automation editor plus the bounded PoC human viewer. Service
+        # accounts are billable on AWS; they are not free hidden support.
+        "workspace_count": 1,
+        "editor_seats": 1,
+        "viewer_seats": 1,
         "stored_gib_month": storage_gib,
         "read_requests": (
             messages + dashboard_point_reads
@@ -539,9 +546,6 @@ def _dimension_value(
             if component_id == "gcp.cloud-run-event-service-small-medium"
             else str(Decimal(request_count) * Decimal("0.5"))
         ),
-        "workspace_count": 1,
-        "editor_seats": int(workload["monthlyEditorSeats"]),
-        "viewer_seats": int(workload["monthlyViewerSeats"]),
         "node_count": (
             {"small": 1, "medium": 3, "large": 12}[resolved.size]
             if "bifromq" in component_id
@@ -617,13 +621,7 @@ def _dimension_value(
             else Decimal(messages + event_attempts) * Decimal("256") / _GIB_BYTES
         ),
         "rule_hours": 730,
-        "processed_bytes": (
-            dashboard_requests
-            * int(fixed["reader_maximum_points"])
-            * _ceil(Decimal(str(derived["canonical_payload_bytes"])))
-            if component_id == "gcp.grafana-tls-load-balancer"
-            else int(Decimal(str(derived["monthly_raw_payload_bytes"])))
-        ),
+        "processed_bytes": int(Decimal(str(derived["monthly_raw_payload_bytes"]))),
         "connected_devices": int(workload["numberOfDevices"]),
         "messages": (
             command_executions if component_id == "aws.iot-commands" else messages
@@ -657,12 +655,19 @@ def _selected_groups(
     *,
     profile_id: str,
     workload_size: str,
+    core_only: bool = False,
 ) -> list[tuple[str, str, str]]:
     logical_components = (
         SIX_LAYER_LOGICAL_COMPONENTS
         if profile_id == "six-layer-eventing"
         else LOGICAL_COMPONENTS
     )
+    if core_only:
+        logical_components = tuple(
+            item
+            for item in logical_components
+            if item not in {"component.twin-state", "component.visualization"}
+        )
     if set(assignment) != set(logical_components) or any(
         provider not in PROVIDERS for provider in assignment.values()
     ):
@@ -675,13 +680,21 @@ def _selected_groups(
         assignment["component.hot-storage"],
         assignment["component.cool-storage"],
         assignment["component.archive-storage"],
-        assignment["component.visualization"],
     }
     if len(storage_bundle) != 1:
         raise ArchitectureResolutionError(
             "ARCH_FUNCTIONAL_INCOMPLETE",
             "assignment",
-            "Six-layer PoC requires provider-local L3 storage and L5",
+            "Six-layer PoC requires provider-local L3 storage tiers",
+        )
+    if (
+        not core_only
+        and assignment["component.hot-storage"] != assignment["component.visualization"]
+    ):
+        raise ArchitectureResolutionError(
+            "ARCH_FUNCTIONAL_INCOMPLETE",
+            "edge.hot-storage-to-visualization",
+            "Cross-provider visualization reader integration is not implemented",
         )
     bundle_index = {item["provider"]: item for item in registry["provider_bundles"]}
     selected: list[tuple[str, str, str]] = []
@@ -695,6 +708,8 @@ def _selected_groups(
                 selected.append((provider, logical, component_id))
 
     for logical in LOGICAL_COMPONENTS:
+        if logical not in logical_components:
+            continue
         provider = assignment[logical]
         add(
             provider,
@@ -802,18 +817,10 @@ def _selected_groups(
                 )
             ],
         )
-        if any(
-            assignment[logical] == provider
-            for logical in ("component.twin-state", "component.visualization")
-        ):
-            owner = (
-                "component.twin-state"
-                if assignment["component.twin-state"] == provider
-                else "component.visualization"
-            )
+        if assignment.get("component.twin-state") == provider:
             add(
                 provider,
-                owner,
+                "component.twin-state",
                 [
                     item
                     for item in supports
@@ -826,12 +833,6 @@ def _selected_groups(
                         )
                     )
                 ],
-            )
-        if assignment["component.visualization"] == provider:
-            add(
-                provider,
-                "component.visualization",
-                [item for item in supports if "grafana-tls-load-balancer" in item],
             )
     hot = assignment["component.hot-storage"]
     cool = assignment["component.cool-storage"]
@@ -887,6 +888,49 @@ def _selected_groups(
             ],
         )
     return selected
+
+
+def small_core_evaluation_dimensions(
+    assignment: Mapping[str, str],
+    resolved_workload: ResolvedSixLayerWorkload,
+) -> dict[str, str]:
+    """Reuse pinned Small sizing for research tfvars, not a deployable RDS.
+
+    Only the fixed ingestion-to-local-core topology is admitted. Delivery sizing
+    remains conservatively inherited; these dimensions are not a scoped quote.
+    Full-profile builders and their non-overridable readiness gates are unchanged.
+    """
+    if resolved_workload.size != "small" or any(
+        provider != assignment.get("component.eventing")
+        for logical, provider in assignment.items()
+        if logical != "component.ingestion"
+    ):
+        raise ValueError("Core evaluation supports only Small ingestion-to-local-core")
+    _, registry, fixed = _contract()
+    groups = _selected_groups(
+        assignment,
+        registry,
+        profile_id="six-layer-eventing",
+        workload_size="small",
+        core_only=True,
+    )
+    components = {item["component_id"]: item for item in registry["components"]}
+    return {
+        f"dimension.{provider}.{component_id}.{dimension_id}": str(
+            _dimension_value(
+                component_id,
+                logical,
+                dimension_id,
+                resolved_workload,
+                registry,
+                fixed,
+                azure_large_autoscale_ru_per_second=None,
+                gcp_event_worker_count=0,
+            )[0]
+        )
+        for provider, logical, component_id in groups
+        for dimension_id in components[component_id]["capacity_dimensions"]
+    }
 
 
 def build_six_layer_eventing_v1_deployment_specification(
@@ -1124,6 +1168,16 @@ def _build_deployment_specification(
     if missing_azure_large_measurement:
         live_blockers.append("gate.live-capacity.azure.cosmos-autoscale-ru")
     blockers = sorted(set(live_blockers) - set(satisfied_live_gate_ids))
+    # Only the implemented provider-local HTML consumers are admissible.
+    # Storage readback alone and unimplemented placements remain blocked.
+    if (assignment["component.visualization"] not in {"aws", "azure"}
+            or assignment["component.visualization"] != assignment["component.hot-storage"]):
+        blockers.append("gate.implementation.l5-visualization-pending")
+    if (
+        assignment["component.twin-state"] == "gcp"
+        or assignment["component.visualization"] == "gcp"
+    ):
+        blockers.append("gate.scope.gcp-l4-l5-excluded")
     if missing_azure_large_measurement:
         blockers = sorted({*blockers, "gate.live-capacity.azure.cosmos-autoscale-ru"})
     required_definition_keys = {
@@ -1143,7 +1197,7 @@ def _build_deployment_specification(
         raise ArchitectureResolutionError(
             "ARCH_NO_ADMISSIBLE_CANDIDATE",
             "capacity",
-            "Architecture candidate has unresolved activation or live-capacity gates",
+            "Architecture candidate has unresolved scope, implementation or readiness gates",
         )
     if resolution_status not in {"offline_contract_fixture", "deployment_ready"}:
         raise ArchitectureResolutionError(

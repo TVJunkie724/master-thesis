@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import json
+import ssl
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from src.iot_device_simulator.google import globals, transmission
+
+
+def test_actual_mqtt_sdk_constructs_tls_client_without_network(monkeypatch):
+    import paho.mqtt.client as mqtt
+    monkeypatch.setattr(mqtt.Client, "connect", lambda *_args, **_kwargs: pytest.fail("network forbidden"))
+    client = transmission._client({"device_id": "offline", "username": "offline",
+                                   "password": "offline", "server_ca_path": None}, suffix="test")
+    assert isinstance(client, mqtt.Client)
+    assert client._ssl_context.verify_mode == ssl.CERT_REQUIRED
+    assert client._ssl_context.check_hostname
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        assert client.callback_api_version == mqtt.CallbackAPIVersion.VERSION2
 
 
 def _config(tmp_path):
@@ -82,7 +95,8 @@ def test_send_mqtt_rejects_payload_for_another_device(tmp_path, monkeypatch):
         transmission.send_mqtt({"iotDeviceId": "other-device", "value": 21})
 
 
-def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("expected,accepted", [(None, True), ("TRACE-ABCDEF12", True), ("TRACE-WRONG123", False)])
+def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch, capsys, expected, accepted):
     _config(tmp_path)
     client = MagicMock()
 
@@ -102,11 +116,51 @@ def test_command_listener_emits_device_receipt_checkpoint(tmp_path, monkeypatch,
     client.loop_start.side_effect = loop_start
     monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
 
-    assert transmission.listen_for_command(timeout_seconds=0.1) is True
+    assert transmission.listen_for_command(timeout_seconds=0.001, expected_trace_id=expected) is accepted
 
     output = capsys.readouterr().out
-    assert "T2MC_CHECKPOINT" in output
-    assert '"stage":"simulator_command_received"' in output
-    assert '"event_id":"event-1"' in output
-    assert '"trace_id":"TRACE-ABCDEF12"' in output
+    assert ("T2MC_CHECKPOINT" in output) is accepted
+    if accepted:
+        assert '"stage":"simulator_command_received"' in output
+        assert '"event_id":"event-1"' in output
+        assert '"trace_id":"TRACE-ABCDEF12"' in output
     client.subscribe.assert_called_once_with("devices/device-1/commands", qos=1)
+
+
+@pytest.mark.parametrize("suback", [0, 1, 128, None])
+def test_combined_roundtrip_waits_for_successful_suback(tmp_path, monkeypatch, suback):
+    _config(tmp_path)
+    client = MagicMock()
+    def start():
+        client.on_connect(client, None, None, 0)
+        if suback is not None:
+            client.on_subscribe(client, None, 1, [suback])
+    client.loop_start.side_effect = start
+    def publish(topic, payload, **kwargs):
+        assert topic == "devices/device-1/telemetry"
+        assert json.loads(payload)["iotDeviceId"] == "device-1"
+        client.on_message(client, None, SimpleNamespace(topic="devices/device-1/commands",
+            payload=b'{"trace_id":"TRACE-ABCDEF12"}'))
+        publication = MagicMock()
+        publication.is_published.return_value = True
+        return publication
+    client.publish.side_effect = publish
+    monkeypatch.setattr(transmission, "_client", lambda *_args, **_kwargs: client)
+    if suback in (0, 1):
+        assert transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_called_once()
+    else:
+        with pytest.raises(TimeoutError, match="subscription"):
+            transmission.listen_for_command(0.01, telemetry_payload={"source_sequence": "TRACE-ABCDEF12"})
+        client.publish.assert_not_called()
+    client.disconnect.assert_called_once()
+
+
+@pytest.mark.parametrize("payload", [{}, {"source_sequence": "TRACE-ABCDEF12", "device_id": "foreign"}])
+def test_combined_roundtrip_validates_before_connection(tmp_path, monkeypatch, payload):
+    _config(tmp_path)
+    client = MagicMock()
+    monkeypatch.setattr(transmission, "_client", client)
+    with pytest.raises(ValueError):
+        transmission.listen_for_command(0.01, telemetry_payload=payload)
+    client.assert_not_called()

@@ -41,7 +41,12 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
         "display_name": "AWS IoT TwinMaker",
         "auth_mode": "aws_identity_center",
         "credential_action": "none",
-        "capabilities": ["entities", "component-types", "current-state", "relationships"],
+        "capabilities": [
+            "entities",
+            "component-types",
+            "current-state",
+            "relationships",
+        ],
         "limitations": ["no-scenes", "no-raw-telemetry"],
     },
     ("l4", "azure"): {
@@ -81,38 +86,47 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
         "display_name": "GCP Twin Explorer",
         "auth_mode": "gcp_iap",
         "credential_action": "none",
-        "capabilities": ["models", "twins", "current-source-state", "direct-relationships"],
-        "limitations": ["read-only", "bounded-queries", "no-scenes", "no-raw-telemetry"],
+        "capabilities": [
+            "models",
+            "twins",
+            "current-source-state",
+            "direct-relationships",
+        ],
+        "limitations": [
+            "read-only",
+            "bounded-queries",
+            "no-scenes",
+            "no-raw-telemetry",
+        ],
     },
     ("l5", "aws"): {
         "output_key": "aws_component_visualization_output",
         "url_key": "access_url",
         "principal_key": "principal_label",
         "required_keys": {
-            "workspace_id",
             "access_url",
-            "workspace_url",
-            "reader_url",
-            "reader_function_name",
+            "workspace_id",
             "principal_label",
+            "access_role",
         },
         "service_id": "aws_managed_grafana",
         "display_name": "Amazon Managed Grafana",
         "auth_mode": "aws_identity_center",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-        "limitations": ["read-only-dashboard", "bounded-queries"],
+        "capabilities": ["recent-raw", "hourly-rollups", "grafana-dashboard", "no-data-state"],
+        "limitations": [
+            "viewer-access",
+            "bounded-queries",
+            "provider-sign-in-required",
+        ],
     },
     ("l5", "azure"): {
         "output_key": "azure_component_visualization_output",
         "url_key": "access_url",
         "principal_key": "principal_label",
         "required_keys": {
-            "workspace_name",
             "access_url",
-            "workspace_url",
-            "reader_url",
-            "reader_function_name",
+            "workspace_name",
             "principal_label",
             "access_role",
         },
@@ -120,34 +134,35 @@ SURFACE_DEFINITIONS: dict[tuple[str, str], dict[str, Any]] = {
         "display_name": "Azure Managed Grafana",
         "auth_mode": "azure_entra",
         "credential_action": "none",
-        "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-        "limitations": ["read-only-dashboard", "bounded-queries"],
+        "capabilities": ["recent-raw", "hourly-rollups", "grafana-dashboard", "no-data-state"],
+        "limitations": [
+            "viewer-access",
+            "bounded-queries",
+            "provider-sign-in-required",
+        ],
     },
     ("l5", "gcp"): {
         "output_key": "gcp_component_visualization_output",
-        "url_key": "endpoint",
-        "principal_key": "viewer_username",
+        "url_key": "access_url",
+        "principal_key": "principal_label",
         "required_keys": {
             "service",
-            "endpoint",
-            "viewer_username",
+            "access_url",
+            "principal_label",
             "authentication",
-            "certificate_sha256",
-            "source_cidrs",
-            "dashboard_uid",
-            "dashboard_title",
+            "access_role",
             "reader_service_id",
-            "viewer_credential",
-            "internal_secrets_output",
-            "replica_count",
-            "persistent_disk_gib",
         },
-        "service_id": "gcp_grafana_oss",
-        "display_name": "Grafana OSS on GKE",
-        "auth_mode": "generated_viewer",
-        "credential_action": "rotate",
+        "service_id": "gcp_raw_history_reader",
+        "display_name": "GCP Raw-history Reader",
+        "auth_mode": "gcp_identity_token",
+        "credential_action": "none",
         "capabilities": ["recent-raw", "hourly-rollups", "filters", "no-data-state"],
-        "limitations": ["read-only-dashboard", "bounded-queries", "self-signed-poc-certificate"],
+        "limitations": [
+            "read-only-json",
+            "bounded-queries",
+            "programmatic-access-only",
+        ],
     },
 }
 
@@ -175,7 +190,9 @@ def _evidence_validator() -> Draft202012Validator:
 def validate_deployment_access_evidence(document: dict[str, Any]) -> None:
     """Fail closed when a projected evidence document leaves the contract."""
 
-    errors = sorted(_evidence_validator().iter_errors(document), key=lambda error: list(error.path))
+    errors = sorted(
+        _evidence_validator().iter_errors(document), key=lambda error: list(error.path)
+    )
     if errors:
         raise DeploymentAccessProjectionError(
             f"Deployment Access evidence violates its contract: {errors[0].message}"
@@ -195,7 +212,12 @@ def validate_deployment_access_evidence(document: dict[str, Any]) -> None:
                 "Deployment Access provider/service/auth combination is not supported"
             )
         parsed = urlsplit(surface["url"])
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+        ):
             raise DeploymentAccessProjectionError(
                 "Deployment Access URL must be absolute secret-free HTTPS"
             )
@@ -204,7 +226,9 @@ def validate_deployment_access_evidence(document: dict[str, Any]) -> None:
 def _profile_ref(context: Any) -> tuple[str | None, str | None]:
     graph = getattr(context, "resolved_deployment_graph", None)
     reference = getattr(graph, "profile_ref", {}) if graph is not None else {}
-    return reference.get("id"), str(reference.get("version")) if reference.get("version") is not None else None
+    return reference.get("id"), str(reference.get("version")) if reference.get(
+        "version"
+    ) is not None else None
 
 
 def _selected_provider(context: Any, layer: str) -> str:
@@ -245,10 +269,6 @@ def _surface(
         raise DeploymentAccessProjectionError(
             f"Safe Terraform output {definition['output_key']} is missing: {', '.join(missing)}"
         )
-    if layer == "l5" and provider == "gcp" and bundle["internal_secrets_output"] is not False:
-        raise DeploymentAccessProjectionError(
-            "GCP visualization output did not prove that internal secrets are excluded"
-        )
     try:
         output_evidence = surface_output_evidence(layer, provider, outputs)
     except DeploymentAccessRuntimeEvidenceError as exc:
@@ -282,7 +302,12 @@ def _surface(
             "resource": "ready",
             "access_binding": "ready",
             "content": "ready" if runtime_ready else "pending",
-            "data_probe": "ready" if runtime_ready else "pending",
+            "data_probe": (
+                "ready" if runtime_ready and output_evidence.data_probe_revision not in {
+                    "graphical-l5-readiness.v1", "managed-grafana-readiness.v1"
+                }
+                else "pending"
+            ),
             "browser_sign_in": "unverified",
         },
         "capabilities": list(definition["capabilities"]),
@@ -317,7 +342,9 @@ def project_deployment_access_evidence(
         "schema_version": "deployment-access-evidence.v1",
         "profile_id": profile_id,
         "profile_version": profile_version,
-        "generated_at": timestamp.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": timestamp.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "surfaces": [
             _surface(
                 "l4",

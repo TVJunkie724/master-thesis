@@ -6,10 +6,9 @@ Every implementation plan produced by the `architect` skill MUST follow this 12-
 # Implementation Plan: [Feature Name]
 
 ## 0. Git Branch
-- **Branch name:** `ai/dev/<feature-slug>`  (sub-branch of `ai/dev`, or `ai/dev` itself if trivial)
-- **Base branch:** `ai/dev`
-- **Merge strategy:** Merge commit (NO rebase). The user merges `ai/dev → master` separately.
-- **Session ID:** `AI-MMDD-xxxx` (from `.ai-session.json`) — used as the commit prefix.
+- **Branch:** Current suitable feature branch from onboarding; use `codex/<task>` only for new work.
+- **Base:** Record the actual base; respect the user's requested starting point.
+- **Git scope:** Conventional commits, no history rewrite or push/merge unless requested.
 
 ## 1. Summary
 What this UI feature accomplishes and why it matters for Twin2MultiCloud.
@@ -107,6 +106,6 @@ Checklist for the builder to verify completion. Suggested baseline:
 - [ ] All async branches handle loading / error / empty
 - [ ] Accessibility checklist (Section 9) verified
 - [ ] No direct calls to Optimizer / Deployer
-- [ ] Commit history follows `[AI-MMDD-xxxx] type: …` format
+- [ ] Commit history follows onboarding's conventional commit format
 - [ ] Ready for `auditor`
 ```

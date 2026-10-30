@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
+import re
 from typing import Any, Mapping
 
 from ..bridge_application import BridgeApplication, build_bridge_application
@@ -21,6 +23,23 @@ from .bridge import handle_event_hub_batch, handle_service_bus_message
 _APPLICATION: BridgeApplication | None = None
 _FAILURE_WRITER: "AzureFailureWriter | None" = None
 _CIRCUITS: dict[str, RouteCircuitBreaker] = {}
+_SAFE_FAILURE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{2,64}$")
+
+
+def _failure_label(exc: Exception) -> str:
+    """Expose only stable bridge codes, never SDK errors or token material."""
+    code = getattr(exc, "code", None)
+    if code is None and isinstance(exc, RetryableBridgeError):
+        code = str(exc)
+    return code if isinstance(code, str) and _SAFE_FAILURE_CODE.fullmatch(code) else type(exc).__name__
+
+
+def _publish_observed(app: BridgeApplication, route: BridgeRoute, event: Mapping[str, Any]) -> object:
+    try:
+        return app.publish(route, event)
+    except Exception as exc:
+        logging.warning("Six-layer Azure bridge destination failed: %s", _failure_label(exc))
+        raise
 
 
 def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
@@ -172,13 +191,18 @@ def _require_acknowledged(result: object) -> None:
 def event_hub_batch(messages: list[object], *, attempt_count: int = 1) -> None:
     """Let Functions checkpoint a batch only after all records are accepted."""
 
-    app = _application()
+    try:
+        app = _application()
+        failure_writer = _failure_writer(app)
+    except Exception as exc:
+        logging.error("Six-layer Azure bridge setup failed: %s", _failure_label(exc))
+        raise
     result = handle_event_hub_batch(
         messages,
         attempt_count=attempt_count,
         routes_json=_required_environment("BRIDGE_ROUTES_JSON"),
-        publish=app.publish,
-        write_dlq=_failure_writer(app),
+        publish=lambda route, event: _publish_observed(app, route, event),
+        write_dlq=failure_writer,
         circuit_breakers=_CIRCUITS,
     )
     _require_acknowledged(result)
@@ -199,4 +223,3 @@ def service_bus_message(message: object) -> None:
 
 
 __all__ = ["AzureFailureWriter", "event_hub_batch", "service_bus_message"]
-

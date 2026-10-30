@@ -34,8 +34,8 @@ locals {
   gcp_event_local_processed_roles = concat(
     local.gcp_event_hot_local ? [
       "historical-persistence",
-      "twin-state-update",
     ] : [],
+    local.gcp_event_hot_local && !local.core_evaluation ? ["twin-state-update"] : [],
     local.gcp_event_l2_local ? ["rule-evaluator"] : [],
     local.gcp_event_large ? ["audit", "realtime-visualization"] : [],
   )
@@ -90,7 +90,9 @@ locals {
     } : {},
     local.gcp_event_hot_local ? {
       historical-persistence = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
-      twin-state-update      = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
+    } : {},
+    local.gcp_event_hot_local && !local.core_evaluation ? {
+      twin-state-update = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["persistence"].uri
     } : {},
     length(local.gcp_event_local_control_event_types) > 0 ? {
       control-router = google_cloud_run_v2_service.gcp_gcp_cloud_run_event_adapter["domain"].uri
@@ -207,7 +209,7 @@ resource "google_cloud_run_v2_service" "event_runtime" {
 
     scaling {
       min_instance_count = 0
-      max_instance_count = 100
+      max_instance_count = local.core_evaluation ? 1 : 100
     }
 
     containers {
@@ -474,7 +476,9 @@ resource "google_logging_project_sink" "eventing" {
   project                = local.gcp_project_id
   name                   = "${local.gcp_event_name}-eventing"
   destination            = "logging.googleapis.com/${google_logging_project_bucket_config.eventing[0].id}"
-  unique_writer_identity = true
+  # This sink and its log bucket are in the same project; Cloud Logging writes
+  # directly and returns no writer identity for this supported case.
+  unique_writer_identity = false
   # Cloud Run uses a distinct monitored-resource type for worker pools. Keep
   # both the push/control service and the fixed Large telemetry consumers in
   # the bounded Event Layer evidence bucket.
@@ -482,13 +486,6 @@ resource "google_logging_project_sink" "eventing" {
     "(resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"%s\") OR resource.type=\"cloud_run_workerpool\"",
     "${local.gcp_event_name}-event-runtime",
   )
-}
-
-resource "google_project_iam_member" "eventing_sink_writer" {
-  count   = local.gcp_event_enabled ? 1 : 0
-  project = local.gcp_project_id
-  role    = "roles/logging.bucketWriter"
-  member  = google_logging_project_sink.eventing[0].writer_identity
 }
 
 output "gcp_event_log_bucket" {

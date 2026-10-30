@@ -47,7 +47,7 @@ PROVIDER_REGIONS = {
 }
 EVENTING_MANIFEST_PATH = DEFINITIONS_ROOT / "six-layer-eventing-v1-manifest.json"
 EVENTING_MANIFEST_DIGEST = (
-    "sha256:1ebd220ef594e76d679d2b5698e98c76df917533bef2a88d3950b03b906343cb"
+    "sha256:484d5004d405d6623d2557b209a6ebebeed07fdb4aa1cd3641d94d98ee3d816f"
 )
 EVENTING_COST_REGISTRY_DIGEST = (
     "sha256:851af214c192826c2b5d0cd4250c552a7a23e1e40a6ca01a807fdf38c77d3972"
@@ -158,7 +158,7 @@ def optimize_six_layer_eventing_v1(
         raise ArchitectureResolutionError(
             "ARCH_PRICING_EVIDENCE_MISSING",
             "pricing",
-            "Supply exactly one live catalog or explicit test-ledger resolver",
+            "Supply exactly one frozen catalog or explicit test-ledger resolver",
         )
     ledger_resolver = cost_ledger_resolver or (
         build_six_layer_catalog_cost_ledger_resolver(pricing_by_provider or {})

@@ -45,7 +45,12 @@ SENSITIVE_KEY_PARTS = (
     "gcp_credentials_file",
     "aws_access_key_id",
     "aws_secret_access_key",
+    "azure_client_id",
     "azure_client_secret",
+    "azure_preparation_client_id",
+    "azure_preparation_client_secret",
+    "azure_subscription_id",
+    "azure_tenant_id",
 )
 REDACTION = "[REDACTED]"
 
@@ -62,6 +67,11 @@ def build_provider_preflight(
         "azure": _azure_checks,
         "gcp": _gcp_checks,
     }[provider](safe_result)
+    # Partial successful checks cannot override a failed/unknown checker result.
+    if safe_result.get("status") != "valid" and not any(
+        check.status == "failed" for check in checks
+    ):
+        checks.append(_generic_failure(safe_result, provider))
     ready = bool(checks) and all(
         check.status in {"passed", "warning", "skipped"} for check in checks
     )
@@ -95,6 +105,8 @@ def _aws_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
                 "AWS caller identity was verified through the deployment Region's STS endpoint.",
             )
         )
+    elif sts_region.get("status") == "endpoint_resolved":
+        checks.append(_generic_failure(result, "aws"))
     elif sts_region:
         checks.append(
             _failed(
@@ -223,17 +235,21 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
             )
         )
     elif graph_status == "consent_required":
+        missing_graph_permissions = [
+            f"Microsoft Graph: {permission}"
+            for permission in graph_authority.get("missing_permissions", [])
+        ]
         checks.append(
             _failed(
                 "microsoft_graph_authority",
                 "MICROSOFT_GRAPH_CONSENT_REQUIRED",
                 graph_authority.get("message")
                 or "Microsoft Graph tenant admin consent is missing.",
-                "Grant tenant admin consent for Application.Read.All, then rerun preflight.",
-                permissions=["Microsoft Graph: Application.Read.All"],
+                "Grant tenant admin consent for the exact listed application permissions, then rerun preflight.",
+                permissions=missing_graph_permissions,
             )
         )
-    elif graph_status in {"transient", "check_failed"}:
+    elif graph_status in {"transient", "check_failed", "authentication_failed"}:
         checks.append(
             _failed(
                 "microsoft_graph_authority",
@@ -251,6 +267,39 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
                 graph_authority.get("message")
                 or "Microsoft Graph authority inspection is unavailable.",
                 "Install the supported Deployer dependencies and rerun preflight.",
+            )
+        )
+
+    administrator_authority = _safe_dict(result.get("administrator_authority"))
+    if administrator_authority.get("status") == "ready":
+        checks.append(
+            _passed(
+                "administrator_authority",
+                "AZURE_ADMINISTRATOR_AUTHORITY_READY",
+                administrator_authority.get("message")
+                or "Azure thesis-PoC administrator authority is ready.",
+            )
+        )
+    elif administrator_authority:
+        missing = _azure_missing_actions(result)
+        checks.append(
+            _failed(
+                "administrator_authority",
+                "AZURE_ADMINISTRATOR_AUTHORITY_MISSING",
+                administrator_authority.get("message")
+                or "Azure thesis-PoC administrator authority is not ready.",
+                "Grant Owner to the PoC application at subscription scope, then rerun preflight.",
+                permissions=sorted(
+                    {
+                        *[str(item) for item in missing],
+                        *[
+                            str(item)
+                            for item in administrator_authority.get(
+                                "missing_actions", []
+                            )
+                        ],
+                    }
+                ),
             )
         )
 
@@ -318,13 +367,13 @@ def _azure_checks(result: dict[str, Any]) -> list[ProviderPreflightCheck]:
         )
 
     missing_actions = _azure_missing_actions(result)
-    if missing_actions:
+    if missing_actions and not administrator_authority:
         checks.append(
             _failed(
                 "deployment_permissions",
                 "MISSING_PERMISSIONS",
                 message or "Azure deployment permissions are missing.",
-                "Grant the listed Azure actions via the custom deployer role or required built-in roles.",
+                "Grant Owner to the PoC application at subscription scope.",
                 permissions=missing_actions,
             )
         )

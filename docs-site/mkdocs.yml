@@ -7,7 +7,7 @@ theme:
   name: material
   language: en
   features:
-    - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.footer
     - search.highlight
@@ -41,74 +41,73 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - Overview: getting-started/index.md
-      - Fresh Clone: getting-started/fresh-clone.md
-      - Supported Platforms: getting-started/supported-platforms.md
-      - Runtime Profiles: getting-started/runtime-profiles.md
-  - Architecture:
-      - Overview: architecture/index.md
-      - System Context: architecture/system-context.md
-      - Responsibilities & Data Ownership: architecture/data-ownership.md
-      - End-to-End Flows: architecture/end-to-end-flows.md
-      - Security & Trust Boundaries: architecture/security-boundaries.md
-      - Provider Capabilities: architecture/provider-capabilities.md
-      - Current Deployment Graph: architecture/current-deployment-graph.md
-      - Five-Layer Baseline Target: architecture/five-layer-baseline.md
-      - Engineering Decisions: architecture/engineering-decisions.md
-      - Original to Current State: architecture/evolution.md
-      - Project Background: architecture/project-background.md
-  - Contracts & Data Flow:
-      - Overview: contracts-and-data-flow/index.md
-      - System Boundaries: contracts-and-data-flow/system-boundaries.md
-      - Cross-Project Contract Map: contracts-and-data-flow/contract-map.md
-      - Canonical Architecture Contract: contracts-and-data-flow/canonical-architecture-contract.md
-      - User-Function Extensions: contracts-and-data-flow/user-function-extensions.md
-      - Pricing & Optimization: contracts-and-data-flow/pricing-optimization.md
-      - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
-      - Credentials & Trust: contracts-and-data-flow/credentials-and-trust.md
-      - State Ownership: contracts-and-data-flow/state-ownership.md
-  - Components:
-      - Flutter UI: components/flutter.md
-      - Management API: components/backend.md
-      - Optimizer: components/optimizer.md
-      - Deployer: components/deployer.md
-      - User Function Patterns: components/user-functions.md
-      - Documentation Site: components/docs-site.md
-  - Runtime:
-      - Overview: runtime/index.md
-      - Authentication: runtime/authentication.md
-      - Configuration Reference: runtime/configuration.md
-      - State & Persistence: runtime/state-and-persistence.md
-      - Operations & Logging: runtime/operations.md
-      - Known Limitations: runtime/known-limitations.md
-      - Troubleshooting: runtime/troubleshooting.md
-  - Developer Guide:
-      - Overview: developer-guide/index.md
-      - Project Setup: developer-guide/setup.md
-      - Project Structure: developer-guide/project-structure.md
-      - API & Contracts: developer-guide/contracts.md
-      - Architecture Contract Development: developer-guide/canonical-architecture-contract.md
-      - User-Function Extension Development: developer-guide/user-function-extensions.md
-      - Extension Points: developer-guide/extension-points.md
-      - Testing: developer-guide/testing.md
+  - Quickstart: getting-started/fresh-clone.md
+  - Walkthrough: user-guide/multi-cloud-walkthrough.md
+  - Results and Limits: runtime/known-limitations.md
   - User Guide:
-      - Overview: user-guide/index.md
-      - Dashboard & Twins: user-guide/dashboard-and-twins.md
+      - user-guide/index.md
+      - Dashboard and Twins: user-guide/dashboard-and-twins.md
       - Cloud Accounts: user-guide/cloud-accounts.md
       - Configuration Workspace: user-guide/configuration-workspace.md
-      - User-Function Extensions: user-guide/user-function-extensions.md
-      - Deployment & Verification: user-guide/deployment.md
-      - Multi-Cloud Walkthrough: user-guide/multi-cloud-walkthrough.md
+      - User Functions: user-guide/user-function-extensions.md
+      - Deployment and Verification: user-guide/deployment.md
       - Offline Demo: user-guide/demo.md
-  - Cloud Setup:
-      - Overview: cloud-setup/index.md
-      - AWS: cloud-setup/aws.md
-      - Azure: cloud-setup/azure.md
-      - Google Cloud: cloud-setup/gcp.md
-      - Provider Links: cloud-setup/provider-links.md
-  - API:
-      - Overview: api/index.md
-  - References:
-      - Overview: references/index.md
-      - Source Provenance: references/source-provenance.md
+  - Architecture:
+      - architecture/index.md
+      - System Context: architecture/system-context.md
+      - End-to-End Flow: architecture/end-to-end-flows.md
+      - Engineering Decisions: architecture/engineering-decisions.md
+      - Project Evolution: architecture/evolution.md
+      - Current Cloud Graph: architecture/current-deployment-graph.md
+  - Troubleshooting: runtime/troubleshooting.md
+  - Reference:
+      - Setup and Operation:
+          - Setup Overview: getting-started/index.md
+          - Supported Platforms: getting-started/supported-platforms.md
+          - Runtime Profiles: getting-started/runtime-profiles.md
+          - Runtime Overview: runtime/index.md
+          - Authentication: runtime/authentication.md
+          - Configuration: runtime/configuration.md
+          - State and Backups: runtime/state-and-persistence.md
+          - Operations and Logging: runtime/operations.md
+      - Cloud Setup:
+          - Overview: cloud-setup/index.md
+          - AWS: cloud-setup/aws.md
+          - Azure: cloud-setup/azure.md
+          - Google Cloud: cloud-setup/gcp.md
+          - Provider Links: cloud-setup/provider-links.md
+      - Contracts and Data Flow:
+          - Overview: contracts-and-data-flow/index.md
+          - System Boundaries: contracts-and-data-flow/system-boundaries.md
+          - Contract Map: contracts-and-data-flow/contract-map.md
+          - Architecture Profiles: contracts-and-data-flow/canonical-architecture-contract.md
+          - User Functions: contracts-and-data-flow/user-function-extensions.md
+          - Pricing and Optimization: contracts-and-data-flow/pricing-optimization.md
+          - Deployment Lifecycle: contracts-and-data-flow/deployment-lifecycle.md
+          - Credentials and Trust: contracts-and-data-flow/credentials-and-trust.md
+          - State Ownership: contracts-and-data-flow/state-ownership.md
+      - Components:
+          - Flutter: components/flutter.md
+          - Management API: components/backend.md
+          - Optimizer: components/optimizer.md
+          - Deployer: components/deployer.md
+          - User Function Patterns: components/user-functions.md
+          - Documentation Site: components/docs-site.md
+      - Development:
+          - Overview: developer-guide/index.md
+          - Setup: developer-guide/setup.md
+          - Project Structure: developer-guide/project-structure.md
+          - API and Contracts: developer-guide/contracts.md
+          - Architecture Contracts: developer-guide/canonical-architecture-contract.md
+          - User Function Extensions: developer-guide/user-function-extensions.md
+          - Extension Points: developer-guide/extension-points.md
+          - Testing: developer-guide/testing.md
+          - API Reference: api/index.md
+      - Architecture and Background:
+          - Data Ownership: architecture/data-ownership.md
+          - Security Boundaries: architecture/security-boundaries.md
+          - Provider Capabilities: architecture/provider-capabilities.md
+          - Baseline Target: architecture/five-layer-baseline.md
+          - Project Background: architecture/project-background.md
+          - Sources: references/index.md
+          - Source Provenance: references/source-provenance.md

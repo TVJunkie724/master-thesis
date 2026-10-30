@@ -3,6 +3,11 @@
 Deployment actions appear after a calculation is selected and current
 graph-derived readiness succeeds.
 
+The Twin lifecycle page starts with one summary: Twin identity, current state
+and the next safe action. Back, theme and Cloud access are in the app bar;
+Edit/Delete are secondary actions. The page shows only one lifecycle command
+at a time.
+
 ## Before Deploy
 
 Confirm the immutable calculation/graph, selected connection labels and
@@ -18,7 +23,7 @@ operation or authorize a duplicate.
 
 ## After Deploy
 
-Review:
+The page presents **Verify and access** before **Destroy and cleanup**. Review:
 
 - terminal operation and resource-probe status;
 - the defined telemetry roundtrip result;
@@ -30,12 +35,24 @@ Provider browser sign-in is an external live step. A service-local one-time
 Viewer credential is shown only when that deployed access surface actually
 uses one; Flutter discards it after use.
 
+For AWS/Azure L5, **Open** instead fetches an authenticated graphical snapshot
+through Management and opens it in an external tab/browser. Cloud credentials
+are not copied into the link. Open again for updated raw/history panels; there
+is no background refresh. An empty panel is explicitly labelled and is not a
+successful data probe. L4 access remains independent of L5. GCP L4/L5 are
+excluded from the thesis PoC.
+
 ## Destroy and cleanup
 
 Destroy is explicit and uses retained state. Its terminal evidence separates
 removed Twin resources, retained shared account prerequisites, and residual
 failures. A failed Deploy may still require Destroy. Never infer an empty
 provider account from a local `error` state.
+
+An error therefore puts Cleanup before preparation for another attempt. A
+destroyed Twin shows cleanup evidence before preparation for another approved
+run. Configuration and immutable graph evidence remains available at the end
+of every lifecycle state.
 
 Mock operations and offline access fixtures test UI/contract behavior but are
 not live-cloud evidence.

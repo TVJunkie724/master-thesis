@@ -123,23 +123,11 @@ _ACCESS_PREREQUISITES = {
         "aws.iam-identity-center.primary-region",
         "manual_external",
     ),
-    ("aws", "component.visualization"): (
-        "aws.grafana.authentication",
-        "manual_external",
-    ),
     ("azure", "component.twin-state"): (
         "azure.microsoft-graph.authority",
         "manual_external",
     ),
-    ("azure", "component.visualization"): (
-        "azure.entra.runtime-access",
-        "manual_external",
-    ),
     ("gcp", "component.twin-state"): (
-        "gcp.iap.oauth-configuration",
-        "manual_external",
-    ),
-    ("gcp", "component.visualization"): (
         "gcp.iap.oauth-configuration",
         "manual_external",
     ),

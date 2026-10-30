@@ -78,7 +78,7 @@ class _Summary extends StatelessWidget {
           title: 'Twin',
           rows: {
             'Name': state.twinName ?? 'Not set',
-            'Mode': state.debugMode ? 'Debug' : 'Production',
+            'Mode': state.debugMode ? 'Debug' : 'Standard PoC',
           },
         ),
         _SummarySection(
@@ -92,7 +92,7 @@ class _Summary extends StatelessWidget {
                 : '${params.hotStorageDurationInMonths} / ${params.coolStorageDurationInMonths} / ${params.archiveStorageDurationInMonths} months',
             if (state.usesSixLayerProfile) ...{
               'Twin entities': '${params?.entityCount ?? 0}',
-              'Dashboard refreshes':
+              'Modeled L5 reads':
                   '${params?.dashboardRefreshesPerHour ?? 0}/hour',
             } else
               '3D representation': params?.needs3DModel == true
@@ -132,7 +132,7 @@ class _Summary extends StatelessWidget {
                 ),
         ),
         _SummarySection(
-          title: 'Deployment readiness',
+          title: 'Configuration completeness (not cloud preflight)',
           rows: {
             for (final section in state.deployerReadiness.sections)
               section.label: section.ready ? 'Ready' : 'Needs attention',

@@ -124,6 +124,9 @@ SOURCE_RATE_KEYS = {
 }
 
 UNITS = {
+    "workspace_count": "count",
+    "editor_seats": "seats/month",
+    "viewer_seats": "seats/month",
     "resource_count": "count",
     "stored_gib_month": "GiB-month",
     "read_requests": "requests/month",
@@ -140,9 +143,6 @@ UNITS = {
     "execution_seconds": "seconds/month",
     "vcpu_seconds": "vCPU-s/month",
     "memory_gib_seconds": "GiB-s/month",
-    "workspace_count": "count",
-    "editor_seats": "seats/month",
-    "viewer_seats": "seats/month",
     "node_count": "count",
     "node_hours": "hours/month",
     "throughput_unit_hours": "TU-hours/month",
@@ -593,7 +593,9 @@ def _azure_component(
             _meter(
                 "workspace_count",
                 _decimal(pricing["azureManagedGrafana"]["hourlyPrice"])
-                * Decimal("730"),
+                # The retained retail rate is per Standard node unit. X1
+                # consumes two units; do not price it as one hourly workspace.
+                * Decimal("2") * Decimal("730"),
             ),
             _meter("editor_seats", pricing["azureManagedGrafana"]["userPrice"]),
             _meter("viewer_seats", pricing["azureManagedGrafana"]["userPrice"]),
@@ -900,7 +902,7 @@ def _expected_publication() -> tuple[
 
 
 def _archive_current_manifest(current: bytes) -> None:
-    """Retain the exact predecessor required by safe runtime migration."""
+    """Retain the exact predecessor for offline reconstruction and provenance."""
 
     payload = _read(BASELINE_PATH)
     PricingCatalogBaselineManifest.model_validate(payload)

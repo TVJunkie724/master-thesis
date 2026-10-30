@@ -161,6 +161,7 @@ def test_delete_missing_workspace_rejected(temp_project_path):
         file_manager.delete_project("missing", project_path=temp_project_path)
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_manifest_resource_name_must_match_workspace(temp_project_path):
     file_manager.create_project_from_zip(
         "matching",
@@ -176,6 +177,7 @@ def test_manifest_resource_name_must_match_workspace(temp_project_path):
         )
 
 
+@pytest.mark.usefixtures("offline_graph_mechanics")
 def test_update_manifest_mismatch_preserves_workspace(temp_project_path):
     name = "matching"
     file_manager.create_project_from_zip(
@@ -190,15 +192,14 @@ def test_update_manifest_mismatch_preserves_workspace(temp_project_path):
         )
 
     manifest = json.loads(
-        (_project_dir(temp_project_path, name) / CONSTANTS.DEPLOYMENT_MANIFEST_FILE)
-        .read_text(encoding="utf-8")
+        (
+            _project_dir(temp_project_path, name) / CONSTANTS.DEPLOYMENT_MANIFEST_FILE
+        ).read_text(encoding="utf-8")
     )
     assert manifest["twin"]["resource_name"] == name
 
 
-def test_create_never_persists_uploaded_credentials(
-    temp_project_path, valid_zip_bytes
-):
+def test_create_never_persists_uploaded_credentials(temp_project_path, valid_zip_bytes):
     file_manager.create_project_from_zip(
         "secret-free", valid_zip_bytes, project_path=temp_project_path
     )
@@ -226,9 +227,7 @@ def test_create_failure_leaves_no_partial_workspace(
     assert list(upload_root.glob(".atomic-create.staging-*")) == []
 
 
-def test_update_replaces_definition_without_history(
-    temp_project_path, valid_zip_bytes
-):
+def test_update_replaces_definition_without_history(temp_project_path, valid_zip_bytes):
     name = "atomic-update"
     file_manager.create_project_from_zip(
         name, valid_zip_bytes, project_path=temp_project_path
@@ -314,9 +313,7 @@ def test_single_archive_wrapper_is_flattened(temp_project_path, valid_zip_bytes)
     assert not (workspace / "wrapped").exists()
 
 
-def test_archive_wrapper_rejects_files_outside_root(
-    temp_project_path, valid_zip_bytes
-):
+def test_archive_wrapper_rejects_files_outside_root(temp_project_path, valid_zip_bytes):
     with pytest.raises(ValueError, match="outside the canonical project root"):
         file_manager.create_project_from_zip(
             "ambiguous",

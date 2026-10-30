@@ -1,18 +1,27 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:twin2multicloud_flutter/config/app_runtime.dart';
 import 'package:twin2multicloud_flutter/models/cloud_connection.dart';
 import 'package:twin2multicloud_flutter/services/api_service.dart';
+import 'package:twin2multicloud_flutter/utils/azure_credential_file_parser.dart';
 
 const _forbiddenPayloadKeys = {
   'access_key_id',
   'secret_access_key',
   'client_secret',
+  'client_id',
+  'preparation_client_id',
+  'preparation_client_secret',
   'private_key',
   'service_account_json',
   'access_token',
   'refresh_token',
+  'appid',
+  'password',
 };
 final _runtime = AppRuntimeConfig.fromEnvironment();
 final _apiUri =
@@ -30,7 +39,7 @@ void main() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMessageHandler('flutter/rawKeyboard', (_) async => null);
 
-  group('Management API read-only readiness', () {
+  group('Management API credential-free contract', () {
     testWidgets('runtime config supplies an HTTP Management API origin', (
       tester,
     ) async {
@@ -123,6 +132,79 @@ void main() {
       }
     });
 
+    testWidgets(
+      'imports, lists, and deletes one redacted Azure administrator',
+      (tester) async {
+        const administratorClientId = 'synthetic-administrator-principal';
+        const administratorSecret = 'synthetic-administrator-secret';
+        String? connectionId;
+        try {
+          final selection = parseAzureCredentialFileSelection(
+            Uint8List.fromList(
+              utf8.encode(
+                jsonEncode({
+                  'azure': {
+                    'azure_subscription_id': 'synthetic-subscription',
+                    'azure_tenant_id': 'synthetic-tenant',
+                    'azure_client_id': administratorClientId,
+                    'azure_client_secret': administratorSecret,
+                    'azure_region': 'westeurope',
+                  },
+                }),
+              ),
+            ),
+          );
+          final request = CloudConnectionImportRequest(
+            provider: CloudProvider.azure,
+            displayName: 'Azure integration bundle',
+            region: selection.region!,
+            targetScopeId: selection.subscriptionId,
+            filename: 'synthetic-azure.json',
+            bytes: selection.normalizedUploadBytes,
+          );
+          final createdRaw = await _authenticatedImportPost(request);
+          expect(_containsForbiddenKey(createdRaw), isFalse);
+          expect(
+            _containsAnyValue(createdRaw, const {
+              administratorClientId,
+              administratorSecret,
+            }),
+            isFalse,
+          );
+          final created = CloudConnection.fromJson(
+            Map<String, dynamic>.from(createdRaw! as Map),
+          );
+          connectionId = created.id;
+          expect(created.payloadSummary['client_configured'], isTrue);
+          expect(
+            created.payloadSummary,
+            isNot(contains('preparation_client_configured')),
+          );
+
+          final listedRaw = await _authenticatedJsonRequest(
+            '/cloud-connections/',
+          );
+          expect(_containsForbiddenKey(listedRaw), isFalse);
+          expect(
+            _containsAnyValue(listedRaw, const {
+              administratorClientId,
+              administratorSecret,
+            }),
+            isFalse,
+          );
+          final listed = await _api.listCloudConnections();
+          expect(listed.map((item) => item.id), contains(connectionId));
+        } finally {
+          if (connectionId != null) {
+            await _api.deleteCloudConnection(connectionId);
+          }
+        }
+
+        final remaining = await _api.listCloudConnections();
+        expect(remaining.map((item) => item.id), isNot(contains(connectionId)));
+      },
+    );
+
     testWidgets('keeps readiness payloads free of credential keys', (
       tester,
     ) async {
@@ -164,15 +246,24 @@ void main() {
         );
       }
 
-      for (final field in [
-        'averageDigitalTwinQueryUnitsPerQuery',
-        'averageDigitalTwinQueryResponseSizeInKb',
-      ]) {
-        final contract = managementProperties[field] as Map?;
-        expect(contract, isNotNull, reason: 'Missing $field');
-        expect(contract!['exclusiveMinimum'], 0);
-        expect(contract['default'], 1.0);
-      }
+      expect(
+        managementContract['required'],
+        containsAll(const {
+          'schemaVersion',
+          'numberOfDevices',
+          'twinEntityCount',
+          'eventingScenarioId',
+        }),
+      );
+      expect(
+        (managementProperties['schemaVersion'] as Map)['const'],
+        'six-layer-workload.v1',
+      );
+      expect(
+        (managementProperties['numberOfDevices'] as Map)['exclusiveMinimum'],
+        0,
+      );
+      expect((managementProperties['currency'] as Map)['default'], 'USD');
 
       final paths = (managementOpenApi as Map)['paths'] as Map;
       for (final removedPath in const {
@@ -259,6 +350,35 @@ Future<Object?> _authenticatedJsonRequest(String endpoint) async {
   }
 }
 
+Future<Object?> _authenticatedImportPost(
+  CloudConnectionImportRequest request,
+) async {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: _apiUri.toString(),
+      validateStatus: (status) => status != null && status < 400,
+      headers: {'Authorization': 'Bearer $_authToken'},
+    ),
+  );
+  try {
+    final response = await dio.post<Object?>(
+      '/cloud-connections/import',
+      data: FormData.fromMap({
+        'metadata': request.metadataJson,
+        'file': MultipartFile.fromBytes(
+          request.bytes,
+          filename: request.filename,
+        ),
+      }),
+    );
+    return response.data;
+  } on DioException catch (error) {
+    fail(_safeDioFailure('/cloud-connections/import', error));
+  } finally {
+    dio.close(force: true);
+  }
+}
+
 Map _openApiSchema(Object? openApi, String schemaName) {
   expect(openApi, isA<Map>());
   final components =
@@ -290,4 +410,14 @@ bool _containsForbiddenKey(Object? value) {
     }
   }
   return false;
+}
+
+bool _containsAnyValue(Object? value, Set<String> forbiddenValues) {
+  if (value is Map) {
+    return value.values.any((item) => _containsAnyValue(item, forbiddenValues));
+  }
+  if (value is Iterable) {
+    return value.any((item) => _containsAnyValue(item, forbiddenValues));
+  }
+  return value is String && forbiddenValues.contains(value);
 }

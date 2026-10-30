@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+from typing import List, get_type_hints
+
+import azure.functions as func
 
 import pytest
 
@@ -24,6 +27,18 @@ SPEC = importlib.util.spec_from_file_location("azure_six_layer_eventing", SOURCE
 assert SPEC is not None and SPEC.loader is not None
 runtime = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runtime)
+
+
+def test_all_event_hub_consumers_use_worker_compatible_batch_annotations(monkeypatch):
+    monkeypatch.setenv("EVENT_LOCAL_PROCESSING_ENABLED", "true")
+    monkeypatch.setenv("EVENT_LOCAL_PROCESSED_ROLES_JSON", json.dumps(sorted(runtime.PROCESSED_ROLES)))
+    selected = importlib.util.module_from_spec(SPEC)
+    SPEC.loader.exec_module(selected)
+    batches = [f for f in selected.app.get_functions()
+               if any(b.type == "eventHubTrigger" for b in f.get_bindings())]
+    assert len(batches) == 6
+    for function in batches:
+        assert get_type_hints(function.get_user_function())["messages"] == List[func.EventHubEvent]
 
 
 def _event(event_type: str) -> dict:

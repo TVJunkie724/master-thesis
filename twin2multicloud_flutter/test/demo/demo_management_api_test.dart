@@ -285,17 +285,7 @@ void main() {
       expect(specification.logicalComponentCount, 8);
       expect(specification.providers, {CloudProvider.aws, CloudProvider.azure});
       expect(specification.readiness.evaluationOnly, isTrue);
-      expect(
-        specification.readiness.blockingGateIds,
-        unorderedEquals(const [
-          'gate.live-capacity.aws.dynamodb-partition-distribution',
-          'gate.live-capacity.aws.reader-latency-and-quota',
-          'gate.live-capacity.aws.twinmaker-query-behavior',
-          'gate.live-capacity.azure.cosmos-partition-distribution',
-          'gate.live-capacity.azure.cosmos-request-charge-fixture',
-          'gate.live-capacity.azure.reader-latency-and-quota',
-        ]),
-      );
+      expect(specification.readiness.blockingGateIds, isEmpty);
       expect(
         ResolvedDeploymentReview.fromRun(latest).state,
         ResolvedDeploymentReviewState.evaluationOnly,
@@ -381,7 +371,7 @@ void main() {
           expect(specification.currency, testCase.$2);
           expect(specification.providers, testCase.$3);
           expect(specification.readiness.evaluationOnly, isTrue);
-          expect(specification.readiness.blockingGateIds, isNotEmpty);
+          expect(specification.readiness.blockingGateIds, isEmpty);
           expect(architecture.architecture.costSummary.currency, testCase.$2);
           expect(run.optimization.isNativeSixLayer, isTrue);
           expect(run.optimization.payload, isNot(contains('inputParamsUsed')));
@@ -528,10 +518,6 @@ void main() {
       final access = await api.getDeploymentAccess('demo-configured');
       expect(access.surfaceFor(DeploymentLayer.l4)?.provider.name, 'azure');
       expect(access.surfaceFor(DeploymentLayer.l5)?.provider.name, 'aws');
-      await expectLater(
-        api.rotateGcpGrafanaViewerCredential('demo-configured'),
-        throwsDemoCode('DEMO_GCP_GRAFANA_ROTATION_UNAVAILABLE'),
-      );
       expect(
         (await api.getDeploymentLogs('demo-configured')).logs,
         hasLength(1),
@@ -577,35 +563,6 @@ void main() {
         'destroyed',
       );
     });
-
-    test(
-      'demo GCP viewer rotation is typed, deterministic, and one-time',
-      () async {
-        final optimizer = store.optimizerConfig('demo-deployed')!;
-        (optimizer['cheapest_path'] as Map)['l5'] = 'GCP';
-        store.setOptimizerConfig('demo-deployed', optimizer);
-
-        final access = await api.getDeploymentAccess('demo-deployed');
-        expect(access.surfaceFor(DeploymentLayer.l5)?.provider.name, 'gcp');
-        final first = await api.rotateGcpGrafanaViewerCredential(
-          'demo-deployed',
-        );
-        final second = await api.rotateGcpGrafanaViewerCredential(
-          'demo-deployed',
-        );
-
-        expect(
-          first.password,
-          matches(RegExp(r'^demo-viewer-demo-grafana-viewer-rotation-\d{4}$')),
-        );
-        expect(
-          second.password,
-          matches(RegExp(r'^demo-viewer-demo-grafana-viewer-rotation-\d{4}$')),
-        );
-        expect(second.password, isNot(first.password));
-        expect(first.toString(), isNot(contains(first.password)));
-      },
-    );
 
     test(
       'pages deployment logs in event order and within one session',

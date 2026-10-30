@@ -358,6 +358,16 @@ def lambda_handler(event: Mapping[str, Any], _context: object) -> dict[str, Any]
                 if isinstance(exc, DeliveryError)
                 else "DESTINATION_RETRYABLE_FAILURE"
             )
+            # Keep transient failures diagnosable without logging events, SDK
+            # exception messages, endpoints or credentials.
+            provider_code = getattr(exc, "response", {}).get("Error", {}).get("Code", "")
+            print(json.dumps({
+                "schema_version": "event-delivery-failure.v1",
+                "error_code": error_code,
+                "error_type": type(exc).__name__,
+                "provider_code": provider_code if isinstance(provider_code, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", provider_code) else "",
+                "attempt": attempt,
+            }, separators=(",", ":"), sort_keys=True))
             terminal = source == "aws:sqs" and attempt >= int(
                 os.environ.get("MAX_RECEIVE_COUNT", "6")
             )

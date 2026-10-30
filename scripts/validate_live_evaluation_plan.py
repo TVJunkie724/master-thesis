@@ -41,8 +41,8 @@ def validate(
     plan = _read(plan_path)
     profile = _read(profile_path)
     scenarios = plan.get("scenarios")
-    if not isinstance(scenarios, list) or len(scenarios) != 9:
-        raise RuntimeError("Live evaluation must contain exactly nine scenarios")
+    if not isinstance(scenarios, list) or len(scenarios) != 8:
+        raise RuntimeError("Live evaluation must contain exactly eight scenarios")
     if plan.get("architecture_profile") != "six-layer-eventing@1":
         raise RuntimeError("Live evaluation must pin six-layer-eventing@1")
     if required_state not in {"planned", "ready"}:
@@ -78,14 +78,16 @@ def validate(
                     assignments["component.hot-storage"],
                     assignments["component.cool-storage"],
                     assignments["component.archive-storage"],
-                    assignments["component.visualization"],
                 }
             )
             != 1
         ):
-            raise RuntimeError(
-                f"{scenario_id}: L3 storage and visualization must be co-located"
-            )
+            raise RuntimeError(f"{scenario_id}: L3 storage tiers must be co-located")
+        if any(
+            assignments[key] == "gcp"
+            for key in ("component.twin-state", "component.visualization")
+        ):
+            raise RuntimeError(f"{scenario_id}: GCP L4/L5 are excluded from this PoC")
         covered_contracts.update(edge["edge_contract_id"] for edge in edges.values())
 
         kind = scenario.get("kind")
@@ -125,7 +127,7 @@ def validate(
         ):
             raise RuntimeError(f"{scenario_id}: invalid budget cap")
 
-    if local_providers != PROVIDERS:
+    if local_providers != {"aws", "azure"}:
         raise RuntimeError("Provider-local baseline coverage is incomplete")
     if directed_pairs != set(permutations(PROVIDERS, 2)):
         raise RuntimeError("Directed provider-pair coverage is incomplete")
@@ -168,7 +170,7 @@ def validate(
             )
         if plan.get("execution_enabled") is not True or missing_budgets:
             raise RuntimeError(
-                "Ready plan requires execution_enabled and nine budget caps"
+                "Ready plan requires execution_enabled and eight budget caps"
             )
     return {
         "scenario_count": len(scenarios),

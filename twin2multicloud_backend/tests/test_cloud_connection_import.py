@@ -65,6 +65,19 @@ def test_azure_cli_json_uses_explicit_subscription_scope():
     assert request.azure.tenant_id == "tenant-1"
 
 
+def test_azure_import_rejects_retired_preparation_metadata():
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+        CloudConnectionImportMetadata.model_validate(
+            {
+                "provider": "azure",
+                "display_name": "Azure imported",
+                "region": "westeurope",
+                "target_scope_id": "subscription-1",
+                "preparation_client_id": "retired-client",
+            }
+        )
+
+
 def test_gcp_import_keeps_existing_target_project_separate_from_key_project():
     request = parse_cloud_connection_import(
         _metadata("gcp"),
@@ -140,9 +153,9 @@ def test_import_route_encrypts_parsed_secret_and_returns_only_summary(
     assert response.status_code == 200
     assert secret not in response.text
     assert "researcher" not in response.text
-    connection = db_session.query(CloudConnection).filter_by(
-        id=response.json()["id"]
-    ).one()
+    connection = (
+        db_session.query(CloudConnection).filter_by(id=response.json()["id"]).one()
+    )
     payload = CloudConnectionService(db_session).decrypt_payload(
         connection,
         connection.user_id,

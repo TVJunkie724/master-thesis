@@ -26,6 +26,7 @@ DOCKER_BUILDER = (
     "gcr.io/cloud-builders/docker@"
     "sha256:f8b08c609fdc392ee6827ff3e1725e4980f7d96bde9f76f4695086405c96c147"
 )
+CLOUD_BUILD_MACHINE_TYPE = "E2_STANDARD_2"
 _DIGEST_REF = re.compile(r"^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[0-9a-f]{64}$")
 _ZERO_DIGEST = "sha256:" + "0" * 64
 _EVIDENCE_VERSION = "gcp-six-layer-published-images.v1"
@@ -112,13 +113,12 @@ def placeholder_image_tfvars(tfvars: Mapping[str, Any]) -> dict[str, Any]:
         return {}
     prefix = (
         f"{tfvars['gcp_region']}-docker.pkg.dev/{tfvars['gcp_project_id']}/"
-        f"{_normalized_name(str(tfvars['digital_twin_name']))}-six-layer/"
+        f"{_normalized_name(str(tfvars['digital_twin_name']))}-v2/"
     )
     return {
         "gcp_six_layer_platform_image": f"{prefix}platform@{_ZERO_DIGEST}",
         "gcp_six_layer_processor_extension_image": f"{prefix}processor-extension@{_ZERO_DIGEST}",
         "gcp_six_layer_storage_mover_image": f"{prefix}storage-mover@{_ZERO_DIGEST}",
-        "gcp_six_layer_grafana_image": f"{prefix}grafana@{_ZERO_DIGEST}",
         "gcp_event_runtime_image": f"{prefix}event-runtime@{_ZERO_DIGEST}",
         "gcp_six_layer_kubernetes_stage_enabled": False,
     }
@@ -166,15 +166,6 @@ def image_requests(
                 dockerfile="storage-mover/Dockerfile",
             )
         )
-    if tfvars.get("layer_5_provider") == "google":
-        requests.append(
-            GcpSixLayerImageRequest(
-                "grafana",
-                platform,
-                dockerfile="grafana/Dockerfile",
-                build_args=("TARGETARCH=amd64",),
-            )
-        )
     for request in requests:
         if not request.context.is_file() or request.context.is_symlink():
             raise ValueError(f"GCP image context is unavailable: {request.name}")
@@ -197,6 +188,7 @@ class GcpSixLayerImagePublisher:
         storage_client: Any | None = None,
         build_service: Any | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        core_evaluation: bool = False,
     ) -> None:
         self.project_path = Path(project_path)
         self.project_id = project_id
@@ -216,6 +208,7 @@ class GcpSixLayerImagePublisher:
             cache_discovery=False,
         )
         self.sleep = sleep
+        self.build_timeout_seconds = 300 if core_evaluation else 1200
         self.evidence_path = (
             self.project_path / ".build" / "gcp" / "published-images.json"
         )
@@ -251,6 +244,7 @@ class GcpSixLayerImagePublisher:
             project_id=str(tfvars["gcp_project_id"]),
             region=str(tfvars["gcp_region"]),
             credentials=credentials,
+            core_evaluation=tfvars.get("evaluation_scope") == "core",
             **required,
         )
 
@@ -335,9 +329,9 @@ class GcpSixLayerImagePublisher:
             ),
             "options": {
                 "logging": "CLOUD_LOGGING_ONLY",
-                "machineType": "E2_HIGHCPU_8",
+                "machineType": CLOUD_BUILD_MACHINE_TYPE,
             },
-            "timeout": "1200s",
+            "timeout": f"{self.build_timeout_seconds}s",
             "tags": ["twin2multicloud", "phase-8", request.name],
         }
         operation = (
@@ -350,21 +344,25 @@ class GcpSixLayerImagePublisher:
             )
             .execute()
         )
-        operation_name = operation.get("name")
-        if not isinstance(operation_name, str) or not operation_name:
-            raise RuntimeError("Cloud Build did not return an operation")
-        while not operation.get("done"):
+        build = operation.get("metadata", {}).get("build", {})
+        build_id = build.get("id") if isinstance(build, dict) else None
+        if not isinstance(build_id, str) or not build_id:
+            raise RuntimeError("Cloud Build did not return a build identifier")
+        build_name = (
+            f"projects/{self.project_id}/locations/{self.region}/builds/{build_id}"
+        )
+        while build.get("status") in (None, "STATUS_UNKNOWN", "QUEUED", "WORKING"):
             self.sleep(2)
-            operation = (
+            build = (
                 self.build_service.projects()
                 .locations()
-                .operations()
-                .get(name=operation_name)
+                .builds()
+                .get(name=build_name)
                 .execute()
             )
-        if operation.get("error"):
+        if build.get("status") != "SUCCESS":
             raise RuntimeError(f"Cloud Build failed for {request.name}")
-        built = operation.get("response", {}).get("results", {}).get("images", [])
+        built = build.get("results", {}).get("images", [])
         match = next((item for item in built if item.get("name") == tag), None)
         digest = match.get("digest") if isinstance(match, dict) else None
         result = f"{tag.rsplit(':', 1)[0]}@{digest}"
@@ -394,8 +392,6 @@ def image_tfvars(
         and tfvars.get("layer_3_archive_provider") != "google"
     ):
         result["gcp_six_layer_storage_mover_image"] = images.get("storage-mover", "")
-    if tfvars.get("layer_5_provider") == "google":
-        result["gcp_six_layer_grafana_image"] = images.get("grafana", "")
     if any(not value for key, value in result.items() if key.endswith("_image")):
         raise RuntimeError("GCP Phase 8 image publication is incomplete")
     return result

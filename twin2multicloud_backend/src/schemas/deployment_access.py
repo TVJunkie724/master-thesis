@@ -1,4 +1,4 @@
-"""Closed Management API models for Layer Access and one-time rotation."""
+"""Closed Management API models for secret-free Layer Access."""
 
 from __future__ import annotations
 
@@ -15,19 +15,25 @@ AuthMode = Literal[
     "aws_identity_center",
     "azure_entra",
     "gcp_iap",
-    "generated_viewer",
+    "aws_sigv4",
+    "azure_function_key",
+    "gcp_identity_token",
 ]
-CredentialAction = Literal["none", "rotate"]
+CredentialAction = Literal["none"]
 
 SURFACE_MATRIX = {
     ("l4", "aws"): ("aws_iot_twinmaker", "aws_identity_center", "none"),
     ("l4", "azure"): ("azure_digital_twins", "azure_entra", "none"),
     ("l4", "gcp"): ("gcp_twin_explorer", "gcp_iap", "none"),
-    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
-    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
-    ("l5", "gcp"): ("gcp_grafana_oss", "generated_viewer", "rotate"),
+    ("l5", "aws"): ("aws_l5_visualization", "aws_sigv4", "none"),
+    ("l5", "azure"): ("azure_l5_visualization", "azure_function_key", "none"),
+    ("l5", "gcp"): ("gcp_raw_history_reader", "gcp_identity_token", "none"),
 }
 SUPPORTED_DEPLOYMENT_ACCESS_PROFILES = frozenset({("six-layer-eventing", "1")})
+MANAGED_GRAFANA_MATRIX = {
+    ("l5", "aws"): ("aws_managed_grafana", "aws_identity_center", "none"),
+    ("l5", "azure"): ("azure_managed_grafana", "azure_entra", "none"),
+}
 
 
 class _ClosedModel(BaseModel):
@@ -62,9 +68,11 @@ class DeploymentAccessSurface(_ClosedModel):
         "aws_iot_twinmaker",
         "azure_digital_twins",
         "gcp_twin_explorer",
+        "aws_l5_visualization",
+        "azure_l5_visualization",
         "aws_managed_grafana",
         "azure_managed_grafana",
-        "gcp_grafana_oss",
+        "gcp_raw_history_reader",
     ]
     display_name: str = Field(min_length=1)
     url: str = Field(min_length=1)
@@ -112,7 +120,7 @@ class DeploymentAccessSurface(_ClosedModel):
             self.auth.mode,
             self.auth.credential_action,
         )
-        if expected != actual:
+        if expected != actual and MANAGED_GRAFANA_MATRIX.get((self.layer, self.provider)) != actual:
             raise ValueError("provider/service/auth combination is not supported")
         if not self.capabilities:
             raise ValueError("capabilities must not be empty")
@@ -158,21 +166,3 @@ class DeploymentAccessSnapshot(_ClosedModel):
                 "unsupported snapshot must contain a reason and no surfaces"
             )
         return self
-
-
-class DeploymentAccessCredential(_ClosedModel):
-    schema_version: Literal["deployment-access-credential.v1"] = (
-        "deployment-access-credential.v1"
-    )
-    layer: Literal["l5"] = "l5"
-    provider: Literal["gcp"] = "gcp"
-    username: str = Field(min_length=1)
-    password: str = Field(min_length=1, repr=False)
-    issued_at: datetime
-
-    @field_validator("username", "password")
-    @classmethod
-    def credential_values_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("credential values must not be blank")
-        return value

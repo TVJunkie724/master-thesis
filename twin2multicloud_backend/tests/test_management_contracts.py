@@ -42,10 +42,6 @@ def test_management_json_contracts_have_response_models():
             "get",
         ): "#/components/schemas/DeploymentAccessSnapshot",
         (
-            "/twins/{twin_id}/deployment-access/l5/credentials:rotate",
-            "post",
-        ): "#/components/schemas/DeploymentAccessCredential",
-        (
             "/twins/{twin_id}/deploy",
             "post",
         ): "#/components/schemas/OperationSessionResponse",
@@ -149,10 +145,10 @@ def test_downstream_client_contract_surface_is_explicit():
         "deploy_stream",
         "destroy_stream",
         "download_simulator",
+        "get_visualization",
         "get_provider_capabilities",
         "inspect_deployment_requirements",
         "prepare_deployment_account",
-        "rotate_gcp_grafana_viewer_credential",
         "stage_operation_package",
         "start_log_trace",
         "stream_log_trace",
@@ -191,3 +187,17 @@ def test_downstream_http_access_is_centralized_in_client_layer():
                 findings.append(f"{relative}: contains {token}")
 
     assert findings == []
+
+
+def test_azure_split_principal_secrets_are_request_only_in_openapi():
+    schema = app.openapi()["components"]["schemas"]["AzureCredentials"]
+    properties = schema["properties"]
+
+    assert {
+        "client_id",
+        "client_secret",
+    }.issubset(schema["required"])
+    assert properties["client_secret"]["writeOnly"] is True
+    assert "writeOnly" not in properties["client_id"]
+    assert "preparation_client_id" not in properties
+    assert "preparation_client_secret" not in properties

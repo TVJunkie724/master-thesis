@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import math
 import re
@@ -737,25 +736,24 @@ def _validate_user_config(content, l4, l5, profile, errors) -> None:
                 f"{field} must be a non-empty string for Phase 8 L4/L5 access",
             )
 
-    selected = {provider for provider in (l4, l5) if provider in PROVIDERS}
-    if "aws" in selected:
+    if l4 == "aws":
         aws_intent = value.get("aws_layer_access_principal_intent")
         if aws_intent not in {"existing", "invite_builtin"}:
             _add(
                 errors,
                 "INVALID_USER_CONFIG",
                 "user_config.aws_layer_access_principal_intent",
-                "AWS L4/L5 requires explicit existing or invite_builtin principal intent",
+                "AWS L4 requires explicit existing or invite_builtin principal intent",
             )
 
-    if "azure" in selected:
+    if l4 == "azure":
         object_id = value.get("azure_principal_object_id")
         if not isinstance(object_id, str) or not UUID_PATTERN.fullmatch(object_id):
             _add(
                 errors,
                 "INVALID_USER_CONFIG",
                 "user_config.azure_principal_object_id",
-                "Azure L4/L5 requires an existing Entra principal object ID UUID",
+                "Azure L4 requires an existing Entra principal object ID UUID",
             )
         label = value.get("azure_principal_label")
         if not isinstance(label, str) or not label.strip():
@@ -763,35 +761,8 @@ def _validate_user_config(content, l4, l5, profile, errors) -> None:
                 errors,
                 "INVALID_USER_CONFIG",
                 "user_config.azure_principal_label",
-                "Azure L4/L5 requires a non-empty Entra principal label or UPN",
+                "Azure L4 requires a non-empty Entra principal label or UPN",
             )
-
-    if l5 == "gcp":
-        cidrs = value.get("gcp_grafana_source_cidrs")
-        if not isinstance(cidrs, list) or not cidrs:
-            _add(
-                errors,
-                "INVALID_USER_CONFIG",
-                "user_config.gcp_grafana_source_cidrs",
-                "GCP L5 requires at least one bounded Grafana source CIDR",
-            )
-        elif not all(_valid_bounded_cidr(cidr) for cidr in cidrs):
-            _add(
-                errors,
-                "INVALID_USER_CONFIG",
-                "user_config.gcp_grafana_source_cidrs",
-                "GCP Grafana source CIDRs must be valid and must not be wildcard routes",
-            )
-
-
-def _valid_bounded_cidr(value: object) -> bool:
-    if not isinstance(value, str) or value in {"0.0.0.0/0", "::/0"}:
-        return False
-    try:
-        ipaddress.ip_network(value, strict=False)
-    except ValueError:
-        return False
-    return True
 
 
 def validate_phase8_user_config_content(

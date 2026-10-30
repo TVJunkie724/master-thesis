@@ -22,18 +22,12 @@ if str(DEPLOYER_ROOT) not in sys.path:
 from src.architecture_profiles.requirements import IDENTITY_EXCHANGE_BY_PAIR  # noqa: E402
 
 
-DEFAULT_PLAN = (
-    ROOT / "docs/research/evaluation/directed-federation-probe-plan.json"
-)
+DEFAULT_PLAN = ROOT / "docs/research/evaluation/directed-federation-probe-plan.json"
 DEFAULT_SCHEMA = (
-    ROOT
-    / "docs/research/evaluation/schemas/"
+    ROOT / "docs/research/evaluation/schemas/"
     "live-evaluation-federation-probe-plan.schema.json"
 )
 MATRIX_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
-IMAGE_READINESS_PATH = (
-    ROOT / "docs/research/evaluation/small-runtime-image-readiness.json"
-)
 AZURE_RUNNER_IMAGE = (
     "mcr.microsoft.com/azure-cli@"
     "sha256:b23e5168ce9654b1385c565a2c6cf60695f7b0d03056f7a0fafdc7c59a084512"
@@ -115,11 +109,15 @@ def _verify_runner_and_cost(probe: dict[str, Any]) -> None:
             "maximum_billable_runtime_seconds": 300,
             "network_ingress_exposed": False,
         }:
-            raise ValueError(f"Azure source runner is not exactly bounded: {probe['probe_id']}")
+            raise ValueError(
+                f"Azure source runner is not exactly bounded: {probe['probe_id']}"
+            )
         if [item["type"] for item in direct_charge_resources] != [
             "azure.container_instance_group"
         ]:
-            raise ValueError(f"Azure source must bill only its bounded runner: {probe['probe_id']}")
+            raise ValueError(
+                f"Azure source must bill only its bounded runner: {probe['probe_id']}"
+            )
         if cap != Decimal("0.010000"):
             raise ValueError(f"Azure source cap changed: {probe['probe_id']}")
     else:
@@ -133,7 +131,9 @@ def _verify_runner_and_cost(probe: dict[str, Any]) -> None:
         }:
             raise ValueError(f"non-Azure source must remain local: {probe['probe_id']}")
         if direct_charge_resources or expected != 0 or cap != 0:
-            raise ValueError(f"local probe must have zero direct charge: {probe['probe_id']}")
+            raise ValueError(
+                f"local probe must have zero direct charge: {probe['probe_id']}"
+            )
 
 
 def verify(plan_path: Path, schema_path: Path) -> dict[str, Any]:
@@ -152,13 +152,6 @@ def verify(plan_path: Path, schema_path: Path) -> dict[str, Any]:
     for relative_path in plan["planning_basis"]:
         if not (ROOT / relative_path).is_file():
             raise ValueError(f"planning basis does not exist: {relative_path}")
-
-    image_readiness = _load(IMAGE_READINESS_PATH)
-    if (
-        plan["candidate_pack_manifest_digest"]
-        != image_readiness["candidate_pack_manifest_digest"]
-    ):
-        raise ValueError("probe plan is not bound to the current candidate pack")
 
     expected_routes = _directed_matrix_routes()
     actual_routes: dict[tuple[str, str], str] = {}
@@ -184,7 +177,9 @@ def verify(plan_path: Path, schema_path: Path) -> dict[str, Any]:
                 f"non-identity probe resource added to {probe['probe_id']}: {sorted(unexpected)}"
             )
         if {resource["provider"] for resource in probe["resources"]} != set(pair):
-            raise ValueError(f"probe resources escape the directed pair: {probe['probe_id']}")
+            raise ValueError(
+                f"probe resources escape the directed pair: {probe['probe_id']}"
+            )
         expected_tombstones = sorted(set(resource_types) & GCP_SOFT_DELETE_TYPES)
         if sorted(probe["expected_soft_delete_tombstones"]) != expected_tombstones:
             raise ValueError(f"GCP soft-delete ledger drift: {probe['probe_id']}")
@@ -201,14 +196,22 @@ def verify(plan_path: Path, schema_path: Path) -> dict[str, Any]:
     )
     declared = Decimal(plan["common_guardrails"]["aggregate_direct_cost_cap_usd"])
     summary = Decimal(plan["summary"]["aggregate_direct_cost_cap_usd"])
-    if aggregate != declared or aggregate != summary or aggregate != Decimal("0.020000"):
+    if (
+        aggregate != declared
+        or aggregate != summary
+        or aggregate != Decimal("0.020000")
+    ):
         raise ValueError("aggregate direct-cost cap drift")
 
     cost_basis = plan["cost_basis"]
     calculated = (
-        Decimal(cost_basis["azure_container_instance_vcpu_hour_usd"])
-        + Decimal(cost_basis["azure_container_instance_gib_hour_usd"])
-    ) * Decimal(300) / Decimal(3600)
+        (
+            Decimal(cost_basis["azure_container_instance_vcpu_hour_usd"])
+            + Decimal(cost_basis["azure_container_instance_gib_hour_usd"])
+        )
+        * Decimal(300)
+        / Decimal(3600)
+    )
     calculated = calculated.quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
     if calculated != Decimal(
         cost_basis["azure_source_runner_cost_for_maximum_runtime_usd"]

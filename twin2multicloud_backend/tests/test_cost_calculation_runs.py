@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -28,7 +29,9 @@ from src.services.cost_calculation_run_service import (
     _validate_profile_workload_pair,
 )
 from src.services.errors import (
+    CostCalculationRunSelectionError,
     OptimizerContractError,
+    PricingCatalogUnavailable,
 )
 from src.services.resolved_deployment_specification_service import calculate_digest
 from tests.pricing_catalog_test_data import catalog_reference
@@ -255,6 +258,31 @@ async def test_run_persists_complete_six_layer_evaluation_evidence(db_session):
         run.id,
     )
     assert selected.selected_for_deployment_at is not None
+
+
+@pytest.mark.asyncio
+async def test_selection_requires_verifiable_frozen_prices_without_refresh_guidance(
+    db_session, monkeypatch
+):
+    user, twin = _twin_state(db_session)
+    service = _service(db_session, FakeSixLayerOptimizerClient())
+    run = await service.create_run(twin.id, user.id, _params())
+    verify = AsyncMock(
+        side_effect=PricingCatalogUnavailable(
+            "Pinned snapshot is unavailable.",
+            error_code="PRICING_CATALOG_NOT_FOUND",
+        )
+    )
+    monkeypatch.setattr(service.pricing_catalog_contexts, "verify_context", verify)
+
+    with pytest.raises(CostCalculationRunSelectionError) as rejected:
+        await service.select_for_deployment(twin.id, user.id, run.id)
+
+    verify.assert_awaited_once()
+    assert rejected.value.error_code == "PRICING_CATALOG_NOT_FOUND"
+    assert "Restore the reviewed baseline" in str(rejected.value)
+    assert "refresh" not in str(rejected.value).lower()
+    assert run.selected_for_deployment_at is None
 
 
 @pytest.mark.asyncio

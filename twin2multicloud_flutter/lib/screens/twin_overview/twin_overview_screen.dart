@@ -27,6 +27,7 @@ import '../../widgets/deployment_verification_card.dart';
 import '../../widgets/twin_overview/twin_overview_code_artifact.dart';
 import '../../widgets/twin_overview/twin_overview_content.dart';
 import '../../widgets/twin_overview/twin_overview_operation_dialogs.dart';
+import '../../widgets/twin_overview/twin_overview_strings.dart';
 import '../../widgets/twin_overview/deployment_preparation_dialog.dart';
 
 /// Twin Overview Screen - Entry point with BlocProvider
@@ -66,34 +67,6 @@ class TwinOverviewView extends ConsumerWidget {
               curr is TwinOverviewLoaded && curr.successMessage == 'deleted',
           listener: (context, state) {
             context.go('/dashboard');
-          },
-        ),
-        // Capture and clear the one-time Viewer credential before presentation.
-        BlocListener<TwinOverviewBloc, TwinOverviewState>(
-          listenWhen: (previous, current) {
-            if (current is! TwinOverviewLoaded ||
-                current.layerAccess.pendingCredential == null) {
-              return false;
-            }
-            return previous is! TwinOverviewLoaded ||
-                previous.layerAccess.credentialRequestToken !=
-                    current.layerAccess.credentialRequestToken;
-          },
-          listener: (context, state) async {
-            if (state is! TwinOverviewLoaded) return;
-            final credential = state.layerAccess.pendingCredential;
-            if (credential == null) return;
-            final token = state.layerAccess.credentialRequestToken;
-            context.read<TwinOverviewBloc>().add(
-              TwinOverviewAccessCredentialConsumed(token),
-            );
-            await showDialog<void>(
-              context: context,
-              builder: (_) => GcpGrafanaCredentialRevealDialog(
-                username: credential.username,
-                password: credential.password,
-              ),
-            );
           },
         ),
         // Save the one-shot simulator payload outside Equatable state handling.
@@ -146,8 +119,6 @@ class TwinOverviewView extends ConsumerWidget {
             appBar: _buildAppBar(context, ref),
             body: Column(
               children: [
-                // Header section with back button and twin name
-                _buildHeader(context, state),
                 // Alert banners for messages
                 _buildAlertBanners(context, state),
                 // Main content
@@ -162,7 +133,12 @@ class TwinOverviewView extends ConsumerWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, WidgetRef ref) {
     return BrandedAppBar(
-      title: 'Twin2MultiCloud',
+      title: TwinOverviewStrings.appTitle,
+      leading: IconButton(
+        onPressed: () => context.go('/dashboard'),
+        icon: const Icon(Icons.arrow_back),
+        tooltip: TwinOverviewStrings.backToExperiments,
+      ),
       actions: [
         IconButton(
           icon: Icon(
@@ -171,46 +147,16 @@ class TwinOverviewView extends ConsumerWidget {
                 : Icons.dark_mode,
           ),
           onPressed: () => ref.read(themeProvider.notifier).toggle(),
-          tooltip: 'Toggle theme',
+          tooltip: TwinOverviewStrings.toggleTheme,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        IconButton(
+          onPressed: () => context.go('/settings'),
+          icon: const Icon(Icons.cloud_outlined),
+          tooltip: TwinOverviewStrings.openCloudAccess,
         ),
         const SizedBox(width: AppSpacing.sm),
       ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, TwinOverviewState state) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.maxContentWidthLarge,
-          ),
-          child: Row(
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back to Dashboard'),
-                onPressed: () => context.go('/dashboard'),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -301,7 +247,7 @@ class TwinOverviewView extends ConsumerWidget {
                       size: AppSpacing.iconMd,
                     ),
                     onPressed: onDismiss,
-                    tooltip: 'Dismiss message',
+                    tooltip: TwinOverviewStrings.dismissMessage,
                   ),
                 ],
               ),
@@ -379,14 +325,24 @@ class TwinOverviewView extends ConsumerWidget {
     TwinOverviewLoaded state,
     WidgetRef ref,
   ) {
-    final deploymentVerification = state.twinState == 'deployed'
+    final deploymentVerification =
+        const {
+          'deployed',
+          'destroying',
+          'destroyed',
+          'error',
+        }.contains(state.twinState)
         ? BlocProvider(
+            key: ValueKey(
+              'verification:${state.twinId}:${state.twinState == 'deployed'}',
+            ),
             create: (_) => DeploymentVerificationBloc(
               twinId: state.twinId,
               api: ref.read(apiServiceProvider),
               logStreamClientFactory: ref.read(logStreamClientFactoryProvider),
             ),
             child: DeploymentVerificationCard(
+              historyOnly: state.twinState != 'deployed',
               payloadsJson: state.deployerConfig?.payloadsJson,
               configEventsJson: state.deployerConfig?.configEventsJson,
             ),
@@ -419,7 +375,6 @@ class TwinOverviewView extends ConsumerWidget {
         const TwinOverviewRetryLayerAccess(),
       ),
       onOpenLayerAccess: (surface) => _openLayerAccess(context, ref, surface),
-      onRotateLayerAccessCredential: () => _confirmGcpViewerRotation(context),
       onOutputCopyFeedback: (message) => context.read<TwinOverviewBloc>().add(
         TwinOverviewShowMessage(message, MessageType.success),
       ),
@@ -459,6 +414,12 @@ class TwinOverviewView extends ConsumerWidget {
       _showLayerLaunchFailure(context, surface);
       return;
     }
+    if (surface.serviceId.endsWith('_l5_visualization')) {
+      context.read<TwinOverviewBloc>().add(
+        TwinOverviewOpenVisualization(handle),
+      );
+      return;
+    }
     unawaited(_navigateLayerAccess(context, handle, surface));
   }
 
@@ -489,18 +450,6 @@ class TwinOverviewView extends ConsumerWidget {
         MessageType.error,
       ),
     );
-  }
-
-  Future<void> _confirmGcpViewerRotation(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => const RotateGcpGrafanaViewerConfirmationDialog(),
-    );
-    if (confirmed == true && context.mounted) {
-      context.read<TwinOverviewBloc>().add(
-        const TwinOverviewRotateGcpGrafanaViewerCredential(),
-      );
-    }
   }
 
   void _showCodeArtifact(
@@ -579,6 +528,15 @@ class TwinOverviewView extends ConsumerWidget {
       context: context,
       builder: (_) => DeployTwinConfirmationDialog(
         resourceName: state.cloudResourceName ?? state.projectName,
+        connections: [
+          for (final provider
+              in state.deploymentReadiness.snapshot?.providers ?? const [])
+            '${provider.provider.label}: ${provider.connectionDisplayName ?? 'No named connection'}',
+        ],
+        monthlyEstimate:
+            state.optimizerConfig?.optimization?.resolvedArchitecture == null
+            ? null
+            : '${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.monthlyTotal} ${state.optimizerConfig!.optimization!.resolvedArchitecture!.costSummary.currency}',
       ),
     );
     if (confirmed == true && context.mounted) {

@@ -127,11 +127,18 @@ def test_azure_six_layer_graph_app_is_a_standalone_deterministic_package(tmp_pat
         } <= set(archive.namelist())
         function_app = archive.read("function_app.py").decode("utf-8")
         requirements = archive.read("requirements.txt").decode("utf-8")
+        host = json.loads(archive.read("host.json"))
+        assert host["extensionBundle"] == {
+            "id": "Microsoft.Azure.Functions.ExtensionBundle",
+            "version": "[4.0.0, 5.0.0)",
+        }
         assert "cross_cloud_telemetry_bridge" in function_app
         assert "cross_cloud_control_bridge" in function_app
         assert 'max_retry_count="5"' in function_app
         assert "_event_hub_delivery_attempt(context)" in function_app
-        assert "google-cloud-pubsub==2.39.0" in requirements
+        assert "google-auth==2.56.0" in requirements
+        assert "requests==2.34.2" in requirements
+        assert "google-cloud-pubsub" not in requirements
         assert "boto3==1.43.47" in requirements
 
 
@@ -179,6 +186,11 @@ def test_azure_eventing_app_is_standalone_and_deterministic(tmp_path):
     with zipfile.ZipFile(second["azure_six-layer-eventing"]) as archive:
         names = set(archive.namelist())
         function_app = archive.read("function_app.py").decode("utf-8")
+        host = json.loads(archive.read("host.json"))
+        assert host["extensionBundle"] == {
+            "id": "Microsoft.Azure.Functions.ExtensionBundle",
+            "version": "[4.0.0, 5.0.0)",
+        }
     assert {
         "function_app.py",
         "host.json",

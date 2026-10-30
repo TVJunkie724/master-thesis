@@ -58,7 +58,7 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             routes["negative_routes"],
         )
 
-    def test_component_and_pricing_manifests_cover_same_73_components(self) -> None:
+    def test_component_and_pricing_manifests_cover_same_65_components(self) -> None:
         manifest = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "implementation-component-manifest.json"
         )
@@ -69,21 +69,25 @@ class DecisionPackageValidatorTest(unittest.TestCase):
         pricing = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "pricing-ownership-matrix.json"
         )
-        self.assertEqual(len(manifest["components"]), 73)
+        self.assertEqual(len(manifest["components"]), 65)
         self.assertEqual(
             {item["component_id"] for item in manifest["components"]},
             {item["component_id"] for item in pricing["component_owners"]},
         )
-        providers_by_component = {
-            item["component_id"]: item["provider"] for item in manifest["components"]
-        }
+        component_ids = {item["component_id"] for item in manifest["components"]}
+        self.assertFalse(any("grafana" in item for item in component_ids))
         self.assertEqual(
-            providers_by_component["aws.grafana-marcusolsson-json-datasource"],
-            "aws",
-        )
-        self.assertEqual(
-            providers_by_component["azure.grafana-marcusolsson-json-datasource"],
-            "azure",
+            {
+                "aws.lambda-raw-history-reader",
+                "azure.functions-flex-raw-history-reader",
+                "gcp.cloud-run-raw-history-reader",
+            }
+            & component_ids,
+            {
+                "aws.lambda-raw-history-reader",
+                "azure.functions-flex-raw-history-reader",
+                "gcp.cloud-run-raw-history-reader",
+            },
         )
 
     def test_route_pricing_covers_four_classes_and_six_pairs(self) -> None:
@@ -96,21 +100,17 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             24,
         )
 
-    def test_json_plugin_has_current_published_end_date(self) -> None:
+    def test_l5_has_no_dashboard_plugin_dependency(self) -> None:
         bundle = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "complete-provider-bundles.json"
         )
-        plugins = {item["plugin_id"]: item for item in bundle["plugin_decisions"]}
-        self.assertEqual(
-            plugins["marcusolsson-json-datasource"]["hard_end_date"],
-            "2027-02-01",
-        )
+        self.assertEqual(bundle["plugin_decisions"], [])
         tampered = copy.deepcopy(bundle)
-        tampered["plugin_decisions"][0]["hard_end_date"] = "2027-03-01"
+        tampered["plugin_decisions"].append({"plugin_id": "unnecessary-dashboard"})
         errors: list[str] = []
         self.validator.validate_plugins(tampered, errors)
         self.assertIn(
-            "JSON API support-end date must match current provider evidence", errors
+            "L5 raw-history readback must not require dashboard plugins", errors
         )
 
     def test_runtime_manifest_does_not_claim_implementation(self) -> None:
@@ -201,14 +201,6 @@ class DecisionPackageValidatorTest(unittest.TestCase):
             },
         )
         self.assertEqual(
-            set(components["grafana.oss-12-on-gke"]["terraform_resource_types"]),
-            {
-                "google_container_cluster",
-                "kubernetes_namespace_v1",
-                "kubernetes_deployment_v1",
-            },
-        )
-        self.assertEqual(
             set(
                 components["apache.bifromq-4.0.0-incubating-on-gke-standard"][
                     "terraform_resource_types"
@@ -232,27 +224,23 @@ class DecisionPackageValidatorTest(unittest.TestCase):
                 "kubernetes_deployment_v1",
             },
         )
-        self.assertIn(
-            "kubernetes_persistent_volume_v1",
-            components["gcp.persistent-disk-rwo"]["terraform_resource_types"],
-        )
-        self.assertIn(
-            "google_compute_address",
-            components["gcp.grafana-tls-load-balancer"]["terraform_resource_types"],
+        self.assertEqual(
+            components["gcp.cloud-run-raw-history-reader"]["terraform_resource_types"],
+            ["google_cloud_run_v2_service", "google_cloud_run_v2_service_iam_member"],
         )
 
-    def test_gcp_human_access_support_is_owned_by_the_exact_layer(self) -> None:
+    def test_gcp_l4_and_l5_access_are_owned_by_the_exact_layers(self) -> None:
         bundle = self.validator.load_json(
             self.validator.EVIDENCE_ROOT / "complete-provider-bundles.json"
         )
         gcp = next(item for item in bundle["providers"] if item["provider"] == "gcp")
         self.assertIn("gcp.direct-iap-layer-access", gcp["layers"]["l4_twin"])
         self.assertNotIn("gcp.direct-iap-layer-access", gcp["support_components"])
-        self.assertIn(
-            "gcp.grafana-tls-load-balancer",
+        self.assertEqual(
             gcp["layers"]["l5_visualization"],
+            ["gcp.cloud-run-raw-history-reader"],
         )
-        self.assertNotIn("gcp.grafana-tls-load-balancer", gcp["support_components"])
+        self.assertNotIn("gcp.cloud-run-raw-history-reader", gcp["support_components"])
 
     def test_common_edge_contracts_are_closed_and_poc_bounded(self) -> None:
         contract = self.validator.load_json(

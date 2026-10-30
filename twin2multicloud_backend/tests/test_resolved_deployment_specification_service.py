@@ -30,7 +30,7 @@ LOGICAL_TO_PATH = {
 }
 
 
-def _documents(*, ready: bool = True, currency: str = "USD"):
+def _documents(*, ready: bool = False, currency: str = "USD"):
     specification = json.loads(
         (
             V2_CONTRACT_ROOT
@@ -56,7 +56,9 @@ def _documents(*, ready: bool = True, currency: str = "USD"):
         if ready
         else {
             "status": "offline_contract_fixture",
-            "blocking_gate_ids": ["gate.live-capacity.aws.reader-latency-and-quota"],
+            "blocking_gate_ids": [
+                "gate.live-capacity.aws.reader-latency-and-quota",
+            ],
         }
     )
     providers = sorted(
@@ -211,6 +213,26 @@ def test_offline_evidence_cannot_be_selected_for_deployment():
         validate_persisted_run_deployment_specification(run)
 
     assert raised.value.error_code == "DEPLOYMENT_CAPACITY_EVIDENCE_PENDING"
+
+
+def test_relabelling_missing_l5_as_ready_is_rejected():
+    result, specification, path = _documents(ready=True)
+    specification["component_selections"] = [
+        item for item in specification["component_selections"]
+        if item["logical_component_id"] != "component.visualization"
+    ]
+    specification["digest"] = calculate_digest(specification)
+    result["resolvedTwinArchitecture"]["deployment_specification_ref"]["digest"] = specification["digest"]
+    with pytest.raises(ResolvedDeploymentSpecificationError) as raised:
+        _validate(specification, result, path)
+    assert raised.value.code == "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH"
+
+
+def test_component_ownership_is_independent_of_bundle_order():
+    result, specification, path = _documents(ready=True)
+    for assignment in result["resolvedTwinArchitecture"]["component_assignments"]:
+        assignment["deployment_specification_component_ids"].reverse()
+    _validate(specification, result, path)
 
 
 def test_v1_contract_is_rejected():

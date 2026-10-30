@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import nullcontext
+import json
 from pathlib import Path
 import sys
+from typing import List, get_type_hints
+from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
+from unittest.mock import Mock
+
+import azure.functions as func
 
 import pytest
 
@@ -48,6 +56,148 @@ def _load_runtime(module_name: str):
 
 
 runtime = _load_runtime("azure_six_layer_domain")
+
+
+@pytest.mark.parametrize("kind, expected_http", [("http", 403), ("timeout", None)])
+def test_l5_data_failure_logs_only_class_and_upstream_status(monkeypatch, caplog, kind, expected_http):
+    import importlib
+    from urllib.error import HTTPError
+    monkeypatch.setitem(sys.modules, "phase8_eventing",
+                        importlib.import_module("src.runtime.six_layer_eventing"))
+    for key, value in {
+        "SIX_LAYER_VISUALIZATION_ENABLED": "true",
+        "L3_READER_URL": "https://private.example/api/raw-history/v1",
+        "L3_READER_KEY": "must-not-leak",
+        "L5_DEVICE_ID": "sensor", "L5_METRIC": "temperature",
+    }.items():
+        monkeypatch.setenv(key, value)
+    selected = _load_runtime("azure_l5_failure_diagnostics")
+    failure = (HTTPError("https://private.example", 403, "must-not-leak", {}, None)
+               if kind == "http" else TimeoutError("must-not-leak"))
+    monkeypatch.setattr(selected, "urlopen", Mock(side_effect=failure))
+    handler = next(f.get_user_function() for f in selected.app.get_functions()
+                   if f.get_function_name() == "six-layer-visualization")
+    with caplog.at_level("WARNING"):
+        result = handler(Mock())
+    assert result.status_code == 503
+    assert result.get_body() == b"L5 data unavailable"
+    assert f"error_type={type(failure).__name__}" in caplog.text
+    assert f"upstream_http={expected_http}" in caplog.text
+    assert "must-not-leak" not in caplog.text and "private.example" not in caplog.text
+
+
+def _l5_reader_test(monkeypatch, *, queries=1):
+    import importlib
+    monkeypatch.setitem(sys.modules, "phase8_eventing",
+                        importlib.import_module("src.runtime.six_layer_eventing"))
+    for key, value in {"SIX_LAYER_VISUALIZATION_ENABLED": "true",
+                       "L3_READER_URL": "https://private.example/reader",
+                       "L3_READER_KEY": "must-not-leak",
+                       "L5_DEVICE_ID": "sensor", "L5_METRIC": "temperature"}.items():
+        monkeypatch.setenv(key, value)
+    selected = _load_runtime("azure_l5_reader_bounds")
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(selected, "time", SimpleNamespace(
+        monotonic=lambda: clock.now,
+        sleep=lambda seconds: setattr(clock, "now", clock.now + seconds)))
+    def page(fetch, *_args, **_kwargs):
+        for bucket in range(queries):
+            fetch({"bucket_seconds": str(bucket * 3600)})
+        return "<!doctype html>"
+    monkeypatch.setattr(selected, "visualization_page", page)
+    handler = next(f.get_user_function() for f in selected.app.get_functions()
+                   if f.get_function_name() == "six-layer-visualization")
+    return selected, handler, clock
+
+
+def test_l5_accepts_valid_reader_beyond_former_ten_seconds(monkeypatch):
+    selected, handler, clock = _l5_reader_test(monkeypatch, queries=2)
+    timeouts = []
+    def read(_request, timeout):
+        timeouts.append(timeout)
+        clock.now += 35
+        return nullcontext(SimpleNamespace(read=lambda _size: b"{}"))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 200
+    assert timeouts == [60, 60] and clock.now == 70
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 503, "must-not-leak", {}, None),
+                                     TimeoutError("must-not-leak"), URLError(TimeoutError("must-not-leak"))])
+def test_l5_retries_transient_reader_failure_once(monkeypatch, failure):
+    selected, handler, clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=[failure, nullcontext(SimpleNamespace(read=lambda _size: b"{}"))])
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 200
+    assert read.call_count == 2 and clock.now == 1
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 401, "must-not-leak", {}, None),
+                                     HTTPError("private", 403, "must-not-leak", {}, None),
+                                     HTTPError("private", 401, TimeoutError("must-not-leak"), {}, None),
+                                     URLError("certificate verification failure")])
+def test_l5_does_not_retry_auth_or_non_timeout_transport_failure(monkeypatch, failure):
+    selected, handler, clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=failure)
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503
+    assert read.call_count == 1 and clock.now == 0
+
+
+@pytest.mark.parametrize("payload", [b"not-json", b"x" * (1024 * 1024 + 1)])
+def test_l5_keeps_json_and_size_failures_closed_without_retry(monkeypatch, payload):
+    selected, handler, _clock = _l5_reader_test(monkeypatch)
+    read = Mock(return_value=nullcontext(SimpleNamespace(read=lambda _size: payload)))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503 and read.call_count == 1
+
+
+@pytest.mark.parametrize("failure", [HTTPError("private", 503, "must-not-leak", {}, None),
+                                     TimeoutError("must-not-leak")])
+def test_l5_exhausted_transient_attempts_still_fail(monkeypatch, failure):
+    selected, handler, _clock = _l5_reader_test(monkeypatch)
+    read = Mock(side_effect=failure)
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503 and read.call_count == 2
+
+
+def test_l5_shares_reader_budget_and_rejects_late_success(monkeypatch):
+    selected, handler, clock = _l5_reader_test(monkeypatch, queries=2)
+    timeouts = []
+    def read(_request, timeout):
+        timeouts.append(timeout)
+        # Model overhead outside the socket timeout, such as DNS resolution.
+        clock.now += 120 if len(timeouts) == 1 else 31
+        return nullcontext(SimpleNamespace(read=lambda _size: b"{}"))
+    monkeypatch.setattr(selected, "urlopen", read)
+    assert handler(Mock()).status_code == 503
+    assert timeouts == [60, 30] and clock.now == 151
+
+
+def test_event_hub_batch_annotations_are_worker_compatible(monkeypatch):
+    # The deployed worker rejects PEP-585 list[T] during indexing even though
+    # FunctionApp.get_functions() accepts it. Azure's binding expects typing.List.
+    for suffix in ("IOT_PROCESSOR", "REMOTE_TELEMETRY", "BRIDGE_TELEMETRY",
+                   "BRIDGE_EVENT_RECEIVED", "BRIDGE_EVENT_PROCESSED"):
+        monkeypatch.setenv("SIX_LAYER_" + suffix + "_ENABLED", "true")
+    selected = _load_runtime("azure_domain_indexing")
+    batches = [f for f in selected.app.get_functions()
+               if any(b.type == "eventHubTrigger" for b in f.get_bindings())]
+    assert len(batches) == 5
+    for function in batches:
+        assert get_type_hints(function.get_user_function())["messages"] == List[func.EventHubEvent]
+
+
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Core must not construct or publish a Twin projection")
+
+    monkeypatch.setattr(runtime, "build_twin_projection", forbidden)
+    monkeypatch.setattr(runtime, "_publish_control", forbidden)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", forbidden)
+    runtime._project_twin({"payload": {"projection_candidate": True}})
 
 
 def test_runtime_has_six_layer_profile_identity():
@@ -224,3 +374,40 @@ def test_local_event_layer_processed_roles_remain_provider_scoped(monkeypatch):
         match="EVENTING_CONSUMER_PROVIDER_MISMATCH",
     ):
         runtime._consume_eventing_delivery("rule-evaluator", event)
+
+
+def test_event_layer_rule_control_and_iot_command_preserve_simulator_trace(monkeypatch):
+    trace = "TRACE-1234ABCD"
+    event = _processed_event()
+    event.update(source_sequence=trace, correlation_id=trace)
+    event["payload"]["value"] = 42
+    monkeypatch.setenv("ARCHITECTURE_PROFILE", "six-layer-eventing@1")
+    for layer in ("L1", "L2", "HOT"):
+        monkeypatch.setenv("SIX_LAYER_" + layer + "_PROVIDER", "azure")
+    monkeypatch.setenv("SIX_LAYER_IOT_HUB_HOSTNAME", "hub.test")
+    monkeypatch.setenv("SIX_LAYER_RULES_JSON", json.dumps([{
+        "rule_id": "command-check", "condition": "value == INTEGER(42)",
+        "action": {"type": "function", "functionName": "poc-command-check",
+                   "feedback": {"device_id": "device-1", "payload": "roundtrip-confirmed"}},
+    }]))
+    queue, outcomes = [], []
+    monkeypatch.setattr(runtime, "_publish_eventing_control", queue.append)
+    monkeypatch.setattr(runtime, "_post_bound_json", lambda _url, body, **_: runtime._poc_action_result(body))
+    monkeypatch.setattr(runtime, "_store_outcome", outcomes.append)
+    client = Mock()
+    monkeypatch.setattr(runtime, "_iot_command_client", lambda _: client)
+    runtime._consume_eventing_delivery("rule-evaluator", event)
+    consumed = []
+    for _ in range(4):
+        assert queue
+        item = queue.pop(0)
+        consumed.append(item["event_type"])
+        runtime._consume_eventing_delivery("control-router", item)
+    assert not queue
+    assert consumed == ["event.matched.v1", "extension.action.outcome.v1",
+                        "device.command.requested.v1", "device.command.outcome.v1"]
+    client.send_c2d_message.assert_called_once()
+    assert client.send_c2d_message.call_args.args[0] == "device-1"
+    assert json.loads(client.send_c2d_message.call_args.args[1]) == {
+        "trace_id": trace, "message": "roundtrip-confirmed"}
+    assert [item["payload"]["status"] for item in outcomes] == ["SUCCEEDED", "ACCEPTED"]

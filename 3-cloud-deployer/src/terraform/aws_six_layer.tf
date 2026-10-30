@@ -155,7 +155,7 @@ resource "terraform_data" "aws_six_layer_processor_extension_guard" {
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "aws_aws_cloudwatch" {
-  count             = local.aws_six_layer_event_enabled || local.aws_six_layer_storage_mover_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count             = local.aws_six_layer_event_enabled || local.aws_six_layer_storage_mover_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name              = "/twin2multicloud/${local.aws_six_layer_name}/six-layer"
   retention_in_days = var.log_retention_days
   tags              = local.aws_six_layer_tags
@@ -177,7 +177,7 @@ locals {
     local.aws_six_layer_domain_consumer_enabled ? {
       "DOMAIN-consumer" = "${local.aws_six_layer_name}-six-domain-consumer"
     } : {},
-    local.aws_six_layer_l5_enabled ? {
+    local.aws_six_layer_hot_enabled ? {
       "L5-raw-history-reader" = "${local.aws_six_layer_name}-six-layer-raw-history-reader"
     } : {},
   )
@@ -281,7 +281,7 @@ resource "aws_sns_topic" "aws_aws_sns_fifo_only_for_reviewed_remote_control_edge
 }
 
 resource "aws_iam_role" "aws_six_layer_lambda" {
-  count = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name  = "${local.aws_six_layer_name}-six-lambda-${local.deployment_suffix}"
 
   assume_role_policy = jsonencode({
@@ -296,13 +296,13 @@ resource "aws_iam_role" "aws_six_layer_lambda" {
 }
 
 resource "aws_iam_role_policy_attachment" "aws_six_layer_lambda_logs" {
-  count      = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count      = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   role       = aws_iam_role.aws_six_layer_lambda[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_iam_role_policy" "aws_six_layer_lambda_data" {
-  count = local.aws_six_layer_event_enabled || local.aws_six_layer_l5_enabled ? 1 : 0
+  count = local.aws_six_layer_event_enabled || local.aws_six_layer_hot_enabled ? 1 : 0
   name  = "${local.aws_six_layer_name}-six-runtime-data"
   role  = aws_iam_role.aws_six_layer_lambda[0].id
 
@@ -406,6 +406,7 @@ resource "aws_lambda_function" "aws_aws_lambda_event_adapter" {
       LOCAL_PROCESSING             = tostring(local.aws_six_layer_l2_enabled && !local.six_layer_eventing_enabled)
       HOT_PROVIDER                 = var.layer_3_hot_provider
       TWIN_PROVIDER                = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE   = var.evaluation_scope
       RAW_TABLE_NAME               = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME            = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS            = tostring(var.layer_3_hot_to_cold_interval_days)
@@ -460,6 +461,9 @@ resource "awscc_iot_command" "aws_aws_iot_commands" {
     message  = "$${aws:iot:commandexecution::parameter:message}"
     trace_id = "$${aws:iot:commandexecution::parameter:trace_id}"
   })
+  preprocessor = {
+    aws_json_substitution = { output_format = "JSON" }
+  }
   mandatory_parameters = [
     {
       name = "message"
@@ -503,6 +507,7 @@ resource "aws_lambda_function" "aws_aws_lambda" {
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE        = var.evaluation_scope
       TELEMETRY_STREAM_ARN              = try(aws_kinesis_stream.aws_aws_kinesis_only_for_reviewed_remote_telemetry_edge["outbound"].arn, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
       SOURCE_EXPIRY_GRACE_HOURS         = "48"
@@ -659,6 +664,7 @@ resource "aws_lambda_function" "aws_six_layer_domain_consumer" {
       L2_PROVIDER                       = var.layer_2_provider
       HOT_PROVIDER                      = var.layer_3_hot_provider
       TWIN_PROVIDER                     = var.layer_4_provider
+      SIX_LAYER_EVALUATION_SCOPE        = var.evaluation_scope
       RAW_TABLE_NAME                    = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name, "")
       ROLLUP_TABLE_NAME                 = try(aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name, "")
       HOT_BOUNDARY_DAYS                 = tostring(var.layer_3_hot_to_cold_interval_days)
@@ -1057,12 +1063,28 @@ resource "aws_iam_role_policy" "aws_aws_ecr_if_container_selected" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "aws_six_layer_core_build" {
+  count             = local.core_evaluation && local.aws_six_layer_image_foundation_enabled ? 1 : 0
+  name              = "/aws/codebuild/${local.aws_six_layer_name}-six-images"
+  retention_in_days = 1
+  tags              = local.aws_six_layer_tags
+}
+
 resource "aws_codebuild_project" "aws_aws_ecr_if_container_selected" {
   count         = local.aws_six_layer_image_foundation_enabled ? 1 : 0
   name          = "${local.aws_six_layer_name}-six-images"
   description   = "Bounded Six-layer container publication"
   service_role  = aws_iam_role.aws_aws_ecr_if_container_selected[0].arn
-  build_timeout = 20
+  build_timeout = local.core_evaluation ? 5 : 20
+
+  dynamic "logs_config" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      cloudwatch_logs {
+        group_name = aws_cloudwatch_log_group.aws_six_layer_core_build[0].name
+      }
+    }
+  }
 
   artifacts { type = "NO_ARTIFACTS" }
   environment {
@@ -1312,7 +1334,7 @@ resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
   for_each            = local.aws_six_layer_storage_schedule_tasks
   name                = "${local.aws_six_layer_name}-six-${each.key}"
   schedule_expression = each.value.schedule
-  state               = "ENABLED"
+  state               = local.core_evaluation ? "DISABLED" : "ENABLED"
 
   flexible_time_window { mode = "OFF" }
   target {
@@ -1341,8 +1363,8 @@ resource "aws_scheduler_schedule" "aws_aws_eventbridge_scheduler" {
       }]
     })
     retry_policy {
-      maximum_event_age_in_seconds = 86400
-      maximum_retry_attempts       = 6
+      maximum_event_age_in_seconds = local.core_evaluation ? 60 : 86400
+      maximum_retry_attempts       = local.core_evaluation ? 0 : 6
     }
   }
 }
@@ -1391,6 +1413,12 @@ resource "aws_iam_role_policy" "aws_six_layer_twinmaker" {
   })
 }
 
+resource "time_sleep" "aws_six_layer_twinmaker_iam" {
+  count           = local.aws_six_layer_l4_enabled ? 1 : 0
+  create_duration = "30s"
+  depends_on      = [aws_iam_role_policy.aws_six_layer_twinmaker]
+}
+
 resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
   count        = local.aws_six_layer_l4_enabled ? 1 : 0
   workspace_id = "${local.aws_six_layer_name}-${local.deployment_suffix}"
@@ -1398,15 +1426,21 @@ resource "awscc_iottwinmaker_workspace" "aws_aws_iot_twinmaker_standard" {
   role         = aws_iam_role.aws_six_layer_twinmaker[0].arn
   s3_location  = aws_s3_bucket.aws_six_layer_twinmaker[0].arn
   tags         = local.aws_six_layer_tags
-  depends_on   = [aws_iam_role_policy.aws_six_layer_twinmaker]
+  depends_on   = [time_sleep.aws_six_layer_twinmaker_iam]
 }
 
 # -----------------------------------------------------------------------------
-# L5 bounded raw-history reader and Managed Grafana
+# L3 bounded raw-history reader
 # -----------------------------------------------------------------------------
 
+resource "random_password" "aws_six_layer_raw_history_cursor_hmac" {
+  count   = local.aws_six_layer_hot_enabled ? 1 : 0
+  length  = 64
+  special = false
+}
+
 resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
-  count                          = local.aws_six_layer_l5_enabled ? 1 : 0
+  count                          = local.aws_six_layer_hot_enabled ? 1 : 0
   function_name                  = "${local.aws_six_layer_name}-six-layer-raw-history-reader"
   role                           = aws_iam_role.aws_six_layer_lambda[0].arn
   handler                        = "handler.raw_history_reader"
@@ -1424,7 +1458,7 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
       RAW_TABLE_NAME       = aws_dynamodb_table.aws_aws_dynamodb_on_demand_raw[0].name
       ROLLUP_TABLE_NAME    = aws_dynamodb_table.aws_aws_dynamodb_on_demand_hourly_rollup[0].name
       MAXIMUM_POINTS       = "1000"
-      READER_KEY_SHA256    = ""
+      CURSOR_HMAC_KEY      = random_password.aws_six_layer_raw_history_cursor_hmac[0].result
     }
   }
   tags = local.aws_six_layer_tags
@@ -1432,36 +1466,13 @@ resource "aws_lambda_function" "aws_aws_lambda_raw_history_reader" {
   depends_on = [aws_cloudwatch_log_group.aws_six_layer_lambda]
 }
 
-# The URL is transport-public but never application-anonymous. Stage 3 creates
-# a 256-bit key, writes only its SHA-256 verifier to Lambda, and stores the key
-# only in Grafana secureJsonData. An empty verifier fails closed.
+# AWS IAM authenticates every request before Lambda executes. The caller signs
+# the HTTPS request with the already approved deployment credential; no second
+# L5 secret or dashboard account exists.
 resource "aws_lambda_function_url" "aws_aws_lambda_raw_history_reader" {
-  count              = local.aws_six_layer_l5_enabled ? 1 : 0
+  count              = local.aws_six_layer_hot_enabled ? 1 : 0
   function_name      = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
-  authorization_type = "NONE"
-}
-
-resource "aws_iam_role" "aws_six_layer_grafana" {
-  count = local.aws_six_layer_l5_enabled ? 1 : 0
-  name  = "${local.aws_six_layer_name}-six-grafana-${local.deployment_suffix}"
-  assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
-    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { Service = "grafana.amazonaws.com" } }]
-  })
-  tags = local.aws_six_layer_tags
-}
-
-resource "aws_grafana_workspace" "aws_aws_amazon_managed_grafana_12" {
-  count                    = local.aws_six_layer_l5_enabled ? 1 : 0
-  name                     = "${local.aws_six_layer_name}-six-grafana"
-  description              = "Six-layer raw-history visualization"
-  account_access_type      = "CURRENT_ACCOUNT"
-  authentication_providers = ["AWS_SSO"]
-  permission_type          = "SERVICE_MANAGED"
-  role_arn                 = aws_iam_role.aws_six_layer_grafana[0].arn
-  grafana_version          = "12.0"
-  configuration            = jsonencode({ plugins = { pluginAdminEnabled = true } })
-  tags                     = local.aws_six_layer_tags
+  authorization_type = "AWS_IAM"
 }
 
 locals {
@@ -1541,10 +1552,10 @@ locals {
 
 resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access" {
   provider         = aws.sso
-  count            = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count            = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn     = local.aws_six_layer_sso_instance_arn
   name             = substr("${local.aws_six_layer_name}-TwinViewer", 0, 32)
-  description      = "Read-only TwinMaker and Grafana access for the thesis PoC"
+  description      = "Read-only TwinMaker access for the thesis PoC"
   session_duration = "PT4H"
   tags             = local.aws_six_layer_tags
   depends_on       = [terraform_data.aws_six_layer_layer_access_principal_admission]
@@ -1552,7 +1563,7 @@ resource "aws_ssoadmin_permission_set" "aws_aws_iam_identity_center_layer_access
 
 resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access" {
   provider           = aws.sso
-  count              = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count              = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn       = local.aws_six_layer_sso_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn
   inline_policy = jsonencode({
@@ -1562,7 +1573,7 @@ resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access
       Action = [
         "iottwinmaker:GetWorkspace", "iottwinmaker:ListEntities",
         "iottwinmaker:GetEntity", "iottwinmaker:ListComponentTypes",
-        "iottwinmaker:GetComponentType", "grafana:DescribeWorkspace"
+        "iottwinmaker:GetComponentType"
       ]
       Resource = "*"
     }]
@@ -1571,7 +1582,7 @@ resource "aws_ssoadmin_permission_set_inline_policy" "aws_six_layer_layer_access
 
 resource "aws_ssoadmin_account_assignment" "aws_aws_iam_identity_center_layer_access" {
   provider           = aws.sso
-  count              = local.aws_six_layer_layer_access_enabled ? 1 : 0
+  count              = local.aws_six_layer_layer_access_enabled && local.aws_six_layer_l4_enabled ? 1 : 0
   instance_arn       = local.aws_six_layer_sso_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn
   principal_id       = local.aws_six_layer_layer_user_id
@@ -1579,13 +1590,6 @@ resource "aws_ssoadmin_account_assignment" "aws_aws_iam_identity_center_layer_ac
   target_id          = data.aws_caller_identity.current[0].account_id
   target_type        = "AWS_ACCOUNT"
   depends_on         = [aws_ssoadmin_permission_set_inline_policy.aws_six_layer_layer_access]
-}
-
-resource "aws_grafana_role_association" "aws_six_layer_layer_access" {
-  count        = local.aws_six_layer_l5_enabled && local.aws_six_layer_layer_access_enabled ? 1 : 0
-  role         = "ADMIN"
-  user_ids     = [local.aws_six_layer_layer_user_id]
-  workspace_id = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
 }
 
 # -----------------------------------------------------------------------------
@@ -1632,34 +1636,55 @@ output "aws_component_twin_state_output" {
     principal_label = var.platform_user_email
     internal_evidence = {
       resource_ref = awscc_iottwinmaker_workspace.aws_aws_iot_twinmaker_standard[0].workspace_id
-      access_binding_refs = [
+      # An isolated research cut omits human access; do not invent its evidence.
+      access_binding_refs = try([
         aws_ssoadmin_permission_set.aws_aws_iam_identity_center_layer_access[0].arn,
         aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
-      ]
+      ], [])
       artifact_refs       = ["telemetry"]
-      content_revision    = "aws-l4-seed.v2"
-      data_probe_revision = "aws-twinmaker-readback.v1"
+      content_revision    = "aws-l4-seed.v3"
+      data_probe_revision = "aws-twinmaker-readback.v2"
     }
   } : null
 }
 
-output "aws_component_visualization_output" {
-  value = local.aws_six_layer_l5_enabled ? {
-    workspace_id         = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-    access_url           = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}/d/t2mc-raw-rollups/raw-rollups"
-    workspace_url        = "https://${aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].endpoint}"
-    reader_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
+locals {
+  aws_six_layer_storage_read_access = local.aws_six_layer_hot_enabled ? {
+    access_url           = aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url
     reader_function_name = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].function_name
-    principal_label      = var.platform_user_email
+    principal_label      = data.aws_caller_identity.current[0].arn
+    access_role          = "AWS IAM signed read-only invocation"
     internal_evidence = {
-      resource_ref = aws_grafana_workspace.aws_aws_amazon_managed_grafana_12[0].id
-      access_binding_refs = [
-        aws_ssoadmin_account_assignment.aws_aws_iam_identity_center_layer_access[0].id,
-        aws_grafana_role_association.aws_six_layer_layer_access[0].id,
-      ]
-      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
-      content_revision    = "grafana-raw-rollups.v1"
-      data_probe_revision = "aws-grafana-bounded-readback.v1"
+      resource_ref        = aws_lambda_function.aws_aws_lambda_raw_history_reader[0].arn
+      access_binding_refs = [aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].function_url]
+      artifact_refs       = [local.aws_six_layer_runtime_package]
+      content_revision    = "raw-history-query.v1"
+      data_probe_revision = "aws-raw-history-readback.v1"
     }
   } : null
+}
+
+output "aws_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.aws_six_layer_storage_read_access
+}
+
+output "aws_component_visualization_output" {
+  description = "Managed Grafana dashboard; browser sign-in and exact data remain separate evidence"
+  # The image-foundation target stage has not created L5 yet.
+  value = local.aws_six_layer_l5_enabled ? try({
+    access_url       = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}/d/t2mc-raw-rollups"
+    workspace_id     = aws_grafana_workspace.aws_six_layer[0].id
+    workspace_url    = "https://${aws_grafana_workspace.aws_six_layer[0].endpoint}"
+    reader_user_name = aws_iam_user.aws_six_layer_grafana_reader[0].name
+    principal_label  = var.platform_user_email
+    access_role      = "Grafana Viewer"
+    internal_evidence = {
+      resource_ref        = aws_grafana_workspace.aws_six_layer[0].arn
+      access_binding_refs = [aws_grafana_role_association.aws_six_layer_viewer[0].id]
+      artifact_refs       = ["t2mc-raw-rollups", "t2mc-aws-hot-reader"]
+      content_revision    = "managed-grafana-l5.v1"
+      data_probe_revision = "managed-grafana-readiness.v1"
+    }
+  }, null) : null
 }

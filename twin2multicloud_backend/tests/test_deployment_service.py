@@ -20,6 +20,7 @@ from src.services.deployment_service import (
     _parse_deployer_sse_data,
     _validate_architecture_specification_path,
     _validate_six_layer_deployment_regions,
+    _validate_six_layer_deployer_artifacts,
 )
 from src.services.errors import DeploymentPackageBuildFailed
 from tests.architecture_test_data import calculation_result_and_contracts
@@ -31,6 +32,35 @@ from tests.cleanup_evidence_test_data import (
 
 def _contracts():
     return calculation_result_and_contracts()[1:]
+
+
+@pytest.mark.parametrize("value", [None, "", {}, "{}", " { } "])
+def test_six_layer_accepts_absent_legacy_maps_from_ui(value):
+    config = SimpleNamespace(**{field: value for field in (
+        "processor_contents", "processor_requirements",
+        "event_action_contents", "event_action_requirements",
+    )})
+    assert _validate_six_layer_deployer_artifacts(
+        config, {"id": "six-layer-eventing", "version": "1"}
+    ) is None
+
+
+@pytest.mark.parametrize("value", ['{"sensor": "code"}', '{"sensor": ""}', '[]', 'null', 'broken'])
+def test_six_layer_rejects_populated_or_invalid_legacy_maps(value):
+    with pytest.raises(DeploymentPackageBuildFailed) as error:
+        _validate_six_layer_deployer_artifacts(
+            SimpleNamespace(processor_contents=value),
+            {"id": "six-layer-eventing", "version": "1"},
+        )
+    assert error.value.errors[0]["code"] == "FORBIDDEN_PROFILE_FIELD"
+
+
+def test_six_layer_does_not_treat_scene_text_as_an_empty_map():
+    with pytest.raises(DeploymentPackageBuildFailed):
+        _validate_six_layer_deployer_artifacts(
+            SimpleNamespace(scene_config_content="{}"),
+            {"id": "six-layer-eventing", "version": "1"},
+        )
 
 
 def test_destroy_terminal_requires_and_accepts_complete_cleanup_evidence():

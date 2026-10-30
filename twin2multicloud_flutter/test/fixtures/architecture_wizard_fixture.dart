@@ -47,6 +47,7 @@ WizardState architectureReadyWizardState({
 }
 
 ResolvedTwinArchitectureRead resolvedArchitectureFixture({
+  String currency = 'USD',
   String runId = 'run-123',
   String twinId = 'twin-1',
   CloudProvider? provider,
@@ -61,7 +62,7 @@ ResolvedTwinArchitectureRead resolvedArchitectureFixture({
           File(
             '../contracts/architecture-profiles/v2/fixtures/valid/'
             'six-layer-aws-azure-eventing-small-resolved.json',
-          ).readAsStringSync(),
+          ).readAsStringSync().replaceAll('"USD"', '"$currency"'),
         )
         as Map,
   );

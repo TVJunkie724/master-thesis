@@ -512,7 +512,16 @@ def _validate_v2_selections(
                     "Phase 8 dimension evidence is duplicated or unbound",
                 )
             dimension_owner[dimension_id] = selection_id
-    if set(expected_provider) != {
+    expected_selected_logical = set(expected_provider)
+    if (
+        expected_architecture.get("resolution_status") == "offline_contract_fixture"
+        and specification["readiness"]["status"] == "offline_contract_fixture"
+        and "gate.implementation.l5-visualization-pending"
+        in specification["readiness"]["blocking_gate_ids"]
+        and not selected_components.get("component.visualization")
+    ):
+        expected_selected_logical.discard("component.visualization")
+    if expected_selected_logical != {
         selection["logical_component_id"] for selection in selections
     }:
         _fail(
@@ -523,9 +532,9 @@ def _validate_v2_selections(
     for logical, assignment in expected_assignments.items():
         if assignment.get("provider") != expected_provider[
             logical
-        ] or selected_components[logical] != assignment.get(
-            "deployment_specification_component_ids"
-        ):
+        ] or sorted(selected_components[logical]) != sorted(assignment.get(
+            "deployment_specification_component_ids", []
+        )):
             _fail(
                 "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
                 f"resolvedDeploymentSpecification.component_selections.{logical}",

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 
 from src.verification import orchestrator as orchestrator_module
@@ -136,6 +137,8 @@ def test_roundtrip_forces_traceable_twin_projection(monkeypatch):
     assert captured["metric"] == "value"
     assert captured["value"] == 23.5
     assert captured["twin_id"] == "device-1"
+    assert captured["device_id"] == "device-1"
+    assert datetime.fromisoformat(captured["event_time"].replace("Z", "+00:00")).tzinfo is not None
     assert done["schema_version"] == "telemetry-verification.v1"
     assert done["trace_id"] == captured["trace_id"]
 

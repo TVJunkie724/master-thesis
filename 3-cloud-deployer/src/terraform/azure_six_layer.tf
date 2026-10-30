@@ -26,7 +26,7 @@ locals {
     local.azure_six_layer_remote_control_inbound
   )
   azure_six_layer_function_infrastructure_enabled = (
-    local.azure_six_layer_event_enabled || local.azure_six_layer_l5_enabled || local.azure_event_enabled
+    local.azure_six_layer_event_enabled || local.azure_six_layer_hot_enabled || local.azure_event_enabled
   )
   azure_six_layer_outbound_event_routes = {
     for route in var.resolved_cross_cloud_routes : route.route_id => route
@@ -245,11 +245,41 @@ resource "azurerm_log_analytics_workspace" "azure_azure_log_analytics_shared_wor
   tags                = local.azure_six_layer_tags
 }
 
+# Reuse one capped trace resource for command experiments and L3/L5 diagnosis.
+# No dashboard or always-ready capacity is introduced.
+locals {
+  azure_command_diagnostics_enabled = local.core_evaluation && local.azure_event_l2_local && length(var.events) > 0
+  azure_runtime_diagnostics_enabled = local.azure_command_diagnostics_enabled || local.azure_six_layer_l5_enabled
+  azure_command_diagnostic_settings = local.azure_command_diagnostics_enabled ? {
+    APPLICATIONINSIGHTS_CONNECTION_STRING                                            = azurerm_application_insights.azure_command_diagnostics[0].connection_string
+    AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
+  } : {}
+  azure_l5_diagnostic_settings = local.azure_six_layer_l5_enabled ? {
+    AzureFunctionsJobHost__logging__applicationInsights__samplingSettings__isEnabled = "false"
+    AzureFunctionsJobHost__logging__logLevel__default                                = "Information"
+  } : {}
+}
+
+resource "azurerm_application_insights" "azure_command_diagnostics" {
+  count                = local.azure_runtime_diagnostics_enabled ? 1 : 0
+  name                 = "${local.azure_six_layer_name}-command-traces-${local.deployment_suffix}"
+  location             = azurerm_resource_group.main[0].location
+  resource_group_name  = azurerm_resource_group.main[0].name
+  workspace_id         = azurerm_log_analytics_workspace.azure_azure_log_analytics_shared_workspace[0].id
+  application_type     = "web"
+  retention_in_days    = 30
+  daily_data_cap_in_gb = 0.1
+  sampling_percentage  = 100
+  tags                 = local.azure_six_layer_tags
+}
+
 resource "azurerm_iothub" "azure_azure_iot_hub" {
   count               = local.azure_six_layer_l1_enabled ? 1 : 0
   name                = "${local.azure_six_layer_name}-six-iot-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = local.azure_iothub_region
+  # Match Azure's observed TLS floor so a retry does not replace the Hub.
+  min_tls_version = "1.2"
 
   sku {
     name     = local.azure_six_layer_iot_sku
@@ -258,6 +288,14 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
 
   event_hub_partition_count   = local.azure_six_layer_iot_partitions
   event_hub_retention_in_days = 1
+
+  # Terraform does not enable the built-in fallback route when omitted.
+  fallback_route {
+    source         = "DeviceMessages"
+    condition      = "true"
+    endpoint_names = ["events"]
+    enabled        = true
+  }
 
   cloud_to_device {
     default_ttl        = "PT1H"
@@ -270,6 +308,17 @@ resource "azurerm_iothub" "azure_azure_iot_hub" {
   }
 
   tags = local.azure_six_layer_tags
+}
+
+resource "azurerm_iothub_shared_access_policy" "azure_six_layer_ingress" {
+  count               = local.azure_six_layer_l1_enabled ? 1 : 0
+  name                = "six-layer-ingress"
+  resource_group_name = azurerm_resource_group.main[0].name
+  iothub_name         = azurerm_iothub.azure_azure_iot_hub[0].name
+  service_connect     = true
+  device_connect      = false
+  registry_read       = false
+  registry_write      = false
 }
 
 resource "azurerm_cosmosdb_account" "azure_azure_cosmos_db_nosql_raw_and_rollup" {
@@ -350,9 +399,13 @@ resource "azurerm_cosmosdb_sql_role_assignment" "azure_azure_cosmos_db_nosql_raw
         role_id      = "00000000-0000-0000-0000-000000000002"
       }
     },
-    local.azure_six_layer_l5_enabled ? {
+    local.azure_six_layer_hot_enabled ? {
       raw_history_reader = {
         principal_id = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].identity[0].principal_id
+        role_id      = "00000000-0000-0000-0000-000000000001"
+      }
+      verification_reader = {
+        principal_id = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id
         role_id      = "00000000-0000-0000-0000-000000000001"
       }
     } : {},
@@ -444,13 +497,24 @@ resource "azurerm_container_app_job" "azure_azure_container_apps_scheduled_stora
   resource_group_name          = azurerm_resource_group.main[0].name
   location                     = azurerm_resource_group.main[0].location
   container_app_environment_id = azurerm_container_app_environment.azure_azure_container_apps_scheduled_storage_job[0].id
-  replica_timeout_in_seconds   = 1800
-  replica_retry_limit          = 3
+  replica_timeout_in_seconds   = local.core_evaluation ? 300 : 1800
+  replica_retry_limit          = local.core_evaluation ? 0 : 3
 
-  schedule_trigger_config {
-    cron_expression          = each.value.schedule
-    parallelism              = 1
-    replica_completion_count = 1
+  dynamic "schedule_trigger_config" {
+    for_each = local.core_evaluation ? [] : [1]
+    content {
+      cron_expression          = each.value.schedule
+      parallelism              = 1
+      replica_completion_count = 1
+    }
+  }
+
+  dynamic "manual_trigger_config" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      parallelism              = 1
+      replica_completion_count = 1
+    }
   }
 
   identity {
@@ -581,11 +645,12 @@ resource "azurerm_servicebus_topic" "azure_azure_service_bus_standard" {
 }
 
 resource "azurerm_servicebus_subscription" "azure_azure_service_bus_standard" {
-  count                                     = local.azure_six_layer_embedded_event_enabled ? 1 : 0
-  name                                      = "domain-consumer"
-  topic_id                                  = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
-  max_delivery_count                        = 5
-  requires_session                          = true
+  count              = local.azure_six_layer_embedded_event_enabled ? 1 : 0
+  name               = "domain-consumer"
+  topic_id           = azurerm_servicebus_topic.azure_azure_service_bus_standard[0].id
+  max_delivery_count = 5
+  # Autoforwarding sources cannot require sessions; the destination queue does.
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"
@@ -625,7 +690,7 @@ resource "azurerm_servicebus_subscription" "azure_six_layer_remote_control_inbou
   name                                      = "local-domain-landing"
   topic_id                                  = azurerm_servicebus_topic.azure_six_layer_remote_control["inbound"].id
   max_delivery_count                        = 5
-  requires_session                          = true
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"
@@ -638,7 +703,7 @@ resource "azurerm_servicebus_subscription" "azure_six_layer_remote_control_outbo
   name                                      = "cross-cloud-bridge"
   topic_id                                  = azurerm_servicebus_topic.azure_six_layer_remote_control["outbound"].id
   max_delivery_count                        = 5
-  requires_session                          = true
+  requires_session                          = false
   dead_lettering_on_message_expiration      = true
   dead_lettering_on_filter_evaluation_error = true
   default_message_ttl                       = "P14D"
@@ -694,15 +759,26 @@ resource "azurerm_eventhub" "azure_azure_event_hubs_only_for_reviewed_remote_tel
 }
 
 resource "azurerm_storage_container" "azure_six_layer_function_package" {
-  count                 = local.azure_six_layer_function_infrastructure_enabled ? 1 : 0
-  name                  = "six-layer-functions"
+  # OneDeploy writes released-package.zip and kudu-state.json at the root.
+  # Sharing a deployment container lets one app overwrite another app's code.
+  # Eventing already owns a separate deployment container.
+  for_each              = toset([for role in keys(azurerm_service_plan.azure_six_layer_flex) : role if role != "eventing"])
+  name                  = "six-layer-functions-${each.key}"
   storage_account_id    = azurerm_storage_account.main[0].id
   container_access_type = "private"
 }
 
 resource "azurerm_service_plan" "azure_six_layer_flex" {
-  count               = local.azure_six_layer_function_infrastructure_enabled ? 1 : 0
-  name                = "${local.azure_six_layer_name}-six-flex"
+  # Flex permits exactly one app per FC1 plan; these plans have no idle workers.
+  for_each = toset(compact([
+    local.azure_six_layer_event_enabled ? "ingress" : "",
+    local.azure_six_layer_l2_enabled ? "processing" : "",
+    local.azure_six_layer_l2_enabled ? "extension" : "",
+    local.azure_six_layer_l2_enabled ? "action" : "",
+    local.azure_six_layer_hot_enabled ? "reader" : "",
+    local.azure_event_enabled ? "eventing" : "",
+  ]))
+  name                = "${local.azure_six_layer_name}-flex-${each.key}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
   os_type             = "Linux"
@@ -715,18 +791,17 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   name                = "${local.azure_six_layer_name}-six-events-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["ingress"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["ingress"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
@@ -738,28 +813,28 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                                = "python"
-    WEBSITE_RUN_FROM_PACKAGE                                = "1"
-    ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
-    DEPLOYMENT_ID                                           = local.deployment_suffix
-    SIX_LAYER_DOMAIN_QUEUE_NAME                             = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
-    SIX_LAYER_DOMAIN_TOPIC_NAME                             = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
-    SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace          = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
-    SIX_LAYER_SERVICE_BUS__credential                       = "managedidentity"
-    SIX_LAYER_SERVICE_BUS__clientId                         = azurerm_user_assigned_identity.main[0].client_id
-    SIX_LAYER_MANAGED_IDENTITY_CLIENT_ID                    = azurerm_user_assigned_identity.main[0].client_id
-    SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(!local.azure_six_layer_l2_enabled && local.azure_six_layer_embedded_event_enabled)
-    SIX_LAYER_IOT_PROCESSOR_ENABLED                         = tostring(local.azure_six_layer_l1_enabled)
-    SIX_LAYER_IOT_HUB_NAME                                  = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
-    SIX_LAYER_IOT_HUB__fullyQualifiedNamespace              = local.azure_six_layer_l1_enabled ? "${azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_namespace}.servicebus.windows.net" : "disabled.servicebus.windows.net"
-    SIX_LAYER_IOT_HUB__credential                           = "managedidentity"
-    SIX_LAYER_IOT_HUB__clientId                             = azurerm_user_assigned_identity.main[0].client_id
+    ARCHITECTURE_PROFILE                           = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    DEPLOYMENT_ID                                  = local.deployment_suffix
+    SIX_LAYER_DOMAIN_QUEUE_NAME                    = try(azurerm_servicebus_queue.azure_azure_service_bus_standard[0].name, "")
+    SIX_LAYER_DOMAIN_TOPIC_NAME                    = try(azurerm_servicebus_topic.azure_azure_service_bus_standard[0].name, "")
+    SIX_LAYER_SERVICE_BUS__fullyQualifiedNamespace = try("${azurerm_servicebus_namespace.azure_azure_service_bus_standard[0].name}.servicebus.windows.net", "disabled.servicebus.windows.net")
+    SIX_LAYER_SERVICE_BUS__credential              = "managedidentity"
+    SIX_LAYER_SERVICE_BUS__clientId                = azurerm_user_assigned_identity.main[0].client_id
+    SIX_LAYER_MANAGED_IDENTITY_CLIENT_ID           = azurerm_user_assigned_identity.main[0].client_id
+    SIX_LAYER_DOMAIN_CONSUMER_ENABLED              = tostring(!local.azure_six_layer_l2_enabled && local.azure_six_layer_embedded_event_enabled)
+    SIX_LAYER_IOT_PROCESSOR_ENABLED                = tostring(local.azure_six_layer_l1_enabled)
+    SIX_LAYER_IOT_HUB_NAME                         = try(azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path, "disabled")
+    # IoT Hub's built-in Event Hubs-compatible endpoint does not support Entra ID.
+    SIX_LAYER_IOT_HUB = try(format("Endpoint=%s;SharedAccessKeyName=%s;SharedAccessKey=%s;EntityPath=%s",
+      azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_endpoint,
+      azurerm_iothub_shared_access_policy.azure_six_layer_ingress[0].name,
+      azurerm_iothub_shared_access_policy.azure_six_layer_ingress[0].primary_key,
+    azurerm_iothub.azure_azure_iot_hub[0].event_hub_events_path), "")
     SIX_LAYER_IOT_HUB_HOSTNAME                              = try(azurerm_iothub.azure_azure_iot_hub[0].hostname, "")
     SIX_LAYER_REMOTE_TELEMETRY_ENABLED                      = tostring(local.azure_six_layer_remote_telemetry_inbound)
     SIX_LAYER_REMOTE_TELEMETRY_HUB_NAME                     = try(azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["inbound"].name, "disabled")
@@ -794,6 +869,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_eve
     SIX_LAYER_L1_PROVIDER                                   = var.layer_1_provider
     SIX_LAYER_HOT_PROVIDER                                  = var.layer_3_hot_provider
     SIX_LAYER_TWIN_PROVIDER                                 = var.layer_4_provider
+    SIX_LAYER_EVALUATION_SCOPE                              = var.evaluation_scope
     SIX_LAYER_ADT_ENDPOINT                                  = local.azure_six_layer_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
     SIX_LAYER_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
     SIX_LAYER_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
@@ -827,22 +903,30 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   name                = "${local.azure_six_layer_name}-six-process-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["processing"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["processing"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
+
+  # Core verifies wiring under a bounded warm HTTP condition, not cold-start scaling.
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
 
   identity {
     type         = "UserAssigned"
@@ -850,14 +934,11 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version     = "1.2"
+    scm_minimum_tls_version = "1.2"
   }
 
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME                                = "python"
-    WEBSITE_RUN_FROM_PACKAGE                                = "1"
+  app_settings = merge({
     ARCHITECTURE_PROFILE                                    = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                                           = local.deployment_suffix
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED                       = tostring(local.azure_six_layer_embedded_event_enabled)
@@ -889,6 +970,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     SIX_LAYER_L1_PROVIDER                                   = var.layer_1_provider
     SIX_LAYER_HOT_PROVIDER                                  = var.layer_3_hot_provider
     SIX_LAYER_TWIN_PROVIDER                                 = var.layer_4_provider
+    SIX_LAYER_EVALUATION_SCOPE                              = var.evaluation_scope
     SIX_LAYER_ADT_ENDPOINT                                  = local.azure_six_layer_l4_enabled ? "https://${azurerm_digital_twins_instance.azure_azure_digital_twins[0].host_name}" : ""
     SIX_LAYER_ADT_MODEL_ID                                  = "dtmi:twin2multicloud:poc:TwinNode;1"
     SIX_LAYER_COSMOS_ENDPOINT                               = try(azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].endpoint, "")
@@ -896,7 +978,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_con
     SIX_LAYER_COSMOS_CONTAINER                              = try(azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name, "")
     SIX_LAYER_HOT_BOUNDARY_DAYS                             = tostring(var.layer_3_hot_to_cold_interval_days)
     SIX_LAYER_STORAGE_TASK_COUNT                            = tostring(local.azure_six_layer_storage_task_count)
-  }
+  }, local.azure_command_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 
@@ -913,22 +995,29 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   name                = "${local.azure_six_layer_name}-six-extension-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["extension"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["extension"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
   runtime_name    = "python"
   runtime_version = "3.11"
-  zip_deploy_file = each.value.package_path
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
+
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
 
   site_config {
     minimum_tls_version     = "1.2"
@@ -936,9 +1025,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
   }
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "python"
-    WEBSITE_RUN_FROM_PACKAGE = "1"
-    ARCHITECTURE_PROFILE     = "${var.architecture_profile_id}@${var.architecture_profile_version}"
+    ARCHITECTURE_PROFILE = "${var.architecture_profile_id}@${var.architecture_profile_version}"
   }
 
   tags = local.azure_six_layer_tags
@@ -957,6 +1044,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_processor_exte
 }
 
 data "azurerm_function_app_host_keys" "azure_six_layer_processor_extension" {
+  depends_on          = [module.azure_six_layer_extension_package]
   for_each            = azurerm_function_app_flex_consumption.azure_six_layer_processor_extension
   name                = each.value.name
   resource_group_name = each.value.resource_group_name
@@ -969,38 +1057,43 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
   name                = "${local.azure_six_layer_name}-six-action-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["action"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["action"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 100
+  maximum_instance_count                         = local.core_evaluation ? 1 : 100
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
+
+  dynamic "always_ready" {
+    for_each = local.core_evaluation && length(var.events) > 0 ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
 
   site_config {
     minimum_tls_version     = "1.2"
     scm_minimum_tls_version = "1.2"
   }
 
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME           = "python"
-    WEBSITE_RUN_FROM_PACKAGE           = "1"
+  app_settings = merge({
     ARCHITECTURE_PROFILE               = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     SIX_LAYER_ACTION_ENDPOINT_ENABLED  = "true"
     SIX_LAYER_DOMAIN_CONSUMER_ENABLED  = "false"
     SIX_LAYER_IOT_PROCESSOR_ENABLED    = "false"
     SIX_LAYER_REMOTE_TELEMETRY_ENABLED = "false"
     SIX_LAYER_RAW_HISTORY_ENABLED      = "false"
-  }
+  }, local.azure_command_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 
@@ -1013,6 +1106,7 @@ resource "azurerm_function_app_flex_consumption" "azure_six_layer_extension_acti
 }
 
 data "azurerm_function_app_host_keys" "azure_six_layer_extension_action" {
+  depends_on          = [module.azure_six_layer_action_package]
   count               = local.azure_six_layer_l2_enabled ? 1 : 0
   name                = azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].name
   resource_group_name = azurerm_function_app_flex_consumption.azure_six_layer_extension_action[0].resource_group_name
@@ -1125,7 +1219,7 @@ resource "azurerm_logic_app_action_custom" "azure_six_layer_notification_complet
 }
 
 # L4 remains independently placeable. Azure Digital Twins receives its state
-# through the canonical projection boundary; Grafana never queries ADT.
+# through the canonical projection boundary; L5 reads L3 hot directly.
 resource "azurerm_digital_twins_instance" "azure_azure_digital_twins" {
   count               = local.azure_six_layer_l4_enabled ? 1 : 0
   name                = local.azure_adt_name
@@ -1139,50 +1233,57 @@ resource "azurerm_digital_twins_instance" "azure_azure_digital_twins" {
   tags = local.azure_six_layer_tags
 }
 
-# L5 reads only provider-local L3 hot data through this narrow HTTP contract.
+# L3 exposes its own data through this narrow authenticated HTTP contract.
 # The cursor key protects continuation-token integrity and never leaves the
 # Function app settings or Terraform state.
 resource "random_password" "azure_six_layer_raw_history_cursor_hmac" {
-  count   = local.azure_six_layer_l5_enabled ? 1 : 0
+  count   = local.azure_six_layer_hot_enabled ? 1 : 0
   length  = 64
   special = false
 }
 
 resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw_history_reader" {
-  count               = local.azure_six_layer_l5_enabled ? 1 : 0
+  count               = local.azure_six_layer_hot_enabled ? 1 : 0
   name                = "${local.azure_six_layer_name}-six-history-${local.deployment_suffix}"
   resource_group_name = azurerm_resource_group.main[0].name
   location            = azurerm_resource_group.main[0].location
-  service_plan_id     = azurerm_service_plan.azure_six_layer_flex[0].id
+  service_plan_id     = azurerm_service_plan.azure_six_layer_flex["reader"].id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package[0].name}"
+  storage_container_endpoint  = "${azurerm_storage_account.main[0].primary_blob_endpoint}${azurerm_storage_container.azure_six_layer_function_package["reader"].name}"
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.main[0].primary_access_key
 
   runtime_name    = "python"
   runtime_version = "3.12"
-  zip_deploy_file = local.azure_six_layer_runtime_package
 
-  maximum_instance_count                         = 20
+  maximum_instance_count                         = local.core_evaluation ? 1 : 20
   instance_memory_in_mb                          = 2048
   https_only                                     = true
   public_network_access_enabled                  = true
   webdeploy_publish_basic_authentication_enabled = false
+
+  # The bounded Core test measures resource integration, not cold-start latency.
+  # Live diagnosis reached the HTTP handler only after keeping this reader warm.
+  dynamic "always_ready" {
+    for_each = local.core_evaluation ? [1] : []
+    content {
+      name           = "http"
+      instance_count = 1
+    }
+  }
 
   identity {
     type = "SystemAssigned"
   }
 
   site_config {
-    minimum_tls_version              = "1.2"
-    scm_minimum_tls_version          = "1.2"
-    runtime_scale_monitoring_enabled = true
+    minimum_tls_version                    = "1.2"
+    scm_minimum_tls_version                = "1.2"
+    application_insights_connection_string = local.azure_six_layer_l5_enabled ? azurerm_application_insights.azure_command_diagnostics[0].connection_string : null
   }
 
-  app_settings = {
-    FUNCTIONS_WORKER_RUNTIME      = "python"
-    WEBSITE_RUN_FROM_PACKAGE      = "1"
+  app_settings = merge({
     ARCHITECTURE_PROFILE          = "${var.architecture_profile_id}@${var.architecture_profile_version}"
     DEPLOYMENT_ID                 = local.deployment_suffix
     SIX_LAYER_RAW_HISTORY_ENABLED = "true"
@@ -1190,7 +1291,7 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
     SIX_LAYER_COSMOS_DATABASE     = azurerm_cosmosdb_sql_database.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
     SIX_LAYER_COSMOS_CONTAINER    = azurerm_cosmosdb_sql_container.azure_azure_cosmos_db_nosql_raw_and_rollup[0].name
     SIX_LAYER_CURSOR_HMAC_KEY     = random_password.azure_six_layer_raw_history_cursor_hmac[0].result
-  }
+  }, local.azure_l5_diagnostic_settings)
 
   tags = local.azure_six_layer_tags
 
@@ -1202,25 +1303,8 @@ resource "azurerm_function_app_flex_consumption" "azure_azure_functions_flex_raw
   }
 }
 
-resource "azurerm_dashboard_grafana" "azure_azure_managed_grafana_12_standard" {
-  count                         = local.azure_six_layer_l5_enabled ? 1 : 0
-  name                          = local.azure_grafana_name
-  resource_group_name           = azurerm_resource_group.main[0].name
-  location                      = azurerm_resource_group.main[0].location
-  sku                           = "Standard"
-  grafana_major_version         = "12"
-  public_network_access_enabled = true
-  zone_redundancy_enabled       = false
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  tags = local.azure_six_layer_tags
-}
-
 data "azurerm_client_config" "azure_six_layer_layer_access" {
-  count = local.azure_six_layer_l4_enabled || local.azure_six_layer_l5_enabled ? 1 : 0
+  count = local.azure_six_layer_l4_enabled || local.azure_six_layer_hot_enabled ? 1 : 0
 }
 
 locals {
@@ -1250,6 +1334,11 @@ locals {
         scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
         role  = "Azure Event Hubs Data Sender"
       }
+      # The ingress adapter publishes here; the co-located bridge consumes it.
+      event_hubs_outbound_receiver = {
+        scope = azurerm_eventhub.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge["outbound"].id
+        role  = "Azure Event Hubs Data Receiver"
+      }
       bridge_telemetry_failure_sender = {
         scope = azurerm_eventhub.azure_six_layer_bridge_telemetry_failure[0].id
         role  = "Azure Event Hubs Data Sender"
@@ -1270,10 +1359,6 @@ locals {
       }
     } : {},
     local.azure_six_layer_l1_enabled ? {
-      iot_hub_receiver = {
-        scope = azurerm_iothub.azure_azure_iot_hub[0].id
-        role  = "IoT Hub Data Receiver"
-      }
       iot_hub_contributor = {
         scope = azurerm_iothub.azure_azure_iot_hub[0].id
         role  = "IoT Hub Data Contributor"
@@ -1312,21 +1397,6 @@ locals {
         principal_type = "User"
       }
     } : {},
-    local.azure_six_layer_l5_enabled ? {
-      grafana_provisioner = {
-        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-        role           = "Grafana Admin"
-        principal_id   = data.azurerm_client_config.azure_six_layer_layer_access[0].object_id
-        principal_type = "ServicePrincipal"
-        skip_check     = true
-      }
-      grafana_human_viewer = {
-        scope          = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-        role           = "Grafana Viewer"
-        principal_id   = var.azure_layer_access_principal_object_id
-        principal_type = "User"
-      }
-    } : {},
   )
 }
 
@@ -1358,18 +1428,14 @@ locals {
     local.azure_six_layer_hot_enabled ? {
       cosmos = azurerm_cosmosdb_account.azure_azure_cosmos_db_nosql_raw_and_rollup[0].id
     } : {},
-    local.azure_six_layer_object_store_enabled ? {
-      history_storage = azurerm_storage_account.main[0].id
-    } : {},
     local.azure_six_layer_remote_telemetry_enabled ? {
       event_hubs = azurerm_eventhub_namespace.azure_azure_event_hubs_only_for_reviewed_remote_telemetry_edge[0].id
     } : {},
     local.azure_six_layer_l4_enabled ? {
       digital_twins = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
     } : {},
-    local.azure_six_layer_l5_enabled ? {
+    local.azure_six_layer_hot_enabled ? {
       raw_history_reader = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
-      grafana            = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
     } : {},
   )
 }
@@ -1389,8 +1455,15 @@ resource "azurerm_monitor_diagnostic_setting" "azure_azure_monitor" {
   }
 }
 
-# Catalog-owned, secret-free browser handoff. The Function key used by Grafana
-# is created and inserted into secureJsonData by the bounded post-apply step.
+# Catalog-owned, secret-free endpoint handoff. The Deployer creates one
+# function-scoped key and uses it only for the bounded post-apply readback.
+output "azure_component_ingestion_output" {
+  value = local.azure_six_layer_l1_enabled ? {
+    iot_hub_name = azurerm_iothub.azure_azure_iot_hub[0].name
+    hostname     = azurerm_iothub.azure_azure_iot_hub[0].hostname
+  } : null
+}
+
 output "azure_component_processing_output" {
   value = local.azure_six_layer_l2_enabled ? {
     function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_consumption[0].name
@@ -1409,17 +1482,18 @@ output "azure_component_hot_storage_output" {
 }
 
 output "azure_component_cool_storage_output" {
-  value = local.azure_six_layer_cool_enabled ? {
+  # A targeted Event/L4 research cut can omit the cold-storage container.
+  value = local.azure_six_layer_cool_enabled ? try({
     storage_account_name = azurerm_storage_account.main[0].name
     container_name       = azurerm_storage_container.azure_azure_blob_cool[0].name
-  } : null
+  }, null) : null
 }
 
 output "azure_component_archive_storage_output" {
-  value = local.azure_six_layer_archive_enabled ? {
+  value = local.azure_six_layer_archive_enabled ? try({
     storage_account_name = azurerm_storage_account.main[0].name
     container_name       = azurerm_storage_container.azure_azure_blob_cool[0].name
-  } : null
+  }, null) : null
 }
 
 output "azure_component_twin_state_output" {
@@ -1430,8 +1504,9 @@ output "azure_component_twin_state_output" {
     principal_label = var.azure_layer_access_principal_label
     access_role     = "Azure Digital Twins Data Reader"
     internal_evidence = {
-      resource_ref        = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
-      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id]
+      resource_ref = azurerm_digital_twins_instance.azure_azure_digital_twins[0].id
+      # A targeted research plan may omit human access; never invent its binding.
+      access_binding_refs = try([azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].id], [])
       artifact_refs       = ["dtmi:twin2multicloud:poc:TwinNode;1"]
       content_revision    = "azure-l4-seed.v1"
       data_probe_revision = "azure-adt-readback.v1"
@@ -1439,21 +1514,43 @@ output "azure_component_twin_state_output" {
   } : null
 }
 
-output "azure_component_visualization_output" {
-  value = local.azure_six_layer_l5_enabled ? {
-    workspace_name       = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].name
-    access_url           = "${trimsuffix(azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint, "/")}/d/t2mc-raw-rollups/raw-rollups"
-    workspace_url        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].endpoint
-    reader_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
+locals {
+  azure_six_layer_storage_read_access = local.azure_six_layer_hot_enabled ? {
+    access_url           = "https://${azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].default_hostname}/api/raw-history/v1"
     reader_function_name = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].name
-    principal_label      = var.azure_layer_access_principal_label
-    access_role          = "Grafana Viewer"
+    principal_label      = data.azurerm_client_config.azure_six_layer_layer_access[0].client_id
+    access_role          = "Function key resolved by the deployment principal"
     internal_evidence = {
-      resource_ref        = azurerm_dashboard_grafana.azure_azure_managed_grafana_12_standard[0].id
-      access_binding_refs = [azurerm_role_assignment.azure_azure_entra_layer_access_bindings["grafana_human_viewer"].id]
-      artifact_refs       = ["dashboard:t2mc-raw-rollups"]
-      content_revision    = "grafana-raw-rollups.v1"
-      data_probe_revision = "azure-grafana-bounded-readback.v1"
+      resource_ref        = azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id
+      access_binding_refs = [azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader[0].id]
+      artifact_refs       = [local.azure_six_layer_runtime_package]
+      content_revision    = "raw-history-query.v1"
+      data_probe_revision = "azure-raw-history-readback.v1"
     }
   } : null
+}
+
+output "azure_component_storage_read_access_output" {
+  description = "L3 authenticated raw-history and rollup access; not visualization evidence"
+  value       = local.azure_six_layer_storage_read_access
+}
+
+output "azure_component_visualization_output" {
+  description = "Managed Grafana dashboard; browser sign-in and exact data remain separate evidence"
+  # The image-foundation target stage has not created L5 yet.
+  value = local.azure_six_layer_l5_enabled ? try({
+    access_url      = "${azurerm_dashboard_grafana.azure_six_layer[0].endpoint}/d/t2mc-raw-rollups"
+    workspace_name  = azurerm_dashboard_grafana.azure_six_layer[0].name
+    workspace_url   = azurerm_dashboard_grafana.azure_six_layer[0].endpoint
+    principal_label = var.azure_layer_access_principal_label
+    access_role     = "Grafana Viewer"
+    internal_evidence = {
+      resource_ref        = azurerm_dashboard_grafana.azure_six_layer[0].id
+      access_binding_refs = [azurerm_role_assignment.azure_six_layer_grafana_viewer[0].id]
+      artifact_refs       = ["t2mc-raw-rollups", "t2mc-azure-hot-reader"]
+      content_revision    = "managed-grafana-l5.v1"
+      data_probe_revision = "managed-grafana-readiness.v1"
+    }
+  }, null) : null
+  depends_on = [azurerm_role_assignment.azure_six_layer_grafana_deployer]
 }

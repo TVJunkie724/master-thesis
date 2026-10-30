@@ -107,7 +107,7 @@ void main() {
   });
 
   group('CloudConnectionImportRequest', () {
-    test('emits deployment-only Azure metadata without file contents', () {
+    test('emits single-administrator Azure metadata without file contents', () {
       final request = CloudConnectionImportRequest(
         provider: CloudProvider.azure,
         displayName: 'Azure thesis',

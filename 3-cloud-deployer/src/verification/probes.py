@@ -152,25 +152,15 @@ def _check_azure_hot_storage_trace(
     try:
         from azure.cosmos import CosmosClient
         from azure.identity import ClientSecretCredential
-        from azure.mgmt.cosmosdb import CosmosDBManagementClient
 
         credential = ClientSecretCredential(
             tenant_id=azure_credentials.get("azure_tenant_id"),
             client_id=azure_credentials.get("azure_client_id"),
             client_secret=azure_credentials.get("azure_client_secret"),
         )
-        management = CosmosDBManagementClient(
-            credential,
-            azure_credentials.get("azure_subscription_id"),
-        )
-        keys = management.database_accounts.list_keys(
-            bundle["resource_group_name"],
-            bundle["account_name"],
-        )
-        account_key = keys.primary_master_key
-        if not isinstance(account_key, str) or not account_key:
-            raise ValueError("Cosmos account key unavailable")
-        client = CosmosClient(bundle["endpoint"], credential=account_key)
+        # Six-layer Cosmos explicitly disables local/key authentication.
+        # Terraform grants this deployment principal account-scoped Data Reader.
+        client = CosmosClient(bundle["endpoint"], credential=credential)
         container = client.get_database_client(
             bundle["database_name"]
         ).get_container_client(bundle["container_name"])
@@ -500,51 +490,27 @@ def check_twinmaker_projection(
     window_start = sent_at - timedelta(minutes=1)
     while time.monotonic() - started < timeout:
         try:
-            response = client.get_property_value_history(
+            response = client.get_entity(
                 workspaceId=workspace_id,
                 entityId=entity_id,
-                componentName="telemetry",
-                selectedProperties=["metric", "value", "sourceSequence"],
-                startDateTime=window_start,
-                endDateTime=datetime.now(timezone.utc) + timedelta(minutes=1),
-                maxResults=20,
-                orderByTime="DESCENDING",
             )
-            value_matches = []
-            metric_matches = []
-            sequence_matches = []
-            for entry in response.get("propertyValues", []):
-                reference = entry.get("entityPropertyReference", {})
-                property_name = reference.get("propertyName")
-                for item in entry.get("values", []):
-                    property_value = item.get("value", {})
-                    timestamp = item.get("timestamp")
-                    in_window = (
-                        isinstance(timestamp, datetime) and timestamp >= window_start
-                    )
-                    value = property_value.get("doubleValue")
-                    if property_name == "value" and (
-                        isinstance(value, (int, float))
-                        and not isinstance(value, bool)
-                        and math.isclose(
-                            float(value),
-                            expected_value,
-                            rel_tol=1e-9,
-                            abs_tol=1e-9,
-                        )
-                        and in_window
-                    ):
-                        value_matches.append(item)
-                    sequence = property_value.get("stringValue")
-                    if property_name == "metric" and sequence == metric and in_window:
-                        metric_matches.append(item)
-                    if (
-                        property_name == "sourceSequence"
-                        and sequence == expected_source_sequence
-                        and in_window
-                    ):
-                        sequence_matches.append(item)
-            if metric_matches and value_matches and sequence_matches:
+            properties = response.get("components", {}).get("telemetry", {}).get("properties", {})
+            def value_of(name, kind):
+                return properties.get(name, {}).get("value", {}).get(kind)
+
+            value = value_of("value", "doubleValue")
+            observed = value_of("observedAt", "stringValue")
+            timestamp = datetime.fromisoformat(observed.replace("Z", "+00:00")) if observed else None
+            if (
+                response.get("status", {}).get("state") == "ACTIVE"
+                and value_of("metric", "stringValue") == metric
+                and value_of("sourceSequence", "stringValue") == expected_source_sequence
+                and isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value) and math.isfinite(expected_value)
+                and math.isclose(value, expected_value, rel_tol=1e-9, abs_tol=1e-9)
+                and timestamp is not None and timestamp.tzinfo is not None
+                and window_start <= timestamp <= datetime.now(timezone.utc) + timedelta(minutes=1)
+            ):
                 return ProbeResult(
                     success=True,
                     elapsed=round(time.monotonic() - started, 1),

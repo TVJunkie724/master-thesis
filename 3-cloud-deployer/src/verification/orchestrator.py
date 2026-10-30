@@ -73,9 +73,11 @@ class DataFlowVerificationOrchestrator:
             "trace_id": trace_id,
             "source_sequence": trace_id,
             "projection_candidate": True,
+            "device_id": payload["iotDeviceId"],
             "twin_id": payload.get("twin_id") or payload["iotDeviceId"],
             "metric": metric,
             "value": value,
+            "event_time": sent_at.isoformat().replace("+00:00", "Z"),
             "time": sent_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         }
 

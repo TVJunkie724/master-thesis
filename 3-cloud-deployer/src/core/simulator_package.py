@@ -37,6 +37,7 @@ _CREDENTIAL_CLASS = {
 }
 _SOURCE_FILES = ("main.py", "transmission.py", "globals.py")
 _TEMPLATE_FILES = {
+    ".dockerignore": ".dockerignore",
     "README.md": "README.md.template",
     "requirements.txt": "requirements.txt",
     "Dockerfile": "Dockerfile",
@@ -156,6 +157,7 @@ class SimulatorPackageService:
                 )
                 self._write_bytes(zip_file, f"src/{source_name}", content)
 
+            self._write_bytes(zip_file, "src/__init__.py", b"")
             template_vars = self._template_variables(
                 project_name,
                 internal_provider,

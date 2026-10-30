@@ -30,6 +30,10 @@ live separately under `docs/research/`. Final thesis prose lives under
 
 ## Authoring Rules
 
+- keep the PoC reading path short: purpose, command/action, expected result, limits;
+- explain a mechanism once; link its reference page from other entrypoints;
+- distinguish implemented code, default activation and observed live results;
+- use diagrams when they replace a longer explanation; label current versus target state;
 - document current behavior from code/config/tests first;
 - mark planned, externally gated, verification-pending, and historical claims;
 - keep research hypotheses and thesis evaluations in `docs/research/`;

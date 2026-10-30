@@ -8,9 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY src/ ./src/
-COPY config.json .
-COPY payloads.json .
-COPY server-ca.pem .
+# Device configuration, payloads and certificates are mounted read-only at runtime.
 
 # Set Python path
 ENV PYTHONPATH=/app

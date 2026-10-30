@@ -680,7 +680,12 @@ output "gcp_six_layer_build_service_account" {
 
 output "gcp_six_layer_registry_prefix" {
   description = "Internal Artifact Registry prefix for content-addressed Six-layer images"
-  value       = local.gcp_six_layer_container_enabled ? local.gcp_six_layer_registry_prefix : null
+  # Reference the repository itself so targeted image-foundation applies also
+  # materialize this output in state before the publisher runs.
+  value = try(
+    "${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].location}-docker.pkg.dev/${local.gcp_project_id}/${google_artifact_registry_repository.gcp_gcp_artifact_registry_if_container_selected[0].repository_id}/",
+    null,
+  )
 }
 
 output "gcp_hot_writer_url" {
@@ -715,9 +720,10 @@ output "aws_cloudwatch_log_groups" {
     local.aws_six_layer_bridge_enabled ? {
       "BRIDGE" = aws_cloudwatch_log_group.aws_six_layer_bridge[0].name
     } : {},
-    local.aws_six_layer_storage_mover_enabled ? {
+    # A targeted Event/L4 research cut can omit the background storage mover.
+    local.aws_six_layer_storage_mover_enabled ? try({
       "L3-storage-mover" = aws_cloudwatch_log_group.aws_aws_cloudwatch[0].name
-    } : {},
+    }, {}) : {},
   )
 }
 

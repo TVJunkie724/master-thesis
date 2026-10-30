@@ -153,16 +153,16 @@ def validate_routes(routes: dict[str, Any], errors: list[str]) -> None:
         errors.append("same_provider_pairs must contain all three exact pairs")
 
     placements = routes["online_placements"]
-    expected_placements = {(l3_l5, l4) for l3_l5 in PROVIDERS for l4 in PROVIDERS}
+    expected_placements = {(l3, l4) for l3 in PROVIDERS for l4 in ("aws", "azure")}
     actual_placements = {
-        (item["l3_hot_l5_provider"], item["l4_provider"]) for item in placements
+        (item["l3_hot_provider"], item["l4_provider"]) for item in placements
     }
-    if actual_placements != expected_placements or len(placements) != 9:
+    if actual_placements != expected_placements or len(placements) != 6:
         errors.append(
-            "online_placements must contain the exact nine L3-hot/L5 plus L4 combinations"
+            "online_placements must contain the six L3-hot plus AWS/Azure L4 combinations"
         )
     for item in placements:
-        expected_route = f"{item['l3_hot_l5_provider']}->{item['l4_provider']}"
+        expected_route = f"{item['l3_hot_provider']}->{item['l4_provider']}"
         if item["projection_route"] != expected_route:
             errors.append(
                 f"{item['placement_id']}: projection route does not match placement"
@@ -212,7 +212,7 @@ def validate_contracts(contract: dict[str, Any], errors: list[str]) -> None:
         )
 
     raw = definitions.get("raw_history_query.v1", {})
-    if raw.get("transport", {}).get("provider_placement") != "l3_hot_l5_provider_only":
+    if raw.get("transport", {}).get("provider_placement") != "l3_hot_provider_only":
         errors.append("raw-history transport must remain provider-local")
     if raw.get("request", {}).get("rules", {}).get("limit_max") != 1000:
         errors.append("raw-history query must preserve the 1000-point bound")
@@ -269,8 +269,7 @@ def validate_components(artifacts: dict[str, Any], errors: list[str]) -> None:
         if item["provider"] not in PROVIDERS:
             errors.append(f"{item['component_id']}: invalid provider")
         if not item["component_id"].startswith(f"{item['provider']}.") and not (
-            item["provider"] == "gcp"
-            and item["component_id"].startswith(("apache.", "grafana."))
+            item["provider"] == "gcp" and item["component_id"].startswith("apache.")
         ):
             errors.append(
                 f"{item['component_id']}: component identity is not owned by its provider"
@@ -511,20 +510,8 @@ def validate_immutable_inputs(decision: dict[str, Any], errors: list[str]) -> No
 
 
 def validate_plugins(bundle: dict[str, Any], errors: list[str]) -> None:
-    plugins = {item["plugin_id"]: item for item in bundle["plugin_decisions"]}
-    json_api = plugins.get("marcusolsson-json-datasource", {})
-    if json_api.get("selected_version") != "1.4.0":
-        errors.append("JSON API plugin version must be frozen to 1.4.0")
-    if json_api.get("hard_end_date") != "2027-02-01":
-        errors.append("JSON API support-end date must match current provider evidence")
-    infinity = plugins.get("yesoreyeram-infinity-datasource", {})
-    if infinity.get("selected_version") != "3.10.1":
-        errors.append("Infinity plugin version must be frozen to 3.10.1")
-    if (
-        infinity.get("artifact_digest")
-        != "sha256:39d1cac9bcd2f7f2e46607319cb27afb8592ab0fcbc57968dc9fb86f3ef69a59"
-    ):
-        errors.append("Infinity plugin artifact digest mismatch")
+    if bundle["plugin_decisions"]:
+        errors.append("L3 raw-history readback must not require dashboard plugins")
 
 
 def validate() -> list[str]:

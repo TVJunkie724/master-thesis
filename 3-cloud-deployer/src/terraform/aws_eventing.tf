@@ -36,8 +36,8 @@ locals {
   aws_event_local_processed_roles = concat(
     local.aws_event_hot_local ? [
       "historical-persistence",
-      "twin-state-update",
     ] : [],
+    local.aws_event_hot_local && !local.core_evaluation ? ["twin-state-update"] : [],
     local.aws_event_l2_local ? ["rule-evaluator"] : [],
     var.aws_event_kinesis_shards == 200 ? [
       "audit",

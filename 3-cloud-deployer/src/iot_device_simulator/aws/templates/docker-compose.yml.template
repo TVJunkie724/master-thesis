@@ -1,9 +1,12 @@
-version: '3.8'
-
 services:
   simulator:
     build: .
     container_name: iot_simulator_{{device_id}}
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./configs:/app/configs:ro
+      - ./payloads.json:/app/payloads.json:ro
+      - ./AmazonRootCA1.pem:/app/AmazonRootCA1.pem:ro
     stdin_open: true   # Keep stdin open for interactive commands
     tty: true          # Allocate a pseudo-TTY
-    restart: unless-stopped
+    restart: "no"

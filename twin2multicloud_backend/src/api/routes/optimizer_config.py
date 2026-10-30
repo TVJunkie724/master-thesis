@@ -28,6 +28,9 @@ def _raise_optimizer_config_error(exc: EntityNotFoundError) -> NoReturn:
     raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+# The Flutter client uses the slashless URL. Serve it directly: browser
+# transports must not need to follow a cross-origin authenticated redirect.
+@router.get("", response_model=OptimizerConfigResponse, include_in_schema=False)
 @router.get(
     "/",
     response_model=OptimizerConfigResponse,

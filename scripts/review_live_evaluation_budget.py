@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a bounded offline budget proposal for the nine Small scenarios.
+"""Build a bounded offline budget proposal for the eight Small scenarios.
 
 The utility reads only the checked matrix, a digest-verified candidate pack,
 the repository-pinned pricing snapshots, and the explicit PoC budget policy.
@@ -169,7 +169,7 @@ def _validate_policy(policy: dict[str, Any], plan: dict[str, Any]) -> None:
     if (
         not isinstance(scope, dict)
         or scope.get("scenario_size") != "Small"
-        or scope.get("scenario_count") != 9
+        or scope.get("scenario_count") != 8
         or scope.get("product_capability") is not False
         or scope.get("cloud_execution_authorized") is not False
     ):
@@ -399,7 +399,7 @@ def build_proposal(
         or any(item.get("budget_cap_usd") is not None for item in plan["scenarios"])
     ):
         raise BudgetReviewError(
-            "Budget proposals require the disabled plan with nine pending caps"
+            "Budget proposals require the disabled plan with eight pending caps"
         )
     policy = _read(policy_path)
     _validate_policy(policy, plan)

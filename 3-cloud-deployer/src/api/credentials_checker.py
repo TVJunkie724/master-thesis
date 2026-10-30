@@ -211,12 +211,25 @@ REQUIRED_AWS_PERMISSIONS = {
         ],
     },
     "layer_5": {
+        "iam": [
+            "iam:CreateUser", "iam:GetUser", "iam:DeleteUser", "iam:TagUser",
+            "iam:ListUserTags", "iam:ListAccessKeys", "iam:CreateAccessKey",
+            "iam:DeleteAccessKey", "iam:PutUserPolicy", "iam:GetUserPolicy",
+            "iam:DeleteUserPolicy", "iam:ListUserPolicies", "iam:ListAttachedUserPolicies",
+        ],
         # Unique service: Grafana
         "grafana": [
             "grafana:CreateWorkspace",
             "grafana:DeleteWorkspace",
             "grafana:DescribeWorkspace",
             "grafana:ListWorkspaces",
+            "grafana:ListVersions",
+            "grafana:UpdateWorkspaceConfiguration",
+            "grafana:ListWorkspaceServiceAccounts",
+            "grafana:CreateWorkspaceServiceAccount",
+            "grafana:ListWorkspaceServiceAccountTokens",
+            "grafana:CreateWorkspaceServiceAccountToken",
+            "grafana:DeleteWorkspaceServiceAccountToken",
             "grafana:CreateWorkspaceApiKey",
             "grafana:DeleteWorkspaceApiKey",
             "grafana:UpdateWorkspaceAuthentication",
@@ -834,7 +847,7 @@ def check_aws_credentials(credentials: dict) -> dict:
             session = _create_session(credentials)
             sts_client = _create_regional_sts_client(session, region)
             result["sts_region_validation"] = {
-                "status": "ready",
+                "status": "endpoint_resolved",
                 "region": region,
                 "endpoint_mode": "regional",
             }
@@ -851,6 +864,7 @@ def check_aws_credentials(credentials: dict) -> dict:
         try:
             caller_identity = _get_caller_identity(sts_client)
             result["caller_identity"] = caller_identity
+            result["sts_region_validation"]["status"] = "ready"
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             if error_code in ("InvalidClientTokenId", "SignatureDoesNotMatch"):

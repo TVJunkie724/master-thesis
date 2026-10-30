@@ -285,7 +285,9 @@ def processor_extension_request(event: Mapping[str, Any]) -> dict[str, Any]:
         raise ContractError("INVALID_PROCESSOR_UNIT")
     return {
         "schema_version": "user-function-runtime-envelope.v1",
-        "invocation_id": event_id(event),
+        "invocation_id": str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"{event_id(event)}:processor.telemetry")
+        ),
         "correlation_id": event["correlation_id"],
         "occurred_at": event["occurred_at"],
         "slot_id": "processor.telemetry",

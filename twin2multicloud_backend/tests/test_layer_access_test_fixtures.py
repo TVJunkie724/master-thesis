@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-
 import pytest
 
 from src.models.user import User
@@ -14,12 +12,7 @@ from src.services.deployment_operation_read_service import (
     build_deployment_outputs_response,
 )
 from src.services.service_errors import ConflictError, EntityNotFoundError
-from src.services.test_layer_access_service import (
-    TestLayerAccessDeployerClient,
-    prepare_test_layer_access_rotation,
-    seed_layer_access_fixtures,
-    test_rotation_count as rotation_count,
-)
+from src.services.test_layer_access_service import seed_layer_access_fixtures
 
 
 def _seed(db):
@@ -34,9 +27,6 @@ def _service(db) -> DeploymentAccessService:
     return DeploymentAccessService(
         twin_repository=TwinRepository(db),
         deployment_repository=DeploymentRepository(db),
-        db=db,
-        deployer_client=TestLayerAccessDeployerClient(),
-        project_preparer=prepare_test_layer_access_rotation,
     )
 
 
@@ -90,27 +80,3 @@ def test_fixture_edges_are_explicit_and_outputs_remain_redacted(db) -> None:
     }
     assert safe_endpoint.startswith("https://outputs-")
     assert "must-not-cross-api" not in outputs.model_dump_json()
-
-
-@pytest.mark.asyncio
-async def test_fixture_rotation_changes_fingerprint_without_persisting_password(
-    db,
-) -> None:
-    owner, payload = _seed(db)
-    twin_id = payload["rotation_twin_id"]
-    service = _service(db)
-
-    first = await service.rotate_gcp_grafana_viewer(twin_id, owner.id)
-    second = await service.rotate_gcp_grafana_viewer(twin_id, owner.id)
-
-    deployment = DeploymentRepository(db).latest_successful_deploy(twin_id)
-    assert deployment is not None
-    assert rotation_count(twin_id) == 2
-    assert first.password != second.password
-    assert (
-        deployment.layer_access_credential_fingerprint
-        == hashlib.sha256(second.password.encode("utf-8")).hexdigest()
-    )
-    persisted = str(deployment.__dict__)
-    assert first.password not in persisted
-    assert second.password not in persisted

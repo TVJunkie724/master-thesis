@@ -68,7 +68,6 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
       );
       return;
     }
-    final current = state.extensionDraft(event.slotId);
     emit(
       state.copyWith(
         extensionDrafts: {
@@ -76,7 +75,7 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
           event.slotId: UserFunctionSourceDraft(
             filename: event.fileName,
             bytes: event.fileBytes,
-            configuration: current?.configuration ?? const {},
+            configuration: state.extensionConfiguration(event.slotId),
           ),
         },
         extensionValidationResults: {...state.extensionValidationResults}
@@ -96,7 +95,9 @@ extension _WizardUserFunctionExtensionHandlers on WizardBloc {
     Emitter<WizardState> emit,
   ) {
     final current = state.extensionDraft(event.slotId);
-    final configuration = <String, dynamic>{...?current?.configuration};
+    final configuration = <String, dynamic>{
+      ...state.extensionConfiguration(event.slotId),
+    };
     if (event.value == null || event.value == '') {
       configuration.remove(event.field);
     } else {

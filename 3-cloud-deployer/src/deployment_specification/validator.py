@@ -409,7 +409,9 @@ def _validate_v4_architecture_specification(
             item["implementation_component_id"]
             for item in selected_by_assignment[assignment_id]
         ]
-        if actual_ids != assignment["deployment_specification_component_ids"]:
+        # Canonical architecture serialization sorts these IDs; RDS preserves
+        # bundle order. Ownership is the same only when the full multisets match.
+        if sorted(actual_ids) != sorted(assignment["deployment_specification_component_ids"]):
             _fail(
                 "DEPLOYMENT_ARCHITECTURE_SPEC_MISMATCH",
                 f"deployment_manifest.resolved_twin_architecture.{assignment_id}",
@@ -750,24 +752,34 @@ def _validate_v2_component_selections(
     expected_logical_ids = set(LOGICAL_COMPONENT_TO_SLOT)
     if profile_identity == ("six-layer-eventing", "1"):
         expected_logical_ids.add("component.eventing")
+        readiness = specification["readiness"]
+        if (
+            readiness["status"] == "offline_contract_fixture"
+            and "gate.implementation.l5-visualization-pending"
+            in readiness["blocking_gate_ids"]
+            and "component.visualization" not in provider_by_logical
+        ):
+            expected_logical_ids.discard("component.visualization")
     if set(provider_by_logical) != expected_logical_ids:
         _fail(
             "DEPLOYMENT_SPECIFICATION_COMPONENT_MISMATCH",
             "resolved_deployment_specification.component_selections",
             "Phase 8 profile must cover every logical component",
         )
-    if len(
-        {
-            provider_by_logical["component.hot-storage"],
-            provider_by_logical["component.cool-storage"],
-            provider_by_logical["component.archive-storage"],
-            provider_by_logical["component.visualization"],
-        }
-    ) != 1:
+    if (
+        len(
+            {
+                provider_by_logical["component.hot-storage"],
+                provider_by_logical["component.cool-storage"],
+                provider_by_logical["component.archive-storage"],
+            }
+        )
+        != 1
+    ):
         _fail(
             "DEPLOYMENT_SPECIFICATION_PROVIDER_MISMATCH",
             "resolved_deployment_specification.component_selections",
-            "Six-layer PoC requires provider-local L3 storage and L5",
+            "Six-layer PoC requires provider-local L3 storage tiers",
         )
 
     binding_sources: set[str] = set()

@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote
+from urllib.parse import unquote, urlencode
 
 from src.core.secure_files import atomic_write_private_bytes
 from src.deployment_access.runtime_evidence import (
@@ -169,10 +170,10 @@ def _resolve_lambda_arn(
         return None
 
 
-def _hierarchy_contains_component(nodes: list[dict]) -> bool:
+def _hierarchy_requires_connector(nodes: list[dict]) -> bool:
     return any(
-        node.get("type") == "component"
-        or _hierarchy_contains_component(node.get("children", []))
+        (node.get("type") == "component" and not node.get("currentState"))
+        or _hierarchy_requires_connector(node.get("children", []))
         for node in nodes
     )
 
@@ -202,10 +203,13 @@ def _six_layer_seed(context: "DeploymentContext") -> dict:
                         "type": "component",
                         "name": SIX_LAYER_SEED_COMPONENT_NAME,
                         "componentTypeId": SIX_LAYER_SEED_COMPONENT_NAME,
+                        "currentState": True,
                         "properties": [
                             {"name": "value", "dataType": "DOUBLE"},
                             {"name": "metric", "dataType": "STRING"},
                             {"name": "sourceSequence", "dataType": "STRING"},
+                            {"name": "observedAt", "dataType": "STRING"},
+                            {"name": "lastEventId", "dataType": "STRING"},
                         ],
                         "constProperties": [
                             {
@@ -276,39 +280,41 @@ def create_twinmaker_entities(
     """Create every configured TwinMaker entity and component fail-closed."""
     del project_path
     provider = _require_aws_provider(context)
-    workspace_id = terraform_outputs.get("aws_twinmaker_workspace_id")
+    active_profile = _is_active_phase8_profile(context)
+    workspace_id = (
+        terraform_outputs.get("aws_component_twin_state_output", {}).get("workspace_id")
+        if active_profile else terraform_outputs.get("aws_twinmaker_workspace_id")
+    )
     if not workspace_id:
-        raise RuntimeError("Terraform output aws_twinmaker_workspace_id is required")
+        raise RuntimeError("Terraform output for TwinMaker workspace_id is required")
     hierarchy = context.config.hierarchy
     if not isinstance(hierarchy, list):
         raise ValueError("AWS TwinMaker hierarchy must be a list")
-    if _is_active_phase8_profile(context):
+    if active_profile:
         hierarchy = [*hierarchy, _six_layer_seed(context)]
     elif not hierarchy:
         raise ValueError("AWS TwinMaker hierarchy must be a non-empty list")
 
     twinmaker = provider.clients["twinmaker"]
-    lambda_client = provider.clients["lambda"]
     twin_name = context.config.digital_twin_name
-    connector_arn = _resolve_lambda_arn(
-        lambda_client,
-        terraform_outputs,
-        "aws_l4_connector_function_arn",
-        f"{twin_name}-l4-connector",
-    )
-    connector_last_entry_arn = (
-        _resolve_lambda_arn(
+    connector_arn = connector_last_entry_arn = None
+    if _hierarchy_requires_connector(hierarchy):
+        lambda_client = provider.clients["lambda"]
+        connector_arn = _resolve_lambda_arn(
             lambda_client,
             terraform_outputs,
+            "aws_l4_connector_function_arn",
+            f"{twin_name}-l4-connector",
+        )
+        connector_last_entry_arn = _resolve_lambda_arn(
+            lambda_client, terraform_outputs,
             "aws_l4_connector_last_entry_function_arn",
             f"{twin_name}-l4-connector-last-entry",
-        )
-        or connector_arn
-    )
-    if _hierarchy_contains_component(hierarchy) and not connector_arn:
-        raise RuntimeError(
-            "TwinMaker hierarchy contains components but no L4 connector exists"
-        )
+        ) or connector_arn
+        if not connector_arn:
+            raise RuntimeError(
+                "TwinMaker hierarchy contains external components but no L4 connector exists"
+            )
 
     run = RuntimeRun("AWS", "TwinMaker", logger)
     for root in hierarchy:
@@ -321,6 +327,7 @@ def create_twinmaker_entities(
             parent_id=None,
             connector_arn=connector_arn,
             connector_last_entry_arn=connector_last_entry_arn,
+            wait_for_active=active_profile,
         )
     run.raise_if_failed()
     if _is_active_phase8_profile(context):
@@ -345,6 +352,7 @@ def _create_twinmaker_node(
     parent_id: str | None,
     connector_arn: str | None,
     connector_last_entry_arn: str | None,
+    wait_for_active: bool = False,
 ) -> None:
     node_type = node.get("type")
     if node_type == "entity":
@@ -359,6 +367,8 @@ def _create_twinmaker_node(
             return
         if not _create_entity(run, twinmaker, workspace_id, entity_id, parent_id):
             return
+        if wait_for_active:
+            _wait_for_entity(twinmaker, workspace_id, entity_id)
         for child in node.get("children", []):
             _create_twinmaker_node(
                 run,
@@ -369,6 +379,7 @@ def _create_twinmaker_node(
                 parent_id=entity_id,
                 connector_arn=connector_arn,
                 connector_last_entry_arn=connector_last_entry_arn,
+                wait_for_active=wait_for_active,
             )
         return
     if node_type == "component":
@@ -416,8 +427,8 @@ def _component_properties(node: dict) -> dict:
     properties = {
         prop["name"]: {
             "dataType": {"type": prop.get("dataType", "STRING")},
-            "isTimeSeries": True,
-            "isStoredExternally": True,
+            "isTimeSeries": not node.get("currentState", False),
+            "isStoredExternally": not node.get("currentState", False),
         }
         for prop in node.get("properties", [])
     }
@@ -465,19 +476,22 @@ def _create_component(
     component_type_id = f"{twin_name}-{name}"
 
     def create_and_attach() -> bool:
-        functions = {
-            "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
-        }
-        if connector_last_entry_arn:
-            functions["attributePropertyValueReaderByEntity"] = {
-                "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+        extra = {}
+        if not node.get("currentState"):
+            functions = {
+                "dataReader": {"implementedBy": {"lambda": {"arn": connector_arn}}}
             }
+            if connector_last_entry_arn:
+                functions["attributePropertyValueReaderByEntity"] = {
+                    "implementedBy": {"lambda": {"arn": connector_last_entry_arn}}
+                }
+            extra["functions"] = functions
         try:
             twinmaker.create_component_type(
                 workspaceId=workspace_id,
                 componentTypeId=component_type_id,
                 propertyDefinitions=_component_properties(node),
-                functions=functions,
+                **extra,
             )
         except twinmaker.exceptions.ConflictException:
             logger.info(
@@ -485,6 +499,18 @@ def _create_component(
             )
         else:
             _wait_for_component_type(twinmaker, workspace_id, component_type_id)
+        if node.get("currentState"):
+            definitions = twinmaker.get_component_type(
+                workspaceId=workspace_id, componentTypeId=component_type_id
+            ).get("propertyDefinitions", {})
+            for key, expected in _component_properties(node).items():
+                definition = definitions.get(key)
+                if (definition is None or definition.get("isTimeSeries")
+                        or definition.get("isStoredExternally")
+                        or definition.get("dataType") != expected["dataType"]
+                        or ("defaultValue" in expected
+                            and definition.get("defaultValue") != expected["defaultValue"])):
+                    raise RuntimeError("TwinMaker component is not a native current-state model")
         try:
             twinmaker.update_entity(
                 workspaceId=workspace_id,
@@ -493,9 +519,23 @@ def _create_component(
             )
         except twinmaker.exceptions.ConflictException:
             logger.info("TwinMaker component already attached: %s", name)
+        if node.get("currentState"):
+            _wait_for_entity(twinmaker, workspace_id, parent_id)
         return True
 
     run.attempt(component_type_id, create_and_attach, default=False)
+
+
+def _wait_for_entity(twinmaker, workspace_id: str, entity_id: str) -> None:
+    for _ in range(30):
+        response = twinmaker.get_entity(workspaceId=workspace_id, entityId=entity_id)
+        state = response.get("status", {}).get("state")
+        if state == "ACTIVE":
+            return
+        if state in {"ERROR", "DELETING"}:
+            raise RuntimeError("TwinMaker entity entered a terminal state")
+        time.sleep(1)
+    raise TimeoutError("TwinMaker entity did not become active within 30 seconds")
 
 
 def _wait_for_component_type(
@@ -738,43 +778,53 @@ def _generate_aws_simulator_config(
     )
 
 
-def configure_aws_grafana(
+def verify_aws_storage_read_access(
     context: "DeploymentContext",
     terraform_outputs: dict,
 ) -> None:
-    """Create the required Grafana datasource or fail the deployment."""
+    """Verify the L3-owned reader; this is not graphical L5 evidence."""
     provider = _require_aws_provider(context)
-    if _is_active_phase8_profile(context):
-        from src.providers.aws.layers.layer_5_grafana import (
-            configure_six_layer_grafana,
+    bundle = terraform_outputs.get("aws_component_storage_read_access_output")
+    if not isinstance(bundle, dict):
+        raise RuntimeError(
+            "Terraform output aws_component_storage_read_access_output is required"
         )
+    required = {"access_url", "reader_function_name"}
+    missing = sorted(key for key in required if not bundle.get(key))
+    if missing:
+        raise RuntimeError("AWS storage-read output is missing: " + ", ".join(missing))
+    device_id, metric = _default_v2_dashboard_series(context.config)
+    _probe_aws_raw_history_reader(
+        provider=provider,
+        reader_url=str(bundle["access_url"]),
+        device_id=device_id,
+        metric=metric,
+    )
+    logger.info(
+        "  AWS %s raw-history surface is ready", _active_phase8_profile(context)
+    )
+    return
 
-        bundle = terraform_outputs.get("aws_component_visualization_output")
-        if not isinstance(bundle, dict):
-            raise RuntimeError(
-                "Terraform output aws_component_visualization_output is required"
-            )
-        required = {
-            "workspace_id",
-            "workspace_url",
-            "reader_url",
-            "reader_function_name",
-        }
-        missing = sorted(key for key in required if not bundle.get(key))
-        if missing:
-            raise RuntimeError(
-                "AWS visualization output is missing: " + ", ".join(missing)
-            )
+
+def configure_aws_visualization(
+    context: "DeploymentContext",
+    terraform_outputs: dict,
+) -> None:
+    """Verify active-profile L5 or configure the historical Grafana path."""
+    _require_aws_provider(context)
+    if _is_active_phase8_profile(context):
+        from src.providers.aws.layers.layer_5_grafana import configure_six_layer_grafana
+        bundle = terraform_outputs.get("aws_component_visualization_output") or {}
+        reader = terraform_outputs.get("aws_component_storage_read_access_output") or {}
+        if not bundle.get("workspace_id") or not reader.get("access_url"):
+            raise ValueError("Managed Grafana output and L3 reader are required")
         device_id, metric = _default_v2_dashboard_series(context.config)
         configure_six_layer_grafana(
-            provider,
-            workspace_id=str(bundle["workspace_id"]),
-            grafana_url=str(bundle["workspace_url"]).rstrip("/"),
-            reader_url=str(bundle["reader_url"]),
-            reader_function_name=str(bundle["reader_function_name"]),
-            device_id=device_id,
-            metric=metric,
-            architecture_profile=_active_phase8_profile(context),
+            _require_aws_provider(context), workspace_id=bundle.get("workspace_id", ""),
+            grafana_url=bundle.get("workspace_url", ""), reader_url=reader.get("access_url", ""),
+            reader_function_name=reader.get("reader_function_name", ""),
+            reader_user_name=bundle.get("reader_user_name", ""),
+            device_id=device_id, metric=metric, architecture_profile=_active_phase8_profile(context),
         )
         return
 
@@ -805,6 +855,51 @@ def configure_aws_grafana(
     )
     if response.status_code not in {200, 201, 409}:
         raise RuntimeError(f"Grafana API returned HTTP {response.status_code}")
+
+
+def _probe_aws_raw_history_reader(
+    *,
+    provider,
+    reader_url: str,
+    device_id: str,
+    metric: str,
+) -> None:
+    """Exercise both bounded L3 query modes through the IAM-protected URL."""
+
+    import requests
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    signer = provider.clients["lambda"]._request_signer
+    credentials = signer._credentials.get_frozen_credentials()
+    now = datetime.now(timezone.utc)
+    for bucket, start in (
+        (0, now - timedelta(hours=24)),
+        (3600, now - timedelta(days=30)),
+    ):
+        query = urlencode(
+            {
+                "device_id": device_id,
+                "metric": metric,
+                "from": start.isoformat().replace("+00:00", "Z"),
+                "to": now.isoformat().replace("+00:00", "Z"),
+                "bucket_seconds": str(bucket),
+                "limit": "1",
+            }
+        )
+        url = f"{reader_url.rstrip('/')}?{query}"
+        request = AWSRequest(method="GET", url=url)
+        SigV4Auth(credentials, "lambda", provider.region).add_auth(request)
+        response = requests.get(url, headers=dict(request.headers), timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"AWS raw-history query probe returned HTTP {response.status_code}"
+            )
+        body = response.json()
+        if body.get("schema_version") != "raw-history-query.v1":
+            raise RuntimeError(
+                "AWS raw-history query probe returned an invalid contract"
+            )
 
 
 def _default_v2_dashboard_series(config) -> tuple[str, str]:

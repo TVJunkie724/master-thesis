@@ -26,6 +26,17 @@ void main() {
       );
     });
 
+    test('keeps reported currency instead of assuming dollars', () {
+      final summary = OptimizationSummaryView.fromData(
+        result: TypedApiFixtures.optimization(totalCost: 42.5).result,
+        params: null,
+        calculatedAt: null,
+        currency: 'EUR',
+      );
+      expect(summary.currency, 'EUR');
+      expect(summary.totalCost, 42.5);
+    });
+
     test('maps provider-specific deployment artifact filenames', () {
       final view = TwinConfigurationView.fromState(
         _state(

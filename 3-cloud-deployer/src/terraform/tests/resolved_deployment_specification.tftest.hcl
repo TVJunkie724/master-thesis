@@ -6,7 +6,11 @@ mock_provider "aws" {
 }
 mock_provider "awscc" {}
 mock_provider "azuread" {}
-mock_provider "azurerm" {}
+mock_provider "azurerm" {
+  mock_data "azurerm_client_config" {
+    defaults = { object_id = "22222222-2222-2222-2222-222222222222" }
+  }
+}
 mock_provider "google" {}
 mock_provider "kubernetes" {}
 mock_provider "local" {}
@@ -14,8 +18,23 @@ mock_provider "random" {}
 mock_provider "time" {}
 mock_provider "tls" {}
 
+run "known_deployment_suffix_for_provider_name_validation" {
+  command = apply
+  plan_options { target = [random_id.deployment_suffix] }
+  variables { digital_twin_name = "drift-test" }
+  override_resource {
+    target = random_id.deployment_suffix
+    values = { hex = "abcd" }
+  }
+}
+
 run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
   command = plan
+
+  override_data {
+    target = data.aws_iot_endpoint.main
+    values = { endpoint_address = "test-ats.iot.eu-central-1.amazonaws.com" }
+  }
 
   override_data {
     target = data.aws_caller_identity.current
@@ -81,6 +100,14 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
 
   assert {
     condition = (
+      length(data.aws_iot_endpoint.main) == 1 &&
+      aws_lambda_function.event_runtime["control-router"].environment[0].variables["IOT_COMMANDS_ENDPOINT"] == "test-ats.iot.eu-central-1.amazonaws.com"
+    )
+    error_message = "Six-layer command delivery requires the account IoT endpoint, independent of legacy L1 resources."
+  }
+
+  assert {
+    condition = (
       length(aws_kinesis_stream.domain_telemetry) == 2 &&
       length(aws_kinesis_stream_consumer.domain_consumers) == 4 &&
       length(aws_sns_topic.domain_control) == 1 &&
@@ -115,13 +142,40 @@ run "six_layer_single_cloud_aws_adds_independent_event_bundle" {
     )
     error_message = "Single-cloud AWS must use only the independent Event Layer transport and omit embedded transport and every cross-cloud bridge."
   }
+  assert {
+    condition = (
+      length(aws_grafana_workspace.aws_six_layer) == 1 &&
+      aws_grafana_workspace.aws_six_layer[0].grafana_version == "12.4" &&
+      contains(aws_grafana_workspace.aws_six_layer[0].authentication_providers, "AWS_SSO") &&
+      aws_lambda_function_url.aws_aws_lambda_raw_history_reader[0].authorization_type == "AWS_IAM" &&
+      length(aws_lambda_function.aws_aws_lambda_raw_history_reader) == 1
+    )
+    error_message = "Normal AWS L5 must be Managed Grafana with Identity Center and the independent IAM-protected L3 reader."
+  }
+  assert {
+    condition = (
+      length(aws_iam_user.aws_six_layer_grafana_reader) == 1 &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].force_destroy &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].path == "/twin2multicloud/grafana/" &&
+      aws_iam_user.aws_six_layer_grafana_reader[0].tags.Purpose == "grafana-l3-reader" &&
+      length(aws_iam_user_policy.aws_six_layer_grafana_reader) == 1
+    )
+    error_message = "Grafana reader identity must be dedicated, tagged and delete SDK keys on Destroy."
+  }
 }
 
 run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
   command = plan
 
+  override_data {
+    target = data.azurerm_client_config.azure_six_layer_layer_access
+    values = {
+      object_id = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+
   variables {
-    digital_twin_name                      = "drift-test"
+    digital_twin_name                      = "abcdefghijklmnopqrstu"
     architecture_profile_id                = "six-layer-eventing"
     architecture_profile_version           = "1"
     event_layer_provider                   = "azure"
@@ -199,6 +253,26 @@ run "six_layer_single_cloud_azure_adds_independent_event_bundle" {
     )
     error_message = "Single-cloud Azure must replace embedded transport with the independent Event Layer."
   }
+  assert {
+    condition = (
+      length(azurerm_dashboard_grafana.azure_six_layer) == 1 &&
+      azurerm_dashboard_grafana.azure_six_layer[0].sku == "Standard" &&
+      azurerm_dashboard_grafana.azure_six_layer[0].grafana_major_version == "12" &&
+      length(azurerm_dashboard_grafana.azure_six_layer[0].name) <= 23 &&
+      endswith(azurerm_dashboard_grafana.azure_six_layer[0].name, "-grafana-abcd") &&
+      length(azurerm_function_app_flex_consumption.azure_azure_functions_flex_raw_history_reader) == 1
+    )
+    error_message = "Normal Azure L5 must be Managed Grafana, retaining the independent L3 reader."
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].role_definition_name == "Azure Digital Twins Data Owner" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_seed_deployer"].principal_id == "22222222-2222-2222-2222-222222222222" &&
+      azurerm_role_assignment.azure_azure_entra_layer_access_bindings["twin_human_reader"].role_definition_name == "Azure Digital Twins Data Reader"
+    )
+    error_message = "Azure L4 must grant the PoC administrator ADT data access only on the created Twin instance."
+  }
 }
 
 run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
@@ -227,9 +301,8 @@ run "six_layer_single_cloud_gcp_adds_independent_event_bundle" {
     gcp_six_layer_platform_image            = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/platform@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     gcp_six_layer_processor_extension_image = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/processor@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     gcp_six_layer_storage_mover_image       = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/storage-mover@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    gcp_six_layer_grafana_image             = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/grafana@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     gcp_event_runtime_image                 = "europe-west1-docker.pkg.dev/phase8-poc-project/drift-test-v2/event-runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-    gcp_grafana_source_cidrs                = ["203.0.113.42/32"]
+    gcp_deployment_principal_email          = "deployer@phase8-poc-project.iam.gserviceaccount.com"
     enable_gcp_logging                      = false
     resolved_component_dimensions = {
       "dimension.gcp.gcp.cloud-run-storage-job.task_count"                  = "1"

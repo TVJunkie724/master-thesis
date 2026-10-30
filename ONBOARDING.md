@@ -36,6 +36,10 @@ the archive for removed plans and handoffs.
 - Flutter calls only Management;
 - deployment credentials flow only Management -> Deployer for a current
   request;
+- approved single-user PoC exception: an explicitly enabled, ignored Deployer
+  secret file may authenticate unused Azure Terraform providers; it never
+  supplies credentials for graph-selected Azure resources (see the runtime
+  configuration guide and decision D-28);
 - deployed Twin definitions are immutable;
 - provider mutations require an exact plan and explicit confirmation;
 - ordinary tests and documentation builds perform no provider mutation;
@@ -52,6 +56,8 @@ login automation, or live E2E without explicit supervised authorization.
 
 ## Git workflow
 
+- work in the existing primary checkout on a feature branch; do not create
+  additional worktrees unless the user explicitly requests one;
 - inspect `git status` before editing;
 - preserve unrelated user changes;
 - use `codex/` for new agent branches unless a different branch is requested;

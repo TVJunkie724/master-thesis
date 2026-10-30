@@ -9,9 +9,7 @@ from src.api.credentials_checker import check_aws_credentials
 from src.api.gcp_credentials_checker import check_gcp_credentials
 
 
-LEAKING_ERROR = RuntimeError(
-    "client_secret=super-secret-value /app/upload/factory"
-)
+LEAKING_ERROR = RuntimeError("client_secret=super-secret-value /app/upload/factory")
 
 
 @pytest.mark.parametrize(
@@ -34,6 +32,8 @@ LEAKING_ERROR = RuntimeError(
                 "azure_tenant_id": "tenant",
                 "azure_client_id": "client",
                 "azure_client_secret": "secret",
+                "azure_preparation_client_id": "preparation-client",
+                "azure_preparation_client_secret": "preparation-secret",
             },
             "src.api.azure_credentials_checker._create_credential",
             "Azure credential validation failed unexpectedly. Check logs.",
@@ -57,7 +57,10 @@ def test_unexpected_provider_errors_are_redacted(
     expected_message,
 ):
     logger_target = failure_target.rsplit(".", 1)[0] + ".logger.error"
-    with patch(failure_target, side_effect=LEAKING_ERROR), patch(logger_target) as log_error:
+    with (
+        patch(failure_target, side_effect=LEAKING_ERROR),
+        patch(logger_target) as log_error,
+    ):
         result = checker(credentials)
 
     assert result["status"] == "error"

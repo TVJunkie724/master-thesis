@@ -28,8 +28,46 @@ Neither path contacts a cloud provider by default.
 5. Select named deployment CloudConnections required by the result.
 6. Run readiness, confirm bounded preparation, or follow repair guidance.
 7. Confirm Deploy, follow persisted progress/SSE replay and verify telemetry.
-8. Open provider-owned L4/L5 access links.
+8. Open provider-owned L4 access and AWS/Azure Managed Grafana dashboards.
 9. Confirm Destroy and inspect cleanup evidence.
+
+The **Twin experiments** inventory is intentionally a start-or-resume surface:
+`New Twin` is the only primary action, every row has one state-specific
+continuation, and Duplicate/Export/Delete remain in a secondary overflow.
+There are no filters, analytics, provider columns or bulk operations.
+
+The **Configuration Workspace** keeps all required scientific inputs and
+findings behind four phases: Scenario, Optimize, Prepare and Review. Only the
+active phase's tasks appear in the task selector. Status remains independent
+from selection, blocked phases explain their prerequisite, and the bottom bar
+shows one primary next action. The Wizard BLoC and Management contracts are
+unchanged.
+
+The **Twin lifecycle** overview presents one next safe step and one lifecycle
+command at a time. Configured Twins prepare and deploy; deployed Twins verify
+L1–L3/Event, L4/L5, telemetry and commands before Destroy; failed Twins clean
+up; previously deployed Twins cannot be edited or deployed again. Destroyed
+Twins show recorded cleanup evidence; use the existing Duplicate action for a
+new experiment. Configuration evidence remains available last. This ordering
+changes presentation only—the operation, access, verification and cleanup
+contracts remain Management-owned.
+
+Native results show the resolved graph including Eventing and the result's
+currency, not a reconstructed linear L1–L5 path. Estimates are model outputs,
+not cloud bills. Infrastructure inspection and one telemetry sample are not
+automatic command/L4/L5 proof. L5 opens the provisioned Raw/Hourly Managed
+Grafana dashboard with provider sign-in, without embedding or auto-refresh.
+The access card explains first-time password setup and provider-required MFA.
+Use the assigned identity, follow the provider's registration/sign-in prompts,
+and use **Cloud access → Setup guide** for the administrator's first-login steps.
+Existing MFA policies remain unchanged. Inspect actual dashboard values
+separately. Historical HTML/SVG snapshots remain
+distinguishable from this managed-Grafana path. GCP L4/L5 stay excluded.
+Cleanup shows the returned evidence, not an independent global account scan.
+Failed Destroy is labeled **Cleanup incomplete**, separately from a failed
+deployment. Stored telemetry results remain readable during/after cleanup without
+starting another cloud test. A historical PASS does not clear residual resources
+or make the current cleanup successful; the recorded ERROR/cleanup state remains.
 
 There is no profile/objective selector, pricing administration workspace,
 generic deployment-project UI, embedded dashboard administration, or in-place
@@ -44,13 +82,18 @@ and one-time secret consumption. Each mutable concern has one owner.
 CloudConnection entry/import is write-only. Flutter stores only returned
 non-secret metadata. A service-local one-time Viewer value may enter transient
 state and is discarded after use; provider administrator secrets never do.
+The **Cloud access** screen is import-first and keeps manual entry as a fallback.
+Azure uses one administrator service principal for the isolated thesis
+subscription. File selection accepts a standard service-principal JSON or the
+allowlisted Azure compatibility shape, prefills known fields locally and
+uploads only normalized single-administrator fields.
 
 ## Runtime configuration
 
 `config/dev.example.json` and `config/production.example.json` document the
 supported runtime shape. Networked modes require the local PoC profile bearer;
-missing or invalid mode/origin/token values fail bootstrap. The dormant login
-screen is deliberately not routed. Demo mode uses a tracked secret-free
+missing or invalid mode/origin/token values fail bootstrap. There is no
+interactive login screen. Demo mode uses a tracked secret-free
 configuration and in-memory adapters behind the same interfaces.
 
 ## Verification
@@ -59,7 +102,7 @@ configuration and in-memory adapters behind the same interfaces.
 cd twin2multicloud_flutter
 flutter analyze
 flutter test
-python3 scripts/check_flutter_architecture.py
+python3 ../scripts/check_flutter_architecture.py
 flutter build web --release
 ```
 

@@ -101,7 +101,7 @@ Before reporting completion, go line by line through the plan:
 - [ ] Every accessibility requirement → semantic labels, focus traversal?
 - [ ] Every Management API call → wired with the correct method, path, headers?
 - [ ] Every SSE channel → subscribed, parsed, disposed?
-- [ ] Every commit prefixed `[AI-MMDD-xxxx]` per the `onboarding` skill?
+- [ ] Every commit follows the current `onboarding` Git rules?
 
 ### Step 7: Report Completion
 Report ready for audit (`auditor`). Include:
@@ -126,7 +126,7 @@ See `references/build-failure-protocol.md` for handling build / analysis failure
 | Create "temporary" workarounds | Build right the first time or escalate |
 | Add features not in the plan | Scope discipline — only what was specified |
 | Call Optimizer / Deployer directly | Always go through Management API |
-| Add a new state-management package | One pattern only — `flutter_bloc` |
+| Add a new state-management package | Preserve Riverpod composition and feature BLoC ownership |
 
 ## Definition of Done
 
@@ -145,7 +145,7 @@ See `references/build-failure-protocol.md` for handling build / analysis failure
 - [ ] BLoC events / states match the plan exactly
 - [ ] No direct calls to Optimizer / Deployer
 - [ ] File and folder structure matches conventions
-- [ ] Commits follow `[AI-MMDD-xxxx] type: …`
+- [ ] Commits follow onboarding's conventional commit format
 - [ ] Ready for audit
 
 ## Related Skills

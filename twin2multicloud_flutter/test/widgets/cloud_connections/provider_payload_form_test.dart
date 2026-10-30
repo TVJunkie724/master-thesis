@@ -85,4 +85,59 @@ void main() {
 
     expect(key.currentState!.validate(), isFalse);
   });
+
+  testWidgets(
+    'Azure captures one required administrator and clears its secret',
+    (tester) async {
+      final key = GlobalKey<ProviderPayloadFormState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Form(
+                child: ProviderPayloadForm(
+                  key: key,
+                  provider: CloudProvider.azure,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Target scope'), findsOneWidget);
+      expect(find.text('Azure PoC administrator'), findsOneWidget);
+      expect(key.currentState!.validate(), isFalse);
+
+      final values = {
+        'Subscription ID': 'subscription',
+        'Tenant ID': 'tenant',
+        'Client ID': 'administrator-client',
+        'Client Secret': 'administrator-secret',
+      };
+      for (final entry in values.entries) {
+        await tester.enterText(
+          find.widgetWithText(TextFormField, entry.key),
+          entry.value,
+        );
+      }
+
+      expect(key.currentState!.validate(), isTrue);
+      final credentials = key.currentState!.takeCredentials();
+      await tester.pump();
+      expect(credentials['client_id'], 'administrator-client');
+      expect(credentials, isNot(contains('preparation_client_id')));
+      expect(credentials, isNot(contains('preparation_client_secret')));
+      expect(find.text('administrator-secret'), findsNothing);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Client Secret'),
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+    },
+  );
 }

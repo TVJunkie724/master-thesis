@@ -10,8 +10,10 @@ import io
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 from types import ModuleType, SimpleNamespace
+import uuid
 import zipfile
 
 import pytest
@@ -65,6 +67,21 @@ def _metadata() -> dict:
     }
 
 
+def test_azure_package_http_binding_matches_actual_python_signature(tmp_path):
+    package, _ = build_provider_package(manifest=_manifest(), files=_files(), provider="azure")
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
+        archive.extractall(tmp_path)
+    # Isolate from the invocation tests' SDK stub: discovery must use the real SDK.
+    result = subprocess.run([sys.executable, "-c", """
+import inspect
+import function_app
+function, = function_app.app.get_functions()
+bound = {binding.name for binding in function.get_bindings() if binding.name != '$return'}
+assert bound == set(inspect.signature(function.get_user_function()).parameters)
+"""], cwd=tmp_path, text=True, capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr
+
+
 def _zip(files: dict[str, str]) -> bytes:
     return runtime.deterministic_source_zip(files)
 
@@ -86,6 +103,7 @@ def test_provider_packages_are_deterministic_and_preserve_source(provider):
     with zipfile.ZipFile(io.BytesIO(first)) as archive:
         assert archive.read("process.py").decode("utf-8") == _files()["process.py"]
         assert "_platform_runtime.py" in archive.namelist()
+        assert ("host.json" in archive.namelist()) is (provider == "azure")
     evidence_json = json.dumps(asdict(evidence), sort_keys=True)
     assert "def process" not in evidence_json
     assert "configuration" not in evidence_json
@@ -768,6 +786,33 @@ def test_provider_wrappers_return_equivalent_runtime_envelopes(tmp_path):
         responses[provider] = _invoke_wrapper(provider_root, provider, envelope)
     assert responses["aws"] == responses["azure"] == responses["gcp"]
     assert responses["aws"]["status"] == "success"
+
+
+@pytest.mark.parametrize("source_event_id", ["device-event-1", "11111111-1111-4111-8111-111111111111"])
+def test_gcp_processor_envelope_crosses_real_extension_boundary(tmp_path, source_event_id):
+    core = _load_module(
+        "gcp_extension_boundary_core",
+        CONTRACT_ROOT.parents[3] / "providers/gcp/containers/six-layer-domain/platform/core.py",
+    )
+    event = core.build_ingress_event(
+        {"event_id": source_event_id, "device_id": "device-1", "value": 5,
+         "metric": "temperature", "event_time": "2026-09-19T00:00:00Z"},
+        deployment_id="core-test",
+    )
+    request = core.processor_extension_request(event)
+    package, _ = build_provider_package(manifest=_manifest(), files=_files(), provider="gcp")
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
+        archive.extractall(tmp_path)
+    response = _invoke_wrapper(tmp_path, "gcp", request)
+    assert response["status"] == "success"
+    assert request["invocation_id"] == str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"{source_event_id}:processor.telemetry")
+    )
+    assert core.processor_extension_request(event) == request
+    assert request["correlation_id"] == event["correlation_id"]
+    processed = core.build_processed_event(event, response)
+    assert processed["payload"]["value"] == 5
+    assert processed["payload"]["quality"] == "accepted"
 
 
 def test_provider_wrappers_return_equivalent_timeout_envelopes(tmp_path):

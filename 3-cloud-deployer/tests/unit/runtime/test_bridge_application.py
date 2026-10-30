@@ -145,6 +145,11 @@ def composition_fakes(monkeypatch):
     )
     monkeypatch.setattr(
         application,
+        "_gcp_rest_publisher",
+        supplier("gcp-rest-publisher-client"),
+    )
+    monkeypatch.setattr(
+        application,
         "AwsDestinationPublisher",
         lambda *args: _Publisher("aws", *args),
     )
@@ -162,7 +167,7 @@ def composition_fakes(monkeypatch):
 
 
 @pytest.mark.parametrize("source,destination", sorted(IDENTITY_EXCHANGE))
-def test_every_directed_pair_composes_only_its_official_identity_and_sdk_path(
+def test_every_directed_pair_composes_its_identity_and_publisher_path(
     source,
     destination,
     composition_fakes,
@@ -190,7 +195,8 @@ def test_every_directed_pair_composes_only_its_official_identity_and_sdk_path(
         assert "azure-client-assertion-credential" in call_kinds
     else:
         assert "gcp-wif-credential" in call_kinds
-        assert "gcp-ordered-publisher-client" in call_kinds
+        assert ("gcp-rest-publisher-client" if source == "azure"
+                else "gcp-ordered-publisher-client") in call_kinds
 
 
 def test_one_source_application_supports_two_remote_destination_providers(

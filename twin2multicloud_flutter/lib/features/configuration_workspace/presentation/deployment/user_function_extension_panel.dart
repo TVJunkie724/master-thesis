@@ -96,9 +96,14 @@ class ExtensionSlotPanel extends StatelessWidget {
                   _DependencySummary(validation: validation),
                   const SizedBox(height: AppSpacing.md),
                   DynamicConfigurationForm(
-                    key: ValueKey('extension-config-${slot.slotId}'),
+                    key: ValueKey((
+                      state.twinId,
+                      slot.slotId,
+                      userFunction?.functionId,
+                      userFunction?.artifactDigest,
+                    )),
                     slot: slot,
-                    values: draft?.configuration ?? const {},
+                    values: state.extensionConfiguration(slot.slotId),
                     onChanged: (field, value) {
                       onEvent(
                         WizardExtensionConfigurationChanged(

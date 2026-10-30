@@ -311,9 +311,8 @@ class CloudConnectionService:
         return {}
 
     def _fingerprint(self, provider: str, payload: dict[str, Any]) -> str:
-        identity = self._payload_summary(provider, payload)
         fingerprint_input = json.dumps(
-            {"provider": provider, "identity": identity},
+            {"provider": provider, "payload": payload},
             sort_keys=True,
             separators=(",", ":"),
         )

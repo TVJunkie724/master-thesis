@@ -1,72 +1,79 @@
-# Pricing Catalog Baseline Seeds
+# Frozen Optimizer pricing baseline
 
-This directory contains the read-only, source-controlled seed package for the
-Optimizer pricing catalog repository. Runtime refreshes never write here.
-`compose.yaml` mounts a separate durable volume at
-`/var/lib/twin2multicloud-optimizer/pricing-catalogs`.
+This directory is the source-controlled, read-only pricing input for the thesis
+Optimizer. `baseline.json` pins exactly one immutable snapshot per provider:
 
-Each snapshot is immutable and addressed by the exact reference pinned in
-`baseline.json`. Optimizer startup copies missing seed snapshots into an empty
-runtime volume, verifies every digest, and never replaces an existing runtime
-snapshot or published pointer.
+| Provider | Pricing region |
+|---|---|
+| AWS | `eu-central-1` |
+| Azure | `westeurope` |
+| GCP | `europe-west1` |
 
-## Provenance
+`backend/pricing_catalog_repository.py` reads this directory directly, validates
+the manifest and snapshot identities/digests, and rejects unpinned references.
+`backend/pricing_catalog_resolver.py` supplies the three resolved provider
+payloads to calculation. There is no runtime refresh, startup migration, seed
+copy, or writable catalog volume. `PRICING_CATALOG_BASELINE_ROOT` can select a
+different complete, reviewed package; it does not enable fetching.
 
-| Provider | Region | Provenance |
-|---|---|---|
-| AWS | `eu-central-1` | 2026-07-17 provider observation plus a 2026-07-18 reviewed, exact public-egress tier series |
-| Azure | `westeurope` | Publishable 2026-07-17 Azure Retail Prices observation with the exact Microsoft Global Network tier series |
-| GCP | `europe-west1` | Curated 2026-07-17 service baseline plus reviewed Premium Internet Egress tiers and the official Cloud Scheduler job-month price |
+## Active Six-layer prices and provenance
 
-The available GCP service-account files returned `401 UNAUTHENTICATED` during
-the bounded read-only Cloud Billing Catalog preflight on 2026-07-17. The GCP
-seed therefore still retains explicit `fallback_static` provenance for
-non-transfer fields and remains `review_required` overall. Transfer pricing is
-no longer one of those fallbacks: it is bound to Compute Engine service
-`6F81-5844-456A`, SKU `5B70-B2D6-B4FC`, the Premium EMEA-to-EMEA route, and
-native GiB tiers. Replacing the remaining GCP fallback fields with validated
-Catalog evidence remains provider-pricing hardening work.
+The pinned snapshots use `pricing-provider-schema.v2`. Their `sixLayer` rate
+cards cover registered component capacity dimensions, directed route prices,
+meter units, tiers, minimum charges, and frozen currency conversions. The
+supplemental source manifest is
+`../../pricing_registry/six_layer_rate_card_sources.v1.json`; its review date
+is 2026-08-25. Each snapshot binds that source manifest and its rate card by
+digest. All three active references are marked `reviewed_baseline` / `reviewed`.
+The compatibility field `fetched_at` records the publication's review timestamp,
+not a new live API observation for every constituent price.
 
-Cloud Scheduler is the exception among the remaining GCP service fields. Its
-global official price is stored as `0.10 USD/job-month` with reproducible
-documentation evidence. The three-job free allowance is billing-account-wide
-and is not allocated to an individual Twin without account allocation
-evidence. Each source-owned GCP storage transition therefore contributes one
-job-month exactly once. The earlier `0.003225806` value incorrectly represented
-a daily fraction and remains visible only in the immutable predecessor
-snapshot.
+Event-layer topology costs also use the frozen generated contract
+`backend/contracts/generated/architecture-profiles/definitions/six-layer-eventing-v1-cost-registry.json`
+(relative to the Optimizer root). Calculation reconciles its component and
+route allocations against the selected topology; the regression suite checks
+all 243 registered topology/scenario combinations.
 
-The package was upgraded non-destructively from tracked predecessor seeds.
-Every old manifest remains under `history/`, old snapshots remain addressable,
-and the active manifest points only to strict
-`pricing-provider-schema.v2` snapshots. Reproduce a reviewed transformation
-only through:
+These are reproducible model inputs, not a claim of today's market prices or
+an account-specific billing quote. Source dates, service editions, allowances,
+regional applicability, and minimum billing periods still limit interpretation.
+Currency conversions are frozen too; they are not today's exchange rates.
+
+Earlier provider observations and curated fields remain in the payloads for
+reconstruction and the offline five-layer baseline. In particular, retained GCP
+fields marked `fallback_static` are not retroactively validated live Catalog
+observations. The reviewed Six-layer overlay does not erase their provenance.
+
+## Transfer contract
+
+Each provider snapshot contains a strict `transfer-pricing-catalog.v1` document:
+source region/geography, route, network tier, billing scope, native unit, exact
+byte divisor, evidence identity, and contiguous explicit tiers. AWS and Azure
+use decimal GB (`1,000,000,000` bytes); GCP uses GiB (`1,073,741,824` bytes).
+The transfer calculator validates this document without a scalar
+`egressPrice` / `pricePerGB` fallback.
+
+## Offline verification and retained history
+
+From `2-twin2clouds`, using the project test dependencies:
 
 ```bash
-cd 2-twin2clouds
-PYTHONPATH=. python scripts/upgrade_transfer_pricing_baseline.py \
-  --source-root json/pricing_catalog_baselines \
-  --output-root /tmp/pricing-catalog-baseline-v2 \
-  --registry-root pricing_registry
+PYTHONPATH=. python -m pytest -q tests/unit/pricing \
+  tests/unit/architecture_profiles/test_six_layer_optimizer.py \
+  tests/integration/test_pricing_catalog_api.py
 ```
 
-The tool refuses to replace an existing directory. Review the generated
-package and its regression evidence before replacing committed seeds. Runtime
-startup recognizes only the exact tracked v1 predecessor, verifies every old
-snapshot before migration, seeds every v2 snapshot immutably, and never
-overwrites a newer published pointer.
+These checks cover snapshot integrity, deterministic rate-card reconstruction,
+meter coverage, real frozen-price calculations, and read-only API resolution.
+They do not contact provider pricing APIs or deploy cloud resources.
 
-## Transfer Contract
+`history/` and predecessor snapshots are retained as scientific provenance and
+inputs to the offline transformation/publication tests. They are not selectable
+through the runtime repository. The offline scripts
+`scripts/upgrade_transfer_pricing_baseline.py` and
+`scripts/publish_six_layer_rate_cards.py` reconstruct reviewed packages; they
+are not live fetchers. Any future price change requires review, explicit
+publication of a new versioned package, and calculation regression checks.
 
-All three v2 snapshots contain one strict `transfer-pricing-catalog.v1`
-document. It records source region and geography, route and network tier,
-billing scope, native billing unit, exact byte divisor, evidence identity, and
-contiguous explicit tier ranges. AWS and Azure bill decimal GB
-(`1,000,000,000` bytes); GCP bills GiB (`1,073,741,824` bytes). Runtime
-calculation validates the complete document and has no scalar
-`egressPrice`/`pricePerGB` fallback. Baseline field provenance is `curated`,
-while a successful future provider refresh records `fetched`; reviewed seed
-data is never mislabeled as a live API observation.
-
-Do not copy account context, credentials, tokens, or client-authored pricing
-payloads into this directory.
+Never store account context, credentials, tokens, or client-authored pricing
+payloads here.

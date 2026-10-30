@@ -24,16 +24,12 @@ class DeploymentLifecycleMixin:
         *,
         skip_credential_check: bool,
     ) -> None:
+        self._resolved_deployment_graph = getattr(context, "resolved_deployment_graph", None)
         if not skip_credential_check:
             self._validate_credentials()
         self._initialize_providers(context)
         self._validate_project()
         self._extension_operation_id = context.operation_id
-        self._resolved_deployment_graph = getattr(
-            context,
-            "resolved_deployment_graph",
-            None,
-        )
         self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         self._generate_tfvars()
@@ -110,6 +106,7 @@ class DeploymentLifecycleMixin:
             raise ValueError("DeploymentContext is required for SDK operations")
 
         yield "Terraform deployment starting"
+        self._resolved_deployment_graph = getattr(context, "resolved_deployment_graph", None)
         if not skip_credential_check:
             yield "[1/7] Validating cloud credentials"
             self._validate_credentials()
@@ -121,11 +118,6 @@ class DeploymentLifecycleMixin:
         yield "[3/7] Validating project and building packages"
         self._validate_project()
         self._extension_operation_id = context.operation_id
-        self._resolved_deployment_graph = getattr(
-            context,
-            "resolved_deployment_graph",
-            None,
-        )
         self._prepare_shared_identity_capabilities(context)
         self._build_packages()
         yield f"{STAGE_COMPLETED_MARKER}package"

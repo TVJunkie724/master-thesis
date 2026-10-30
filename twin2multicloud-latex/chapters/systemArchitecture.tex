@@ -327,7 +327,7 @@ not necessarily one managed product.
 
 \begin{table}[htbp]
     \centering
-    \caption{Primary provider services for the executable Six-layer profile.}
+    \caption{Primary provider services and explicit exclusions in the evaluated Six-layer PoC.}
     \label{tab:resource-mapping}
     \small
     \begin{tabularx}{\textwidth}{@{} l X X X @{}}
@@ -340,25 +340,28 @@ not necessarily one managed product.
         Hot storage & DynamoDB raw/rollup & Cosmos DB raw/rollup & Firestore raw/rollup \\
         Cool storage & S3 Standard-IA & Blob Cool & Cloud Storage Nearline \\
         Archive & S3 Glacier Deep Archive & Blob Archive & Cloud Storage Archive \\
-        Twin state & IoT TwinMaker & Azure Digital Twins & Cloud Run Twin API and Firestore \\
-        Visualization & Amazon Managed Grafana & Azure Managed Grafana & Grafana OSS on GKE \\
+        Twin state & IoT TwinMaker & Azure Digital Twins & Excluded from live L4 evaluation \\
+        Visualization & Lambda HTML/SVG consumer & Functions HTML/SVG consumer & Excluded from live L5 evaluation \\
         \bottomrule
     \end{tabularx}
 \end{table}
 
-GCP is therefore a complete provider-hosted implementation in the executable
-profile. Its Twin and visualization responsibilities are composed from hosted
-software and managed infrastructure rather than excluded because no direct
-managed equivalent exists. Version, capacity, identity, persistence,
-networking, operations, cleanup, and cost ownership are explicit parts of the
-bundle.
+GCP remains included in the Core evaluation of ingestion, Eventing, processing,
+and persistence. Its proposed hosted Twin and visualization replacements were
+excluded from the live L4/L5 scope to avoid implementing and operating additional
+application infrastructure solely for the comparison. This is a PoC scope
+finding, not evidence that these responsibilities cannot be implemented on GCP.
+The research questions and the historical Five-layer reference remain unchanged.
 
-Twin2MultiCloud does not administer these visualization systems after
-deployment. The access bundle provides the URL, provider, authentication kind,
-assigned identity or bounded service-local credential, role, and readiness
-state. The user opens the provider-hosted surface externally. The verification
-contract proves that the bounded raw-history query is reachable; it does not
-turn the application into a dashboard editor.
+For AWS and Azure, L5 is deliberately reduced to a provider-hosted HTML/SVG
+consumer with raw-history and hourly-average panels. Authenticated queries and
+storage remain L3 responsibilities. Managed Grafana feature equivalence,
+dashboard editing, and continuous refresh are not claimed. The existing
+owner-scoped Management access boundary fetches one bounded snapshot from the
+fixed deployment endpoint; AWS request signing and Azure function keys remain
+server-side. Flutter opens this snapshot without receiving provider credentials.
+Reachability with empty panels is a readiness check only; functional evidence
+requires actual persisted values and timestamps in both panels.
 
 \section{End-to-End Workflow}
 \label{sec:e2e-workflow}

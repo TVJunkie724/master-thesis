@@ -10,8 +10,10 @@ The question set was accepted as the working direction during the architecture
 discussion on 2026-07-17. The implementation scope and bounded evaluation
 scenarios are now frozen, and Phase 8.10 evidence maps to the questions. The
 LaTeX introduction, architecture, evaluation, discussion, and conclusion now
-use this framing. Supervisor review and empirical completion from the
-supervised live evidence remain pending.
+use this framing. The bounded live observations now include nine Core cases,
+separate higher-layer cuts and one normal AWS application observation. Supervisor
+review, delayed billing reconciliation and the explicitly recorded coverage
+limitations remain; these observations do not establish all-profile equivalence.
 
 This note is deliberately separate from the published user and developer
 documentation. Product documentation explains the implemented system. This
@@ -499,24 +501,24 @@ rather than a misleading numeric optimum.
 
 ### Supervised Live-Evidence Mapping
 
-The live evaluation is bounded to three provider-local Small baselines and six
-directed multi-cloud Small focus cases. It is not an exhaustive permutation
-test. All final records must share one architecture contract, source revision,
-workload digest, simulator digest, and measurement protocol. The first
-provider-local run per provider verifies L1-L3/Eventing before L4, L5, and the
-complete simulator protocol inside the same atomic deployment; a failed early
-gate triggers immediate Destroy rather than a second partial-deployment mode.
+The live evaluation uses three provider-local Small baselines and six directed
+multi-cloud Small cases under the same contract, revision, workload and
+measurement protocol. One record per deployment attempt holds staged checks,
+measurements and cleanup. Early-aborted attempts remain incomplete evidence.
 
 | Research question | Named supervised evidence |
 |---|---|
-| RQ1 | graph-bound readiness/preparation, Plan/Apply/replay, staged verification, deployment duration, Destroy, and exact provider inventory |
+| RQ1 | per-run readiness/preparation, Plan/Apply, staged verification, deployment duration, Destroy and inventory; one representative shared application reconnect/replay observation |
 | RQ2 | candidate-to-provider placement binding, required path checkpoints, functional result, and explicitly classified provider deviations |
 | RQ3 / RQ3.1 | three single-cloud and six directed estimated totals, transfer attribution, reviewed run cap, and separately reconciled observed incremental cost |
 | RQ3.2 | Event-Layer durability checkpoint, directed identity/bridge evidence, command/outcome behavior, topology delta, and Eventing cost ownership |
 
-Component metrics remain supporting diagnostic evidence and cannot replace any
-of the nine final records. The complete operational protocol and schemas are
-maintained in `evaluation/live-evaluation-protocol.md`. The six directed
+Internal stage-latency breakdowns and additional plots are optional diagnosis
+or analysis, not additional mandatory experiments. Required results retain
+lifecycle and message timing, functional outcomes, resources, cost and cleanup.
+The operational rules and schemas are maintained only in
+[the live-evaluation protocol](evaluation/live-evaluation-protocol.md).
+The six directed
 identity prerequisites are frozen separately in
 `evaluation/directed-federation-probe-plan.json`: their setup/exchange/cleanup
 timings support RQ1, their exact directed contract result supports RQ2, and
@@ -596,6 +598,68 @@ rule/action declarations determine whether a particular event invokes them.
 
 ## Thesis Chapter Mapping
 
+### Pricing acquisition and normalization as an engineering finding
+
+The thesis must distinguish the attempted automated acquisition of prices from
+the semantic work required to make those prices calculable. Automatic fetching
+was implemented and investigated for AWS, Azure, and GCP, including
+provider-specific matching, extraction of price candidates, and regression
+checks. It was subsequently removed from the active workflow in favor of
+dated, cited, immutable pricing snapshots. This was not simply a choice to
+avoid API calls: general, reliably maintained acquisition and integration of
+the different tariff models would have exceeded the scope of this thesis PoC.
+
+The provider models are not directly interchangeable. Their service editions,
+regional identifiers, billing meters, and aggregation scopes differ. Raw
+prices must be related to a common workload while retaining provider-specific
+semantics: requests versus payload-based operations, decimal GB versus binary
+GiB, capacity-hour versus consumption pricing, price tiers and shared free
+allowances, and minimum-duration or monthly charges. An API response or a
+common JSON shape does not resolve these differences. Nor does a shared
+currency or unit prove that two service bundles provide equivalent functions.
+
+Consequently, the curated approach still required substantial engineering
+effort to select, interpret, normalize, validate, and attribute the prices.
+That effort is part of the operationalization result, not an incidental data
+import task. RQ1 reports this implementation burden; RQ2 explains the functional
+and workload assumptions that make bundles comparable; RQ3 depends on the
+resulting unit, tier, formula, and cost-ownership correctness. Frozen inputs
+improve reproducibility but do not establish that prices remain current or
+that all modeling assumptions are correct.
+
+The following repository checkpoints provide an auditable development trace:
+
+| Checkpoint | Evidence of the investigated work |
+|---|---|
+| `8f980bde` | AWS/Azure/GCP fetcher match evidence and associated tests |
+| `4bf4a10d` | Azure Digital Twins billing, units, price mappings, and formula corrections |
+| `48458db1` | Provider-specific transfer-route pricing evidence |
+| `b10df896` | Explicit retirement of fetching/refresh and restriction to pinned price snapshots |
+
+The [pricing evidence model](pricing_evidence_dataflow.md) and
+[D-03](../development_and_decision_log.md#d-03--frozen-pricing-evidence) preserve
+the interpretation and scope decision. The thesis Discussion chapter records
+the finding under `sec:pricing-acquisition-scope`. The substantial effort is a
+qualitative observation supported by the development trace, not a measured
+person-hour result. Do not infer a development-cost saving or universal
+impossibility of automation. Infracost was a documentation-level alternative
+assessment, not a completed integration or comparative tool experiment.
+
+**Authoring note for later revision (2026-09-08; not final thesis wording):**
+Explicitly acknowledge existing tools such as Infracost resource pricing as a
+possible alternative to custom price acquisition and resource-to-price mapping.
+Their integration was deliberately left outside the remaining thesis scope:
+coverage of the selected services, billing semantics, and compatibility with
+the Optimizer's required unit prices and tier structures would need additional
+validation. This is a scope assessment, not a measured integration-effort result
+or a claim that the tools are unsuitable or automation is impossible. Retain
+the distinction between the implemented own-fetcher attempt and the
+documentation-only third-party assessment. Starting points for later citation:
+[Infracost resource pricing](https://www.infracost.io/docs/features/cli_commands/#price)
+and [supported resources](https://www.infracost.io/docs/supported_resources/).
+
+### Chapter responsibilities
+
 | Thesis section | Research-question role |
 |---|---|
 | Introduction | Problem, objective, final RQ wording, contributions |
@@ -661,7 +725,7 @@ Two scenario families remain distinct inside the standalone Six-layer
 evaluation and are paired by size:
 
 - Core Twin scenarios determine device telemetry, storage retention, Twin and
-  semantic update bounds, and aggregate raw-history dashboard queries;
+  semantic update bounds, and bounded raw-history and hourly-rollup queries;
 - Eventing scenarios determine canonical event volume, payload, fan-out,
   delivery, ordering, retry, replay, bridge, and concurrent-device bounds.
 
@@ -672,13 +736,16 @@ values require a later contract version and are not mislabeled as frozen v1
 evidence.
 
 The Eventing bridge and provider-local storage-transition job are separate
-evaluated components. The supervised Small set contains three provider-local
-baselines and six multi-cloud cases, one for every directed AWS/Azure/GCP
-provider pair. The six focus edges jointly exercise the cross-cloud-capable
-`canonical-domain-event.v1` and `twin_projection.v1` contracts. The three
-provider-local baselines exercise `storage_transition.v1` and
-`raw_history_query.v1`; splitting L3 hot, cool, archive, or L5 across providers
-remains an explicit negative offline candidate. This bounded choice avoids
+evaluated components. Following the 2026-09-16 scope finding, the supervised
+Small planning set contains two complete provider-local baselines (AWS/Azure)
+and six multi-cloud cases, one for every directed AWS/Azure/GCP
+provider pair. These complete-profile planning cases select the cross-cloud-capable
+`canonical-domain-event.v1` and `twin_projection.v1` contracts. The
+provider-local paths include `storage_transition.v1` and
+`raw_history_query.v1`. These are planned contracts, not claims that all complete
+profiles or tier transitions passed live. L3 hot/cool/archive remain co-located; the bounded
+reader belongs to L3. L5 is an independent consumer, but remote reader
+authentication is not implemented and remains blocked. This bounded choice avoids
 claiming a cross-cloud migration path that cannot be observed within the
 short-lived PoC evaluation window. The cases do not enumerate every valid
 assignment. Incidental
@@ -686,6 +753,35 @@ additional edges are recorded from the resolved graph but do not create
 redundant scenarios. The checked assignments live in
 `evaluation/small-scenario-matrix.json`; their safe execution order and
 evidence boundary live in `evaluation/live-evaluation-protocol.md`.
+
+GCP L4/L5 are excluded without custom replacement infrastructure. GCP
+L1–L3/Eventing remain within the study. The separate Core-only evaluation now
+has nine successful telemetry/readback observations, including local GCP and
+all six directed provider pairs; see the
+[consolidated results](evaluation/core-telemetry-results.md). This is a scope limitation discovered
+during RQ1 operationalization, not a change to RQ1–RQ3 or proof of a negative
+functional result. RQ2 must distinguish excluded visualization from a
+verified storage query; RQ3 must assign reader charges once to L3 and must not
+interpret the empty graphical-L5 subtotal as a free equivalent service.
+
+The current implementation exposes an authenticated JSON endpoint with the
+same bounded raw-history and hourly-rollup query contract on AWS, Azure, and
+GCP. This supports RQ1 operationalization and RQ2 query comparison, but is not
+a graphical visualization-equivalence result against the original Five-layer
+responsibility. A minimal AWS/Azure HTML/SVG consumer has since been implemented
+in the normal workflow and separately live-verified with exact seeded raw and
+hourly values, unauthorized-access rejection and cleanup. The
+[L5 evidence record](../plans/2026-10-05_minimal_l5_evidence.md) distinguishes that
+cut from simulator-to-L5. The subsequent
+[normal AWS application observation](evaluation/application-closeout-results.md)
+verifies downloaded-simulator telemetry, command receipt, exact L3/L4 values and
+returned graphical L5 content in one deployment, with the recorded browser-popup
+and supplementary identity-cleanup limitations. It is not an Azure application
+acceptance result or nine complete-profile passes.
+The consumer's hosting/invocation costs and L3 query costs have explicit owners;
+neither a JSON endpoint nor the reduced consumer implies Managed Grafana feature
+equivalence. General monitoring and a product analytics UI remain
+outside scope; the historical Five-layer baseline is not changed.
 
 ## Scope Decisions
 

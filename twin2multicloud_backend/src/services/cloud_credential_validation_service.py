@@ -20,7 +20,12 @@ _SENSITIVE_KEY_PARTS = (
     "gcp_credentials_file",
     "aws_access_key_id",
     "aws_secret_access_key",
+    "azure_client_id",
     "azure_client_secret",
+    "azure_preparation_client_id",
+    "azure_preparation_client_secret",
+    "azure_subscription_id",
+    "azure_tenant_id",
 )
 _REDACTION = "[REDACTED]"
 logger = logging.getLogger(__name__)

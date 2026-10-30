@@ -17,7 +17,9 @@
     {
       "scenario_id": "small-local-aws",
       "kind": "provider_local_baseline",
-      "focus": {"provider": "aws"},
+      "focus": {
+        "provider": "aws"
+      },
       "assignments": {
         "component.ingestion": "aws",
         "component.eventing": "aws",
@@ -33,7 +35,9 @@
     {
       "scenario_id": "small-local-azure",
       "kind": "provider_local_baseline",
-      "focus": {"provider": "azure"},
+      "focus": {
+        "provider": "azure"
+      },
       "assignments": {
         "component.ingestion": "azure",
         "component.eventing": "azure",
@@ -43,22 +47,6 @@
         "component.archive-storage": "azure",
         "component.twin-state": "azure",
         "component.visualization": "azure"
-      },
-      "budget_cap_usd": null
-    },
-    {
-      "scenario_id": "small-local-gcp",
-      "kind": "provider_local_baseline",
-      "focus": {"provider": "gcp"},
-      "assignments": {
-        "component.ingestion": "gcp",
-        "component.eventing": "gcp",
-        "component.processing": "gcp",
-        "component.hot-storage": "gcp",
-        "component.cool-storage": "gcp",
-        "component.archive-storage": "gcp",
-        "component.twin-state": "gcp",
-        "component.visualization": "gcp"
       },
       "budget_cap_usd": null
     },
@@ -88,17 +76,17 @@
       "focus": {
         "source_provider": "azure",
         "destination_provider": "aws",
-        "edge_id": "edge.eventing-to-processing"
+        "edge_id": "edge.hot-storage-to-twin-state"
       },
       "assignments": {
         "component.ingestion": "azure",
         "component.eventing": "azure",
-        "component.processing": "aws",
-        "component.hot-storage": "aws",
-        "component.cool-storage": "aws",
-        "component.archive-storage": "aws",
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
         "component.twin-state": "aws",
-        "component.visualization": "aws"
+        "component.visualization": "azure"
       },
       "budget_cap_usd": null
     },
@@ -108,16 +96,16 @@
       "focus": {
         "source_provider": "aws",
         "destination_provider": "gcp",
-        "edge_id": "edge.hot-storage-to-twin-state"
+        "edge_id": "edge.ingestion-to-eventing"
       },
       "assignments": {
         "component.ingestion": "aws",
-        "component.eventing": "aws",
+        "component.eventing": "gcp",
         "component.processing": "aws",
         "component.hot-storage": "aws",
         "component.cool-storage": "aws",
         "component.archive-storage": "aws",
-        "component.twin-state": "gcp",
+        "component.twin-state": "aws",
         "component.visualization": "aws"
       },
       "budget_cap_usd": null
@@ -134,11 +122,11 @@
         "component.ingestion": "gcp",
         "component.eventing": "aws",
         "component.processing": "gcp",
-        "component.hot-storage": "gcp",
-        "component.cool-storage": "gcp",
-        "component.archive-storage": "gcp",
-        "component.twin-state": "gcp",
-        "component.visualization": "gcp"
+        "component.hot-storage": "aws",
+        "component.cool-storage": "aws",
+        "component.archive-storage": "aws",
+        "component.twin-state": "aws",
+        "component.visualization": "aws"
       },
       "budget_cap_usd": null
     },
@@ -153,12 +141,12 @@
       "assignments": {
         "component.ingestion": "azure",
         "component.eventing": "gcp",
-        "component.processing": "gcp",
-        "component.hot-storage": "gcp",
-        "component.cool-storage": "gcp",
-        "component.archive-storage": "gcp",
-        "component.twin-state": "gcp",
-        "component.visualization": "gcp"
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
+        "component.twin-state": "azure",
+        "component.visualization": "azure"
       },
       "budget_cap_usd": null
     },
@@ -168,19 +156,35 @@
       "focus": {
         "source_provider": "gcp",
         "destination_provider": "azure",
-        "edge_id": "edge.hot-storage-to-twin-state"
+        "edge_id": "edge.ingestion-to-eventing"
       },
       "assignments": {
         "component.ingestion": "gcp",
-        "component.eventing": "gcp",
-        "component.processing": "gcp",
-        "component.hot-storage": "gcp",
-        "component.cool-storage": "gcp",
-        "component.archive-storage": "gcp",
+        "component.eventing": "azure",
+        "component.processing": "azure",
+        "component.hot-storage": "azure",
+        "component.cool-storage": "azure",
+        "component.archive-storage": "azure",
         "component.twin-state": "azure",
-        "component.visualization": "gcp"
+        "component.visualization": "azure"
       },
       "budget_cap_usd": null
     }
-  ]
+  ],
+  "scope_revision": {
+    "date": "2026-09-16",
+    "excluded_provider_components": {
+      "gcp": [
+        "component.twin-state",
+        "component.visualization"
+      ]
+    },
+    "complete_provider_local_baselines": [
+      "aws",
+      "azure"
+    ],
+    "gcp_core_only": "L1-L3 and Event Layer passed in the separate nine-case Core evaluation. GCP L4/L5 remain excluded.",
+    "visualization_status": "Provider-local AWS/Azure graphical consumers are integrated with separate L5 cost terms (2026-10-08); their isolated live checks passed, normal application evidence remains pending. Remote L5-to-L3 consumers remain blocked. Readers and storage reads belong to L3.",
+    "prior_candidate_evidence": "Historical digests do not authorize this revised graph."
+  }
 }

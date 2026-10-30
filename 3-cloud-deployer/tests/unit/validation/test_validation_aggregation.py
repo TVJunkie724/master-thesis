@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 import pytest
+from src.deployment_specification import DeploymentSpecificationError
 from src.validation.core import (
     run_all_checks_aggregated,
     ValidationContext,
@@ -180,12 +181,14 @@ class TestDeploymentManifestValidation:
 
         check_deployment_manifest(accessor, ctx)
 
-    def test_valid_manifest_is_allowed(self):
+    def test_offline_pending_l5_manifest_is_not_admitted(self):
         accessor = MockAccessor(self._base_project_files(self._valid_manifest()))
         ctx = self._context(self._valid_manifest())
         ctx.all_files = accessor.list_files()
 
-        check_deployment_manifest(accessor, ctx)
+        with pytest.raises(DeploymentSpecificationError) as raised:
+            check_deployment_manifest(accessor, ctx)
+        assert raised.value.code == "DEPLOYMENT_SPECIFICATION_NOT_READY"
 
     def test_manifest_exposes_phase8_profile_to_directory_validation(
         self,

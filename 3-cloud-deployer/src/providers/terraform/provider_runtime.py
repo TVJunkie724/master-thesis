@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -12,27 +14,35 @@ from src.deployment_access.runtime_evidence import (
 )
 
 from src.providers.terraform.aws_deployer import (
-    configure_aws_grafana,
+    configure_aws_visualization,
     create_twinmaker_entities,
     register_aws_iot_devices,
+    verify_aws_storage_read_access,
 )
 from src.providers.terraform.azure_deployer import (
-    configure_azure_grafana,
+    configure_azure_visualization,
     register_azure_iot_devices,
     upload_dtdl_models,
+    verify_azure_storage_read_access,
 )
 from src.providers.terraform.cross_cloud_identity import (
     aws_outbound_identity_destinations,
     ensure_aws_outbound_identity,
 )
 from src.providers.terraform.cross_cloud_routes import cross_cloud_route_tfvars
+from src.logger import logger as runtime_logger
 
 if TYPE_CHECKING:
     from src.core.context import DeploymentContext
 
 logger = logging.getLogger(__name__)
 
-_SDK_LAYER_KEYS = ("layer_1_provider", "layer_4_provider", "layer_5_provider")
+_SDK_LAYER_KEYS = (
+    "layer_1_provider",
+    "layer_3_hot_provider",
+    "layer_4_provider",
+    "layer_5_provider",
+)
 _SDK_POST_DEPLOYMENT_PROVIDERS = frozenset({"aws", "azure"})
 
 
@@ -117,6 +127,32 @@ def prepare_shared_identity_capabilities(
     }
 
 
+def _azure_post_step(phase, action, *args):
+    """Identify the Azure SDK phase without logging credentials or error text."""
+    started = time.monotonic()
+    runtime_logger.info("Azure postapply phase=%s state=started", phase)
+    try:
+        result = action(*args)
+    except Exception as exc:
+        exc._azure_postapply_phase = phase
+        status = getattr(exc, "status_code", None)
+        if type(status) is not int:
+            matched = re.search(r"returned HTTP ([1-5][0-9]{2})\b", str(exc))
+            status = int(matched[1]) if matched else None
+        exc._azure_postapply_http_status = status if type(status) is int else None
+        runtime_logger.error(
+            "Azure postapply phase=%s state=failed seconds=%.3f error_type=%s http=%s",
+            phase, time.monotonic() - started, type(exc).__name__,
+            status if type(status) is int else None,
+        )
+        raise
+    runtime_logger.info(
+        "Azure postapply phase=%s state=complete seconds=%.3f",
+        phase, time.monotonic() - started,
+    )
+    return result
+
+
 def run_post_deployment(
     context: "DeploymentContext",
     project_path: Path,
@@ -131,18 +167,31 @@ def run_post_deployment(
             "Missing required provider config: " + ", ".join(sorted(missing))
         )
 
+    graph = getattr(context, "resolved_deployment_graph", None)
+    if getattr(graph, "profile_ref", {}).get("id") == "six-layer-eventing":
+        storage_provider = providers_config.get("layer_3_hot_provider")
+        if storage_provider == "aws":
+            verify_aws_storage_read_access(context, terraform_outputs)
+        elif storage_provider == "azure":
+            _azure_post_step("storage-read", verify_azure_storage_read_access,
+                             context, terraform_outputs)
+        elif storage_provider != "gcp":
+            raise ValueError("Missing or invalid L3 hot-storage provider")
+
     if providers_config["layer_4_provider"] == "azure":
-        upload_dtdl_models(context, project_path)
+        _azure_post_step("twin-seed", upload_dtdl_models, context, project_path)
     if providers_config["layer_1_provider"] == "azure":
-        register_azure_iot_devices(context, project_path)
+        _azure_post_step("iot-devices", register_azure_iot_devices,
+                         context, project_path, terraform_outputs)
     if providers_config["layer_5_provider"] == "azure":
-        configure_azure_grafana(context, terraform_outputs)
+        _azure_post_step("visualization", configure_azure_visualization,
+                         context, terraform_outputs)
 
     if providers_config["layer_4_provider"] == "aws":
         create_twinmaker_entities(context, project_path, terraform_outputs)
     if providers_config["layer_1_provider"] == "aws":
         register_aws_iot_devices(context, project_path)
     if providers_config["layer_5_provider"] == "aws":
-        configure_aws_grafana(context, terraform_outputs)
+        configure_aws_visualization(context, terraform_outputs)
 
     return collect_deployment_access_runtime_evidence(context, terraform_outputs)

@@ -57,8 +57,8 @@ provider "azapi" {
   tenant_id       = var.azure_tenant_id != "" ? var.azure_tenant_id : "00000000-0000-0000-0000-000000000000"
 }
 
-# Azure AD Provider (for Entra ID user management - Grafana admin users)
-# Uses same service principal credentials as azurerm
+# Azure AD Provider for the bounded Entra objects required by directed federation.
+# The isolated thesis PoC uses the same administrator as Azure Resource Manager.
 provider "azuread" {
   # Same fallback auth suppression as azurerm — prevents Azure CLI lookup on
   # deployments that don't use Azure layers.
@@ -219,22 +219,24 @@ resource "terraform_data" "six_layer_retention_guard" {
     }
     precondition {
       condition = (
-        var.platform_user_email != "" &&
-        var.platform_user_first_name != "" &&
-        var.platform_user_last_name != ""
+        local.core_evaluation || (
+          var.platform_user_email != "" &&
+          var.platform_user_first_name != "" &&
+          var.platform_user_last_name != ""
+        )
       )
       error_message = "Six-layer requires the platform user identity used to provision usable L4/L5 access."
     }
     precondition {
       condition = (
         !local.azure_six_layer_enabled ||
-        (var.layer_4_provider != "azure" && var.layer_5_provider != "azure") ||
+        var.layer_4_provider != "azure" ||
         (
           var.azure_layer_access_principal_object_id != "" &&
           var.azure_layer_access_principal_label != ""
         )
       )
-      error_message = "Six-layer Azure L4/L5 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
+      error_message = "Six-layer Azure L4 requires an existing Entra principal object ID and label; create or choose the principal as a manual cloud prerequisite before deployment."
     }
   }
 }

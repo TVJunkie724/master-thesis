@@ -23,26 +23,27 @@ OPTIMIZER_ROOT = ROOT / "2-twin2clouds"
 if str(OPTIMIZER_ROOT) not in sys.path:
     sys.path.insert(0, str(OPTIMIZER_ROOT))
 
-from backend.architecture_profiles.candidate_factory import (
+from backend.architecture_profiles.candidate_factory import (  # noqa: E402
     SIX_LAYER_COMPONENTS,
 )
-from backend.architecture_profiles.registry import (
+from backend.architecture_profiles.registry import (  # noqa: E402
     ArchitectureProfileRegistry,
 )
-from backend.architecture_profiles.six_layer_optimizer import (
+from backend.architecture_profiles.six_layer_optimizer import (  # noqa: E402
     optimize_six_layer_eventing_v1,
 )
-from backend.pricing_catalog_models import PricingCatalogContext
-from backend.pricing_catalog_repository import (
+from backend.pricing_catalog_models import PricingCatalogContext  # noqa: E402
+from backend.pricing_catalog_repository import (  # noqa: E402
     get_pricing_catalog_repository,
 )
-from backend.pricing_catalog_resolver import PricingCatalogResolver
+from backend.pricing_catalog_resolver import PricingCatalogResolver  # noqa: E402
 
 PLAN_PATH = ROOT / "docs/research/evaluation/small-scenario-matrix.json"
 ARTIFACT_PATH = (
     ROOT / "contracts/user-function-extension/v1/examples/valid-artifact.json"
 )
 PROVIDER_ORDER = ("aws", "azure", "gcp")
+DEFINITIONS_ROOT = ROOT / "contracts" / "architecture-profiles" / "definitions"
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -100,7 +101,42 @@ def _scenario(plan: Mapping[str, Any], scenario_id: str) -> Mapping[str, Any]:
     return scenario
 
 
-def materialize(scenario_id: str) -> dict[str, Any]:
+def _source_registry() -> ArchitectureProfileRegistry:
+    """Resolve directly from the canonical contract source during regeneration."""
+
+    profile = _read(
+        DEFINITIONS_ROOT / "profiles" / "six-layer-eventing" / "1" / "profile.json"
+    )
+    catalog = _read(
+        DEFINITIONS_ROOT
+        / "component-catalogs"
+        / "six-layer-eventing"
+        / "1"
+        / "catalog.json"
+    )
+    providers = {
+        provider: _read(
+            DEFINITIONS_ROOT
+            / "provider-implementations"
+            / "six-layer-eventing"
+            / "1"
+            / provider
+            / "1.json"
+        )
+        for provider in PROVIDER_ORDER
+    }
+    return ArchitectureProfileRegistry(
+        profile=profile,
+        catalog=catalog,
+        providers=providers,
+        profile_id="six-layer-eventing",
+        profile_version="1",
+    )
+
+
+def materialize(
+    scenario_id: str, *, workload_override: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     """Cost and materialize one exact, admissible planned candidate offline."""
 
     plan = _read(PLAN_PATH)
@@ -114,11 +150,10 @@ def materialize(scenario_id: str) -> dict[str, Any]:
     )
 
     workload_path = ROOT / str(plan["workload_fixture"])
-    workload = _read(workload_path)
-    registry = ArchitectureProfileRegistry(
-        profile_id="six-layer-eventing",
-        profile_version="1",
+    workload = (
+        _read(workload_path) if workload_override is None else dict(workload_override)
     )
+    registry = _source_registry()
     repository = get_pricing_catalog_repository()
     context = PricingCatalogContext(
         catalogs={
@@ -145,7 +180,11 @@ def materialize(scenario_id: str) -> dict[str, Any]:
     }
     result = optimize_six_layer_eventing_v1(
         calculation_run_id=str(
-            uuid5(NAMESPACE_URL, f"twin2multicloud-evaluation:{scenario_id}")
+            uuid5(
+                NAMESPACE_URL,
+                f"twin2multicloud-evaluation:{scenario_id}"
+                + (f":{_digest(workload)}" if workload_override is not None else ""),
+            )
         ),
         architecture_profile={
             "profileId": registry.profile["profile_id"],
@@ -275,7 +314,7 @@ def main() -> int:
         "--all",
         action="store_true",
         dest="all_scenarios",
-        help="Materialize all nine checked scenarios into a new directory.",
+        help="Materialize all checked scenarios into a new directory.",
     )
     parser.add_argument(
         "--output",

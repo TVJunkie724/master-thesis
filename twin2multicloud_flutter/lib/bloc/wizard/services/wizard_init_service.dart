@@ -115,6 +115,7 @@ class WizardInitService {
         twinId: twinId,
         twinName: twin.name,
         twinState: twin.state,
+        hasBeenDeployed: twin.deployedAt != null,
         debugMode: config.debugMode,
         aws: credentials['aws'] ?? const ProviderCredentials(),
         azure: credentials['azure'] ?? const ProviderCredentials(),

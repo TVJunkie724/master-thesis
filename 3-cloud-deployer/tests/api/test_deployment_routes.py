@@ -107,48 +107,6 @@ def test_deployment_endpoint_requires_operation_package_header():
     assert response.status_code == 422
 
 
-def test_gcp_viewer_rotation_returns_only_one_time_credential_contract():
-    context = MagicMock(name="rotation_context")
-    result = {
-        "schema_version": "deployment-access-credential.v1",
-        "layer": "l5",
-        "provider": "gcp",
-        "username": "researcher@example.invalid",
-        "password": "fixture-rotation-password",
-        "issued_at": "2026-07-31T12:00:00Z",
-    }
-    with (
-        patch.object(
-            deployment,
-            "_prepare_deployment_context",
-            return_value=(MagicMock(), context),
-        ),
-        patch.object(
-            deployment,
-            "load_terraform_outputs",
-            return_value={"gcp_grafana_rotation_secret": {}},
-        ),
-        patch.object(
-            deployment,
-            "rotate_gcp_grafana_viewer",
-            return_value=result,
-        ) as rotate,
-    ):
-        response = asyncio.run(
-            deployment.rotate_deployment_access_credential(
-                OPERATION_TOKEN,
-                project_name="test_api_project",
-            )
-        )
-
-    assert response.model_dump(mode="json") == result
-    assert "fixture-rotation-password" not in repr(response)
-    rotate.assert_called_once_with(
-        context,
-        {"gcp_grafana_rotation_secret": {}},
-    )
-
-
 def test_deployment_endpoint_rejects_invalid_operation_package(monkeypatch):
     monkeypatch.setattr(
         deployment,
@@ -524,6 +482,59 @@ def test_deploy_stream_redacts_workspace_paths_in_failure_event():
     assert '"error_code":"DEPLOYMENT_ERROR"' in body
     assert '"operation_id":"' in body
     assert "/tmp/twin2multicloud-deployer-workspaces" not in body
+
+
+def test_deploy_stream_identifies_sdk_failure_without_exposing_error_text():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+    async def failing(*args, **kwargs):
+        failure = RuntimeError("client_secret=must-not-leak")
+        failure._azure_postapply_phase = "storage-read"
+        failure._azure_postapply_http_status = 403
+        yield "Running SDK-owned post-deployment operations"
+        raise failure
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="azure"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=failing),
+    ):
+        response = asyncio.run(deployment.deploy_stream(
+            OPERATION_TOKEN, provider="azure", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+    assert "Azure postapply failed phase=storage-read error_type=RuntimeError" in body
+    assert "http=403" in body
+    assert '"error_code":"DEPLOYMENT_ERROR"' in body
+    assert "must-not-leak" not in body
+
+
+def test_aws_grafana_stream_reports_safe_stage_http_and_cause():
+    context = MagicMock(name="deployment_context")
+    context.project_path = Path("/projects/test_api_project")
+
+    async def failing(*args, **kwargs):
+        failure = RuntimeError("client_secret=must-not-leak")
+        failure._aws_grafana_stage = "backend-query"
+        failure._aws_grafana_http_status = 400
+        failure._aws_grafana_cause = "credential-chain-unavailable"
+        yield "Running SDK-owned post-deployment operations"
+        raise failure
+
+    with (
+        patch.object(deployment, "check_template_protection"),
+        patch.object(deployment, "validate_provider", return_value="aws"),
+        patch.object(deployment, "validate_project_directory"),
+        patch.object(deployment, "create_context", return_value=context),
+        patch.object(deployment.core_deployer, "deploy_all_stream", new=failing),
+    ):
+        response = asyncio.run(deployment.deploy_stream(
+            OPERATION_TOKEN, provider="aws", project_name="test_api_project"))
+        body = asyncio.run(_collect_stream(response))
+    assert "stage=backend-query error_type=RuntimeError http=400" in body
+    assert "cause=credential-chain-unavailable" in body
+    assert "must-not-leak" not in body
+    assert '"error_code":"DEPLOYMENT_ERROR"' in body
 
 
 def test_deploy_stream_redacts_secret_logs_and_outputs():

@@ -4,19 +4,18 @@ import '../../bloc/twin_overview/twin_overview_state.dart';
 import '../../models/deployment_access.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
+import 'twin_overview_strings.dart';
 
 class LayerAccessPanel extends StatelessWidget {
   final LayerAccessViewState state;
   final VoidCallback onRetry;
   final ValueChanged<DeploymentAccessSurface> onOpenSurface;
-  final VoidCallback onRotateViewerCredential;
 
   const LayerAccessPanel({
     super.key,
     required this.state,
     required this.onRetry,
     required this.onOpenSurface,
-    required this.onRotateViewerCredential,
   });
 
   @override
@@ -95,14 +94,7 @@ class LayerAccessPanel extends StatelessWidget {
           (surface) => LayerAccessCard(
             surface: surface,
             compactActions: compact,
-            rotatingViewerCredential:
-                state.rotatingViewerCredential &&
-                surface.layer == DeploymentLayer.l5,
-            rotationError: surface.layer == DeploymentLayer.l5
-                ? state.rotationError
-                : null,
             onOpen: () => onOpenSurface(surface),
-            onRotateViewerCredential: onRotateViewerCredential,
           ),
         )
         .toList(growable: false);
@@ -136,19 +128,13 @@ class LayerAccessPanel extends StatelessWidget {
 class LayerAccessCard extends StatelessWidget {
   final DeploymentAccessSurface surface;
   final bool compactActions;
-  final bool rotatingViewerCredential;
-  final String? rotationError;
   final VoidCallback onOpen;
-  final VoidCallback onRotateViewerCredential;
 
   const LayerAccessCard({
     super.key,
     required this.surface,
     required this.compactActions,
-    required this.rotatingViewerCredential,
-    required this.rotationError,
     required this.onOpen,
-    required this.onRotateViewerCredential,
   });
 
   @override
@@ -157,10 +143,6 @@ class LayerAccessCard extends StatelessWidget {
     final providerColor = AppColors.getProviderColor(surface.provider.label);
     final blockingReason = _openBlockingReason(surface.readiness);
     final canOpen = blockingReason == null;
-    final canRotate =
-        surface.layer == DeploymentLayer.l5 &&
-        surface.auth.credentialAction ==
-            DeploymentAccessCredentialAction.rotate;
     final purpose = surface.layer == DeploymentLayer.l4
         ? 'L4 Semantic Twin'
         : 'L5 Raw & Rollups';
@@ -233,6 +215,10 @@ class LayerAccessCard extends StatelessWidget {
                 surface.capabilities.join(' '),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
+              if (surface.serviceId.endsWith('_l5_visualization')) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const Text(TwinOverviewStrings.snapshotScope),
+              ],
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '${_principalLabel(surface.auth.mode)}: ${surface.auth.principalLabel}',
@@ -240,6 +226,14 @@ class LayerAccessCard extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (surface.serviceId == 'aws_managed_grafana' ||
+                  surface.serviceId == 'azure_managed_grafana') ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  TwinOverviewStrings.grafanaSignInHint,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
               if (blockingReason != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 _InlineNotice(
@@ -248,23 +242,12 @@ class LayerAccessCard extends StatelessWidget {
                   isError: true,
                 ),
               ],
-              if (rotationError != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                _InlineNotice(
-                  icon: Icons.error_outline,
-                  message: rotationError!,
-                  isError: true,
-                ),
-              ],
               const SizedBox(height: AppSpacing.md),
               _Actions(
                 surface: surface,
                 compact: compactActions,
                 canOpen: canOpen,
-                canRotate: canRotate,
-                rotating: rotatingViewerCredential,
                 onOpen: onOpen,
-                onRotate: onRotateViewerCredential,
               ),
               const SizedBox(height: AppSpacing.sm),
               _AccessDetails(
@@ -321,19 +304,13 @@ class _Actions extends StatelessWidget {
   final DeploymentAccessSurface surface;
   final bool compact;
   final bool canOpen;
-  final bool canRotate;
-  final bool rotating;
   final VoidCallback onOpen;
-  final VoidCallback onRotate;
 
   const _Actions({
     required this.surface,
     required this.compact,
     required this.canOpen,
-    required this.canRotate,
-    required this.rotating,
     required this.onOpen,
-    required this.onRotate,
   });
 
   @override
@@ -345,46 +322,16 @@ class _Actions extends StatelessWidget {
         onPressed: canOpen ? onOpen : null,
         icon: const Icon(Icons.open_in_new),
         label: Text(
-          surface.layer == DeploymentLayer.l4 ? 'Open Twin UI' : 'Open Grafana',
+          surface.layer == DeploymentLayer.l4
+              ? 'Open Twin UI'
+              : 'Open endpoint',
         ),
       ),
     );
-    final rotate = canRotate
-        ? FocusTraversalOrder(
-            order: const NumericFocusOrder(4),
-            child: OutlinedButton.icon(
-              key: const Key('rotate-gcp-viewer'),
-              onPressed: rotating ? null : onRotate,
-              icon: rotating
-                  ? const SizedBox.square(
-                      dimension: AppSpacing.iconMd,
-                      child: CircularProgressIndicator(
-                        strokeWidth:
-                            AppSpacing.compactProgressIndicatorStrokeWidth,
-                      ),
-                    )
-                  : const Icon(Icons.key_outlined),
-              label: Text(rotating ? 'Creating...' : 'New password'),
-            ),
-          )
-        : null;
     if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          open,
-          if (rotate != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            rotate,
-          ],
-        ],
-      );
+      return SizedBox(width: double.infinity, child: open);
     }
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [open, if (rotate != null) rotate],
-    );
+    return Wrap(children: [open]);
   }
 }
 
@@ -610,7 +557,6 @@ String? _openBlockingReason(LayerAccessReadiness readiness) {
 }
 
 String _principalLabel(DeploymentAccessAuthMode mode) => switch (mode) {
-  DeploymentAccessAuthMode.generatedViewer => 'Viewer',
   _ => 'Principal',
 };
 
@@ -618,7 +564,9 @@ String _authLabel(DeploymentAccessAuthMode mode) => switch (mode) {
   DeploymentAccessAuthMode.awsIdentityCenter => 'AWS Identity Center',
   DeploymentAccessAuthMode.azureEntra => 'Microsoft Entra ID',
   DeploymentAccessAuthMode.gcpIap => 'Google Cloud IAP',
-  DeploymentAccessAuthMode.generatedViewer => 'Generated Grafana Viewer',
+  DeploymentAccessAuthMode.awsSigv4 => 'AWS IAM request signing',
+  DeploymentAccessAuthMode.azureFunctionKey => 'Azure Function key',
+  DeploymentAccessAuthMode.gcpIdentityToken => 'Google identity token',
 };
 
 class _AccessVisual {

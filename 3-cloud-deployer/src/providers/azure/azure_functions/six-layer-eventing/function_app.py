@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, List, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -300,7 +300,7 @@ if os.getenv("EVENT_LOCAL_PROCESSING_ENABLED", "false").lower() == "true":
         consumer_group="telemetry-processor",
     )
     def telemetry_processor(
-        messages: list[func.EventHubEvent], context: func.Context
+        messages: List[func.EventHubEvent], context: func.Context
     ) -> None:
         _telemetry_batch(
             messages,
@@ -328,7 +328,7 @@ def _register_processed_consumer(role: str) -> None:
         consumer_group=role,
     )
     def processed_consumer(
-        messages: list[func.EventHubEvent], context: func.Context
+        messages: List[func.EventHubEvent], context: func.Context
     ) -> None:
         _telemetry_batch(
             messages,

@@ -1,10 +1,10 @@
 # Deployment access contract
 
 `deployment-access.v1` is the canonical, owner-scoped, secret-free read model
-for the two interactive surfaces of a deployed Twin2MultiCloud PoC:
+for the two bounded inspection surfaces of a deployed Twin2MultiCloud PoC:
 
 - L4 semantic twin inspection;
-- L5 raw and rollup visualization.
+- L5 authenticated raw and rollup readback.
 
 An available snapshot contains exactly one L4 and one L5 surface. Its internal
 evidence is valid only for `six-layer-eventing@1`. The explicit unsupported
@@ -13,9 +13,9 @@ contract is closed at every object boundary and does not accept Terraform output
 containers, provider credentials, datasource keys, tokens, certificates, or
 passwords.
 
-`deployment-access-credential.v1` is intentionally separate. It is valid only
-for the explicit GCP Grafana Viewer rotation operation and is returned once.
-It must never be persisted or logged.
+L5 reuses the approved deployment principals: AWS SigV4, an Azure Function key
+resolved only during verification, and a GCP identity token. No dashboard
+account or additional user-facing credential is created or persisted.
 
 The nine valid placement fixtures cover every independent L4/L5 provider pair.
 The fixture URLs are reserved documentation examples, not live endpoints.

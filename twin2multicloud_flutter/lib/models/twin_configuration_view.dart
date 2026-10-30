@@ -4,9 +4,11 @@ import 'calc_result.dart';
 import 'deployer_config.dart';
 import 'optimizer_config.dart';
 import 'pricing_catalog.dart';
+import 'resolved_twin_architecture.dart';
 
 class TwinConfigurationView {
   final List<String> pathSegments;
+  final ResolvedTwinArchitecture? resolvedArchitecture;
   final OptimizationSummaryView optimization;
   final PricingCatalogContext? pricingCatalogContext;
   final List<ConfigurationArtifactView> configurationArtifacts;
@@ -14,6 +16,7 @@ class TwinConfigurationView {
 
   const TwinConfigurationView({
     required this.pathSegments,
+    this.resolvedArchitecture,
     required this.optimization,
     required this.pricingCatalogContext,
     required this.configurationArtifacts,
@@ -40,10 +43,19 @@ class TwinConfigurationView {
 
     return TwinConfigurationView(
       pathSegments: pathSegments,
+      resolvedArchitecture: optimizerConfig?.optimization?.resolvedArchitecture,
       optimization: OptimizationSummaryView.fromData(
         result: optimizerConfig?.optimization?.result,
         params: optimizerConfig?.params,
         calculatedAt: optimizerConfig?.calculatedAt,
+        currency:
+            optimizerConfig
+                ?.optimization
+                ?.resolvedArchitecture
+                ?.costSummary
+                .currency ??
+            optimizerConfig?.params?.currency ??
+            'USD',
       ),
       pricingCatalogContext: optimizerConfig?.pricingCatalogContext,
       configurationArtifacts: _configurationArtifacts(
@@ -62,6 +74,7 @@ class TwinConfigurationView {
 class OptimizationSummaryView {
   final bool hasResult;
   final double totalCost;
+  final String currency;
   final String? numberOfDevices;
   final String? messagesPerHour;
   final String? retention;
@@ -70,6 +83,7 @@ class OptimizationSummaryView {
   const OptimizationSummaryView({
     required this.hasResult,
     required this.totalCost,
+    this.currency = 'USD',
     this.numberOfDevices,
     this.messagesPerHour,
     this.retention,
@@ -80,10 +94,12 @@ class OptimizationSummaryView {
     required CalcResult? result,
     required CalcParams? params,
     required DateTime? calculatedAt,
+    String currency = 'USD',
   }) {
     return OptimizationSummaryView(
       hasResult: result != null,
       totalCost: result?.totalCost ?? 0,
+      currency: currency,
       numberOfDevices: params?.numberOfDevices.toString(),
       messagesPerHour: _messagesPerHour(params),
       retention: _retention(params),

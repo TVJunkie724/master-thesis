@@ -204,9 +204,50 @@ def cross_cloud_route_tfvars(
     }
 
 
+def core_evaluation_routes(source: str, destination: str) -> list[dict[str, Any]]:
+    """Fixed research topology; reuse the reviewed event/identity contracts.
+
+    Ingestion is at source; Event Layer, processing and storage at destination.
+    Includes the reverse device-command route, not a one-way-only substitute.
+    """
+    if source not in {"aws", "azure", "gcp"} or destination not in {
+        "aws",
+        "azure",
+        "gcp",
+    }:
+        raise ValueError("Unknown Core provider")
+    if source == destination:
+        return []
+    routes = []
+    for edge_id, sender, receiver in (
+        ("edge.ingestion-to-eventing", source, destination),
+        ("edge.eventing-to-ingestion", destination, source),
+    ):
+        for channel, event_types in _EVENT_CHANNELS_BY_EDGE[edge_id]:
+            broker = _BROKER_KIND_BY_CHANNEL[channel]
+            routes.append(
+                CrossCloudRoute(
+                    route_id=f"core.{source}.{destination}.{edge_id}.{channel}",
+                    logical_edge_id=edge_id,
+                    source_provider=sender,
+                    destination_provider=receiver,
+                    execution_kind="source_event_forwarder",
+                    channel_class=channel,
+                    event_types=event_types,
+                    source_broker_kind=broker,
+                    destination_broker_kind=broker,
+                    identity_exchange=IDENTITY_EXCHANGE_BY_PAIR[(sender, receiver)],
+                    payload_contract_id=_PAYLOAD_CONTRACT_BY_EDGE[edge_id],
+                    trust_contract_id="trust.workload-identity-federation",
+                ).to_tfvar()
+            )
+    return sorted(routes, key=lambda route: route["route_id"])
+
+
 __all__ = [
     "CrossCloudRoute",
     "IDENTITY_EXCHANGE_BY_PAIR",
+    "core_evaluation_routes",
     "cross_cloud_route_tfvars",
     "resolve_cross_cloud_routes",
 ]

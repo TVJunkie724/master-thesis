@@ -14,12 +14,37 @@ import math
 import os
 import re
 import uuid
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable, Mapping
 
 import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 from botocore.exceptions import ClientError
+
+def visualization(event, _context):
+    """Independent L5 Lambda; IAM-signed HTTP access, never table access."""
+    from phase8_eventing.visualization import HEADERS as VISUALIZATION_HEADERS, page as visualization_page
+    try:
+        def fetch(query):
+            url = os.environ["L3_READER_URL"] + "?" + urlencode(query)
+            signed = AWSRequest(method="GET", url=url)
+            credentials = boto3.Session().get_credentials().get_frozen_credentials()
+            SigV4Auth(credentials, "lambda", os.environ["AWS_REGION"]).add_auth(signed)
+            request = Request(url, headers=dict(signed.headers))
+            with urlopen(request, timeout=10) as response:
+                data = response.read(1024 * 1024 + 1)
+            if len(data) > 1024 * 1024:
+                raise ValueError("VISUALIZATION_RESPONSE_TOO_LARGE")
+            return json.loads(data)
+        body = visualization_page(fetch, os.environ["L5_DEVICE_ID"], os.environ["L5_METRIC"],
+                                  allow_empty=os.getenv("L5_ALLOW_EMPTY", "false") == "true")
+        return {"statusCode": 200, "headers": VISUALIZATION_HEADERS, "body": body}
+    except Exception:
+        return {"statusCode": 503, "headers": VISUALIZATION_HEADERS, "body": "L5 data unavailable"}
 
 PROFILE = "six-layer-eventing@1"
 MAX_POINTS = 1000
@@ -220,6 +245,7 @@ def _ingress_event(payload: Mapping[str, Any]) -> dict[str, Any]:
     body = dict(source_body)
     body.pop("event_type", None)
     body.pop("channel", None)
+    body["twin_id"] = body.get("twin_id") or body.get("device_id") or _partition_key(payload)
     return {
         "schema_version": "canonical-domain-event.v1",
         "event_id": event_id,
@@ -397,34 +423,19 @@ def _materialize_twin_projection(payload: Mapping[str, Any]) -> None:
         "metric": {"stringValue": metric},
         "value": {"doubleValue": float(value)},
         "sourceSequence": {"stringValue": source_sequence},
+        "observedAt": {"stringValue": _iso(observed_at)},
+        "lastEventId": {"stringValue": _event_id(payload)},
     }
-    entries = []
-    for property_name, property_value in properties.items():
-        entries.append(
-            {
-                "entryId": str(
-                    uuid.uuid5(
-                        uuid.NAMESPACE_URL,
-                        f"{_event_id(payload)}:{property_name}",
-                    )
-                ),
-                "entityPropertyReference": {
-                    "entityId": entity_id,
-                    "componentName": "telemetry",
-                    "propertyName": property_name,
-                },
-                "propertyValues": [
-                    {
-                        "timestamp": observed_at,
-                        "value": property_value,
-                    }
-                ],
-            }
-        )
-    _client("iottwinmaker").batch_put_property_values(
+    response = _client("iottwinmaker").update_entity(
         workspaceId=workspace,
-        entries=entries,
+        entityId=entity_id,
+        componentUpdates={"telemetry": {
+            "updateType": "UPDATE",
+            "propertyUpdates": {key: {"value": value} for key, value in properties.items()},
+        }},
     )
+    if response.get("state") in {"ERROR", "DELETING"}:
+        raise ContractError("TWIN_PROJECTION_WRITE_FAILED", 503)
 
 
 def event_adapter(event: Mapping[str, Any], _context: Any) -> dict[str, Any]:
@@ -615,9 +626,11 @@ def _write_raw_and_rollup(payload: Mapping[str, Any]) -> None:
                     },
                     {"Put": rollup_put},
                 ],
-                ClientRequestToken=hashlib.sha256(event_id.encode("utf-8")).hexdigest()[
-                    :36
-                ],
+                # The raw-row condition is the event-level idempotency guard.
+                # A retry can change the rollup version and storage timestamp;
+                # reusing an event-only token for different transaction content
+                # causes IdempotentParameterMismatch instead of a valid retry.
+                # Let the SDK generate a token for this concrete transaction.
             )
             return
         except ClientError as exc:
@@ -951,6 +964,8 @@ def _persist_and_project(event: Mapping[str, Any]) -> None:
 
 
 def _project_twin(event: Mapping[str, Any]) -> None:
+    if os.environ.get("SIX_LAYER_EVALUATION_SCOPE") == "core":
+        return
     body = dict(_event_body(event))
     if body.get("projection_candidate") is not True:
         return
@@ -1141,9 +1156,7 @@ def _deliver_device_command(event: Mapping[str, Any]) -> None:
                 commandArn=command_arn,
                 parameters={
                     "message": {"S": str(body.get("message") or "Rule matched")},
-                    "trace_id": {
-                        "S": _diagnostic_trace_id(event) or _event_id(event)
-                    },
+                    "trace_id": {"S": _diagnostic_trace_id(event) or _event_id(event)},
                 },
                 executionTimeoutSeconds=300,
                 clientToken=_event_id(event)[:64],
@@ -1380,16 +1393,13 @@ def _reader_response(status: int, payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _verify_reader_key(event: Mapping[str, Any]) -> bytes:
-    expected = os.environ.get("READER_KEY_SHA256", "")
-    if len(expected) != 64:
+def _reader_cursor_key() -> bytes:
+    """Return the private cursor key after Function URL IAM authentication."""
+
+    value = os.environ.get("CURSOR_HMAC_KEY", "")
+    if len(value) < 32:
         raise ContractError("READER_NOT_PROVISIONED", 503)
-    headers = {str(k).lower(): str(v) for k, v in (event.get("headers") or {}).items()}
-    supplied = headers.get("x-twin-reader-key", "")
-    actual = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
-    if not hmac.compare_digest(actual, expected):
-        raise ContractError("READER_UNAUTHORIZED", 401)
-    return bytes.fromhex(expected)
+    return value.encode("utf-8")
 
 
 def _query_params(
@@ -1479,7 +1489,7 @@ def raw_history_reader(event: Mapping[str, Any], _context: Any) -> dict[str, Any
 
     correlation_id = str(uuid.uuid4())
     try:
-        cursor_key = _verify_reader_key(event)
+        cursor_key = _reader_cursor_key()
         if not event.get("queryStringParameters"):
             return _reader_response(
                 200,

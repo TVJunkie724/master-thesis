@@ -12,13 +12,20 @@ devices -> ingestion -> eventing -> processing -> hot storage
                                       |              +-> Twin projection
                                       +-> actions / bounded feedback
 
-Twin projection and raw history -> visualization access
+Twin projection -> L4 semantic state / native explorer
+L3 raw + hourly reader -> independent L5 HTML/SVG consumer
 ```
 
 The exact order and fan-out are defined by the canonical contract rather than
 reconstructed from this explanatory diagram. Provider-local paths may use a
 native trigger; cross-provider paths use the contract-selected bridge and
 attribute transfer cost to the directed edge.
+
+The minimal L5 consumer is provider-local AWS Lambda or Azure Functions Flex;
+remote reader authentication and GCP L4/L5 are excluded. L3 owns readers,
+rollups and storage reads; L5 owns rendering/hosting and permission to invoke
+the reader. Management exposes only the fixed owner-authorized HTML response,
+not a general URL proxy. Core-only Terraform creates neither L4 nor L5.
 
 ## Source-of-truth flow
 

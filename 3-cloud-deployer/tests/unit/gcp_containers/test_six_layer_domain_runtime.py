@@ -9,6 +9,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import uuid
 
 import pytest
 
@@ -23,6 +24,19 @@ SOURCE_ROOT = (
     / "platform"
 )
 SIX_LAYER_SOURCE_ROOT = SOURCE_ROOT.parents[1] / "six-layer-domain" / "platform"
+
+
+def test_core_scope_does_not_construct_or_publish_a_twin_projection(monkeypatch):
+    runtime = _load("app")
+    monkeypatch.setenv("SIX_LAYER_EVALUATION_SCOPE", "core")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Core must not construct or publish a Twin projection")
+
+    monkeypatch.setattr(runtime.core, "build_twin_projection", forbidden)
+    monkeypatch.setattr(runtime, "_publish", forbidden)
+    monkeypatch.setattr(runtime, "_materialize_twin_projection", forbidden)
+    assert runtime._project_processed({"payload": {"projection_candidate": True}}) is None
 
 
 def _load_from_path(module_name: str, path: Path):
@@ -120,7 +134,9 @@ def _received(core, *, event_id: str = "event-1", projection: bool = True):
 def _extension_response(received):
     return {
         "schema_version": "user-function-runtime-envelope.v1",
-        "invocation_id": received["event_id"],
+        "invocation_id": str(
+            uuid.uuid5(uuid.NAMESPACE_URL, f"{received['event_id']}:processor.telemetry")
+        ),
         "correlation_id": received["correlation_id"],
         "slot_id": "processor.telemetry",
         "status": "success",
@@ -564,13 +580,11 @@ def test_raw_history_query_cursor_and_points_are_closed():
     ]
 
 
-def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monkeypatch):
+def test_raw_history_reader_delegates_auth_to_cloud_run_and_closes_response(
+    monkeypatch,
+):
     runtime = _load("app")
-    reader_key = "reader-secret"
     monkeypatch.setenv("RUNTIME_ROLE", "raw-history-reader")
-    monkeypatch.setenv(
-        "READER_KEY_SHA256", hashlib.sha256(reader_key.encode()).hexdigest()
-    )
     monkeypatch.setattr(
         runtime,
         "_read_raw_history",
@@ -589,20 +603,10 @@ def test_raw_history_reader_uses_hashed_deployment_key_and_closed_response(monke
         "&from=2026-08-05T00:00:00Z&to=2026-08-05T01:00:00Z"
     )
 
-    unauthorized = runtime.app.test_client().get(path)
-    accepted = runtime.app.test_client().get(
-        path,
-        headers={"x-twin2multicloud-reader-key": reader_key},
-    )
-    health_unauthorized = runtime.app.test_client().get("/raw-history-health/v1")
-    health = runtime.app.test_client().get(
-        "/raw-history-health/v1",
-        headers={"x-twin2multicloud-reader-key": reader_key},
-    )
+    accepted = runtime.app.test_client().get(path)
+    health = runtime.app.test_client().get("/raw-history-health/v1")
 
-    assert unauthorized.status_code == 401
-    assert unauthorized.get_json()["code"] == "READER_UNAUTHORIZED"
-    assert health_unauthorized.status_code == 401
+    assert health.status_code == 200
     assert health.get_json() == {
         "schema_version": "raw-history-health.v1",
         "status": "ready",
