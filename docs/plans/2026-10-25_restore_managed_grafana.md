@@ -186,7 +186,8 @@ Do not repeat six unchanged directed Core tests without a regression reason.
 - [ ] AWS/Azure real dashboards provision automatically, no public L3 reader.
 - [ ] Existing UI opens the correct dashboard with provider sign-in.
 - [x] Relevant offline suites and Web/macOS builds pass.
-- [ ] Each provider has exact simulator-data API and browser chart evidence.
+- [x] Each provider has exact simulator-data API and browser chart evidence
+      (AWS dashboard repaired in place; not a fresh unmodified first-deploy pass).
 - [ ] Destroy plus independent scoped zero inventory, including Grafana,
       permissions and provisioning identities, recorded for each live attempt.
 - [ ] RQ1/RQ2/RQ3 claims and actual costs/limitations updated without rewriting

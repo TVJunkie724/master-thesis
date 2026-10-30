@@ -839,3 +839,34 @@ observations total). Independent inventory across **24 categories** finds
 **zero active residuals and one inactive IoT command deletion marker**. This
 is successful resource destruction with qualified residual evidence, not yet
 a strict null inventory. Billing can lag and is not inferred from execution time.
+
+### Local handoff and archive closeout — 2026-10-30
+
+No cloud workload was deployed for this closeout. The existing focused Flutter
+suite passes **41 tests**, including AWS/Azure managed-Grafana Open dispatch,
+browser-launch rejection, blocked/destroyed access, inventory actions and the
+portable import/export HTTP adapter. The six backend portable-Twin tests pass,
+including deterministic export, credential exclusion, embedded function
+validation, tamper rejection and credential-unbound import.
+
+The real local Management HTTP API additionally exports the populated destroyed
+AWS Twin, verifies archive manifest hashes, imports and reloads a fresh draft,
+then re-exports it. The complete portable definition is equal apart from its
+new name; **one user function and nine populated Deployer fields** survive.
+The imported draft has no provider credential bindings or calculated result.
+The source remains byte-identical, and the temporary imported draft is deleted
+and confirmed absent. A harness-only header-case error before the first import
+is retained separately from the successful corrected observation.
+
+| Boundary | Evidence and qualification |
+|---|---|
+| Managed Grafana Open action | Controlled Flutter widget tests pass for AWS/Azure; real provider sign-in/charts passed separately. A single continuous browser-click observation is absent. |
+| Portable archive | Real Management API Export/Import/re-export and persistence pass; actual browser download and file-picker roundtrip remain unobserved. |
+| Last AWS cleanup | Normal Destroy passed; repeat independent inventory: zero active resources in 24 categories, one inactive IoT deletion marker. |
+| Costs | Existing provider cost snapshots are provisional account totals, not per-run measurements. Final billing attribution remains pending. No cost is inferred from reserved allowances. |
+
+RQ1 gains configuration portability and traceable verification boundaries;
+RQ2 retains the distinction between controlled UI tests and live provider
+evidence. RQ3's measured event/command observations are unchanged. These local
+checks close the selected automated verification work without claiming that
+all real-browser interactions or final provider bills have been observed.

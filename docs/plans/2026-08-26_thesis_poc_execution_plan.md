@@ -2,16 +2,18 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-25"
-version: "2.5"
+lastUpdated: "2026-10-30"
+version: "2.6"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
 
 Status: active execution source; bounded Core, local command, AWS/Azure Event-to-L4
 and historical HTML/SVG L5 observations passed. On 2026-10-25 the user requested
-restoring managed Grafana for AWS/Azure; implementation and offline checks pass,
-but affected Grafana cloud/UI E2E is not yet complete. Earlier L5/application passes
+restoring managed Grafana for AWS/Azure; implementation, exact cloud-data queries
+and real provider-browser charts now pass, with the AWS dashboard repaired in
+place. Actual local-browser Open/download interactions and final billing/strict
+residual inventory remain qualified. Earlier L5/application passes
 must not be relabeled as Grafana evidence. Renewed UI-inclusive verification was requested on 2026-10-17;
 the dated checkpoints below distinguish repaired local findings, renewed live
 observations and remaining campaign work.
@@ -184,6 +186,33 @@ retained in total. Independent inventory across 24 categories reports zero
 active residuals and one inactive IoT command deletion marker. Do not label
 this a strict null inventory until that provider marker disappears. Provider
 billing remains provisional and is not a per-attempt measured cost.
+
+### Local closeout — 2026-10-30, no new cloud deployment
+
+The user accepted completing local verification and consolidating existing live
+evidence before considering any further paid deployment. The 41 focused Flutter
+tests pass: AWS/Azure Managed Grafana Open dispatches the exact typed dashboard
+URL, failed launch is handled, blocked access stays blocked, destroyed views
+clear access, and the inventory/portable-transfer UI and transport contracts
+remain intact. These tests use controlled adapters; they do not prove a real
+browser popup or file download. Six portable-export backend tests also pass.
+
+A separate real local Management API roundtrip exports the populated destroyed
+AWS experiment, validates ZIP manifest hashes, imports a uniquely named draft,
+reloads it, and re-exports an equal definition apart from its new name. One
+user function and nine populated Deployer fields survive. Credential bindings
+and calculated results are absent, the source export remains byte-identical,
+and the temporary draft is deleted and confirmed absent. The first harness
+attempt stopped before import on a case-sensitive HTTP-header assertion; the
+corrected harness passes without application changes. No provider mutation
+or new paid run is involved.
+
+A further independent AWS inventory still reports zero active residuals in 24
+categories and one inactive IoT command deletion marker. The actual Flutter
+Open-to-provider browser handoff and browser Export-to-file-picker roundtrip
+remain explicitly unobserved. No additional cloud series is justified by these
+local checks. Final provider billing and strict residual-marker disappearance
+are pending external observations; neither is inferred from test success.
 
 ### Renewed application verification — 2026-10-17, incomplete
 
