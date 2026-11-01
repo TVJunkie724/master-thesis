@@ -8,8 +8,11 @@ experiment charges, bills, live capacity results or a new deployment matrix.
 `scripts/summarize_poc_cost_model.py --check` reproduces the accompanying
 [machine-readable results](poc-cost-model-results.json). It reuses the existing
 Optimizer, eight planned complete-profile placements and reviewed baseline
-pricing snapshots (fetched 2026-08-25). Workload, plan, candidate and pricing
+pricing snapshots (original collection 2026-08-25, with the recorded reviewed
+catalog amendments used by the final bundles). Workload, plan, candidate and pricing
 digests are retained. No provider API or pricing refresh is invoked.
+Grafana quantities follow the fixed PoC graph: one provisioning Editor/service
+account and one assigned Viewer, rather than a general dashboard-user rollout.
 
 ## Comparison and discrete scale sensitivity
 

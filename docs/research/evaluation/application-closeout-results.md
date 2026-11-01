@@ -899,3 +899,43 @@ browser and billing limitations. The completed Grafana implementation plan is
 archived in Git; no failed attempt, missing browser interaction or provisional
 bill is relabeled as a full pass. Remaining RQ interpretation and final thesis
 writing are separate work.
+
+### Fresh full offline regression and cost-report correction — 2026-11-02
+
+A fresh credential-free regression uses committed source extracted into
+disposable containers, leaving the primary checkout and user files intact.
+No cloud E2E, provider preparation, Apply or Destroy is started.
+
+| Gate | Result |
+|---|---|
+| Management API | 717 passed |
+| Optimizer | 470 passed, five skipped retired Five-layer profile-adapter cases |
+| Deployer, excluding cloud E2E | 2,305 passed, one skipped legacy template event-action case |
+| Flutter unit/widget suite | 833 passed; static analysis clean |
+| Web and macOS release builds | Passed |
+| Shared contracts | All four synchronization checks passed |
+| Startup/architecture helper tests | 23 passed |
+| Deployment drift orchestrator tests | 11 passed |
+| Frozen model reproduction | 24 byte-identical results; 22 priced, two excluded |
+| Thesis | Docker/pdfLaTeX build passed, 42 pages; final pass has no undefined citations/references or overfull boxes |
+
+The first restricted test harness denied Terraform access to the public
+provider registry and lacked the legacy package template path. The corrected
+credential-free harness supplies the template and permits dependency download;
+the complete Deployer suite then passes without reducing assertions. These
+setup failures are retained separately from application results.
+The editor's XeTeX-based compiler cannot build the legacy document class;
+the existing Docker/pdfLaTeX workflow passes without changing that class.
+
+This check found a real closeout omission: the published offline cost summary
+still represented the intermediate HTML/SVG bundles. Recalculation uses the
+final Managed Grafana bundles and the existing reviewed pricing snapshots,
+without fetching prices or deploying resources. Small AWS local is now
+140.84 USD/month and AWS with GCP Eventing 114.54 USD/month: a modeled saving
+of 26.30 USD/month, **18.67%**, superseding the historical 20.73% comparison.
+The JSON, Markdown table and thesis Evaluation/Discussion/Conclusion agree;
+the previous result remains in Git history. The existing focused drift gate
+now runs the cost-summary reproduction check, preventing that omission from
+silently recurring. This updates RQ3's conditional model finding, not actual
+bills or a causal Event-Layer saving. Browser and live-coverage limitations
+remain unchanged.

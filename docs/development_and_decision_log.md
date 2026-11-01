@@ -2094,3 +2094,19 @@ provisional and distinct from per-run measurements. GCP's existing authenticated
 Billing Reports console supplies its October subtotal without creating a new
 BigQuery export or query job. Final thesis interpretation and supervisor review
 are not implied complete by this implementation closeout.
+
+### 2026-11-02 — Reproduce the final cost report in the existing drift gate
+
+The requested full regression found that the published cost summary still
+described the intermediate HTML/SVG service bundles although runtime/catalogs
+had restored Managed Grafana. Existing model reproduction correctly rejected
+the stale artifact; it had not been part of the focused drift gate. Regenerate
+the report from the final bundles and existing reviewed pricing snapshots,
+update the matching thesis values and final Grafana description, and add the
+existing `summarize_poc_cost_model.py --check` command to that gate and its CI
+trigger coverage. No new pricing fetch, provider mutation or product feature
+is needed. The corrected Small comparison is 18.67% below AWS local, replacing
+the earlier 20.73% finding only for the final bundle; old observations remain
+historical. All four application suites pass the fresh offline regression;
+this does not close the separately unobserved real browser interactions or
+turn Core evidence into nine complete-profile UI runs.

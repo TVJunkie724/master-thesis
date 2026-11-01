@@ -251,6 +251,28 @@ Thesis analysis still needs explicit RQ answers and correctly qualified billing
 interpretation, supervisor/citation review and final text checks. These are
 research/authoring work, not a new product implementation or cloud test series.
 
+### Fresh regression correction — 2026-11-02
+
+The follow-up full offline check passes 717 Management, 470 Optimizer (five
+retired-adapter skips), 2,305 Deployer (one legacy-template skip) and 833 Flutter
+tests. Analysis, Web/macOS release builds, four shared-contract synchronization
+checks, 23 startup/architecture helper tests and 11 drift-orchestrator tests pass.
+No paid cloud E2E is repeated. Application runtime source is unchanged from
+the campaign closeout; initial container/network prerequisites are corrected
+without weakening tests.
+
+The check does uncover an obsolete published cost artifact: the historical
+HTML/SVG comparison had not been regenerated after Grafana restoration.
+Fix `20d0795d` updates the final model JSON, summary table and thesis claims;
+all 24 results reproduce byte-identically. Small's modeled advantage over the
+cheaper local baseline is **18.67%**, not the historical 20.73%. The existing
+focused deployment drift gate now checks this artifact too. Earlier finalization
+claims did not include that complete recheck and must be read with this dated
+correction. No research question or live pass is rewritten.
+The existing Docker/pdfLaTeX thesis build also passes (42 pages, no undefined
+citations/references or overfull boxes in the final pass). The editor's XeTeX
+fallback is incompatible with the legacy class; no class redesign is needed.
+
 ### Renewed application verification — 2026-10-17, incomplete
 
 Baseline: `75f029ec`, primary checkout, unchanged product code. The user requested
