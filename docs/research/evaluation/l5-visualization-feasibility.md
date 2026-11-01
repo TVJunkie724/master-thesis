@@ -1,14 +1,18 @@
 # Minimal L5 visualization — pre-implementation review
 
-Current restoration (2026-10-25): AWS and Azure return to managed Grafana,
+Final restoration checkpoint (2026-11-01): AWS and Azure return to managed Grafana,
 reusing the existing provider provisioning and Raw/Hourly dashboard code.
 The normal Terraform path, access read model and cost catalog have been
-updated; live verification is pending. AWS retains an IAM-protected L3 reader;
+updated; exact simulator-data queries and real provider-browser charts pass.
+AWS required the recorded dashboard-only in-place GET-method correction.
+AWS retains an IAM-protected L3 reader;
 Azure retains its function-scoped reader credential in the datasource secret.
 The UI opens the provider dashboard with the existing operator identity.
 GCP L4/L5 remain excluded, and the research questions remain unchanged.
 Previous HTML/SVG passes prove only that historical implementation, not Grafana.
-See [the bounded restoration plan](../../plans/2026-10-25_restore_managed_grafana.md).
+See the [application evidence and limitations](application-closeout-results.md)
+and [current execution status](../../plans/2026-08-26_thesis_poc_execution_plan.md).
+The completed restoration implementation plan is preserved in Git history.
 
 Current AWS authentication amendment (2026-10-25): the managed Infinity 4.1.3
 backend query failed with an unavailable default SDK credential chain. The user
@@ -21,7 +25,8 @@ owns the user/policy and deletes non-Terraform keys with that dedicated user.
 The secret is not a Terraform output/state value or a Flutter credential.
 This supersedes the runtime-role prerequisite for AWS below; the original failed
 role-authentication observation remains unchanged. Local signed fixture queries
-pass, but a fresh managed-cloud simulator/browser run is still required.
+pass; the subsequent managed-cloud simulator and real Viewer browser
+observation also pass after the explicitly recorded dashboard repair.
 
 Historical decision (2026-10-05): the user approved a minimal AWS/Azure
 server-rendered graphical consumer instead of this Managed Grafana proposal.

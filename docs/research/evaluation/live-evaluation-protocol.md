@@ -1,6 +1,18 @@
 # Supervised Six-layer live evaluation
 
-Current checkpoint (2026-10-09): the [application observation](application-closeout-results.md)
+Current closeout (2026-11-01): nine Core paths and separate representative
+AWS/Azure composed simulator/command/L3/L4/Managed-Grafana observations have
+functional evidence. Real provider-browser charts pass; AWS needed the
+recorded dashboard-only repair. Controlled local UI/portable-archive checks
+also pass. Continuous real browser handoff/download interactions remain
+unobserved, and provisional account totals are not per-run bills. Final AWS
+scoped inventory is zero in 24 categories, including inactive markers. Other
+historical provider inventories retain their own dates and limitations.
+See the [consolidated application evidence](application-closeout-results.md).
+This closes the bounded verification campaign with explicit limitations;
+it does not declare all nine full profiles/UI flows tested or authorize new runs.
+
+Historical checkpoint (2026-10-09): the [application observation](application-closeout-results.md)
 adds one actual AWS normal deployment, reconnect and downloaded-simulator
 command/L3/Event→L4/L5 assertion to the previously separated cuts. Its two sample
 conditions, popup-observation limitation, supplementary journaled identity cleanup,
@@ -29,8 +41,9 @@ The complete-graph staged protocol later in this
 document applies only after its outstanding implementation/approval gates clear;
 it does not require repeating all nine Core runs or keeping resources alive while
 later layers are developed. A local-adapter L4 check cannot substitute for
-Event-to-L4 delivery using the deployed identity. L5 remains last and no Grafana
-restoration or GCP L4/L5 replacement is implied.
+Event-to-L4 delivery using the deployed identity. At that checkpoint L5 remained
+last; the later explicitly approved AWS/Azure Grafana restoration is recorded
+above. GCP L4/L5 remain excluded.
 
 The [integration close-out plan](../../plans/2026-10-04_poc_integration_closeout.md)
 specifies the next one-message simulator/feedback assertion, SDK-owned identity

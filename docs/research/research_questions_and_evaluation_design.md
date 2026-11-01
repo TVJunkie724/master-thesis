@@ -11,7 +11,8 @@ discussion on 2026-07-17. The implementation scope and bounded evaluation
 scenarios are now frozen, and Phase 8.10 evidence maps to the questions. The
 LaTeX introduction, architecture, evaluation, discussion, and conclusion now
 use this framing. The bounded live observations now include nine Core cases,
-separate higher-layer cuts and one normal AWS application observation. Supervisor
+separate higher-layer cuts, normal AWS/Azure application observations and real
+Managed Grafana charts for both providers (AWS dashboard repaired in place). Supervisor
 review, delayed billing reconciliation and the explicitly recorded coverage
 limitations remain; these observations do not establish all-profile equivalence.
 
@@ -768,20 +769,25 @@ The current implementation exposes an authenticated JSON endpoint with the
 same bounded raw-history and hourly-rollup query contract on AWS, Azure, and
 GCP. This supports RQ1 operationalization and RQ2 query comparison, but is not
 a graphical visualization-equivalence result against the original Five-layer
-responsibility. A minimal AWS/Azure HTML/SVG consumer has since been implemented
-in the normal workflow and separately live-verified with exact seeded raw and
-hourly values, unauthorized-access rejection and cleanup. The
+responsibility. A minimal AWS/Azure HTML/SVG consumer was an intermediate
+implementation, separately live-verified with exact seeded raw/hourly values,
+unauthorized-access rejection and cleanup. The historical
 [L5 evidence record](../plans/2026-10-05_minimal_l5_evidence.md) distinguishes that
 cut from simulator-to-L5. The subsequent
-[normal AWS application observation](evaluation/application-closeout-results.md)
-verifies downloaded-simulator telemetry, command receipt, exact L3/L4 values and
-returned graphical L5 content in one deployment, with the recorded browser-popup
-and supplementary identity-cleanup limitations. It is not an Azure application
-acceptance result or nine complete-profile passes.
-The consumer's hosting/invocation costs and L3 query costs have explicit owners;
-neither a JSON endpoint nor the reduced consumer implies Managed Grafana feature
-equivalence. General monitoring and a product analytics UI remain
-outside scope; the historical Five-layer baseline is not changed.
+[application observations](evaluation/application-closeout-results.md) now
+include ordinary AWS/Azure deployments, downloaded-simulator telemetry,
+correlated commands, exact L3/L4 state, authenticated Managed Grafana queries
+and real provider-browser Raw/Hourly charts. AWS required a dashboard-only
+in-place correction; continuous local-UI-to-provider browser clicks and the
+browser download/file-picker chain remain unobserved. These representative
+composed observations do not turn the nine Core paths into nine complete-profile
+UI passes. The final AWS experiment has independent zero inventory on
+2026-11-01; earlier inventories and other provider tombstone limitations retain
+their dated scope. Provisional account billing is not a per-run cost measurement.
+L3 query and Managed Grafana costs have explicit separate owners. Historical
+HTML/SVG evidence does not imply Managed Grafana feature equivalence. General
+monitoring and a product analytics UI remain outside scope; the research
+questions and historical Five-layer baseline are unchanged.
 
 ## Scope Decisions
 
