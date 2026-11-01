@@ -870,3 +870,32 @@ RQ2 retains the distinction between controlled UI tests and live provider
 evidence. RQ3's measured event/command observations are unchanged. These local
 checks close the selected automated verification work without claiming that
 all real-browser interactions or final provider bills have been observed.
+
+### Final cleanup and evidence boundary — 2026-11-01
+
+The last AWS experiment now has independent **zero inventory in all 24 checked
+categories**, including inactive IoT command deletion markers. The historical
+2026-10-30 one-marker result remains valid for its observation time; this new
+dated check completes that experiment's strict scoped cleanup. Deployment and
+Destroy remain 400.102247 s and 318.012720 s with 220 resource lifecycle timings.
+
+A fresh Azure subscription group listing contains no managed-Grafana experiment
+groups. Its two other groups are outside that assertion; the earlier scoped
+resource/role null inventory retains its own date. This is not a new three-cloud
+global audit and does not clear older GCP/federation tombstones by inference.
+
+October AWS/Azure provider cost reports were retrieved read-only and retained
+privately with original currency, period and retrieval timestamp. AWS labels
+the report estimated; Azure reports pretax subscription totals. They include
+other/failed attempts and are not precise incremental costs of the successful
+observations. GCP project metadata lists no existing billing-export dataset;
+the already authenticated Billing Reports console instead supplies October's
+rounded account subtotal after savings. Reports for all three providers are
+therefore retained, without a new export or paid query job. Their scope,
+currency, rounding, credits/tax and final-invoice limitations remain explicit.
+
+The implementation/verification closeout is complete with the previously stated
+browser and billing limitations. The completed Grafana implementation plan is
+archived in Git; no failed attempt, missing browser interaction or provisional
+bill is relabeled as a full pass. Remaining RQ interpretation and final thesis
+writing are separate work.

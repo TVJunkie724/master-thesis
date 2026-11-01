@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Execution Plan"
 description: "Dependency-ordered implementation and evaluation plan for the final research proof of concept."
 tags: [implementation-plan, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-10-30"
-version: "2.6"
+lastUpdated: "2026-11-01"
+version: "2.7"
 ---
 
 # Twin2MultiCloud thesis PoC execution plan
@@ -12,8 +12,9 @@ Status: active execution source; bounded Core, local command, AWS/Azure Event-to
 and historical HTML/SVG L5 observations passed. On 2026-10-25 the user requested
 restoring managed Grafana for AWS/Azure; implementation, exact cloud-data queries
 and real provider-browser charts now pass, with the AWS dashboard repaired in
-place. Actual local-browser Open/download interactions and final billing/strict
-residual inventory remain qualified. Earlier L5/application passes
+place. The final AWS experiment has independent zero inventory on 2026-11-01.
+Actual local-browser Open/download interactions, final billing and other dated
+provider-inventory limitations remain qualified. Earlier L5/application passes
 must not be relabeled as Grafana evidence. Renewed UI-inclusive verification was requested on 2026-10-17;
 the dated checkpoints below distinguish repaired local findings, renewed live
 observations and remaining campaign work.
@@ -39,7 +40,7 @@ and the
 
 ## Current phase status
 
-### Managed Grafana restoration — 2026-10-25, live verification in progress
+### Managed Grafana restoration — closed with limitations, 2026-11-01
 
 The normal AWS/Azure Terraform, SDK postapply, access contracts and cost catalog
 again select managed Grafana. Existing Raw/Hourly panels and UI external links
@@ -213,6 +214,42 @@ Open-to-provider browser handoff and browser Export-to-file-picker roundtrip
 remain explicitly unobserved. No additional cloud series is justified by these
 local checks. Final provider billing and strict residual-marker disappearance
 are pending external observations; neither is inferred from test success.
+
+### Campaign finalization — 2026-11-01
+
+The bounded implementation/verification campaign is closed with the explicit
+coverage limitations below. This is not completion of thesis authoring or an
+unqualified all-profile UI-E2E pass. No new workload deployment is required
+for the agreed closeout. The completed Grafana implementation plan is removed
+from the active tree; its design history remains in Git, and durable rationale
+and measured results remain in the decision log and application evidence.
+
+- The final AWS experiment's independent read-only inventory is now **zero in
+  all 24 categories**, including the previously pending IoT deletion marker.
+  This dated observation completes that experiment's strict scoped cleanup.
+- An Azure subscription resource-group recheck finds no managed-Grafana
+  experiment groups. Two other resource groups remain outside that narrow
+  assertion; this does not substitute for a new global resource/role audit.
+- October AWS and Azure provider cost reports are retained privately with
+  retrieval date and currency. AWS still marks its report estimated; Azure
+  reports pretax subscription cost. Neither is an isolated per-run bill.
+  GCP project metadata exposes no existing BigQuery billing-export dataset;
+  the existing authenticated Billing Reports console supplies October's
+  rounded account subtotal after savings instead. No export is enabled or
+  billed analysis job started for this closeout. Reports for all three
+  providers are available, with their own scope, currency and finality limits.
+- The actual Flutter-to-provider browser click and browser ZIP download/file
+  chooser chain remain unobserved. The 41 focused Flutter tests, six portable
+  backend tests, real API archive roundtrip and separate real provider-browser
+  chart observations are the supported evidence, not one continuous UI run.
+- Nine Core paths, separate AWS/Azure higher-layer/composed observations and
+  offline cost-model comparisons remain distinct. Historical GCP soft-delete
+  and federation inventories retain their original qualifications; the new
+  AWS null inventory does not clear other providers by inference.
+
+Thesis analysis still needs explicit RQ answers and correctly qualified billing
+interpretation, supervisor/citation review and final text checks. These are
+research/authoring work, not a new product implementation or cloud test series.
 
 ### Renewed application verification — 2026-10-17, incomplete
 
