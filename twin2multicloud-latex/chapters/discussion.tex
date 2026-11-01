@@ -42,14 +42,15 @@ AWS/Azure Event-to-L4 and L3-to-L5 checks extend that evidence only for their
 named contracts. They do not establish identical delivery semantics, replay
 behavior, failure recovery, or production capability across providers.
 GCP's hosted Twin and visualization replacements were excluded from live L4/L5
-evaluation; AWS/Azure visualization was reduced to a two-panel HTML/SVG consumer.
+evaluation. AWS/Azure visualization ultimately uses Managed Grafana with two
+Raw/Hourly panels; the HTML/SVG consumer was an intermediate implementation.
 These findings narrow the supported equivalence claim without changing RQ2.
 
 \section{Answer to RQ3: Cost Effect}
 
 The frozen comparison in Table~\ref{tab:modeled-costs} supports a conditional
 modeled advantage, not a billing claim. Small's AWS placement with GCP Eventing
-is 20.73\% below the cheaper AWS-local complete-profile baseline among the
+is 18.67\% below the cheaper AWS-local complete-profile baseline among the
 eight examined placements. AWS local is cheapest in the same set at Medium and
 Large. Thus, multi-cloud placement is not universally cheaper: the workload,
 admissible service mapping, broker capacity and bridge/transfer contributions
@@ -184,7 +185,7 @@ The principal limitations are:
     \item provider account creation, billing recovery, quota approval,
     organization policy, and broad consent remain external;
     \item no embedded dashboard administration or general operations console;
-    \item AWS/Azure L5 is a bounded snapshot rather than Managed Grafana, and
+    \item AWS/Azure L5 uses bounded Managed Grafana Raw/Hourly panels, and
     GCP L4/L5 are excluded from the live comparison;
     \item the retained monolithic Terraform root requires an explicitly enabled
     auxiliary Azure provider authentication context even for an AWS-only native

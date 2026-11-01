@@ -1,6 +1,8 @@
 # Frozen PoC cost comparison
 
-Status: reproduced offline on 2026-10-09. These are **modeled monthly USD**, not
+Status: regenerated for the final Managed Grafana bundles on 2026-11-02.
+The 2026-10-09 HTML/SVG comparison is historical and preserved in Git.
+These are **modeled monthly USD**, not
 experiment charges, bills, live capacity results or a new deployment matrix.
 
 `scripts/summarize_poc_cost_model.py --check` reproduces the accompanying
@@ -17,17 +19,17 @@ AWS→GCP places Eventing on GCP and the other seven components on AWS.
 
 | Planned placement | Small | Medium | Large |
 |---|---:|---:|---:|
-| AWS local | 126.84 | 3,448.38 | 117,627.25 |
-| Azure local | 142.25 | 7,850.49 | 135,864.88 |
-| AWS→Azure | 145.69 | 7,983.96 | 150,345.32 |
-| Azure→AWS | 147.05 | 8,049.70 | 137,229.15 |
-| AWS→GCP | 100.54 | 3,663.18 | 126,606.25 |
-| GCP→AWS | 282.27 | 11,575.34 | Excluded |
-| Azure→GCP | 213.84 | 6,192.29 | 131,680.41 |
-| GCP→Azure | 224.34 | 7,602.59 | Excluded |
+| AWS local | 140.84 | 3,461.17 | 117,592.68 |
+| Azure local | 219.20 | 7,922.84 | 135,756.95 |
+| AWS→Azure | 222.64 | 8,056.31 | 150,237.39 |
+| Azure→AWS | 223.99 | 8,122.05 | 137,121.23 |
+| AWS→GCP | 114.54 | 3,675.96 | 126,571.68 |
+| GCP→AWS | 296.26 | 11,588.13 | Excluded |
+| Azure→GCP | 290.79 | 6,264.63 | 131,572.48 |
+| GCP→Azure | 301.29 | 7,674.94 | Excluded |
 
 Small's lowest cost among these eight placements is AWS→GCP, **26.30 USD/month
-(20.73%) below AWS local**, the cheaper admissible local baseline. AWS local
+(18.67%) below AWS local**, the cheaper admissible local baseline. AWS local
 becomes cheapest among the same planned placements for Medium and Large. This
 is a discrete sensitivity to the three immutable workload contracts: multiple
 inputs change together, not one isolated parameter. Large GCP-ingress cases
@@ -42,7 +44,7 @@ successful Core telemetry observations are a different, narrower test matrix.
 ## Eventing attribution and limits
 
 For Small AWS local, the ledger assigns **105.173677027 USD/month** to Eventing
-(of 126.843407042 total), principally Kinesis at 105.171471123. Moving Eventing
+(of 140.837335030 total), principally Kinesis at 105.171471123. Moving Eventing
 also introduces bridge/source/transfer charges elsewhere in the ledger: the
 Eventing component subtotal alone is therefore not the total cost of a remote
 topology. The report preserves component, edge and service-owner totals rather
