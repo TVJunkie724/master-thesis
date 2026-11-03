@@ -27,6 +27,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/sync_six_layer_workload_contract.py",
             "scripts/sync_user_function_extension_contracts.py",
             "scripts/materialize_live_evaluation_candidate.py",
+            "scripts/summarize_poc_cost_model.py",
             "scripts/manage_live_evaluation_evidence.py",
             "scripts/manage_live_evaluation_metrics.py",
             "scripts/review_live_evaluation_budget.py",
@@ -144,6 +145,7 @@ class DeploymentDriftVerificationTests(unittest.TestCase):
             "scripts/tests/test_review_live_evaluation_budget.py",
             rendered,
         )
+        self.assertIn("scripts/summarize_poc_cost_model.py --check", rendered)
         self.assertNotIn("sync_architecture_profile_contracts.py", rendered)
         self.assertIn(
             "scripts/sync_user_function_extension_contracts.py --check",

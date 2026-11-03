@@ -116,6 +116,9 @@ successful functional cuts.
 The existing Optimizer was rerun offline with the eight planned complete-profile
 placements and the immutable Small, Medium, and Large inputs. All calculations
 use the same reviewed baseline pricing snapshots fetched on August 25, 2026.
+The final Managed Grafana comparison, regenerated on 2026-11-02, supersedes
+the historical HTML/SVG cost table. It uses the reviewed frozen pricing
+baseline with its recorded catalog amendments, not newly fetched prices.
 The result records workload, pricing, candidate, and plan digests and reproduces
 byte-identically. No live capacity or cost observation is implied.
 
@@ -128,20 +131,20 @@ byte-identically. No live capacity or cost observation is implied.
 \toprule
 Placement & Small & Medium & Large \\
 \midrule
-AWS local & 126.84 & 3,448.38 & 117,627.25 \\
-Azure local & 142.25 & 7,850.49 & 135,864.88 \\
-AWS $\rightarrow$ Azure & 145.69 & 7,983.96 & 150,345.32 \\
-Azure $\rightarrow$ AWS & 147.05 & 8,049.70 & 137,229.15 \\
-AWS $\rightarrow$ GCP & 100.54 & 3,663.18 & 126,606.25 \\
-GCP $\rightarrow$ AWS & 282.27 & 11,575.34 & excluded \\
-Azure $\rightarrow$ GCP & 213.84 & 6,192.29 & 131,680.41 \\
-GCP $\rightarrow$ Azure & 224.34 & 7,602.59 & excluded \\
+AWS local & 140.84 & 3,461.17 & 117,592.68 \\
+Azure local & 219.20 & 7,922.84 & 135,756.95 \\
+AWS $\rightarrow$ Azure & 222.64 & 8,056.31 & 150,237.39 \\
+Azure $\rightarrow$ AWS & 223.99 & 8,122.05 & 137,121.23 \\
+AWS $\rightarrow$ GCP & 114.54 & 3,675.96 & 126,571.68 \\
+GCP $\rightarrow$ AWS & 296.26 & 11,588.13 & excluded \\
+Azure $\rightarrow$ GCP & 290.79 & 6,264.63 & 131,572.48 \\
+GCP $\rightarrow$ Azure & 301.29 & 7,674.94 & excluded \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The lowest Small cost among these eight placements is AWS with GCP Eventing
-and all other components on AWS: 26.30 USD/month (20.73\%) below AWS local,
+and all other components on AWS: 26.30 USD/month (18.67\%) below AWS local,
 the cheaper admissible local baseline. AWS local becomes cheapest among this
 set for Medium and Large. These are discrete workload-scale comparisons:
 multiple inputs change together. They are not an isolated parameter effect,
@@ -170,7 +173,7 @@ RQ1, not changes to the logical architecture. Separate regression tests and
 commits preserve the corrections; their local success does not itself establish
 a live application pass.
 
-One normal AWS application deployment subsequently succeeded at runtime revision
+One historical AWS application deployment succeeded at runtime revision
 \texttt{cd4e7b39} in 270.536770 seconds, including image foundation/publication
 and SDK postapply. The UI reconnect retained the same single operation. The
 downloaded simulator first delivered value 42 and a correlated command in
@@ -204,6 +207,19 @@ record retains five earlier failed Deploy attempts and 110 creation-completion
 observations for the successful run. This is a scoped composed observation with
 explicit cleanup and UI conditions, not nine complete-profile passes.
 \footnote{\texttt{docs/research/evaluation/application-closeout-results.md}.}
+
+Later normal AWS/Azure application observations verified downloaded-simulator
+telemetry, correlated commands, exact L3/L4 state, and actual Managed Grafana
+Raw/Hourly data. Both provider-browser sessions displayed real simulator
+values. AWS required an in-place dashboard correction: the Infinity browser
+query migration expected an explicit HTTP GET method, although backend-only
+queries had passed. This repaired observation is not a clean first-deployment
+UI pass. The final AWS run deployed in 400.102247 seconds and destroyed in
+318.012720 seconds, retaining 220 resource lifecycle timings; independent
+inventory was empty in all 24 categories on 2026-11-01. The actual continuous
+Flutter Open-to-provider browser click and browser export/file-picker chain
+remain unobserved. Controlled UI tests and separate provider-browser evidence
+do not substitute for that missing continuous observation.
 
 \section{Threats to Validity}
 \label{sec:eval-validity}

@@ -2075,3 +2075,38 @@ Keep the failed browser observation and identify the successful observation
 as repaired in place. Direct navigation to the Management-provided dashboard
 URL is verified; the local Flutter Open click remains unverified because the
 browser-control tool denied localhost access. Do not equate these two claims.
+
+### 2026-11-01 — Close the bounded campaign with explicit evidence limits
+
+The final AWS experiment's repeated independent inventory is now zero across
+all 24 categories, including its inactive IoT command marker. Existing Core,
+native L4, composed simulator/command, Managed Grafana and local portability
+observations support the recorded PoC claims; their different revisions and
+verification boundaries are retained. No new deployment is required solely
+to replace unobserved browser handoff/download behavior with a broader claim.
+
+Current target/method documents now identify AWS/Azure Managed Grafana as final
+L5 and historical HTML/SVG as an intermediate observation. GCP L4/L5 remain
+excluded. The completed restoration implementation plan is removed from the
+active tree, with history preserved in Git. Research questions, immutable
+Five-layer reference and scope remain unchanged. Account cost reports remain
+provisional and distinct from per-run measurements. GCP's existing authenticated
+Billing Reports console supplies its October subtotal without creating a new
+BigQuery export or query job. Final thesis interpretation and supervisor review
+are not implied complete by this implementation closeout.
+
+### 2026-11-02 — Reproduce the final cost report in the existing drift gate
+
+The requested full regression found that the published cost summary still
+described the intermediate HTML/SVG service bundles although runtime/catalogs
+had restored Managed Grafana. Existing model reproduction correctly rejected
+the stale artifact; it had not been part of the focused drift gate. Regenerate
+the report from the final bundles and existing reviewed pricing snapshots,
+update the matching thesis values and final Grafana description, and add the
+existing `summarize_poc_cost_model.py --check` command to that gate and its CI
+trigger coverage. No new pricing fetch, provider mutation or product feature
+is needed. The corrected Small comparison is 18.67% below AWS local, replacing
+the earlier 20.73% finding only for the final bundle; old observations remain
+historical. All four application suites pass the fresh offline regression;
+this does not close the separately unobserved real browser interactions or
+turn Core evidence into nine complete-profile UI runs.

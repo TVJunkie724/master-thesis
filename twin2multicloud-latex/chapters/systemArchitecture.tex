@@ -341,7 +341,7 @@ not necessarily one managed product.
         Cool storage & S3 Standard-IA & Blob Cool & Cloud Storage Nearline \\
         Archive & S3 Glacier Deep Archive & Blob Archive & Cloud Storage Archive \\
         Twin state & IoT TwinMaker & Azure Digital Twins & Excluded from live L4 evaluation \\
-        Visualization & Lambda HTML/SVG consumer & Functions HTML/SVG consumer & Excluded from live L5 evaluation \\
+        Visualization & Amazon Managed Grafana & Azure Managed Grafana & Excluded from live L5 evaluation \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -353,15 +353,17 @@ application infrastructure solely for the comparison. This is a PoC scope
 finding, not evidence that these responsibilities cannot be implemented on GCP.
 The research questions and the historical Five-layer reference remain unchanged.
 
-For AWS and Azure, L5 is deliberately reduced to a provider-hosted HTML/SVG
-consumer with raw-history and hourly-average panels. Authenticated queries and
-storage remain L3 responsibilities. Managed Grafana feature equivalence,
-dashboard editing, and continuous refresh are not claimed. The existing
-owner-scoped Management access boundary fetches one bounded snapshot from the
-fixed deployment endpoint; AWS request signing and Azure function keys remain
-server-side. Flutter opens this snapshot without receiving provider credentials.
+For AWS and Azure, final L5 uses Managed Grafana with raw-history and
+hourly-average panels. Authenticated queries and storage remain L3
+responsibilities. The Management API supplies the dashboard URL and assigned
+identity; Flutter opens the provider-owned dashboard using AWS Identity Center
+or Azure Entra sign-in. AWS's deployment-scoped reader key and Azure's
+function-scoped reader credential are stored in the Grafana datasource's
+encrypted secret configuration, not returned to Flutter. Dashboard editing,
+embedded administration, and continuous refresh are outside the PoC workflow.
 Reachability with empty panels is a readiness check only; functional evidence
-requires actual persisted values and timestamps in both panels.
+requires actual persisted values and timestamps in both panels. Earlier
+HTML/SVG snapshots remain historical observations with their own proof scope.
 
 \section{End-to-End Workflow}
 \label{sec:e2e-workflow}

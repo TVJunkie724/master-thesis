@@ -2,8 +2,8 @@
 title: "Twin2MultiCloud Thesis PoC Target Concept"
 description: "Research-question-driven target scope for the final Twin2MultiCloud proof of concept."
 tags: [architecture, thesis-scope, six-layer, evaluation]
-lastUpdated: "2026-09-10"
-version: "1.4"
+lastUpdated: "2026-11-01"
+version: "1.5"
 ---
 
 # Twin2MultiCloud Thesis PoC Target Concept
@@ -289,15 +289,21 @@ and L5 surface:
 - a one-time generated Viewer password or token only when the deployed service
   actually uses such a credential.
 
-Deployment administrator secrets are never returned. The current L5 handoff
-is authenticated readback, not a deployed Grafana surface. A
-[minimal graphical replacement](../research/evaluation/l5-visualization-feasibility.md)
-is proposed but blocked at the cost/integration gate. Provider login links or
-resource-local credentials must describe only surfaces actually deployed;
-there is no runtime credential-rotation UI to restore. If AWS Managed Grafana
-is selected later, its Identity Center Region and user association must be
-validated for that workspace. AWS-to-Azure workload identity remains a separate
-requirement using regional STS.
+Deployment administrator secrets are never returned. The final AWS/Azure L5
+handoff opens the provisioned Managed Grafana Raw/Hourly dashboard with the
+assigned AWS Identity Center or Azure Entra identity. The authenticated L3
+reader remains an independent component. GCP L4/L5 remain excluded without
+replacement infrastructure. Identity Center passwords are set through AWS's
+first-login/reset flow; Terraform does not return them to the app. The existing
+setup guide explains password setup and provider-required MFA.
+
+The [application evidence](../research/evaluation/application-closeout-results.md)
+records exact simulator values and real AWS/Azure Grafana panels, including
+the AWS in-place dashboard correction and unobserved continuous local-browser
+handoff. Historical HTML/SVG observations describe only the earlier reduced
+consumer. AWS-to-Azure workload identity remains a separate requirement using
+regional STS. Provider links and credentials describe only deployed surfaces;
+no credential-rotation or Grafana administration UI is added.
 
 ## 11. Verification and live evaluation
 
@@ -320,8 +326,9 @@ frozen. Remaining implementation is limited to defects blocking the agreed
 evaluation, evidence correctness or cleanup. No additional UI redesign,
 visualization client, normalized Five-layer implementation, generic repair
 framework, or extra live workload size is added. The original Five-layer
-reproduction remains the historical reference. The outstanding L5 comparison
-decision is separate; this workflow reduction does not settle or modify it.
+reproduction remains the historical reference. The 2026-10-25 scope decision
+restored Managed Grafana for AWS/Azure; the recorded browser and billing
+limitations qualify the evidence rather than introduce another implementation.
 
 ## 12. Documentation boundary
 

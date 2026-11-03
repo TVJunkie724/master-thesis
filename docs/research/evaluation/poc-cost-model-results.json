@@ -34,7 +34,7 @@
     "catalogs": {
       "aws": {
         "calculationSource": "reviewed_baseline",
-        "contentDigest": "sha256:dcfcd05eed995fe49bf649f737d16dc3c378dbe6ab83d9794bf16cdc267e01a7",
+        "contentDigest": "sha256:17ca3be17ad125546bfc95e8d756ab4faa086efc97a2749ffbd7de6c88fd3e03",
         "contractVersion": "2026.07.18",
         "fetchedAt": "2026-08-25T16:58:12Z",
         "mappingVersions": [
@@ -48,12 +48,12 @@
         "registryVersion": "2026.07.17",
         "reviewStatus": "reviewed",
         "schemaVersion": "pricing-catalog-reference.v1",
-        "snapshotId": "pcs_64d03bdcd7497aaadec367b9464a7441ca81b4d3717b77e79b185f7fd45e222e",
+        "snapshotId": "pcs_10aa2d30149ea8c275ed1ef444eb3f3f0b3ed1e79c6647764943f364e9f4045c",
         "source": "reviewed_baseline"
       },
       "azure": {
         "calculationSource": "reviewed_baseline",
-        "contentDigest": "sha256:3f55b240a7adc76e45c6d342a3dbecfced3b9b9e750eb32bfc2d97fe0e6cc774",
+        "contentDigest": "sha256:648d1c134cb5e33ad82ced929998130fd8a7b9ffc6d757e9f12ffc3d24dabe85",
         "contractVersion": "2026.07.18",
         "fetchedAt": "2026-08-25T16:58:12Z",
         "mappingVersions": [
@@ -68,7 +68,7 @@
         "registryVersion": "2026.07.17",
         "reviewStatus": "reviewed",
         "schemaVersion": "pricing-catalog-reference.v1",
-        "snapshotId": "pcs_9e4ee3934632ea0ce82fcc4331473131a2a33cf0afb944c5cf9b65836722b33d",
+        "snapshotId": "pcs_73850a1e5769494c0d450c1e02b84fd38479c9731c657c4d682fbfd77290c100",
         "source": "reviewed_baseline"
       },
       "gcp": {
@@ -119,11 +119,11 @@
       "small-focus-aws-to-azure",
       "small-focus-azure-to-aws",
       "small-focus-azure-to-gcp",
-      "small-focus-gcp-to-azure",
-      "small-focus-gcp-to-aws"
+      "small-focus-gcp-to-aws",
+      "small-focus-gcp-to-azure"
     ]
   },
-  "result_digest": "sha256:8de588179e3787be1c29f83093e9f0a286e396388565a06fd7b8e34e22ede284",
+  "result_digest": "sha256:7f06877f5e1924e18a3f14430e9c92cb09ff170fe47871a04ab1165c93252e60",
   "results": [
     {
       "assignments": {
@@ -136,9 +136,10 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:c429ae3ea2c999b8a93f056ace5b44976aafe78a0338811b7063cd54889f0f8d",
+      "candidate_evidence_digest": "sha256:6b00597b7853dcc1825ce7787186228df1badaaeb1b547b3559ba2564a08a8ea",
       "changed_inputs": {},
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "4.008456",
         "cost::aws.dynamodb-on-demand-raw": "3.6",
@@ -153,7 +154,6 @@
         "cost::aws.lambda": "4.932009",
         "cost::aws.lambda-event-worker": "0",
         "cost::aws.lambda-raw-history-reader": "0.001644003",
-        "cost::aws.lambda-visualization": "0.006072012",
         "cost::aws.s3-event-failure-store": "0.000324247",
         "cost::aws.s3-glacier-deep-archive": "0.1125",
         "cost::aws.s3-standard-ia": "0.027",
@@ -169,7 +169,7 @@
         "component.ingestion": "2.161775",
         "component.processing": "4.950759",
         "component.twin-state": "5.720844",
-        "component.visualization": "0.006072012"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -183,7 +183,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "126.843407042",
+      "monthly_total": "140.837335030",
       "route_owner_totals": {},
       "scenario_id": "small-local-aws",
       "status": "costed",
@@ -201,7 +201,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:9fd0aaadcbf9c7e2d0d308ef00a313abdabb76ff1a4a7583371813324a8a147e",
+      "candidate_evidence_digest": "sha256:71329f4e61a1ae389d6c9e4ca1ee5b58d956c4e4db12a7db4fecd0b6e225a40b",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::azure.acr-basic-if-container-selected": "4.998",
@@ -215,10 +215,10 @@
         "cost::azure.functions-flex-consumption": "9.072",
         "cost::azure.functions-flex-event-worker": "28.9289544",
         "cost::azure.functions-flex-raw-history-reader": "0.003024",
-        "cost::azure.functions-flex-visualization": "0.023112",
         "cost::azure.iot-hub": "25",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "0.09375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -230,7 +230,7 @@
         "component.ingestion": "25",
         "component.processing": "9.16575",
         "component.twin-state": "0.92742",
-        "component.visualization": "0.023112"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -244,7 +244,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "142.25170408",
+      "monthly_total": "219.19859208",
       "route_owner_totals": {},
       "scenario_id": "small-local-azure",
       "status": "costed",
@@ -262,7 +262,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:b97f50e20e87157889c5df1eb6500f5d44499d9f29fa13c72920c71503664bc5",
+      "candidate_evidence_digest": "sha256:2bbb3fc3b30b21a55023d133a5417f76715ea5446ea63266950cd556419783f1",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::aws.cloudwatch": "0",
@@ -284,9 +284,9 @@
         "cost::azure.functions-flex-event-adapter": "0",
         "cost::azure.functions-flex-event-worker": "28.915802",
         "cost::azure.functions-flex-raw-history-reader": "0.003024",
-        "cost::azure.functions-flex-visualization": "0.023112",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "0.09375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -298,7 +298,7 @@
         "component.ingestion": "28.451830180",
         "component.processing": "9.16575",
         "component.twin-state": "0.92742",
-        "component.visualization": "0.023112"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -312,7 +312,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "145.690381860",
+      "monthly_total": "222.637269860",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->azure": "0",
         "cost::route::domain_event_cross_cloud::azure->aws": "0"
@@ -333,7 +333,7 @@
         "component.twin-state": "aws",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:e8a315ab96b6f516ed20a439a60d6e7e62fc4028530a76e7dd422f44abc0e2b8",
+      "candidate_evidence_digest": "sha256:5cf309fcd2430c3fa8ffbd6a93562d6e2502c3169be85bc36aa97ae1ea050d9a",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::aws.cloudwatch": "0",
@@ -348,10 +348,10 @@
         "cost::azure.functions-flex-consumption": "9.072",
         "cost::azure.functions-flex-event-worker": "28.9289544",
         "cost::azure.functions-flex-raw-history-reader": "0.003024",
-        "cost::azure.functions-flex-visualization": "0.023112",
         "cost::azure.iot-hub": "25",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "0.09375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -363,7 +363,7 @@
         "component.ingestion": "25",
         "component.processing": "9.16575",
         "component.twin-state": "5.720844",
-        "component.visualization": "0.023112"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -377,7 +377,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "147.04512808",
+      "monthly_total": "223.99201608",
       "route_owner_totals": {
         "cost::route::twin_projection_cross_cloud::azure->aws": "0"
       },
@@ -397,9 +397,10 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:65452b2ee5fedadef9c116e80201c6cd6e385b2f624a1d6da58ee96951e3f4ed",
+      "candidate_evidence_digest": "sha256:605f70815403fea0e24805732f491dedf9c86118889545ddc27549b4f4050e7e",
       "changed_inputs": {},
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "4.008456",
         "cost::aws.dynamodb-on-demand-raw": "3.6",
@@ -414,7 +415,6 @@
         "cost::aws.lambda": "4.932009",
         "cost::aws.lambda-event-adapter": "0",
         "cost::aws.lambda-raw-history-reader": "0.001644003",
-        "cost::aws.lambda-visualization": "0.006072012",
         "cost::aws.s3-glacier-deep-archive": "0.1125",
         "cost::aws.s3-standard-ia": "0.027",
         "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge": "0.003720764",
@@ -435,7 +435,7 @@
         "component.ingestion": "81.028486138",
         "component.processing": "4.950759",
         "component.twin-state": "5.720844",
-        "component.visualization": "0.006072012"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -449,7 +449,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "100.544952871",
+      "monthly_total": "114.538880859",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->gcp": "0",
         "cost::route::domain_event_cross_cloud::gcp->aws": "0"
@@ -470,10 +470,11 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:43ca0ecb2be4f62be5d9bd087b2924eafe10e6d3f39744499f62da233710f98a",
+      "candidate_evidence_digest": "sha256:a6ac2a656e672ea41518e873fb5a83883aa23f71277337142887eaba21a45d2c",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::apache.bifromq-4.0.0-incubating-on-gke-standard": "44.421303",
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "4.008456",
         "cost::aws.dynamodb-on-demand-raw": "3.6",
@@ -486,7 +487,6 @@
         "cost::aws.lambda-event-adapter": "0",
         "cost::aws.lambda-event-worker": "0",
         "cost::aws.lambda-raw-history-reader": "0.001644003",
-        "cost::aws.lambda-visualization": "0.006072012",
         "cost::aws.s3-event-failure-store": "0.000324247",
         "cost::aws.s3-glacier-deep-archive": "0.1125",
         "cost::aws.s3-standard-ia": "0.027",
@@ -510,7 +510,7 @@
         "component.ingestion": "107.113726699046875",
         "component.processing": "55.42275",
         "component.twin-state": "5.720844",
-        "component.visualization": "0.006072012"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -524,7 +524,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "282.267349741046875",
+      "monthly_total": "296.261277729046875",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->gcp": "0",
         "cost::route::domain_event_cross_cloud::gcp->aws": "0"
@@ -545,7 +545,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:8e0b174f503b29f872c4cda87afc7a03d38ee8ac2e79ef33850022206dcc9122",
+      "candidate_evidence_digest": "sha256:4d5e5744bdd422e8d3006a57055f223c370a2ccb6d9c20534a5f45f317e1a851",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::azure.acr-basic-if-container-selected": "4.998",
@@ -559,10 +559,10 @@
         "cost::azure.functions-flex-consumption": "9.072",
         "cost::azure.functions-flex-event-adapter": "5.366712",
         "cost::azure.functions-flex-raw-history-reader": "0.003024",
-        "cost::azure.functions-flex-visualization": "0.023112",
         "cost::azure.iot-hub": "25",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "0.09375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "39.24772",
         "cost::gcp.artifact-registry-if-container-selected": "0",
@@ -580,7 +580,7 @@
         "component.ingestion": "157.225632",
         "component.processing": "9.16575",
         "component.twin-state": "0.92742",
-        "component.visualization": "0.023112"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -594,7 +594,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "213.839361718",
+      "monthly_total": "290.786249718",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::azure->gcp": "0",
         "cost::route::domain_event_cross_cloud::gcp->azure": "0"
@@ -615,7 +615,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:b7a43654741f97789274869f0fc8e11a0f5f8d62863f196357a983530bdbd73d",
+      "candidate_evidence_digest": "sha256:1148d0eb5618e33cf4f0939daefd5455c64af09cae8f6872e144db984fb5a543",
       "changed_inputs": {},
       "component_owner_totals": {
         "cost::apache.bifromq-4.0.0-incubating-on-gke-standard": "44.421303",
@@ -631,9 +631,9 @@
         "cost::azure.functions-flex-event-adapter": "0",
         "cost::azure.functions-flex-event-worker": "28.915802",
         "cost::azure.functions-flex-raw-history-reader": "0.003024",
-        "cost::azure.functions-flex-visualization": "0.023112",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "0.09375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193",
         "cost::gcp.artifact-registry-if-container-selected": "0",
@@ -652,7 +652,7 @@
         "component.ingestion": "107.100966027046875",
         "component.processing": "9.16575",
         "component.twin-state": "0.92742",
-        "component.visualization": "0.023112"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -666,7 +666,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "224.339517707046875",
+      "monthly_total": "301.286405707046875",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::azure->gcp": "0",
         "cost::route::domain_event_cross_cloud::gcp->azure": "0"
@@ -687,7 +687,7 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:cd8088e2382e8062c806ac7a3a3e465f892895cefa97604904637d7043305a94",
+      "candidate_evidence_digest": "sha256:146d9c1f8b0bc8ff0ef5847ca7e8d5c9be8f8ecce3722d3e337c18b6271b0b3c",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -703,6 +703,7 @@
         "twinStateMaterializationsPerSecond": 2.5
       },
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "596.1672",
         "cost::aws.dynamodb-on-demand-raw": "577.53",
@@ -717,7 +718,6 @@
         "cost::aws.lambda": "789.12144",
         "cost::aws.lambda-event-worker": "18.125183002",
         "cost::aws.lambda-raw-history-reader": "0.3288006",
-        "cost::aws.lambda-visualization": "1.2144024",
         "cost::aws.s3-event-failure-store": "0.164944575",
         "cost::aws.s3-glacier-deep-archive": "33.39",
         "cost::aws.s3-standard-ia": "4.455",
@@ -733,7 +733,7 @@
         "component.ingestion": "345.7685",
         "component.processing": "790.99644",
         "component.twin-state": "221.120076",
-        "component.visualization": "1.2144024"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -747,7 +747,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "3448.380341914",
+      "monthly_total": "3461.165939514",
       "route_owner_totals": {},
       "scenario_id": "small-local-aws",
       "status": "costed",
@@ -765,7 +765,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:6f4cda7884d885b876933db31dcec667f1a508612041e94fe8cb62935547173d",
+      "candidate_evidence_digest": "sha256:fd98988d1b5e2a6c36ac2ccc3a968a6de20017661fb83a6e80097f83832c89b0",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -792,10 +792,10 @@
         "cost::azure.functions-flex-consumption": "1451.52",
         "cost::azure.functions-flex-event-worker": "3204.4158",
         "cost::azure.functions-flex-raw-history-reader": "0.6048",
-        "cost::azure.functions-flex-visualization": "4.6224",
         "cost::azure.iot-hub": "500",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "9.375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -807,7 +807,7 @@
         "component.ingestion": "500",
         "component.processing": "1460.895",
         "component.twin-state": "21.90318",
-        "component.visualization": "4.6224"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -821,7 +821,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "7850.48755",
+      "monthly_total": "7922.83515",
       "route_owner_totals": {},
       "scenario_id": "small-local-azure",
       "status": "costed",
@@ -839,7 +839,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:c44b6d89ca6e1ad0176fd8861e6030f1383e7992431e9e7dcec1d0a75865c3b3",
+      "candidate_evidence_digest": "sha256:7c28e184e3803b3eeb6c6c920a7b6d9d36f9409bdbc847a673f4d35d3757eac3",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -874,9 +874,9 @@
         "cost::azure.functions-flex-event-adapter": "0",
         "cost::azure.functions-flex-event-worker": "3203.08615",
         "cost::azure.functions-flex-raw-history-reader": "0.6048",
-        "cost::azure.functions-flex-visualization": "4.6224",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "9.375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -888,7 +888,7 @@
         "component.ingestion": "627.898618422",
         "component.processing": "1460.895",
         "component.twin-state": "21.90318",
-        "component.visualization": "4.6224"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -902,7 +902,7 @@
         "edge.ingestion-to-eventing": "6.90571584",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "7983.962234262",
+      "monthly_total": "8056.309834262",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->azure": "6.90571584",
         "cost::route::domain_event_cross_cloud::azure->aws": "0"
@@ -923,7 +923,7 @@
         "component.twin-state": "aws",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:32bf62ebd6421219e529775403903422fea3d9cab544ea73e5ad16d17df6e417",
+      "candidate_evidence_digest": "sha256:f67d44ae1cd1b01a7dce801280057beaad2aee729e36c3e88a34c8d0d2913934",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -951,10 +951,10 @@
         "cost::azure.functions-flex-consumption": "1451.52",
         "cost::azure.functions-flex-event-worker": "3204.4158",
         "cost::azure.functions-flex-raw-history-reader": "0.6048",
-        "cost::azure.functions-flex-visualization": "4.6224",
         "cost::azure.iot-hub": "500",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "9.375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -966,7 +966,7 @@
         "component.ingestion": "500",
         "component.processing": "1460.895",
         "component.twin-state": "221.120076",
-        "component.visualization": "4.6224"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -980,7 +980,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "8049.704446",
+      "monthly_total": "8122.052046",
       "route_owner_totals": {
         "cost::route::twin_projection_cross_cloud::azure->aws": "0"
       },
@@ -1000,7 +1000,7 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:08e313d58d85877f221a82c2f77e8ff887e386c323e547422d0f76c4e1cb7311",
+      "candidate_evidence_digest": "sha256:9d12377b12934ec012f8576520188af6f2878bb60c79afb69fc27da5c7648fcb",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -1016,6 +1016,7 @@
         "twinStateMaterializationsPerSecond": 2.5
       },
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "596.1672",
         "cost::aws.dynamodb-on-demand-raw": "577.53",
@@ -1030,7 +1031,6 @@
         "cost::aws.lambda": "789.12144",
         "cost::aws.lambda-event-adapter": "33.313667519",
         "cost::aws.lambda-raw-history-reader": "0.3288006",
-        "cost::aws.lambda-visualization": "1.2144024",
         "cost::aws.s3-glacier-deep-archive": "33.39",
         "cost::aws.s3-standard-ia": "4.455",
         "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge": "0.379184662",
@@ -1051,7 +1051,7 @@
         "component.ingestion": "1279.197617621",
         "component.processing": "790.99644",
         "component.twin-state": "221.120076",
-        "component.visualization": "1.2144024"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1065,7 +1065,7 @@
         "edge.ingestion-to-eventing": "6.90571584",
         "edge.processing-to-eventing": "6.94780992"
       },
-      "monthly_total": "3663.179176859",
+      "monthly_total": "3675.964774459",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->gcp": "13.85352576",
         "cost::route::domain_event_cross_cloud::gcp->aws": "39.428735619"
@@ -1086,7 +1086,7 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:0c188dc55bc52e63a487401890c962a2862ceec8765eb4fb5237a6aa15d1d04e",
+      "candidate_evidence_digest": "sha256:ee4ddf12bcd0b7fc1d31aa4996764874c83b6ad0c16fe5a88c39d869bea39a0d",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -1103,6 +1103,7 @@
       },
       "component_owner_totals": {
         "cost::apache.bifromq-4.0.0-incubating-on-gke-standard": "133.263909",
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "0",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "596.1672",
         "cost::aws.dynamodb-on-demand-raw": "577.53",
@@ -1115,7 +1116,6 @@
         "cost::aws.lambda-event-adapter": "39.774769695",
         "cost::aws.lambda-event-worker": "9.773839063",
         "cost::aws.lambda-raw-history-reader": "0.3288006",
-        "cost::aws.lambda-visualization": "1.2144024",
         "cost::aws.s3-event-failure-store": "0.164944575",
         "cost::aws.s3-glacier-deep-archive": "33.39",
         "cost::aws.s3-standard-ia": "4.455",
@@ -1139,7 +1139,7 @@
         "component.ingestion": "303.645934708",
         "component.processing": "8866.515",
         "component.twin-state": "221.120076",
-        "component.visualization": "1.2144024"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1153,7 +1153,7 @@
         "edge.ingestion-to-eventing": "19.631136303",
         "edge.processing-to-eventing": "19.683407192"
       },
-      "monthly_total": "11575.342107473",
+      "monthly_total": "11588.127705073",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->gcp": "22.8278016",
         "cost::route::domain_event_cross_cloud::gcp->aws": "39.314543495"
@@ -1174,7 +1174,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:62a12ab29a671f6aacc9e0b75d7af0318d60684c817dc5f9cfa3e31a96b2684d",
+      "candidate_evidence_digest": "sha256:dc05a672680b80cadabfff60d8dd71fa2294de6e072a556f38126911536dc1ac",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -1201,10 +1201,10 @@
         "cost::azure.functions-flex-consumption": "1451.52",
         "cost::azure.functions-flex-event-adapter": "1074.2758",
         "cost::azure.functions-flex-raw-history-reader": "0.6048",
-        "cost::azure.functions-flex-visualization": "4.6224",
         "cost::azure.iot-hub": "500",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "9.375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "39.24772",
         "cost::gcp.artifact-registry-if-container-selected": "0",
@@ -1222,7 +1222,7 @@
         "component.ingestion": "2140.24912",
         "component.processing": "1460.895",
         "component.twin-state": "21.90318",
-        "component.visualization": "4.6224"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1236,7 +1236,7 @@
         "edge.ingestion-to-eventing": "6.675525312",
         "edge.processing-to-eventing": "6.716216256"
       },
-      "monthly_total": "6192.285276046",
+      "monthly_total": "6264.632876046",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::azure->gcp": "13.391741568",
         "cost::route::domain_event_cross_cloud::gcp->azure": "39.428735619"
@@ -1257,7 +1257,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:9355fe5d615893d62bc6886e7d261f85fc955af46432f6250b96cc8f251036cd",
+      "candidate_evidence_digest": "sha256:16b042c71d815048ef2e85009f123a56a0e1758c237f27311880293a71d4006d",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 60,
         "apiCallsPerAggregateDashboardRefresh": 10,
@@ -1286,9 +1286,9 @@
         "cost::azure.functions-flex-event-adapter": "0",
         "cost::azure.functions-flex-event-worker": "3203.08615",
         "cost::azure.functions-flex-raw-history-reader": "0.6048",
-        "cost::azure.functions-flex-visualization": "4.6224",
         "cost::azure.log-analytics-shared-workspace": "0",
         "cost::azure.logic-apps-consumption": "9.375",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193",
         "cost::gcp.artifact-registry-if-container-selected": "0",
@@ -1307,7 +1307,7 @@
         "component.ingestion": "233.803865710",
         "component.processing": "1460.895",
         "component.twin-state": "21.90318",
-        "component.visualization": "4.6224"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1321,7 +1321,7 @@
         "edge.ingestion-to-eventing": "19.631136303",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "7602.592902013",
+      "monthly_total": "7674.940502013",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::azure->gcp": "0",
         "cost::route::domain_event_cross_cloud::gcp->azure": "19.631136303"
@@ -1342,7 +1342,7 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:5657ca8183d44a267880a8d0b0b4528a91e1580d83f290231c1a6ee8c71a32a1",
+      "candidate_evidence_digest": "sha256:8babe59c0a6875198cba16b92d82dd51dc406b756653233da83ec02d5da9291d",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1358,6 +1358,7 @@
         "twinStateMaterializationsPerSecond": 50
       },
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "7.332524237",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "22378.05",
         "cost::aws.dynamodb-on-demand-raw": "22789.728",
@@ -1372,7 +1373,6 @@
         "cost::aws.lambda": "29592.054",
         "cost::aws.lambda-event-worker": "246.745328788",
         "cost::aws.lambda-raw-history-reader": "13.152024",
-        "cost::aws.lambda-visualization": "48.576096",
         "cost::aws.s3-event-failure-store": "3.465173392",
         "cost::aws.s3-glacier-deep-archive": "2002.275",
         "cost::aws.s3-standard-ia": "266.976",
@@ -1388,7 +1388,7 @@
         "component.ingestion": "9773.670",
         "component.processing": "29610.804",
         "component.twin-state": "1793.117196",
-        "component.visualization": "48.576096"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1402,7 +1402,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "117627.251577356",
+      "monthly_total": "117592.675481356",
       "route_owner_totals": {},
       "scenario_id": "small-local-aws",
       "status": "costed",
@@ -1420,7 +1420,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:1d0b81e2d0fab45784a02559c8b181fa86de43c31d27437f5f3d73a611e1b336",
+      "candidate_evidence_digest": "sha256:eb58f3bf53692ee70cc71a1b2c2debe715f9a05ed1cb9de17d0f1ca86a5fee83",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1447,10 +1447,10 @@
         "cost::azure.functions-flex-consumption": "54432",
         "cost::azure.functions-flex-event-worker": "32542.416",
         "cost::azure.functions-flex-raw-history-reader": "24.192",
-        "cost::azure.functions-flex-visualization": "184.896",
         "cost::azure.iot-hub": "5000",
         "cost::azure.log-analytics-shared-workspace": "33.09819968",
         "cost::azure.logic-apps-consumption": "93.75",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -1462,7 +1462,7 @@
         "component.ingestion": "5000",
         "component.processing": "54525.75",
         "component.twin-state": "429.62478",
-        "component.visualization": "184.896"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1476,7 +1476,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "135864.87890968",
+      "monthly_total": "135756.95290968",
       "route_owner_totals": {},
       "scenario_id": "small-local-azure",
       "status": "costed",
@@ -1494,7 +1494,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:9d1b9278fd228ceb6472a1718486ccadfc5404476913c6165a40701c1f619d08",
+      "candidate_evidence_digest": "sha256:eb778b67083af742dadaf4e76164a131ee5ebdee4f079a9e6f822edbd62b5ef5",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1529,9 +1529,9 @@
         "cost::azure.functions-flex-event-adapter": "10.793",
         "cost::azure.functions-flex-event-worker": "32528.923",
         "cost::azure.functions-flex-raw-history-reader": "24.192",
-        "cost::azure.functions-flex-visualization": "184.896",
         "cost::azure.log-analytics-shared-workspace": "33.09819968",
         "cost::azure.logic-apps-consumption": "93.75",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -1543,7 +1543,7 @@
         "component.ingestion": "18875.091346506",
         "component.processing": "54525.75",
         "component.twin-state": "429.62478",
-        "component.visualization": "184.896"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1557,7 +1557,7 @@
         "edge.ingestion-to-eventing": "608.0467968",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "150345.317052986",
+      "monthly_total": "150237.391052986",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->azure": "608.0467968",
         "cost::route::domain_event_cross_cloud::azure->aws": "0"
@@ -1578,7 +1578,7 @@
         "component.twin-state": "aws",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:f9c4839011a8963c65b7879f362e30f18b61ac2a16676012e76daa44575b431c",
+      "candidate_evidence_digest": "sha256:577037b4523e7e9463f1838dec399908e427a60a9e4e91e4f455330e811fc4fa",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1606,10 +1606,10 @@
         "cost::azure.functions-flex-consumption": "54432",
         "cost::azure.functions-flex-event-worker": "32542.416",
         "cost::azure.functions-flex-raw-history-reader": "24.192",
-        "cost::azure.functions-flex-visualization": "184.896",
         "cost::azure.iot-hub": "5000",
         "cost::azure.log-analytics-shared-workspace": "33.09819968",
         "cost::azure.logic-apps-consumption": "93.75",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "9.81193"
       },
@@ -1621,7 +1621,7 @@
         "component.ingestion": "5000",
         "component.processing": "54525.75",
         "component.twin-state": "1793.117196",
-        "component.visualization": "184.896"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1635,7 +1635,7 @@
         "edge.ingestion-to-eventing": "0",
         "edge.processing-to-eventing": "0"
       },
-      "monthly_total": "137229.15432568",
+      "monthly_total": "137121.22832568",
       "route_owner_totals": {
         "cost::route::twin_projection_cross_cloud::azure->aws": "0.783"
       },
@@ -1655,7 +1655,7 @@
         "component.twin-state": "aws",
         "component.visualization": "aws"
       },
-      "candidate_evidence_digest": "sha256:83b1a140a069652b24d68df4b3605b8eef49e46fb4cfa15f5956e11fdd280ed3",
+      "candidate_evidence_digest": "sha256:7829c55cc5a7215f8753272f5336916534ffde609557ebc963f7f2ca85f52f6a",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1671,6 +1671,7 @@
         "twinStateMaterializationsPerSecond": 50
       },
       "component_owner_totals": {
+        "cost::aws.amazon-managed-grafana-12": "14",
         "cost::aws.cloudwatch": "4.348014797",
         "cost::aws.dynamodb-on-demand-hourly-rollup": "22378.05",
         "cost::aws.dynamodb-on-demand-raw": "22789.728",
@@ -1685,7 +1686,6 @@
         "cost::aws.lambda": "29592.054",
         "cost::aws.lambda-event-adapter": "463.689677875",
         "cost::aws.lambda-raw-history-reader": "13.152024",
-        "cost::aws.lambda-visualization": "48.576096",
         "cost::aws.s3-glacier-deep-archive": "2002.275",
         "cost::aws.s3-standard-ia": "266.976",
         "cost::aws.sns-fifo-only-for-reviewed-remote-control-edge": "7.55978765",
@@ -1707,7 +1707,7 @@
         "component.ingestion": "40268.374696322",
         "component.processing": "29610.804",
         "component.twin-state": "1793.117196",
-        "component.visualization": "48.576096"
+        "component.visualization": "14"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1721,7 +1721,7 @@
         "edge.ingestion-to-eventing": "608.0467968",
         "edge.processing-to-eventing": "608.4739584"
       },
-      "monthly_total": "126606.252216743",
+      "monthly_total": "126571.676120743",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::aws->gcp": "1216.5207552",
         "cost::route::domain_event_cross_cloud::gcp->aws": "1351.941020603"
@@ -1760,7 +1760,7 @@
         "component.twin-state": "azure",
         "component.visualization": "azure"
       },
-      "candidate_evidence_digest": "sha256:0b59ce886d47d1894964daf5d73d50aa5a6387fd62fb1f6b26ec6b0501a01557",
+      "candidate_evidence_digest": "sha256:67a73eaeef8864eadd2f7508184fc9c0508a9c2ab47e78551e31055bed0ffec8",
       "changed_inputs": {
         "aggregateDashboardRefreshesPerHour": 120,
         "apiCallsPerAggregateDashboardRefresh": 100,
@@ -1787,10 +1787,10 @@
         "cost::azure.functions-flex-consumption": "54432",
         "cost::azure.functions-flex-event-adapter": "10950.916",
         "cost::azure.functions-flex-raw-history-reader": "24.192",
-        "cost::azure.functions-flex-visualization": "184.896",
         "cost::azure.iot-hub": "5000",
         "cost::azure.log-analytics-shared-workspace": "19.62645568",
         "cost::azure.logic-apps-consumption": "93.75",
+        "cost::azure.managed-grafana-12-standard": "76.97",
         "cost::azure.monitor": "0",
         "cost::azure.service-bus-standard": "39.24772",
         "cost::gcp.artifact-registry-if-container-selected": "0",
@@ -1809,7 +1809,7 @@
         "component.ingestion": "56007.95017568",
         "component.processing": "54525.75",
         "component.twin-state": "429.62478",
-        "component.visualization": "184.896"
+        "component.visualization": "76.97"
       },
       "currency": "USD",
       "edge_totals": {
@@ -1823,7 +1823,7 @@
         "edge.ingestion-to-eventing": "587.77857024",
         "edge.processing-to-eventing": "588.19149312"
       },
-      "monthly_total": "131680.406708261",
+      "monthly_total": "131572.480708261",
       "route_owner_totals": {
         "cost::route::domain_event_cross_cloud::azure->gcp": "1175.97006336",
         "cost::route::domain_event_cross_cloud::gcp->azure": "1351.941020603"
