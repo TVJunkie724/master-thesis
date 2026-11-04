@@ -939,3 +939,39 @@ now runs the cost-summary reproduction check, preventing that omission from
 silently recurring. This updates RQ3's conditional model finding, not actual
 bills or a causal Event-Layer saving. Browser and live-coverage limitations
 remain unchanged.
+
+### Final local browser acceptance — 2026-11-04
+
+The real integrated local UI now completes browser Export → downloaded ZIP →
+file-picker Import → Configuration Workspace → reload. Management re-export
+and manifest checks establish definition equality apart from the new name,
+including one function and nine populated Deployer fields. Calculation results
+and all three credential bindings are cleared. The source remains unchanged.
+An invalid ZIP displays its contract error and creates no Twin; the new local
+draft is removed through the Management API, returns 404 and disappears after
+the UI inventory refresh. Historical Twins are preserved.
+
+The lifecycle check first failed because equivalent exact decimal strings with
+different trailing zeros were compared literally. Commit `a82ca0e4` fixes this
+using existing decimal normalization; different values and currencies remain
+rejected. The current Flutter suite passes **843 tests**, analysis, architecture
+checks and Web/macOS builds. Four actual persisted Management response DTOs also
+decode successfully. The destroyed AWS lifecycle now shows COMPLETE recorded
+cleanup, its actual model estimate and the immutable-definition guidance.
+No cloud workload is created and no historical test result is rewritten.
+
+The same date's read-only GCP/federation inventory finds **zero active matches**
+and **five inactive `DELETED` workload identity pools**. Matching Logging
+buckets, active-pool providers and service accounts have no residuals. This
+scoped check covers retained experiment prefixes and known Logging locations;
+it does not assert a global account or strict zero-marker inventory. Earlier
+AWS/Azure observations retain their original dates and scope.
+
+Current ordinary localhost navigation works after starting the local server;
+the startup error page does not establish an ongoing localhost restriction.
+This closes the previously unobserved browser archive boundary for this dated
+observation. It does not supply the separately missing continuous UI Open →
+live provider session proof, recreate removed Grafana workspaces or establish
+nine complete-profile UI passes. The compact release acceptance is published
+under `docs-site/docs/developer-guide/technical-acceptance.md`; screenshots,
+checks and inventory manifests are retained privately.

@@ -2110,3 +2110,21 @@ the earlier 20.73% finding only for the final bundle; old observations remain
 historical. All four application suites pass the fresh offline regression;
 this does not close the separately unobserved real browser interactions or
 turn Core evidence into nine complete-profile UI runs.
+
+### 2026-11-04 — Complete bounded local acceptance and freeze the PoC
+
+The real local browser can load the app once its server is running; the observed
+startup failure page is not evidence of a persistent localhost access block.
+Actual browser archive download/upload/reload now passes, with exact definition
+equality apart from the new name, cleared credentials/results and temporary-draft
+cleanup. The manual lifecycle read exposed a scale-sensitive exact-cost string
+comparison. Reuse the architecture decimal normalization, preserving rejection
+of malformed amounts, real differences and wrong currency; ten additional tests
+raise the Flutter suite to 843. No new UI feature or cloud behavior is needed.
+
+Read-only GCP/federation inventory has zero active matches and five inactive
+`DELETED` pools. Retain these tombstones and query scope explicitly rather than
+spending on further runs or claiming global zero inventory. Freeze a local
+annotated release with compact acceptance in the published developer handbook;
+keep raw evidence ignored and the dated live limitations intact. Technical PoC
+acceptance does not imply production readiness or nine full-profile UI E2E runs.

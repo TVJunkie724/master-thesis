@@ -102,6 +102,7 @@ nav:
           - User Function Extensions: developer-guide/user-function-extensions.md
           - Extension Points: developer-guide/extension-points.md
           - Testing: developer-guide/testing.md
+          - Technical Acceptance: developer-guide/technical-acceptance.md
           - API Reference: api/index.md
       - Architecture and Background:
           - Data Ownership: architecture/data-ownership.md

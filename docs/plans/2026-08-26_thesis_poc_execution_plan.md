@@ -2172,6 +2172,19 @@ does not change L5, provider assignments, budget approval or Cloud Apply authori
 - the repository reads as a coherent research artifact rather than an
   unfinished product backlog.
 
+## Local technical acceptance — 2026-11-04
+
+The authorized local acceptance is complete: real browser lifecycle and portable
+Export/Import/reload, data equality, invalid-archive feedback and removal of the
+new local test draft passed. An exact-decimal DTO comparison defect was repaired
+without changing the UI workflow or cloud behavior. Flutter now passes 843 tests,
+analysis, architecture checks and Web/macOS builds. Read-only GCP/federation
+inventory reports zero active matches and five inactive `DELETED` identity-pool
+markers; this is explicitly not a zero-marker or global inventory claim.
+The compact final acceptance and release identity are recorded in
+`docs-site/docs/developer-guide/technical-acceptance.md`. No paid cloud run or
+provider mutation was performed; existing live-coverage limitations remain.
+
 ## 15. Scope-change gate
 
 A new capability enters implementation only if it:
