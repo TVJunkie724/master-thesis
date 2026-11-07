@@ -14,7 +14,7 @@ readiness, durable operation, telemetry verification, and cleanup evidence.
 This demonstrates the engineering path from a theoretical cost assignment to
 an executable and inspectable deployment decision.
 
-The final answer must distinguish three levels of evidence:
+The evaluation distinguishes three levels of evidence:
 
 \begin{enumerate}
     \item deterministic contract and integration evidence;
@@ -26,6 +26,12 @@ The final answer must distinguish three levels of evidence:
 Any provider blocker found during the live phase remains part of the answer. It
 identifies an operationalization boundary and must not be replaced by an
 offline fixture.
+
+The final local browser archive roundtrip further demonstrates portability of
+the authored definition while intentionally discarding calculated results and
+credential bindings. This is evidence for reproducible configuration exchange;
+it does not establish another deployment or close the separately unobserved
+continuous application-to-provider browser handoff.
 
 \section{Answer to RQ2: Functional Comparability}
 
