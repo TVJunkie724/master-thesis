@@ -2185,6 +2185,12 @@ The compact final acceptance and release identity are recorded in
 `docs-site/docs/developer-guide/technical-acceptance.md`. No paid cloud run or
 provider mutation was performed; existing live-coverage limitations remain.
 
+Publication closeout (2026-11-07): reconcile the final local observation in
+Evaluation/Discussion/Conclusion, rebuild the 42-page thesis and inspect changed
+pages, preserve private evidence in a fully verified encrypted local backup,
+and publish `master` plus the original annotated acceptance tag. RQ answers and
+the scoped technical acceptance are complete; no new paid cloud run is needed.
+
 ## 15. Scope-change gate
 
 A new capability enters implementation only if it:

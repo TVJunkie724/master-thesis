@@ -2128,3 +2128,16 @@ spending on further runs or claiming global zero inventory. Freeze a local
 annotated release with compact acceptance in the published developer handbook;
 keep raw evidence ignored and the dated live limitations intact. Technical PoC
 acceptance does not imply production readiness or nine full-profile UI E2E runs.
+
+### 2026-11-07 — Publish the accepted source and preserve final evidence
+
+Complete the requested publication of `master` and the existing acceptance tag;
+do not rewrite the frozen 2026-11-04 tag. Align the thesis's remaining outdated
+browser-portability statement with the already retained local observation,
+without expanding live claims or changing RQ wording. Rebuild and inspect the
+affected thesis pages. Preserve private evidence in an encrypted separate local
+archive with full decrypt/member-hash verification, omitting reproducible
+Terraform/Python caches. The separately ignored key, raw archive and evidence
+remain outside Git. This preservation is local to the same Mac and is not
+described as off-device disaster recovery. No additional implementation or
+paid cloud experiment is required for the bounded technical acceptance.

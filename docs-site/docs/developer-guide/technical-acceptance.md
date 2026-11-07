@@ -6,13 +6,14 @@ acceptance. Research questions and the agreed PoC scope remain unchanged.
 
 ## Frozen artifact
 
-- Local annotated release tag: `thesis-poc-2026-11-04`. Resolve its exact final
+- Annotated acceptance tag: `thesis-poc-2026-11-04`. Resolve its exact final
   documentation commit with `git rev-parse thesis-poc-2026-11-04^{commit}`.
 - Application source: `a82ca0e4532a917170644db3b493eeec463caa2c`, adding only
   the exact-decimal UI repair to the previously integrated source. The prior
   `master` merge is `dae336438b4e5bed13efbd478c61443df6859c43`; the release
-  tag also includes this acceptance documentation. The tag is local until an
-  explicitly requested push.
+  tag also includes this acceptance documentation. The 2026-11-07 publication
+  retains this frozen tag and adds the thesis/editorial reconciliation on
+  `master`; application behavior is unchanged.
 - Architecture: `six-layer-eventing@1`, resolved architecture v2. GCP L4/L5
   remain excluded; AWS/Azure use native L4 and real Managed Grafana for L5.
 - Flutter **3.44.0** (`559ffa3f75e7402d65a8def9c28389a9b2e6fe42`), Dart **3.12.0**,
@@ -81,3 +82,22 @@ For local reproduction use the existing [startup instructions](setup.md) and
 [quality gates](testing.md). `./thesis.sh demo --setup` is offline;
 `./thesis.sh up --setup` starts the integrated local workflow. Provider Deploy,
 Destroy or a new live experiment is not part of this acceptance procedure.
+
+## Publication and preservation — 2026-11-07
+
+The final publication merges the accepted source into `master` and publishes
+the original annotated tag without replacing it. Evaluation, Discussion and
+Conclusion now include the observed browser portability check; RQ wording,
+live-coverage boundaries and model values are unchanged. The updated thesis
+build passes with 42 pages; changed pages were visually inspected. The frozen
+model reproduction still passes with the existing dependency image and network
+disabled. The host Python installations lack the required `jsonschema` package;
+that environment failure is not a model-result discrepancy.
+
+A separate encrypted local backup retains **15,315 evidence files** with
+source-file hashes. Reproducible `.terraform` and `__pycache__` directories are
+excluded and symlinks are not followed. Full decryption and every archived
+member hash were verified. The backup also receives the published source bundle
+and final thesis PDF. The encryption key stays separately in the ignored local
+secret directory; neither raw evidence nor the key enters Git. This is a
+separate directory on the same Mac, not an off-device backup service.
