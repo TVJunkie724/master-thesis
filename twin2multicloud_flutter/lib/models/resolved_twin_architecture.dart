@@ -452,6 +452,12 @@ class ResolvedArchitectureCostSummary extends Equatable {
     required this.edgeTotals,
   });
 
+  /// Compare exact decimal amounts without treating scale as a difference.
+  bool matchesMonthlyTotal(Object? value) =>
+      value is String &&
+      RegExp(r'^(0|[1-9][0-9]*)(\.[0-9]+)?$').hasMatch(value) &&
+      _normalizeDecimalString(value) == _normalizeDecimalString(monthlyTotal);
+
   factory ResolvedArchitectureCostSummary.fromJson(Map<String, dynamic> json) {
     _expectExactKeys(json, const {
       'currency',

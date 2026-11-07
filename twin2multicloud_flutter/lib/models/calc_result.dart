@@ -324,7 +324,9 @@ Map<String, dynamic> _profileV2CompatibilityProjection(
       'Invalid API contract: native v2 result total differs from its architecture.',
     );
   }
-  if (payload['totalCostExact'] != architecture.costSummary.monthlyTotal ||
+  if (!architecture.costSummary.matchesMonthlyTotal(
+        payload['totalCostExact'],
+      ) ||
       payload['currency'] != architecture.costSummary.currency) {
     throw const FormatException(
       'Invalid API contract: native v2 exact cost evidence is inconsistent.',

@@ -31,6 +31,72 @@ void main() {
     expect(result.transferCosts, hasLength(9));
   });
 
+  for (final exact in ['222.63726986', '222.637269860', '222.63726986000']) {
+    test('accepts equivalent exact decimal scale: $exact', () {
+      final architecture =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final result = CalcResult.fromJson({
+        'totalCost': 222.63726986,
+        'totalCostExact': exact,
+        'currency': 'USD',
+        'resolvedTwinArchitecture': architecture,
+      });
+      expect(result.totalCost, 222.63726986);
+    });
+  }
+
+  for (final exact in [
+    null,
+    222.63726986,
+    '222.63726986001',
+    '2.2263726986e2',
+    '0222.63726986',
+    '-222.63726986',
+  ]) {
+    test('rejects different or malformed exact decimal: $exact', () {
+      final architecture =
+          jsonDecode(
+                File(
+                  'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      expect(
+        () => CalcResult.fromJson({
+          'totalCost': 222.63726986,
+          'totalCostExact': exact,
+          'currency': 'USD',
+          'resolvedTwinArchitecture': architecture,
+        }),
+        throwsFormatException,
+      );
+    });
+  }
+
+  test('rejects matching decimal amounts with a different currency', () {
+    final architecture =
+        jsonDecode(
+              File(
+                'assets/demo/v1/resolved-twin-architecture-six-layer-v1.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    expect(
+      () => CalcResult.fromJson({
+        'totalCost': 222.63726986,
+        'totalCostExact': '222.637269860',
+        'currency': 'EUR',
+        'resolvedTwinArchitecture': architecture,
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('native Six-layer architecture overrides legacy cost projections', () {
     final architecture =
         jsonDecode(

@@ -1,5 +1,8 @@
 # Testing And Quality Gates
 
+The dated [technical PoC acceptance](technical-acceptance.md) records the frozen
+release, actual checks and the limits of the live evidence.
+
 ## Safe Default Matrix
 
 | Project | Default verification | Cloud mutation |
